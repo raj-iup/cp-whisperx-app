@@ -1,0 +1,274 @@
+{
+  "version": "1.0.0",
+  "created_at": "2025-10-29T22:26:31.139788",
+  "movie_dir": "out/Jaane_Tu_Ya_Jaane_Na_2008",
+  "stages": {
+    "demux": {
+      "status": "success",
+      "started_at": "2025-10-29T22:26:31.139758",
+      "completed_at": "2025-10-29T22:26:42.422040",
+      "duration_seconds": 11.282282,
+      "outputs": {
+        "audio": {
+          "path": "/Users/rpatel/Projects/cp-whisperx-app/out/Jaane_Tu_Ya_Jaane_Na_2008/audio/audio.wav",
+          "exists": true,
+          "size_bytes": 294773874,
+          "description": "16kHz mono audio"
+        }
+      },
+      "metadata": {
+        "sample_rate": 16000,
+        "channels": 1,
+        "format": "wav",
+        "file_size_mb": 281.11827278137207
+      }
+    },
+    "tmdb": {
+      "status": "success",
+      "started_at": "2025-10-29T22:26:43.236285",
+      "completed_at": "2025-10-29T22:26:43.468349",
+      "duration_seconds": 0.232064,
+      "outputs": {
+        "tmdb_data": {
+          "path": "/Users/rpatel/Projects/cp-whisperx-app/out/Jaane_Tu_Ya_Jaane_Na_2008/metadata/tmdb_data.json",
+          "exists": true,
+          "size_bytes": 8597,
+          "description": "TMDB movie data"
+        }
+      },
+      "metadata": {
+        "title": "Jaane Tu... Ya Jaane Na",
+        "year": "2008",
+        "imdb_id": "tt0473367",
+        "tmdb_id": 14467,
+        "cast_count": 20,
+        "data_source": "tmdb_api"
+      }
+    },
+    "pre-ner": {
+      "status": "success",
+      "started_at": "2025-10-29T22:26:48.201041",
+      "completed_at": "2025-10-29T22:26:48.203278",
+      "duration_seconds": 0.002237,
+      "outputs": {
+        "entities": {
+          "path": "/Users/rpatel/Projects/cp-whisperx-app/out/Jaane_Tu_Ya_Jaane_Na_2008/entities/pre_ner.json",
+          "exists": true,
+          "size_bytes": 274,
+          "description": "Pre-ASR entities"
+        }
+      },
+      "metadata": {
+        "device": "mps",
+        "person_count": 10
+      }
+    },
+    "silero-vad": {
+      "status": "success",
+      "started_at": "2025-10-29T22:26:53.652917",
+      "completed_at": "2025-10-29T22:27:32.732167",
+      "duration_seconds": 39.07925,
+      "outputs": {
+        "segments": {
+          "path": "/Users/rpatel/Projects/cp-whisperx-app/out/Jaane_Tu_Ya_Jaane_Na_2008/vad/silero_segments.json",
+          "exists": true,
+          "size_bytes": 108239,
+          "description": "Silero VAD segments"
+        }
+      },
+      "metadata": {
+        "device": "mps",
+        "segment_count": 1932,
+        "speech_ratio": 0.3286370814317582,
+        "total_duration": 9211.681125,
+        "threshold": 0.5
+      }
+    },
+    "pyannote-vad": {
+      "status": "success",
+      "started_at": "2025-10-29T22:27:36.407778",
+      "completed_at": "2025-10-29T22:27:36.415989",
+      "duration_seconds": 0.008211,
+      "outputs": {
+        "segments": {
+          "path": "/Users/rpatel/Projects/cp-whisperx-app/out/Jaane_Tu_Ya_Jaane_Na_2008/vad/pyannote_segments.json",
+          "exists": true,
+          "size_bytes": 108420,
+          "description": "Pyannote VAD refined segments"
+        }
+      },
+      "metadata": {
+        "device": "cpu",
+        "segment_count": 1932,
+        "speech_ratio": 0.3286370814317582,
+        "total_duration": 9211.681125,
+        "method": "silero_passthrough"
+      }
+    },
+    "diarization": {
+      "status": "success",
+      "started_at": "2025-10-29T22:27:40.388052",
+      "completed_at": "2025-10-29T22:27:40.403639",
+      "duration_seconds": 0.015587,
+      "outputs": {
+        "speakers": {
+          "path": "/Users/rpatel/Projects/cp-whisperx-app/out/Jaane_Tu_Ya_Jaane_Na_2008/diarization/speaker_segments.json",
+          "exists": true,
+          "size_bytes": 235579,
+          "description": "Speaker-labeled segments"
+        }
+      },
+      "metadata": {
+        "device": "cpu",
+        "num_speakers": 6,
+        "num_segments": 1932,
+        "total_duration": 9211.681125,
+        "method": "simplified_clustering",
+        "speaker_SPEAKER_01_segments": 325,
+        "speaker_SPEAKER_01_duration": 478.10000000000286,
+        "speaker_SPEAKER_02_segments": 310,
+        "speaker_SPEAKER_02_duration": 502.70000000000425,
+        "speaker_SPEAKER_03_segments": 325,
+        "speaker_SPEAKER_03_duration": 541.5000000000016,
+        "speaker_SPEAKER_00_segments": 309,
+        "speaker_SPEAKER_00_duration": 465.40000000001135,
+        "speaker_SPEAKER_04_segments": 352,
+        "speaker_SPEAKER_04_duration": 586.899999999996,
+        "speaker_SPEAKER_05_segments": 311,
+        "speaker_SPEAKER_05_duration": 452.69999999999845
+      }
+    },
+    "asr": {
+      "status": "success",
+      "started_at": "2025-10-29T22:27:44.419000",
+      "completed_at": "2025-10-29T22:51:56.943103",
+      "duration_seconds": 1452.524103,
+      "outputs": {
+        "transcript": {
+          "path": "/Users/rpatel/Projects/cp-whisperx-app/out/Jaane_Tu_Ya_Jaane_Na_2008/transcription/transcript.json",
+          "exists": true,
+          "size_bytes": 324766,
+          "description": "Full transcript with timestamps"
+        },
+        "transcript_txt": {
+          "path": "/Users/rpatel/Projects/cp-whisperx-app/out/Jaane_Tu_Ya_Jaane_Na_2008/transcription/transcript.txt",
+          "exists": true,
+          "size_bytes": 97445,
+          "description": "Human-readable transcript"
+        }
+      },
+      "metadata": {
+        "device": "cpu",
+        "model_name": "base",
+        "language": "hi",
+        "num_segments": 2242,
+        "total_words": 8607,
+        "has_alignment": false,
+        "has_speakers": true
+      }
+    },
+    "post-ner": {
+      "status": "success",
+      "started_at": "2025-10-29T22:51:57.737559",
+      "completed_at": "2025-10-29T22:51:57.880196",
+      "duration_seconds": 0.142637,
+      "outputs": {
+        "corrected_transcript": {
+          "path": "/Users/rpatel/Projects/cp-whisperx-app/out/Jaane_Tu_Ya_Jaane_Na_2008/transcription/transcript_corrected.json",
+          "exists": true,
+          "size_bytes": 324798,
+          "description": "Transcript with corrected entities"
+        },
+        "corrections": {
+          "path": "/Users/rpatel/Projects/cp-whisperx-app/out/Jaane_Tu_Ya_Jaane_Na_2008/entities/post_ner_corrections.json",
+          "exists": true,
+          "size_bytes": 493,
+          "description": "Entity corrections report"
+        },
+        "report": {
+          "path": "/Users/rpatel/Projects/cp-whisperx-app/out/Jaane_Tu_Ya_Jaane_Na_2008/entities/post_ner_report.txt",
+          "exists": true,
+          "size_bytes": 110,
+          "description": "Human-readable corrections report"
+        }
+      },
+      "metadata": {
+        "segments_processed": 2242,
+        "total_corrections": 1,
+        "unique_corrections": 1,
+        "threshold": 0.7
+      }
+    },
+    "subtitle-gen": {
+      "status": "success",
+      "started_at": "2025-10-29T22:51:57.970055",
+      "completed_at": "2025-10-29T22:51:57.987986",
+      "duration_seconds": 0.017931,
+      "outputs": {
+        "subtitles": {
+          "path": "/Users/rpatel/Projects/cp-whisperx-app/out/Jaane_Tu_Ya_Jaane_Na_2008/subtitles/Jaane_Tu_Ya_Jaane_Na_2008.srt",
+          "exists": true,
+          "size_bytes": 117719,
+          "description": "SRT subtitle file"
+        },
+        "statistics": {
+          "path": "/Users/rpatel/Projects/cp-whisperx-app/out/Jaane_Tu_Ya_Jaane_Na_2008/subtitles/subtitle_stats.json",
+          "exists": true,
+          "size_bytes": 474,
+          "description": "Subtitle generation statistics"
+        }
+      },
+      "metadata": {
+        "total_subtitles": 1618,
+        "total_duration": 8281.62,
+        "include_speaker": true,
+        "source_transcript": "original"
+      }
+    },
+    "mux": {
+      "status": "success",
+      "started_at": "2025-10-29T22:51:58.113227",
+      "completed_at": "2025-10-29T22:52:02.659233",
+      "duration_seconds": 4.546006,
+      "outputs": {
+        "final_video": {
+          "path": "/Users/rpatel/Projects/cp-whisperx-app/out/Jaane_Tu_Ya_Jaane_Na_2008/Jaane_Tu_Ya_Jaane_Na_2008_subtitled.mp4",
+          "exists": true,
+          "size_bytes": 996163601,
+          "description": "Final video with subtitles"
+        },
+        "statistics": {
+          "path": "/Users/rpatel/Projects/cp-whisperx-app/out/Jaane_Tu_Ya_Jaane_Na_2008/mux_stats.json",
+          "exists": true,
+          "size_bytes": 269,
+          "description": "Muxing statistics"
+        }
+      },
+      "metadata": {
+        "output_size": 996163601,
+        "size_increase_mb": 0.08,
+        "container_format": "mp4",
+        "subtitle_language": "eng",
+        "processing_time": 4.54
+      }
+    }
+  },
+  "pipeline": {
+    "status": "completed",
+    "current_stage": null,
+    "completed_stages": [
+      "demux",
+      "tmdb",
+      "pre-ner",
+      "silero-vad",
+      "pyannote-vad",
+      "diarization",
+      "asr",
+      "post-ner",
+      "subtitle-gen",
+      "mux"
+    ],
+    "failed_stages": []
+  },
+  "updated_at": "2025-10-29T22:52:02.659244"
+}

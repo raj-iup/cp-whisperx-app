@@ -1,0 +1,89 @@
+CP-WHISPERX PIPELINE - SEQUENTIAL ARCHITECTURE
+===============================================
+
+🎬 INPUT: MP4 Video File
+│
+├─► [1] DEMUX (10m timeout)
+│   └─► out/{movie}/audio/audio.wav (16kHz mono)
+│       │
+│       ├─► [2] TMDB (2m timeout)
+│       │   └─► out/{movie}/metadata/tmdb_data.json
+│       │       │
+│       │       ├─► [3] PRE-NER (5m timeout)
+│       │       │   └─► out/{movie}/entities/pre_ner.json
+│       │       │       │
+│       ├───────┼───────┼─► [4] SILERO-VAD (30m timeout)
+│       │       │       │   └─► out/{movie}/vad/silero_segments.json
+│       │       │       │       │
+│       ├───────┼───────┼───────┼─► [5] PYANNOTE-VAD (60m timeout)
+│       │       │       │       │   └─► out/{movie}/vad/pyannote_segments.json
+│       │       │       │       │       │
+│       ├───────┼───────┼───────┼───────┼─► [6] DIARIZATION (30m timeout)
+│       │       │       │       │       │   └─► out/{movie}/diarization/speaker_segments.json
+│       │       │       │       │       │       │
+│       ├───────┼───────┼───────┼───────┼───────┼─► [7] ASR (60m timeout)
+│       │       │       │       │       │       │   └─► out/{movie}/transcription/transcript.json
+│       │       │       │       │       │       │       │
+│       │       ├───────┼───────┼───────┼───────┼───────┼─► [8] POST-NER (10m timeout)
+│       │       │       │       │       │       │       │   └─► out/{movie}/entities/post_ner.json
+│       │       │       │       │       │       │       │       │
+│       │       │       │       │       │       │       ├───────┼─► [9] SUBTITLE-GEN (5m timeout)
+│       │       │       │       │       │       │       │       │   └─► out/{movie}/subtitles/subtitles.srt
+│       │       │       │       │       │       │       │       │       │
+├───────┴───────┴───────┴───────┴───────┴───────┴───────┴───────┴───────┼─► [10] MUX (10m timeout)
+│                                                                         │   └─► out/{movie}/final_output.mp4
+│
+└─► 🎞️  OUTPUT: Movie with embedded English subtitles
+
+
+DATA FLOW LEGEND
+================
+│  : Sequential flow
+├─►: Stage input
+└─►: Stage output
+┼─►: Multiple inputs converge
+
+
+STAGE DEPENDENCIES
+==================
+Stage 1  (demux)        : None - starts the pipeline
+Stage 2  (tmdb)         : demux
+Stage 3  (pre-ner)      : tmdb
+Stage 4  (silero-vad)   : pre-ner (and audio from demux)
+Stage 5  (pyannote-vad) : silero-vad (and audio from demux)
+Stage 6  (diarization)  : pyannote-vad (and audio from demux)
+Stage 7  (asr)          : diarization (and audio, vad, prompt)
+Stage 8  (post-ner)     : asr (and tmdb metadata)
+Stage 9  (subtitle-gen) : post-ner (and speaker info from diarization)
+Stage 10 (mux)          : subtitle-gen (and original video)
+
+
+KEY CHARACTERISTICS
+===================
+✓ All stages run sequentially (one after another)
+✓ Each stage depends on the previous stage completing successfully
+✓ All stages are critical (pipeline stops on any failure)
+✓ Output files validated after each stage
+✓ Manifest tracking enabled for resume capability
+✓ Detailed logging for each stage
+✓ Configurable timeouts per stage
+
+
+TOTAL ESTIMATED TIME
+====================
+Minimum: ~3.5 hours (all stages complete quickly)
+Maximum: ~5 hours (stages use full timeout)
+
+Actual time depends on:
+- Video length
+- Hardware (CPU vs GPU)
+- Model sizes
+- Audio complexity
+
+
+PARALLELIZATION OPPORTUNITIES (FUTURE)
+=======================================
+1. Stages 4-6 (VAD stages) could potentially run in parallel
+2. Stages 3 and 4 could potentially run in parallel
+3. Audio could be chunked for parallel ASR processing
+4. Multiple videos could be processed simultaneously

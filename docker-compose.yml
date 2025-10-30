@@ -1,0 +1,193 @@
+services:
+  demux:
+    build:
+      context: .
+      dockerfile: docker/demux/Dockerfile
+    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-demux:latest"
+    container_name: cp_whisperx_demux
+    volumes:
+      - ./in:/app/in:ro
+      - ./out:/app/out
+      - ./logs:/app/logs
+      - ./config:/app/config:ro
+      - ./shared:/app/shared:ro
+    environment:
+      - CONFIG_PATH=/app/config/.env
+      - PYTHONPATH=/app
+
+  tmdb:
+    build:
+      context: .
+      dockerfile: docker/tmdb/Dockerfile
+    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-tmdb:latest"
+    container_name: cp_whisperx_tmdb
+    volumes:
+      - ./out:/app/out
+      - ./logs:/app/logs
+      - ./config:/app/config:ro
+      - ./shared:/app/shared:ro
+    environment:
+      - CONFIG_PATH=/app/config/.env
+      - PYTHONPATH=/app
+    depends_on:
+      - demux
+
+  silero-vad:
+    build:
+      context: .
+      dockerfile: docker/silero-vad/Dockerfile
+    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-silero-vad:latest"
+    container_name: cp_whisperx_silero_vad
+    volumes:
+      - ./out:/app/out
+      - ./logs:/app/logs
+      - ./config:/app/config:ro
+      - ./shared:/app/shared:ro
+    environment:
+      - CONFIG_PATH=/app/config/.env
+      - PYTHONPATH=/app
+    depends_on:
+      - pre-ner
+
+  pre-ner:
+    build:
+      context: .
+      dockerfile: docker/pre-ner/Dockerfile
+    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-pre-ner:latest"
+    container_name: cp_whisperx_pre_ner
+    volumes:
+      - ./out:/app/out
+      - ./logs:/app/logs
+      - ./config:/app/config:ro
+      - ./scripts:/app/scripts:ro
+      - ./shared:/app/shared:ro
+    environment:
+      - CONFIG_PATH=/app/config/.env
+      - PYTHONPATH=/app
+    depends_on:
+      - tmdb
+
+  asr:
+    build:
+      # Use the repository root as the build context so Docker has access to
+      # top-level files like requirements-asr.txt and requirements-ner.txt.
+      context: .
+      dockerfile: docker/asr/Dockerfile
+    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-asr:latest"
+    container_name: cp_whisperx_asr
+    volumes:
+      - ./in:/app/in
+      - ./out:/app/out
+      - ./logs:/app/logs
+      - ./config:/app/config:ro
+      - ./scripts:/app/scripts:ro
+      - ./shared:/app/shared:ro
+    environment:
+      - CONFIG_PATH=/app/config/.env
+      - PYTHONPATH=/app
+    # If you need to force a specific platform on Apple Silicon, add 'platform: linux/amd64'
+    # platform: linux/amd64
+    mem_limit: 10g
+    memswap_limit: 10g
+    depends_on:
+      - diarization
+
+  diarization:
+    build:
+      context: .
+      dockerfile: docker/diarization/Dockerfile
+    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-diarization:latest"
+    container_name: cp_whisperx_diarization
+    volumes:
+      - ./in:/app/in
+      - ./out:/app/out
+      - ./logs:/app/logs
+      - ./config:/app/config:ro
+      - ./scripts:/app/scripts:ro
+      - ./shared:/app/shared:ro
+    environment:
+      - CONFIG_PATH=/app/config/.env
+      - PYTHONPATH=/app
+    depends_on:
+      - pyannote-vad
+
+  pyannote-vad:
+    build:
+      context: .
+      dockerfile: docker/pyannote-vad/Dockerfile
+    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-pyannote-vad:latest"
+    container_name: cp_whisperx_pyannote_vad
+    volumes:
+      - ./in:/app/in
+      - ./out:/app/out
+      - ./logs:/app/logs
+      - ./config:/app/config:ro
+      - ./shared:/app/shared:ro
+    environment:
+      - CONFIG_PATH=/app/config/.env
+      - PYTHONPATH=/app
+    depends_on:
+      - silero-vad
+    # platform: linux/amd64
+
+  subtitle-gen:
+    build:
+      context: .
+      dockerfile: docker/subtitle-gen/Dockerfile
+    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-subtitle-gen:latest"
+    container_name: cp_whisperx_subtitle_gen
+    volumes:
+      - ./out:/app/out
+      - ./logs:/app/logs
+      - ./config:/app/config:ro
+      - ./shared:/app/shared:ro
+    environment:
+      - CONFIG_PATH=/app/config/.env
+      - PYTHONPATH=/app
+    depends_on:
+      - post-ner
+
+  post-ner:
+    build:
+      context: .
+      dockerfile: docker/post-ner/Dockerfile
+    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-post-ner:latest"
+    container_name: cp_whisperx_post_ner
+    volumes:
+      - ./out:/app/out
+      - ./logs:/app/logs
+      - ./config:/app/config:ro
+      - ./scripts:/app/scripts:ro
+      - ./shared:/app/shared:ro
+    environment:
+      - CONFIG_PATH=/app/config/.env
+      - PYTHONPATH=/app
+    depends_on:
+      - asr
+
+  mux:
+    build:
+      context: .
+      dockerfile: docker/mux/Dockerfile
+    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-mux:latest"
+    container_name: cp_whisperx_mux
+    volumes:
+      - ./in:/app/in:ro
+      - ./out:/app/out
+      - ./logs:/app/logs
+      - ./config:/app/config:ro
+      - ./shared:/app/shared:ro
+    environment:
+      - CONFIG_PATH=/app/config/.env
+      - PYTHONPATH=/app
+    depends_on:
+      - subtitle-gen
+
+# Usage notes:
+# 1) Build all images:
+#    docker compose build
+# 2) Run complete pipeline (via run_pipeline_arch.py):
+#    python3 run_pipeline_arch.py -i in/movie.mp4 --infer-tmdb-from-filename
+# 3) Or run individual services:
+#    docker compose run --rm demux in/movie.mp4
+#    docker compose run --rm asr out/Movie_Name

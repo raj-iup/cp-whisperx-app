@@ -1,0 +1,2242 @@
+[262.80s] UNKNOWN: He is so funny
+[279.74s] UNKNOWN: No
+[319.41s] UNKNOWN: Yes Charlene my check
+[326.88s] UNKNOWN: 50xChan is your friend
+[337.20s] SPEAKER_01: Go and stay on date
+[339.20s] SPEAKER_01: If I say ale word, I will eat gpl
+[341.42s] SPEAKER_01: No, just go on date
+[345.86s] UNKNOWN: Let's go inside
+[358.19s] UNKNOWN: There is a entry bank
+[360.38s] SPEAKER_02: There is a bomb
+[362.74s] SPEAKER_02: Yes, there is a bomb
+[365.02s] SPEAKER_02: I have to stay in the house
+[367.02s] UNKNOWN: I don't believe this
+[369.50s] UNKNOWN: Let's go
+[374.32s] SPEAKER_00: eri Jighi�h,a不是
+[375.32s] SPEAKER_00: I am sorry Mahal hai
+[378.06s] SPEAKER_01: I am sorry voilà
+[379.06s] SPEAKER_01: Ho sore ye mal hai
+[379.78s] SPEAKER_01: unit donne
+[382.70s] SPEAKER_02: My reached out
+[383.60s] SPEAKER_02: Anu
+[384.46s] SPEAKER_02: Mujaya PRESIDNH
+[384.60s] SPEAKER_02: Mujaya
+[385.38s] UNKNOWN: One
+[385.42s] UNKNOWN: Manu nha
+[386.74s] SPEAKER_00: Ji alcohol
+[387.20s] SPEAKER_00: 1962
+[389.32s] UNKNOWN: So
+[391.22s] SPEAKER_02: Anu
+[391.42s] SPEAKER_02: Manu
+[392.12s] SPEAKER_03: Mahal
+[393.38s] SPEAKER_03: Divine
+[393.86s] SPEAKER_00: Manu
+[394.32s] SPEAKER_00: Me
+[395.82s] SPEAKER_00: Vag
+[396.74s] SPEAKER_00: I love having ged
+[399.62s] SPEAKER_01: Maa
+[400.22s] SPEAKER_01: Ok
+[400.72s] SPEAKER_01: Har
+[401.62s] SPEAKER_01: Malakaat
+[404.12s] SPEAKER_01: Hmm
+[405.74s] SPEAKER_01: Har
+[406.00s] SPEAKER_02: Khaskar, buh kahanya, jo eppor peakeh khatamuthi ho.
+[409.00s] UNKNOWN: Kyu.
+[410.00s] SPEAKER_00: Preh mazaak hai kya?
+[411.00s] SPEAKER_00: Andar hoos gai.
+[412.00s] SPEAKER_00: Plain rogdhia.
+[413.00s] SPEAKER_00: Koshich karni chayi.
+[414.00s] SPEAKER_00: Goli sa odaay hai.
+[415.00s] SPEAKER_00: Teril sa mochkeh.
+[416.00s] SPEAKER_00: Tungos romantik naya na?
+[417.00s] SPEAKER_00: No.
+[418.00s] SPEAKER_01: I hate romance.
+[419.00s] SPEAKER_01: I mean,
+[420.00s] SPEAKER_02: Serious ki gaayi.
+[422.00s] SPEAKER_02: Chaar ho taraf dhukhi kappuzaayi.
+[424.00s] SPEAKER_02: Shadhi se pehle.
+[425.00s] SPEAKER_02: Shakkar te.
+[426.00s] SPEAKER_02: Jagar te.
+[427.00s] SPEAKER_02: Shadhi hui nahi ki.
+[428.00s] SPEAKER_01: We're bored.
+[429.00s] UNKNOWN: Filk hui nahi.
+[430.00s] SPEAKER_01: Any time the right person.
+[431.00s] SPEAKER_01: Uh-uh.
+[432.00s] SPEAKER_01: Made for each other bhakvas.
+[433.00s] SPEAKER_01: Mill's and boons me hotay.
+[434.00s] SPEAKER_01: Real life.
+[435.00s] SPEAKER_01: Hotay hai.
+[436.00s] UNKNOWN: Sachi.
+[437.03s] SPEAKER_03: Uh-uh.
+[438.03s] SPEAKER_00: Mujya batam.
+[439.03s] SPEAKER_00: Mujya batam.
+[441.98s] SPEAKER_00: Mujya batam.
+[443.43s] SPEAKER_00: Please tell me a story.
+[444.43s] SPEAKER_02: Soni bha dee ki.
+[445.43s] SPEAKER_02: Aar to me.
+[446.62s] UNKNOWN: Kaniyapasan nahi.
+[447.62s] SPEAKER_03: Kya saapi kahanya.
+[448.62s] SPEAKER_01: Love story.
+[449.62s] SPEAKER_01: Sme hero hai.
+[450.62s] SPEAKER_01: Heroin hai.
+[451.62s] SPEAKER_01: Heroin hai.
+[452.62s] SPEAKER_01: Villains hai.
+[454.23s] SPEAKER_01: Villains hai.
+[455.64s] SPEAKER_02: Villains hai.
+[456.64s] SPEAKER_02: Villains hai.
+[457.64s] SPEAKER_02: Ghani hai.
+[458.64s] SPEAKER_02: Misunderstand.
+[459.64s] SPEAKER_02: Oh.
+[460.74s] SPEAKER_02: Full on.
+[461.74s] SPEAKER_02: Aar eppor agadh laimaks hotay.
+[462.74s] SPEAKER_02: Filk hui.
+[463.74s] SPEAKER_02: Sounds horrible.
+[464.74s] SPEAKER_00: No thank you.
+[465.90s] SPEAKER_00: Vesai bhi fly it late hai.
+[467.90s] SPEAKER_01: Bhoro hui to saap batag hui okay.
+[470.70s] SPEAKER_01: Okay.
+[471.70s] SPEAKER_01: Okay.
+[472.70s] UNKNOWN: Okay.
+[474.21s] SPEAKER_03: Jai ki hai.
+[475.21s] SPEAKER_00: To mala.
+[476.21s] SPEAKER_00: Jai wat hai na.
+[477.21s] SPEAKER_00: Aik time.
+[478.21s] SPEAKER_00: Aik girl.
+[480.56s] SPEAKER_02: Aik boy.
+[481.56s] SPEAKER_02: Dho no me.
+[482.56s] SPEAKER_03: Dho no.
+[484.10s] UNKNOWN: Kahani hai.
+[485.55s] SPEAKER_00: Kahani hai.
+[486.55s] SPEAKER_00: Aik Sapne hai.
+[487.55s] SPEAKER_00: Sapne mein kaadmi haadmi talwar liye.
+[489.55s] UNKNOWN: Full costume drama mein.
+[490.55s] SPEAKER_02: Bhoro la chanar hai.
+[491.55s] UNKNOWN: Tabri kaat.
+[492.55s] UNKNOWN: Tabri kaat.
+[493.55s] UNKNOWN: Tabri kaat.
+[503.32s] SPEAKER_01: Tumar ha Sapna hai.
+[504.32s] SPEAKER_02: Nai.
+[505.32s] SPEAKER_03: U tum hai kya Sapna hai.
+[506.32s] SPEAKER_00: Koki Jai ko Aik Sapne akshar aate.
+[508.32s] SPEAKER_00: And Jai khan hai.
+[509.32s] SPEAKER_00: Mho jo Aik Sapna deek rai hai.
+[510.32s] SPEAKER_00: Absunom.
+[511.32s] SPEAKER_02: Iya.
+[512.32s] UNKNOWN: Very exams.
+[566.34s] SPEAKER_03: It's a diti.
+[567.85s] UNKNOWN: Puri ko shish ki.
+[604.60s] SPEAKER_03: Madhara se ne bhajaar se ke.
+[606.49s] UNKNOWN: Mekkoch kya naa chaatam.
+[638.96s] UNKNOWN: Aaj hamaari beech nahi hai.
+[646.36s] UNKNOWN: Mujjaaaj bhi bho dineaad hai.
+[651.34s] SPEAKER_04: Jai ko hama naa se pehli baad deek ha tha.
+[653.34s] UNKNOWN: Maree badi kaali aake hai.
+[657.71s] SPEAKER_02: Chere pe masumi aat.
+[658.71s] SPEAKER_02: Pat behaad shararati.
+[660.71s] UNKNOWN: Kuch wakto hamaare saat rahi.
+[665.46s] SPEAKER_02: Hamaari zindi ki kuch shua.
+[667.94s] SPEAKER_03: Hama rada ko kabhi nahi bholen gaya diti.
+[671.35s] UNKNOWN: Bilkari ki dua kare.
+[676.71s] SPEAKER_02: Kri rada jai hai.
+[679.44s] SPEAKER_03: Kush rahi.
+[680.44s] SPEAKER_04: Hamai yad rakhi.
+[681.57s] SPEAKER_02: U rkaam skaam chuhay pakad naa seafle.
+[685.88s] SPEAKER_03: Rada bhi li thi.
+[689.55s] UNKNOWN: Yap.
+[690.55s] SPEAKER_03: Bhi li ki shok sabha.
+[692.55s] SPEAKER_03: Yes.
+[693.55s] SPEAKER_03: U skaantim zlanskar mi huwata.
+[694.55s] SPEAKER_01: Tum sab paga lo kya.
+[696.55s] SPEAKER_01: Hama sab nahi adi ki.
+[697.55s] SPEAKER_02: Rada ko buh kauri shrut ha rai thi.
+[699.55s] SPEAKER_02: Aad tab siya uski bhi lijai si.
+[701.55s] SPEAKER_04: Adi ki li sab kuch ek stream hoodata.
+[704.55s] SPEAKER_02: Piaar, Nephraat, Atirement.
+[706.55s] SPEAKER_02: Konak sol 기?
+[708.55s] SPEAKER_04: Kuch ce some kanti.
+[710.55s] SPEAKER_01: Uu тыHow do you get all this seriously?
+[712.55s] SPEAKER_01: No no.
+[713.55s] SPEAKER_01: I don't like all this.
+[715.55s] SPEAKER_02: Gave me some CPU like here.
+[719.93s] SPEAKER_02: Or Jacob jei ko ni.
+[720.93s] SPEAKER_04: Jei hasseawaakke Bhaj jei
+[723.19s] SPEAKER_02: Haditi dakhi te.
+[725.19s] SPEAKER_02: Uu ska kya hai sif-eyediti ka musku rana hai.
+[728.44s] UNKNOWN: Sabha ko do mobile ki ba.
+[743.35s] SPEAKER_03: Kabhi ka bhi aadati ki zindhi ki nahi.
+[745.35s] SPEAKER_01: Kappi Kappi aadati
+[747.35s] SPEAKER_01: Vibhichar jai to
+[748.35s] SPEAKER_01: Ika sap na lakta hai
+[750.35s] SPEAKER_01: Sme koi kye say
+[751.35s] SPEAKER_01: Aapne asu ko pehne se roke
+[755.35s] SPEAKER_02: Aar kye say
+[757.51s] SPEAKER_02: Koi saaj dee
+[758.51s] SPEAKER_02: Everything's gonna be okay
+[760.51s] SPEAKER_03: Kappi Kappi to lagi
+[762.51s] SPEAKER_03: Zindagi me rahi na khushi
+[764.51s] SPEAKER_03: Aar na mazart
+[765.51s] SPEAKER_01: Kappi Kappi to lagi
+[767.51s] SPEAKER_01: Haar dee na mashakil
+[768.51s] SPEAKER_01: Aar baalai gazaar
+[770.51s] SPEAKER_01: Sme koi kye say
+[772.51s] SPEAKER_01: Haste khusha kye
+[776.92s] SPEAKER_02: Oi saaj dee
+[778.92s] SPEAKER_02: Everything's gonna be okay
+[780.92s] UNKNOWN: Kappi Kappi
+[822.36s] UNKNOWN: Kappi..
+[1060.84s] SPEAKER_04: Sme kaha arbeitet sem
+[1067.65s] UNKNOWN: Staak na ishi kenge è bu
+[1073.00s] SPEAKER_04: Aal bha careers siyi undhi hofis
+[1075.22s] SPEAKER_02: Dostans pa Santavag Maria
+[1077.22s] UNKNOWN: Choudha sal ke ladke ko pulini sloke up me pitva me di ya
+[1082.02s] SPEAKER_04: mendik tarayam
+[1084.02s] SPEAKER_03: Dari sast
+[1086.24s] SPEAKER_03: Aadati sast
+[1090.43s] UNKNOWN: Talri
+[1092.52s] UNKNOWN: Tuhu
+[1093.77s] UNKNOWN: तो आवीन रहे द।
+[1095.70s] SPEAKER_05: स तो कि तो...
+[1096.82s] UNKNOWN: वने नहीं हो नहvation木 sa
+[1106.26s] SPEAKER_04: यह नहा द to me hops
+[1110.86s] SPEAKER_02: कर सि स भे लाओ हीम
+[1111.86s] SPEAKER_02: को अœ प्र प तो दरी द षीही
+[1117.24s] SPEAKER_04: Didn't you increase your yearments也?
+[1122.05s] SPEAKER_03: さ i'm not sure
+[1125.10s] SPEAKER_04: भी बहलि़े ए देश समल ।
+[1130.43s] UNKNOWN: तो बिरे ते
+[1134.21s] UNKNOWN: �
+[1139.72s] SPEAKER_04: बूईलाněिन Если एक आ ही और लस लगर सुत्सहाše किए हीं Tropical
+[1143.56s] SPEAKER_02: बॉलल पराद ने सी चेचेत लनेन कि दूर बपाद theoब जवाुचे बच
+[1149.37s] SPEAKER_04: यील्म अचे क्योा म Joey
+[1152.09s] SPEAKER_05: टषेइ सुत्रस ये तर क issued
+[1154.80s] SPEAKER_03: अणगत की बारेनाता निक प्राद की ने भी शोरा हम सःनूपन करबा है보
+[1158.40s] UNKNOWN: الل止arbeiten eenковischeisme
+[1161.21s] UNKNOWN: と
+[1170.03s] UNKNOWN: chromosome
+[1174.08s] UNKNOWN: peel
+[1175.36s] UNKNOWN: lima
+[1179.30s] SPEAKER_03: Hulk
+[1183.06s] UNKNOWN: ell
+[1185.38s] SPEAKER_03: gre And
+[1185.80s] SPEAKER_03: eg
+[1187.08s] SPEAKER_03: dam
+[1188.08s] SPEAKER_03: er
+[1189.10s] SPEAKER_03: n
+[1190.72s] SPEAKER_03: moo
+[1191.38s] SPEAKER_03: l
+[1191.98s] SPEAKER_04: estratégia
+[1193.34s] SPEAKER_04: tres
+[1194.26s] SPEAKER_04: sal
+[1195.08s] SPEAKER_04: 제발
+[1196.34s] SPEAKER_02: conveyor
+[1197.78s] SPEAKER_02: autism
+[1199.00s] UNKNOWN: alumnesia
+[1205.86s] SPEAKER_04: eksha
+[1206.94s] SPEAKER_04: rechts
+[1208.26s] SPEAKER_04: dre
+[1208.84s] SPEAKER_03: उटटे के तो पाऐडे कया?
+[1212.67s] SPEAKER_03: अऔे दी को पूभजा है?
+[1213.73s] SPEAKER_03: टीने दाँिं रहा पूशे ऊसेरे यस सनें?
+[1215.03s] SPEAKER_03: गूजे.
+[1216.22s] SPEAKER_05: गुजे.
+[1218.22s] SPEAKER_02: गूजे, यत्र करशे हैं यक है।
+[1219.38s] SPEAKER_02: जथ जिरि फोगा।
+[1220.42s] SPEAKER_02: गूजे हैं से हैं.
+[1221.58s] SPEAKER_02: जूब पांत करा के ताए लिलीगो.
+[1222.94s] SPEAKER_02: för States weer keluar��ерж Mohammad
+[1228.90s] SPEAKER_03: feh 199
+[1230.38s] SPEAKER_03: 45
+[1231.38s] UNKNOWN: 15
+[1234.27s] SPEAKER_05: 7
+[1235.15s] UNKNOWN: 8
+[1237.66s] SPEAKER_03: 5
+[1238.66s] SPEAKER_03: 6
+[1239.16s] SPEAKER_03: 7
+[1240.16s] UNKNOWN: 7
+[1240.56s] UNKNOWN: 7
+[1241.18s] SPEAKER_04: 6
+[1242.54s] SPEAKER_04: 7
+[1242.86s] SPEAKER_04: 8
+[1244.16s] SPEAKER_04: 45
+[1245.28s] SPEAKER_04: 36
+[1246.28s] UNKNOWN: 87
+[1253.58s] SPEAKER_03: 85
+[1266.82s] UNKNOWN: 지금
+[1270.53s] SPEAKER_02: 1
+[1271.09s] SPEAKER_02: 2
+[1271.49s] SPEAKER_02: 1
+[1272.51s] SPEAKER_02: 1
+[1273.21s] SPEAKER_02: 1
+[1274.33s] SPEAKER_02: 2
+[1275.15s] UNKNOWN: भुकसि यह औरा तु तु व़। यह और भातँ.
+[1277.32s] SPEAKER_05: और भी बद़न शिवरसे यह तु ख़री.
+[1279.32s] SPEAKER_03: तुे सोख क्वः सिवरक नही हप़।
+[1280.82s] SPEAKER_04: नहीं तु?
+[1281.82s] UNKNOWN: नहीं तु?
+[1293.86s] SPEAKER_04: नहीं तु?
+[1294.86s] SPEAKER_04: नहीं और तु बास वरे धु तु भ़ भु़ बिए अपर पिमप।
+[1296.86s] SPEAKER_02: சکھے, QUEETO EXPELLOW GAMUGO
+[1297.86s] SPEAKER_02: دولائی Тیری ہوگی
+[1299.54s] SPEAKER_02: சمجھا
+[1300.26s] SPEAKER_02: 네, Тوجے تو کوچھ نہیں ہو گیاں
+[1302.24s] SPEAKER_02: باؤپ کا جو کولہ جے
+[1303.64s] SPEAKER_04: Hé
+[1304.84s] SPEAKER_05: 너 میра باؤپ کو نہیں جانتا
+[1307.26s] SPEAKER_03: Тوچھ سے دا دا دا, میری بیٹھ بچے گی
+[1309.30s] SPEAKER_03: کیا
+[1310.10s] SPEAKER_03: پولیں ایسے نہیں کرنا چھے یہ بیٹھے
+[1311.86s] SPEAKER_03: Next time, next time, don't do it, I'll finish it.
+[1314.86s] SPEAKER_04: Hey, leave it. Hitler is my father. Hitler.
+[1319.67s] UNKNOWN: What will you do?
+[1321.66s] SPEAKER_04: First of all, you won't stop my pocket money, man.
+[1323.66s] SPEAKER_04: Every time, you don't pay for it.
+[1325.66s] SPEAKER_04: What are you saying, man?
+[1327.16s] SPEAKER_04: Then, you can't eat anything in the canteen.
+[1331.43s] SPEAKER_04: Dear, you have one friend.
+[1333.93s] SPEAKER_03: This is Nilesh, isn't it?
+[1336.72s] SPEAKER_04: He has a lot of him.
+[1338.22s] SPEAKER_04: What is Nilesh?
+[1338.72s] SPEAKER_04: Of course he is.
+[1340.72s] SPEAKER_04: So sweet, man.
+[1342.88s] SPEAKER_03: He is a good friend.
+[1343.88s] SPEAKER_03: Super.
+[1344.88s] SPEAKER_04: Listen.
+[1345.88s] UNKNOWN: Wait.
+[1347.30s] SPEAKER_05: After all this, there will be a problem in both of us.
+[1349.30s] SPEAKER_03: Or, 5th finish.
+[1351.30s] SPEAKER_03: Finish, man.
+[1352.30s] SPEAKER_03: In college, there is a gang and a little.
+[1356.30s] UNKNOWN: Hey.
+[1357.30s] SPEAKER_04: I'll eat a friend.
+[1358.30s] SPEAKER_04: I'll drink, right?
+[1359.30s] SPEAKER_04: I'll drink.
+[1360.30s] SPEAKER_04: Of course.
+[1362.00s] SPEAKER_03: Hey, Nandu.
+[1363.00s] SPEAKER_04: He is a cook, man.
+[1364.00s] UNKNOWN: Yes.
+[1369.16s] SPEAKER_04: Hey, Nilesh.
+[1370.16s] SPEAKER_04: Don't do this, man.
+[1371.16s] UNKNOWN: Look at this.
+[1377.74s] SPEAKER_04: Look at this.
+[1381.17s] SPEAKER_04: Look at this.
+[1382.58s] SPEAKER_04: Look at this.
+[1383.58s] SPEAKER_04: Look at this.
+[1384.58s] SPEAKER_04: Look at this.
+[1385.58s] SPEAKER_04: Look at this.
+[1387.67s] SPEAKER_03: Your mom has never been here with her.
+[1391.37s] SPEAKER_03: She is not here.
+[1392.37s] SPEAKER_03: She is not here.
+[1393.37s] SPEAKER_03: She is not here.
+[1394.88s] SPEAKER_04: She is not here.
+[1395.88s] SPEAKER_04: She is not here.
+[1396.88s] SPEAKER_04: She is not here.
+[1397.88s] SPEAKER_03: I don't like fighting.
+[1399.88s] SPEAKER_03: You know that.
+[1400.88s] SPEAKER_03: You don't have to save your friend.
+[1401.88s] SPEAKER_03: You have to save my friend.
+[1403.88s] SPEAKER_04: And you have to save her.
+[1406.88s] UNKNOWN: You are right.
+[1415.98s] SPEAKER_03: So, I can only call her tonight.
+[1419.03s] UNKNOWN: Tonight.
+[1420.03s] SPEAKER_05: Shut up, bombs.
+[1421.64s] UNKNOWN: What have you done?
+[1423.89s] UNKNOWN: I mean, I was fighting for lunch.
+[1429.20s] SPEAKER_02: I was fighting for lunch.
+[1430.20s] SPEAKER_02: I was fighting for lunch.
+[1431.26s] SPEAKER_04: Look at this.
+[1432.26s] SPEAKER_05: I wasn't really even before that.
+[1434.55s] SPEAKER_03: Dad had promised his mom to touch me falsely.
+[1436.68s] SPEAKER_04: He would never touch me falsely.
+[1440.22s] SPEAKER_04: You two say that,
+[1441.62s] SPEAKER_04: You two say what you need to say.
+[1444.68s] SPEAKER_03: It makes no difference.
+[1445.68s] UNKNOWN: I was very busy with him.
+[1450.98s] SPEAKER_05: It makes no difference to him, isn't it?
+[1453.78s] SPEAKER_03: If I touch him falsely then
+[1455.58s] SPEAKER_04: you will get sick.
+[1458.18s] UNKNOWN: Otherwise you will not be able to touch me.
+[1461.82s] UNKNOWN: Right?
+[1464.38s] SPEAKER_05: Right.
+[1465.18s] UNKNOWN: وہ تصرف اپنے دیاد کی what's the word
+[1477.96s] SPEAKER_03: Sapnu
+[1479.05s] SPEAKER_05: آدرشوں کو فالو کر رہا تھا نا
+[1481.05s] UNKNOWN: What
+[1483.14s] UNKNOWN: Actually
+[1485.93s] SPEAKER_02: Savitriyantini Sachaikot
+[1487.43s] SPEAKER_02: Thoda Modify
+[1488.43s] SPEAKER_02: Thoda
+[1489.93s] SPEAKER_03: Jai ki dairko no ne Mahatma Gandhi
+[1492.06s] SPEAKER_03: aur gotam budga combination
+[1494.06s] SPEAKER_03: So
+[1495.06s] SPEAKER_05: Parasliyat me Amar Singh Rathor
+[1497.25s] SPEAKER_03: Thoda alahti
+[1498.75s] SPEAKER_04: Amar
+[1499.75s] SPEAKER_05: آخری بارتوں میں کہ رہی
+[1501.92s] SPEAKER_03: Jai ki Sapnu me Aana Bhankar
+[1503.92s] SPEAKER_04: To se darpok Bhanana Bhankar
+[1509.90s] SPEAKER_04: شرمتی ہے مجھے اُسے دیکھ کر
+[1512.90s] SPEAKER_02: رہی وہ رتھور ہے
+[1515.90s] SPEAKER_03: رنجور کا رتھور
+[1519.22s] SPEAKER_03: No
+[1520.22s] SPEAKER_04: اگر اُسے رانجور کا راتھور بنانا ہوتا
+[1523.54s] SPEAKER_04: تم ارانجور چھوڑ کے بھاگ تھوڑیاتی
+[1525.54s] UNKNOWN: تم ارہ پورا خاننان
+[1528.70s] SPEAKER_05: تم سب بگل ہو
+[1531.33s] UNKNOWN: بگل
+[1532.39s] SPEAKER_05: سر پھرے
+[1533.89s] UNKNOWN: حنسک
+[1534.89s] SPEAKER_03: مرد
+[1536.52s] SPEAKER_05: Jai ek Siddha Sada Larka hai
+[1539.56s] SPEAKER_05: جو بے وجاکھ کسی پر ہاتھ نہیں ہوتا
+[1541.56s] SPEAKER_05: تو کہ اجیوان بھروں سے اپنے پنلوں میں چوبا کرکوگی
+[1544.06s] SPEAKER_04: تم حکیالتا حسابتری
+[1547.96s] SPEAKER_04: کہ وہ اپنی پرمپرا سے آلگ رہکر
+[1550.96s] SPEAKER_04: اپنی پرمپرا کے پرٹی
+[1552.96s] SPEAKER_04: پرمپرک نہیں رہے گا
+[1554.96s] SPEAKER_03: you can take the rathor out of Ranjhor
+[1559.57s] SPEAKER_03: but you can not take the Ranjhor out of the rathor
+[1564.76s] SPEAKER_04: دیکھ لینا حسابتری دیکھ لینا
+[1566.76s] SPEAKER_04: ایک دینھور رنجور کا
+[1569.36s] SPEAKER_00: Rathor
+[1570.68s] SPEAKER_03: خراجستان کا نام روشن کرے گا
+[1574.76s] SPEAKER_03: اور تم کچھ رہی کر پاوگی
+[1576.26s] UNKNOWN: Ranjhor gao ki rathor family
+[1584.18s] SPEAKER_04: اپنی مردانگی کو لیکر
+[1585.68s] SPEAKER_04: کفی سیریستی
+[1586.68s] SPEAKER_05: اسی لے امر سنگ کی مورت کے بعد
+[1589.18s] SPEAKER_05: سارتری آڈیوان سے بھاکھ کئی ہوئے
+[1591.18s] SPEAKER_04: تجیسے
+[1592.68s] SPEAKER_04: پہت سارگا تھا
+[1594.21s] SPEAKER_04: Ranjhor gao ki
+[1595.11s] SPEAKER_04: پرمپرات
+[1596.21s] SPEAKER_05: کہ لڑ کے کو مرد بنگگلے
+[1598.71s] SPEAKER_05: تینشرتے پوری کرنی پٹھ
+[1600.21s] SPEAKER_04: جہے
+[1601.21s] SPEAKER_04: ابھی نہیں جگی
+[1602.71s] SPEAKER_04: کیوں
+[1603.21s] SPEAKER_04: اسے ہوں تینشرتے لگ پہدا ہونی چینا
+[1605.21s] SPEAKER_04: ورناستوری کیسے ساوان میں آئی
+[1607.21s] SPEAKER_04: تجیس سوری باتانا آتہی نہیں
+[1608.71s] SPEAKER_04: سہی چیس سہی وقت پر بات آتے ہیں
+[1610.71s] SPEAKER_04: اوو
+[1611.71s] SPEAKER_04: ریالی تو سہی وقت کا بہیں گا
+[1613.21s] SPEAKER_04: ترانی قدامونی چیو
+[1614.21s] SPEAKER_04: چیو
+[1615.21s] SPEAKER_00: پھر کیا ہو
+[1616.21s] SPEAKER_03: اب سیدہ جمپ کرتے ہیں کالج کی آخری دن
+[1619.62s] SPEAKER_03: اور آڈیتی کے گھر
+[1620.62s] SPEAKER_03: ہم our family party
+[1622.62s] SPEAKER_04: جہا آڈیتی کے دیاد نے
+[1624.12s] SPEAKER_04: جہی کو دا سلا پر پے گھا چھے کافکیا
+[1626.62s] SPEAKER_04: آڈیتی کو بھل جانے کے لئے
+[1628.12s] SPEAKER_00: شچ رہی
+[1631.22s] SPEAKER_04: وامس رو اس کے دان کیسری میں
+[1632.72s] SPEAKER_04: تو کیوں پیسل رہی ہے
+[1634.22s] SPEAKER_00: OK
+[1635.22s] SPEAKER_03: don't do that again
+[1636.72s] SPEAKER_03: seriously
+[1637.72s] SPEAKER_03: but
+[1638.72s] SPEAKER_03: پیچی اور پمکیں
+[1640.22s] SPEAKER_03: دنیا کے سکسے کل بلسے
+[1642.22s] UNKNOWN: اتھوڑا سا
+[1693.30s] UNKNOWN: میں دانس کروں گی
+[1699.69s] SPEAKER_05: نا
+[1700.07s] SPEAKER_00: سپاٹی دارے میں ہو گے
+[1701.49s] UNKNOWN: بہت ہو گئے
+[1728.47s] SPEAKER_05: تو آڈیتی کو آڈیتی
+[1729.71s] SPEAKER_05: تو آڈیتی کو آڈیتی
+[1730.71s] SPEAKER_05: تو لیف میں نہیں کرے گی
+[1731.71s] SPEAKER_05: جہے
+[1732.21s] SPEAKER_04: بریکنی ہو
+[1733.21s] SPEAKER_04: اونی پک پک پک کانڈیتی
+[1737.26s] SPEAKER_00: دانس میں پیچھل دیکھا تھا
+[1740.48s] UNKNOWN: شاہدوں سے ابھی شاہدی نہیں کریں
+[2014.80s] UNKNOWN: پر فإنگیچ مل کے بارے میں باتی بیس سال کی ہو گئے
+[2021.37s] SPEAKER_00: سال سے جہے کے ساتھ ہے کہ سوال اٹھے
+[2026.15s] UNKNOWN: what do you think
+[2030.66s] SPEAKER_04: میں تو پچاسوں ریشنیا نہ شروع ہو گئے
+[2034.16s] SPEAKER_04: absolutely
+[2035.16s] UNKNOWN: جہے کے معاں سے بات کرلوں
+[2039.21s] UNKNOWN: پہلے جہے سے بات کر
+[2042.54s] SPEAKER_00: بہت ہو گئے
+[2043.54s] UNKNOWN: کو کو کلا
+[2048.57s] UNKNOWN: کل رکس
+[2050.34s] UNKNOWN: ایک اور
+[2058.73s] UNKNOWN: سبال کے دوز
+[2060.27s] UNKNOWN: ایک اٹھرام
+[2061.85s] UNKNOWN: کیا پائر اٹھلوں
+[2071.67s] UNKNOWN: کچھ نہیں آر
+[2076.18s] SPEAKER_00: بس کبھی کبھی لکتا ہے
+[2078.91s] SPEAKER_01: کاش کوئے ہوتا ہے مو
+[2082.35s] UNKNOWN: کوئی تو
+[2085.18s] SPEAKER_01: جیسے صرف میں نظرام
+[2088.59s] SPEAKER_05: اور مجھے صرف وہ
+[2091.33s] SPEAKER_05: پھر باکی ساری دنیا بھار میں جائے
+[2095.30s] UNKNOWN: جیسے جائے اور آدتی
+[2099.41s] UNKNOWN: سے جیوں
+[2142.90s] SPEAKER_05: چاندرے
+[2143.90s] SPEAKER_00: آجا دلکی زمین
+[2153.39s] UNKNOWN: چاہ
+[2153.89s] UNKNOWN: کون سگانا گا ہے گا
+[2185.64s] SPEAKER_05: اے
+[2187.57s] SPEAKER_00: ایک اجمینے
+[2188.80s] SPEAKER_00: آجا جاہ
+[2191.58s] SPEAKER_00: پیار اٹھرار اٹھرار
+[2199.41s] UNKNOWN: چاگہ رگا ہوگئے
+[2208.04s] UNKNOWN: sorry
+[2209.97s] SPEAKER_00: let's see it
+[2212.93s] UNKNOWN: وہ
+[2213.93s] SPEAKER_05: میں اس کے لئے ہی داغوں گا
+[2215.43s] SPEAKER_00: رات
+[2216.82s] SPEAKER_01: گائے گا یا کھپڑ گائے گا
+[2223.25s] SPEAKER_05: مہربانی کر رہا کیا
+[2224.75s] SPEAKER_00: وہ دمو چاہی
+[2231.27s] UNKNOWN: مدام
+[2236.50s] SPEAKER_05: تیرا مجھ سے
+[2238.00s] SPEAKER_00: پہلے
+[2239.00s] SPEAKER_01: کناتا کوئی
+[2242.00s] UNKNOWN: ایو ہی
+[2262.64s] SPEAKER_00: پچھا دکتا نہیں
+[2263.64s] SPEAKER_01: تو تو گریبے
+[2266.65s] SPEAKER_04: تیم تو ایسے گائے گا
+[2268.15s] SPEAKER_04: تو کون سی لرکی دیکھو پسان کریں جا ہے
+[2270.15s] SPEAKER_04: کوئی نہ کوئی گریبتنت لڑکی
+[2272.15s] SPEAKER_04: ملی جائیں گے نا
+[2273.15s] SPEAKER_05: جو امر سے بھی بھر آگاتی ہو
+[2275.15s] SPEAKER_05: ساژ
+[2276.15s] SPEAKER_00: آجیتی گریب نہیں
+[2277.15s] SPEAKER_00: وانا تو اسے شاہدی کر سکتا
+[2278.15s] SPEAKER_00: امر
+[2279.15s] SPEAKER_04: اپنے
+[2281.01s] SPEAKER_04: اپنے کامری نے جان ہے تو
+[2282.01s] SPEAKER_04: تھپڑکہ گا
+[2283.01s] SPEAKER_04: اپنے رومے تھا
+[2285.01s] SPEAKER_05: شانتی سے پڑ رہا
+[2286.01s] SPEAKER_05: جب تم بیسورے میننوں کو نے دستب کیا
+[2288.01s] SPEAKER_01: اور یہ میرا بھی گا رہا ہے
+[2289.01s] SPEAKER_01: سمجھی
+[2290.01s] SPEAKER_05: ان سب سے کہا ہوں گھا جا ہے
+[2292.01s] SPEAKER_00: چاہا ہوں
+[2293.01s] SPEAKER_00: چاہلو
+[2294.01s] UNKNOWN: بھی پریشان
+[2315.94s] UNKNOWN: دستدی نہیں کرتا
+[2321.29s] SPEAKER_05: پینٹ کرتا ہے
+[2322.29s] SPEAKER_01: پینٹ کرتا ہے
+[2324.19s] SPEAKER_04: میں تو کہتی ہو
+[2326.54s] SPEAKER_04: ہی just need the psychiatrist
+[2327.54s] SPEAKER_04: نلو
+[2328.54s] SPEAKER_00: ہم سب سے زیادہ شاہد ہے
+[2329.54s] SPEAKER_00: تی رہا ہے
+[2330.54s] UNKNOWN: تو پاگلے گیا
+[2331.89s] SPEAKER_04: دنیا بھی سب سے زیادہ
+[2333.89s] SPEAKER_04: تجین سر کرتا ہے
+[2334.89s] SPEAKER_04: ہاں
+[2336.50s] SPEAKER_01: تاکی سے ریکشن ملے
+[2338.72s] SPEAKER_05: کیسا ریکشن
+[2341.14s] UNKNOWN: تی رہا ہے
+[2343.36s] UNKNOWN: کرنا ہے
+[2349.64s] SPEAKER_04: کل سے بھی کالج کے لئے پکپ کرتی ہو گئے
+[2352.67s] UNKNOWN: آجھا
+[2354.66s] UNKNOWN: آجھا
+[2361.84s] UNKNOWN: آجھا
+[2365.11s] SPEAKER_05: کسی اچھانا کیا ہے
+[2366.11s] SPEAKER_05: دیکھا کالج ختم ہو گیا
+[2367.11s] UNKNOWN: بیٹھ
+[2368.27s] SPEAKER_00: میں پانی رہا ہوں
+[2369.27s] SPEAKER_01: بیٹھ
+[2371.27s] SPEAKER_04: کو بھی بھی
+[2373.68s] SPEAKER_04: تو پھر آبا گے کیا
+[2375.68s] SPEAKER_05: ہاں
+[2376.68s] SPEAKER_05: فردستدیز یا
+[2377.68s] SPEAKER_05: فوچھا نہیں آنٹی
+[2378.68s] SPEAKER_00: کالج کے پاچھر کہاں نکل گے پتا ہے نہیں چلا
+[2381.68s] SPEAKER_04: فون پی بیٹھا
+[2383.68s] SPEAKER_04: فون پیگھ
+[2384.68s] SPEAKER_05: but you know
+[2386.78s] SPEAKER_05: جیب میں بتا رہا تھا کہ
+[2388.78s] SPEAKER_05: تم
+[2389.28s] SPEAKER_05: فیم سکھل جانے کی سوچھ رہا ہے
+[2390.78s] SPEAKER_05: یا
+[2392.39s] SPEAKER_00: ایکن دا کہ رہا ہے
+[2393.39s] SPEAKER_00: ام بے کروں
+[2394.39s] SPEAKER_00: he has a point
+[2395.39s] SPEAKER_04: but
+[2396.39s] SPEAKER_04: آج کے زمانے میں
+[2397.39s] SPEAKER_04: ہمیں Intelligent Filmmakers کی
+[2398.39s] SPEAKER_04: سخص رو رہتے
+[2399.39s] UNKNOWN: کبھتا کی سیری Filmmے
+[2401.12s] SPEAKER_05: بنتی رہیں گی
+[2402.12s] SPEAKER_05: all this
+[2403.12s] SPEAKER_05: Mar, Dhar, Masala & Nonsense
+[2405.12s] SPEAKER_05: don't miss your time mom
+[2406.12s] SPEAKER_05: Aditi کو ویسی مسالى
+[2407.12s] SPEAKER_05: Filmmے بنانی ہے
+[2408.12s] SPEAKER_01: you don't say
+[2409.12s] UNKNOWN: ہاں
+[2410.12s] SPEAKER_05: کس کی بات سون رہا ہنٹی
+[2412.12s] SPEAKER_05: پیچھے کو کالس بھی
+[2414.15s] SPEAKER_05: توچھے ملنا ہے
+[2415.15s] SPEAKER_01: کیوں
+[2416.15s] SPEAKER_05: ان کا پر آمس بھول گیا کیا
+[2418.44s] SPEAKER_05: کالج ختم
+[2419.44s] UNKNOWN: well come to the family
+[2429.98s] SPEAKER_01: just saying Rathon
+[2431.98s] SPEAKER_04: سود بھڑے کا ہے
+[2433.98s] SPEAKER_04: تری باب کا تھا
+[2434.98s] SPEAKER_04: اب ہر کسی میں
+[2435.98s] SPEAKER_04: تمہا رہاں داستہ نہیں ہو گا نا
+[2436.98s] SPEAKER_00: جاریک بات برتا
+[2438.98s] UNKNOWN: ہر وقت اتنا سویت
+[2441.20s] SPEAKER_01: اتنا پولائیت
+[2442.20s] SPEAKER_05: توپنے اف سے بھونی ہوتا
+[2444.45s] SPEAKER_05: amit shak
+[2445.45s] SPEAKER_00: تو آگئی تمہاری چاکی دانی
+[2449.76s] SPEAKER_00: او لی لی
+[2450.76s] SPEAKER_00: می جاکہ کچھ مدکا
+[2452.76s] SPEAKER_00: پیچھا ایسی سوٹ
+[2453.76s] SPEAKER_00: amit
+[2454.76s] SPEAKER_05: and warning
+[2457.01s] SPEAKER_00: کل رات بھی ملیں کچھ نہیں کہ
+[2459.01s] SPEAKER_01: کچھ نہیں کہ
+[2460.01s] SPEAKER_05: come on are you jerk
+[2462.01s] SPEAKER_05: درازا کولڈرے ٹیکی ٹیو
+[2463.01s] SPEAKER_05: ٹیو ٹیو ٹی
+[2464.01s] SPEAKER_01: کچھ نہیں
+[2466.01s] UNKNOWN: rath c
+[2480.30s] UNKNOWN: çöp çöp çöp
+[2481.30s] SPEAKER_00: اجرے کچھ نہیں شننایا
+[2482.33s] SPEAKER_00: کچھ ہی ایک
+[2483.59s] SPEAKER_01: گھر پھی مہاں آیا ہے
+[2484.59s] UNKNOWN: چاک
+[2486.00s] SPEAKER_05: دوننا اگنی حالا ٹیک کرو
+[2487.16s] UNKNOWN: کمام شانا مال
+[2489.51s] SPEAKER_00: اللک سے بات کرتے
+[2490.51s] UNKNOWN: somebody is looking handsome
+[2499.23s] SPEAKER_00: somebody is looking gorgeous
+[2500.23s] SPEAKER_00: thank you
+[2503.23s] SPEAKER_05: شششش
+[2505.80s] SPEAKER_05: دونوں ملکہ در اینٹیوی لوگے کیا
+[2510.68s] SPEAKER_05: انتر��
+[2512.80s] UNKNOWN: تم جانتے و ہم نے تمہیں یہاں کیوں گلیا
+[2519.32s] SPEAKER_05: காم نے تمہیں یہاں کیوں?
+[2521.38s] SPEAKER_01: I金 Yes.
+[2522.38s] UNKNOWN: تو
+[2523.83s] SPEAKER_05: تم تیاروں?
+[2529.48s] SPEAKER_05: I mean
+[2529.98s] SPEAKER_05: سوٹ رہا تھا پہلے MBA کرلوں
+[2531.48s] SPEAKER_05: پر وہ تو بعد میں یہ ہو supposed to be
+[2532.48s] SPEAKER_05: ہے نہ
+[2533.48s] SPEAKER_05: حہاں کیوں نہیں
+[2534.48s] SPEAKER_05: but dear
+[2535.48s] SPEAKER_05: are you sure?
+[2536.48s] UNKNOWN: حہاں, بلکھل
+[2538.89s] SPEAKER_05: پیسوں کے لیکنٹھے کچھ تو کرناہیں بڑے گا نہ
+[2542.37s] SPEAKER_00: پیسوں کے لئے
+[2543.37s] SPEAKER_01: نہیں
+[2544.37s] SPEAKER_01: صرف پیسوں کے لئے نہیں
+[2547.33s] SPEAKER_05: status
+[2548.40s] SPEAKER_00: respect
+[2549.56s] SPEAKER_01: success
+[2550.56s] SPEAKER_05: ہر چیس کی شروع تو یہیں سے ہے
+[2553.04s] UNKNOWN: but
+[2554.20s] UNKNOWN: för You Your Mother?
+[2557.58s] UNKNOWN: That's very happy
+[2559.45s] SPEAKER_00: He waited for the day
+[2560.63s] SPEAKER_02: How's it going guys?
+[2563.49s] UNKNOWN: Fateh
+[2564.17s] SPEAKER_00: Fateh
+[2565.17s] SPEAKER_00: Fateh
+[2566.17s] SPEAKER_01: Fateh
+[2567.21s] UNKNOWN: Fateh
+[2572.12s] SPEAKER_02: Fateh
+[2572.46s] SPEAKER_02: Fateh
+[2573.56s] SPEAKER_00: Fateh
+[2574.72s] SPEAKER_01: Fateh
+[2575.72s] SPEAKER_02: Fateh
+[2576.78s] SPEAKER_02: Fateh
+[2577.32s] UNKNOWN: Fateh
+[2578.32s] SPEAKER_00: Fateh
+[2579.92s] UNKNOWN: Fateh
+[2581.05s] SPEAKER_01: Fateh
+[2582.09s] SPEAKER_01: Fateh
+[2583.15s] SPEAKER_01: Fateh
+[2583.95s] SPEAKER_01: Fateh
+[2584.83s] SPEAKER_01: Fateh
+[2585.53s] SPEAKER_01: Fateh
+[2586.13s] UNKNOWN: Fateh
+[2586.71s] SPEAKER_00: Fateh
+[2588.77s] SPEAKER_00: Fateh
+[2589.69s] SPEAKER_00: جماہی بن کریں نہ چاہتا ہے
+[2595.16s] UNKNOWN: excuse me
+[2597.30s] SPEAKER_02: شادی
+[2598.95s] SPEAKER_00: کس کی شادی
+[2600.43s] SPEAKER_01: گھر جماہی agreement What
+[2604.20s] UNKNOWN: جب
+[2604.88s] SPEAKER_02: مجھ سے شادیگہ نہیں چاہتا ہے
+[2607.08s] UNKNOWN: Ellie
+[2609.77s] SPEAKER_05: HAHA
+[2610.77s] SPEAKER_05: ایک سکل
+[2611.59s] SPEAKER_05: میں نہیں شادیگی بعد一个
+[2613.41s] UNKNOWN: کیا باک کر رے تھے
+[2615.39s] SPEAKER_02: میں تو جوپ کی拷 ہیorta تھا
+[2617.57s] SPEAKER_00: کامس اتجاب
+[2619.05s] SPEAKER_01: آپی نے اس کا د aún
+[2620.21s] SPEAKER_02: کتن کلکش کا دوجا ہے
+[2621.05s] SPEAKER_02: میں آپ کو جاہین کرلکنلیں
+[2622.35s] SPEAKER_00: مجھے لگا آپ نے اس میں نے بلا ہے
+[2624.84s] SPEAKER_01: شادی کا کیا ہے
+[2626.53s] SPEAKER_02: you won't marry me
+[2630.25s] SPEAKER_00: Which guy loa ask your parents
+[2631.99s] SPEAKER_01: Chisous!
+[2632.99s] SPEAKER_01: Trist!
+[2633.99s] SPEAKER_02: Unhees, Shadhi nekarni thi?
+[2635.99s] UNKNOWN: Screasy!
+[2637.92s] SPEAKER_00: To me ne tokaara ki,
+[2638.92s] SPEAKER_00: College ki,
+[2639.92s] SPEAKER_00: Pyaar aur hameesha,
+[2640.92s] SPEAKER_00: Ik saat rana,
+[2641.92s] SPEAKER_00: And made for each other.
+[2642.92s] SPEAKER_00: Well,
+[2643.92s] SPEAKER_00: Hamsab ki daraditi ki,
+[2644.92s] SPEAKER_00: Parents be confused over it.
+[2646.92s] SPEAKER_00: Ya!
+[2647.92s] SPEAKER_02: Bahatiye thi,
+[2648.92s] SPEAKER_00: Ki jai naaditi,
+[2649.92s] SPEAKER_00: One not in love.
+[2650.92s] SPEAKER_02: Not in love.
+[2652.92s] UNKNOWN: Aap koch na kya hai?
+[2656.67s] SPEAKER_00: Har wak saat bhe rati ho,
+[2659.28s] SPEAKER_00: Yapar phone par,
+[2660.28s] SPEAKER_00: Paan saal se,
+[2661.28s] SPEAKER_00: Toon toon ko alag nahi dhikha.
+[2662.28s] SPEAKER_00: Toon hame ne,
+[2663.28s] SPEAKER_02: Socha, goaam!
+[2666.37s] SPEAKER_05: This is so embarrassing!
+[2668.37s] UNKNOWN: Push it!
+[2670.14s] SPEAKER_02: It's okay!
+[2671.14s] SPEAKER_00: Aap ko aesha lagal,
+[2673.14s] SPEAKER_01: To thang ski aap niyakoshish ki,
+[2675.14s] SPEAKER_02: Par aesha koch na hi hai?
+[2676.14s] SPEAKER_00: To meh,
+[2677.14s] SPEAKER_01: Bakka Shadhi nekarni hai?
+[2679.46s] SPEAKER_01: Mom please!
+[2681.03s] SPEAKER_01: We are sorry!
+[2682.03s] SPEAKER_01: We are both,
+[2683.03s] SPEAKER_01: Both of us,
+[2684.03s] SPEAKER_01: Both of us,
+[2685.03s] SPEAKER_00: Shadhi nekna!
+[2686.03s] UNKNOWN: This topic,
+[2700.76s] SPEAKER_01: I am here to finish.
+[2701.76s] SPEAKER_01: Thank you!
+[2702.76s] UNKNOWN: Perceasli,
+[2704.08s] SPEAKER_00: Aap baat hai!
+[2705.08s] SPEAKER_00: Bahariye ik dosne sa nahi,
+[2707.34s] SPEAKER_00: Toon,
+[2708.34s] SPEAKER_01: Shadhi to kar na chathi ho na!
+[2709.34s] SPEAKER_01: Naha,
+[2710.34s] SPEAKER_01: Belkul,
+[2711.53s] SPEAKER_00: Jab ko yajsha lagay,
+[2712.53s] UNKNOWN: Usthara se,
+[2713.85s] SPEAKER_02: Koi yaar,
+[2715.85s] SPEAKER_00: Undhwo koi milga kye sa?
+[2718.07s] UNKNOWN: Tiw,
+[2719.07s] SPEAKER_01: Jab milna hoga maa jai ka?
+[2720.17s] SPEAKER_01: Aapcha!
+[2722.17s] SPEAKER_02: Veta,
+[2723.17s] SPEAKER_01: Pishli Paan saal ume,
+[2725.17s] SPEAKER_02: Hame ne kki tne lagy ko notis ki yaar hai?
+[2729.06s] UNKNOWN: Undhwo koi,
+[2730.06s] SPEAKER_00: Tuh maha daa,
+[2731.06s] SPEAKER_00: Twmaha daa,
+[2732.06s] SPEAKER_00: Twmaha daa,
+[2733.06s] SPEAKER_00: Twmaha daa,
+[2734.06s] SPEAKER_00: Twmaha daa,
+[2736.06s] SPEAKER_02: Tuh maha daa,
+[2737.06s] SPEAKER_00: Twmaha daa,
+[2738.67s] SPEAKER_00: Twmaha daa,
+[2739.67s] SPEAKER_01: Twmaha daa,
+[2740.67s] UNKNOWN: Twmaha daa,
+[2741.17s] SPEAKER_05: ploys you so what do you think he was innocent?
+[2746.05s] SPEAKER_02: istlepap sating bhaji
+[2749.93s] SPEAKER_05: phosphate
+[2751.73s] SPEAKER_01: ༴༼༴ྱ༽ livelihood
+[2757.43s] UNKNOWN: ༴༽༽྽༽ྱ༽྽༽༽༽༽༽༽༽༽༽༽༽༽й
+[2773.32s] UNKNOWN: ༴༽༽ྱ༽༽༽༽༽༽༽༽༽༽༽༽༽ p
+[2779.63s] SPEAKER_02: दुर नम पीर्चन रहीं क्याराभाँ
+[2782.37s] SPEAKER_01: If you dont want him to take over ?
+[2785.03s] SPEAKER_01: Yaay...
+[2786.21s] SPEAKER_00: cticamente..
+[2787.53s] UNKNOWN: Brother...
+[2788.56s] SPEAKER_01: Brother....
+[2789.60s] SPEAKER_01: you are marrying...
+[2792.10s] SPEAKER_00: For you..
+[2793.96s] UNKNOWN: Correct sa..
+[2799.46s] SPEAKER_05: both of you both know this better
+[2802.16s] SPEAKER_05: you also have a love meeting
+[2809.23s] SPEAKER_01: Singing en paper
+[2810.37s] UNKNOWN: This complete makes..
+[2813.14s] SPEAKER_02: TRICK
+[2814.36s] UNKNOWN: J有..
+[2815.20s] SPEAKER_00: If skipped the intro
+[2815.52s] SPEAKER_00: Only if like a girl
+[2817.10s] SPEAKER_00: being very smart
+[2818.70s] SPEAKER_00: Even your romance Whisper
+[2820.42s] SPEAKER_00: GHAUK Poland
+[2821.64s] SPEAKER_00: itaire
+[2823.00s] UNKNOWN: J pint
+[2834.49s] SPEAKER_02: sprang
+[2835.11s] SPEAKER_05: ㅋㅋ
+[2835.83s] SPEAKER_05: Prang
+[2837.11s] SPEAKER_05: és
+[2838.31s] SPEAKER_01: J L
+[2840.00s] SPEAKER_02: Prang
+[2840.24s] UNKNOWN: J Krit
+[2844.66s] SPEAKER_00: Prang
+[2845.92s] SPEAKER_00: J V
+[2846.94s] SPEAKER_00: Prang
+[2850.97s] SPEAKER_01: Prang
+[2852.91s] SPEAKER_01: Prang
+[2854.89s] UNKNOWN: Prang
+[2887.09s] SPEAKER_01: Prang
+[2892.38s] SPEAKER_00: Prang
+[2893.10s] SPEAKER_00: Prang
+[2894.12s] SPEAKER_00: Prang
+[2894.68s] SPEAKER_00: Prang
+[2895.74s] SPEAKER_00: Prang
+[2898.71s] SPEAKER_00: Prang
+[2900.56s] SPEAKER_00: Prang
+[2901.32s] SPEAKER_00: Prang
+[2901.54s] UNKNOWN: Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari ... Vari... Vari ... V
+[3002.62s] UNKNOWN: Ghani start card may be I am coming
+[3045.50s] UNKNOWN: Up to you my style is
+[3057.21s] SPEAKER_00: No
+[3057.55s] SPEAKER_00: You seem to be different
+[3068.04s] SPEAKER_01: This is our business
+[3071.12s] SPEAKER_03: I went to the doctor
+[3072.32s] SPEAKER_01: My report is here
+[3075.30s] SPEAKER_02: You knew it, right?
+[3077.57s] SPEAKER_02: You knew it
+[3079.17s] SPEAKER_02: You were with me last night
+[3080.81s] UNKNOWN: Why not?
+[3084.27s] SPEAKER_01: I have seen this police officer's brother in law
+[3090.96s] SPEAKER_03: How many more people will be killed?
+[3093.58s] SPEAKER_00: How many more people will get killed by the voice of death?
+[3098.21s] UNKNOWN: What did he say to you?
+[3102.58s] SPEAKER_02: Why are you looking for death in his youth?
+[3107.35s] UNKNOWN: Why?
+[3110.94s] SPEAKER_02: Look, I am taking this hospital
+[3114.78s] SPEAKER_03: Is there any problem?
+[3115.86s] UNKNOWN: No
+[3116.46s] UNKNOWN: No
+[3118.20s] UNKNOWN: Thanks
+[3121.77s] UNKNOWN: Don't worry
+[3123.54s] SPEAKER_01: This is not the case of death
+[3126.60s] SPEAKER_02: Let's go, Nalini
+[3127.72s] UNKNOWN: I will take this from today
+[3138.64s] SPEAKER_03: I want to give this to everyone
+[3141.04s] SPEAKER_00: Leave me
+[3142.11s] SPEAKER_00: No, Nalini
+[3144.12s] SPEAKER_00: Come with me
+[3177.94s] SPEAKER_00: Shali, Jackie's best friend
+[3183.10s] SPEAKER_03: She is just a friend
+[3184.22s] SPEAKER_01: I think there is something between me
+[3189.29s] SPEAKER_01: Nothing like this
+[3190.37s] SPEAKER_01: There was something like this
+[3192.98s] UNKNOWN: No, I am not going to give it
+[3219.91s] SPEAKER_01: She is giving it, I want to go
+[3223.11s] SPEAKER_02: A coffee?
+[3224.47s] SPEAKER_03: I am really getting late
+[3226.07s] SPEAKER_01: I will carry on
+[3228.05s] UNKNOWN: I will drop you
+[3234.52s] SPEAKER_03: Guys, guys
+[3238.18s] UNKNOWN: Where are you going?
+[3239.95s] UNKNOWN: Jai
+[3241.27s] SPEAKER_03: Take the car
+[3243.47s] UNKNOWN: Jai
+[3247.86s] UNKNOWN: Let's go
+[3248.93s] UNKNOWN: Let's walk
+[3253.67s] UNKNOWN: Dadaji, my name is Zoravar Singh Rathor
+[3298.34s] UNKNOWN: His name is Zoroh
+[3301.24s] SPEAKER_02: Mom told me that he will go to Kooj
+[3304.00s] SPEAKER_00: Dadaji forgot that he was only 2 months old in our Haveli
+[3308.06s] SPEAKER_02: Haveli, Nala
+[3309.46s] UNKNOWN: My name is
+[3312.89s] SPEAKER_01: His Royal Highness Raj Kumar
+[3315.89s] SPEAKER_01: Jai Singh Rathor
+[3319.06s] SPEAKER_01: Your friend thinks you are a prince
+[3321.30s] SPEAKER_02: He talks to you all the time
+[3325.74s] UNKNOWN: He was all for you
+[3328.96s] UNKNOWN: For me
+[3346.38s] SPEAKER_02: Did you think of marrying Jai?
+[3349.70s] SPEAKER_01: That is why he is poor and he is innocent
+[3352.29s] UNKNOWN: Amit, I don't have the right to fight
+[3366.94s] SPEAKER_03: Are you a 2 minute child?
+[3368.83s] SPEAKER_01: Your house is your mom's bed
+[3370.47s] UNKNOWN: You really love that house, right?
+[3377.03s] UNKNOWN: No, we are just friends
+[3381.50s] SPEAKER_01: We were friends too, Amit
+[3384.71s] UNKNOWN: What happened?
+[3386.98s] SPEAKER_02: Why did you leave so far from me?
+[3389.22s] SPEAKER_02: I left
+[3391.17s] UNKNOWN: Really?
+[3398.74s] SPEAKER_02: I was thinking
+[3401.35s] SPEAKER_02: Whenever a new party started, why did you leave so late?
+[3405.54s] SPEAKER_01: Why didn't you go to your parents' house?
+[3407.81s] SPEAKER_02: What?
+[3409.23s] SPEAKER_03: You are a 2 minute child
+[3411.47s] SPEAKER_01: Go home, go to school
+[3412.99s] SPEAKER_01: Are you mad?
+[3414.75s] SPEAKER_01: No, I am not
+[3417.63s] UNKNOWN: Do you remember the same thing?
+[3422.86s] SPEAKER_02: And that girl
+[3424.30s] SPEAKER_02: Who came to play with you?
+[3425.98s] SPEAKER_02: Shia
+[3427.17s] SPEAKER_01: Shia
+[3428.37s] UNKNOWN: Cute girl
+[3430.78s] SPEAKER_03: And in the Bangalore
+[3432.26s] SPEAKER_01: That girl
+[3433.58s] SPEAKER_01: I used to steal your boyfriend
+[3436.18s] UNKNOWN: You
+[3438.14s] SPEAKER_03: Rana
+[3439.14s] UNKNOWN: What was the idea?
+[3442.22s] SPEAKER_02: First of all, catch this coach
+[3444.18s] SPEAKER_02: Raj Lakshmi Ayyar
+[3445.42s] SPEAKER_02: Hey, please
+[3446.30s] SPEAKER_02: Poor thing
+[3447.02s] SPEAKER_02: I was just doing the same thing
+[3449.02s] SPEAKER_01: Do you remember my friend too?
+[3464.26s] SPEAKER_02: Because I always had one friend
+[3468.33s] SPEAKER_03: I went to her place
+[3470.74s] SPEAKER_01: And people were more close to you
+[3472.54s] UNKNOWN: And also friends
+[3492.59s] SPEAKER_03: What is the difference between our friend and me?
+[3496.74s] UNKNOWN: Really?
+[3498.92s] SPEAKER_01: So, what is the difference between you and Rana?
+[3501.33s] SPEAKER_02: Yes, Jai
+[3503.31s] SPEAKER_03: So, if Jai
+[3505.82s] SPEAKER_01: You don't have time with her
+[3507.87s] SPEAKER_01: If someone else does it, then you won't be able to do it
+[3510.86s] UNKNOWN: Of course not
+[3512.69s] SPEAKER_01: Just like today
+[3513.97s] SPEAKER_02: I have found a girlfriend for Jai
+[3516.47s] SPEAKER_03: But I am Jai
+[3518.50s] SPEAKER_01: What did you do?
+[3521.15s] SPEAKER_02: Jai Kale Girlfriend
+[3551.09s] SPEAKER_02: Comet makes her?
+[3552.63s] UNKNOWN: No, Sali
+[3554.45s] SPEAKER_01: This is a giant
+[3556.29s] SPEAKER_02: Disney's husband's son has left his house
+[3558.61s] SPEAKER_03: And he is living in his home
+[3562.59s] SPEAKER_00: The husband's son's house
+[3565.67s] UNKNOWN: This game
+[3566.79s] SPEAKER_02: I used to play every time
+[3568.79s] SPEAKER_03: The world that sees it is not the same
+[3570.63s] SPEAKER_00: Everything has hidden something
+[3573.27s] SPEAKER_01: And he used to call this game
+[3574.51s] SPEAKER_01: What is this?
+[3576.27s] SPEAKER_01: For example
+[3577.59s] SPEAKER_03: What is this?
+[3578.91s] SPEAKER_00: A luggage from a luggage troll
+[3582.04s] SPEAKER_01: Yes, this is a giant cake
+[3585.64s] SPEAKER_01: Chocolate, blueberry and strawberry icing
+[3589.62s] UNKNOWN: Good night
+[3602.32s] UNKNOWN: Good night Jai
+[3604.35s] SPEAKER_03: I feel good to meet you
+[3606.86s] UNKNOWN: Good night
+[3609.60s] UNKNOWN: Look, I will meet you again
+[3620.72s] UNKNOWN: I will meet you again
+[3624.32s] UNKNOWN: Good night
+[3626.10s] UNKNOWN: Good night
+[3637.08s] SPEAKER_03: Jai, if I have time with you
+[3641.76s] SPEAKER_04: Then you will be able to save me
+[3643.96s] SPEAKER_02: Definitely
+[3646.91s] SPEAKER_04: I am going to see James Bond
+[3649.83s] SPEAKER_02: PDR
+[3651.52s] UNKNOWN: Today is the day
+[3653.82s] SPEAKER_04: I am going alone
+[3656.14s] SPEAKER_02: If you have something to say, then you will be able to live
+[3658.14s] UNKNOWN: I will give you a gift
+[3707.72s] SPEAKER_04: And I will leave your privacy
+[3710.22s] UNKNOWN: Come on, leave
+[3714.20s] SPEAKER_04: Did you get the number?
+[3716.22s] UNKNOWN: What?
+[3719.58s] SPEAKER_03: Very cute
+[3721.23s] SPEAKER_03: Yes brother
+[3722.59s] SPEAKER_03: Very amazing
+[3724.62s] UNKNOWN: That's perfect
+[3729.32s] SPEAKER_02: Tell me one thing
+[3731.15s] SPEAKER_03: Did you sing a song?
+[3733.49s] UNKNOWN: A song?
+[3740.43s] SPEAKER_03: I am crazy
+[3741.43s] SPEAKER_03: If I had to go to the road
+[3743.11s] SPEAKER_03: Then I would have gone to the other side
+[3745.75s] UNKNOWN: Come on, you are happy
+[3748.19s] SPEAKER_03: Yes
+[3749.70s] SPEAKER_03: Now I have to find a lovely girl
+[3751.94s] SPEAKER_01: If I had to find a lovely girl
+[3755.38s] SPEAKER_01: Then I would have fallen in love with you
+[3756.90s] SPEAKER_03: Oh man
+[3759.64s] SPEAKER_03: Then if you talk to me
+[3763.50s] SPEAKER_03: Then I will break his heart
+[3765.22s] SPEAKER_03: If I have a feeling like this
+[3770.75s] SPEAKER_04: Actually
+[3771.75s] SPEAKER_01: I am meeting such a lovely guy tomorrow
+[3774.23s] SPEAKER_01: Shut up
+[3775.58s] UNKNOWN: Bond
+[3777.10s] UNKNOWN: James Bond
+[3780.18s] UNKNOWN: Hey, PBR
+[3782.75s] UNKNOWN: Eighth birthday
+[3796.27s] SPEAKER_02: Kamino, what are you doing?
+[3799.35s] SPEAKER_02: I have come to see a picture
+[3800.95s] SPEAKER_02: And look at this
+[3801.79s] SPEAKER_02: I have two extra tickets
+[3803.43s] SPEAKER_02: What luck?
+[3804.67s] SPEAKER_04: Really?
+[3805.51s] UNKNOWN: Show
+[3821.01s] UNKNOWN: Come on
+[3824.02s] UNKNOWN: In the interval
+[3827.42s] SPEAKER_02: You are sitting on the other side
+[3828.94s] UNKNOWN: Yes
+[3829.70s] UNKNOWN: Why?
+[3831.52s] UNKNOWN: Let's go
+[3832.50s] UNKNOWN: Come on, go
+[3842.02s] SPEAKER_04: You should sit with your friends
+[3844.66s] SPEAKER_02: I will come with you
+[3847.21s] UNKNOWN: Come on
+[3894.43s] SPEAKER_04: I am happy for Jaya
+[3896.24s] SPEAKER_01: But I did not notice anyone in my entire happiness
+[3898.96s] SPEAKER_02: That Aditi is so happy
+[3926.26s] UNKNOWN: What's this?
+[3946.48s] UNKNOWN: Look
+[3954.71s] SPEAKER_03: I was thinking of rocket launcher
+[3957.13s] UNKNOWN: So, rocket launcher
+[3961.24s] SPEAKER_02: Breaking news, it's a hot guy
+[3964.14s] SPEAKER_03: It's a game, I will not understand
+[3965.86s] SPEAKER_03: You do not have a match in it
+[3967.06s] SPEAKER_03: You will eat a lot
+[3968.18s] SPEAKER_02: You have more match in it
+[3970.18s] UNKNOWN: Really?
+[3971.88s] UNKNOWN: So...
+[3975.09s] SPEAKER_02: What's this?
+[3976.29s] UNKNOWN: No, Bijli
+[3983.76s] UNKNOWN: Light night
+[3986.08s] UNKNOWN: But black
+[3992.79s] SPEAKER_03: His topi
+[3993.79s] SPEAKER_04: And his head
+[3995.22s] SPEAKER_01: And for the other
+[3996.22s] SPEAKER_01: Oh, I was thinking like this
+[3998.54s] SPEAKER_03: What is this?
+[4000.02s] SPEAKER_03: To catch the kids
+[4001.54s] SPEAKER_03: You are making your hands big
+[4026.62s] SPEAKER_04: Make them open
+[4027.90s] SPEAKER_02: And open
+[4030.51s] SPEAKER_03: It's his fault
+[4032.78s] SPEAKER_04: I know
+[4035.27s] UNKNOWN: So, carry on
+[4037.18s] SPEAKER_03: Aditi, don't talk like this
+[4039.22s] UNKNOWN: I will leave you
+[4042.60s] UNKNOWN: What?
+[4045.62s] SPEAKER_03: Jaya
+[4046.62s] SPEAKER_03: You carry on
+[4047.78s] SPEAKER_03: I will not even get a taxi right now
+[4049.26s] SPEAKER_03: But...
+[4051.36s] SPEAKER_02: What's this?
+[4052.36s] UNKNOWN: What happens to you?
+[4073.67s] SPEAKER_03: I wanted to drop you
+[4074.71s] UNKNOWN: I wanted to talk to you
+[4080.24s] UNKNOWN: You go
+[4081.46s] SPEAKER_02: Go to him and talk to Aram
+[4082.74s] SPEAKER_02: Good night
+[4083.22s] SPEAKER_02: Go to him and talk to him
+[4084.34s] SPEAKER_02: Just go
+[4085.14s] UNKNOWN: I always drop you on Jaya
+[4096.70s] UNKNOWN: If you get a girlfriend, you will forget your friend
+[4107.76s] UNKNOWN: Come on, you will be late
+[4111.92s] SPEAKER_05: Shail
+[4113.28s] SPEAKER_03: Prats
+[4114.58s] SPEAKER_04: What's this?
+[4116.21s] UNKNOWN: What?
+[4130.46s] SPEAKER_04: Jaya Singh Ratwad
+[4133.12s] SPEAKER_04: Motu Pissiti
+[4134.40s] SPEAKER_04: Chal Me Ujhal
+[4135.56s] SPEAKER_04: Manjara Kaya
+[4137.60s] UNKNOWN: Pissai
+[4138.64s] UNKNOWN: Mm-hmm
+[4142.04s] UNKNOWN: My girlfriend
+[4146.78s] SPEAKER_03: I have a girlfriend
+[4147.90s] UNKNOWN: Wow!
+[4149.86s] SPEAKER_04: Oh, my God!
+[4151.34s] SPEAKER_04: Oh, my God!
+[4152.58s] SPEAKER_04: Finally, you told Aditi to talk to her
+[4155.10s] SPEAKER_04: Oh, no!
+[4156.74s] SPEAKER_03: Okay, tell me
+[4158.05s] SPEAKER_04: Who is it?
+[4159.23s] SPEAKER_05: Sandhya
+[4160.35s] SPEAKER_03: Which Sandhya?
+[4161.63s] SPEAKER_04: Bombs
+[4163.19s] SPEAKER_05: She don't call her that
+[4166.43s] SPEAKER_03: Just like you know, she wants to know
+[4168.63s] SPEAKER_04: Bombs?
+[4169.47s] SPEAKER_04: Bombs?
+[4169.99s] SPEAKER_04: It's a girl's girlfriend
+[4171.23s] SPEAKER_04: Who loves Aditi
+[4173.79s] SPEAKER_03: Nice group
+[4175.66s] SPEAKER_04: Bom
+[4176.46s] UNKNOWN: Wait, I won't stop her
+[4182.39s] UNKNOWN: What's her name?
+[4186.64s] UNKNOWN: Meghna
+[4188.98s] UNKNOWN: Puri Kani Suna
+[4192.49s] SPEAKER_03: Mm-hmm
+[4194.14s] UNKNOWN: Fick timing
+[4199.96s] UNKNOWN: Hello
+[4208.96s] SPEAKER_04: Maate
+[4210.20s] SPEAKER_04: Maate
+[4211.72s] SPEAKER_03: Yes, Maate
+[4213.12s] SPEAKER_04: What's this?
+[4214.48s] SPEAKER_05: It's been a long time
+[4216.99s] SPEAKER_03: You're just like
+[4218.15s] SPEAKER_04: Patamis
+[4219.71s] SPEAKER_04: Nirdai
+[4220.71s] SPEAKER_04: Salim police officer
+[4221.91s] SPEAKER_04: I haven't seen you in my life
+[4224.35s] SPEAKER_02: No, no, Ms. Savitri
+[4225.75s] SPEAKER_02: As I read a lot, my force is really high
+[4228.91s] SPEAKER_04: Are you kidding me?
+[4230.79s] SPEAKER_05: You don't even have a gun
+[4232.35s] SPEAKER_02: That girl's hand is broken
+[4234.38s] SPEAKER_02: It's fractured
+[4235.38s] SPEAKER_02: Okay, come
+[4236.22s] SPEAKER_02: Yes, sir, she was stolen
+[4237.62s] SPEAKER_02: That's the same fracture
+[4239.42s] SPEAKER_03: If she has stolen it, it's the man who stole it
+[4243.02s] SPEAKER_05: So find out everything
+[4244.14s] SPEAKER_02: Write it in the court
+[4245.42s] SPEAKER_02: What do you mean to take your hand?
+[4246.90s] SPEAKER_02: Oh, wow
+[4249.10s] SPEAKER_03: That woman is a force
+[4252.06s] SPEAKER_03: Oh, wow
+[4253.06s] SPEAKER_03: I'm an investigation officer for 20% accuracy
+[4256.70s] SPEAKER_03: I'll cut her into pieces
+[4258.02s] SPEAKER_03: I'll take her to court
+[4259.50s] SPEAKER_03: I'll cut her into pieces
+[4261.10s] SPEAKER_03: Kashaala
+[4262.42s] SPEAKER_04: I'll kill two of her ears
+[4264.42s] SPEAKER_04: That's not the case
+[4267.54s] SPEAKER_03: Yes, yes
+[4268.62s] SPEAKER_03: Do you want to kill me too?
+[4270.90s] SPEAKER_03: It's but natural
+[4272.97s] SPEAKER_05: But if you don't suspend me
+[4275.05s] SPEAKER_03: Then my name won't be Savitri
+[4278.03s] UNKNOWN: Okay, where?
+[4281.15s] SPEAKER_05: Champa Namka sir
+[4282.91s] UNKNOWN: Stop
+[4291.85s] UNKNOWN: I'll kill you
+[4303.17s] UNKNOWN: Chayat, I swear I'll kill you
+[4315.84s] UNKNOWN: What?
+[4331.64s] SPEAKER_05: I forgot, sir
+[4333.28s] SPEAKER_03: What were you going to do there?
+[4337.30s] SPEAKER_04: You were going to take your hand
+[4338.74s] UNKNOWN: A police officer
+[4341.45s] SPEAKER_03: He was doing a serious crime with you
+[4344.38s] SPEAKER_04: He's my problem
+[4349.10s] SPEAKER_05: And you would prove that to him
+[4352.43s] SPEAKER_02: Because what was the difference between him and my son?
+[4355.03s] UNKNOWN: It was a serious crime
+[4395.26s] SPEAKER_04: And he was quiet
+[4396.06s] SPEAKER_04: Don't start again, please
+[4398.48s] SPEAKER_04: What do you mean?
+[4399.24s] SPEAKER_04: Don't start again, please
+[4400.80s] SPEAKER_04: I mean, just
+[4402.04s] SPEAKER_02: You can't do this
+[4405.81s] SPEAKER_03: If Jay wanted to make his own way
+[4410.58s] SPEAKER_03: Then he should have thought before he died
+[4412.42s] SPEAKER_03: You want to make him a coward?
+[4415.58s] SPEAKER_04: He is the son of Amarsingh Rathar
+[4421.27s] SPEAKER_04: That's why I'm scared
+[4424.18s] SPEAKER_02: And this is fear of that day
+[4426.06s] SPEAKER_02: When you went to fight with Bathal Khandan
+[4429.26s] SPEAKER_02: And then you came back alive
+[4430.98s] SPEAKER_02: So what happened?
+[4431.78s] SPEAKER_02: The girls were killed
+[4433.58s] SPEAKER_03: And they were killed before he died
+[4437.20s] SPEAKER_04: And they were killed before he died
+[4441.06s] SPEAKER_02: If they were killed, then I would have been happier
+[4444.30s] SPEAKER_02: You are crazy
+[4446.02s] SPEAKER_03: You are a witness of a martyr
+[4449.38s] SPEAKER_04: You should be proud
+[4450.98s] SPEAKER_04: Amar, I will break your throat in painting
+[4454.58s] UNKNOWN: Why are you listening to me?
+[4458.83s] SPEAKER_04: Good night
+[4460.27s] SPEAKER_05: Keep in mind, Savitri
+[4462.90s] SPEAKER_02: One day, you will be able to die
+[4466.78s] SPEAKER_02: And you will be able to die
+[4470.50s] SPEAKER_04: One
+[4471.62s] SPEAKER_05: Now you say
+[4472.46s] SPEAKER_05: Tell me
+[4473.62s] SPEAKER_03: He will be a witness on the street
+[4476.78s] SPEAKER_03: Two
+[4477.70s] SPEAKER_03: He will only do one thing
+[4481.18s] SPEAKER_05: And three
+[4482.42s] UNKNOWN: He will go to jail once
+[4487.38s] SPEAKER_05: Remember, Savitri
+[4488.86s] UNKNOWN: Remember
+[4492.06s] SPEAKER_03: These were the three conditions to be killed
+[4494.54s] SPEAKER_03: Impossible
+[4496.30s] SPEAKER_05: Jay could never do this
+[4498.22s] SPEAKER_03: No?
+[4499.18s] SPEAKER_04: Diddy?
+[4500.18s] SPEAKER_05: Does he?
+[4502.10s] SPEAKER_03: Who will kill him?
+[4503.58s] SPEAKER_04: That inspector
+[4505.22s] SPEAKER_04: And he will go to jail
+[4507.02s] SPEAKER_03: Hey guys, the flight is landed
+[4509.30s] SPEAKER_03: Thank God, one hour later
+[4511.14s] SPEAKER_03: Tell me, they will come out and the story will be complete
+[4514.46s] SPEAKER_03: Relax, Malah
+[4515.62s] SPEAKER_03: We will come
+[4516.54s] SPEAKER_03: Immigration, customs
+[4518.14s] SPEAKER_03: But I am telling you, tell me quickly
+[4519.98s] SPEAKER_03: I need a coffee
+[4521.26s] SPEAKER_03: You have to be joking
+[4522.90s] SPEAKER_03: Shall we?
+[4523.66s] SPEAKER_03: No, no, no, please
+[4525.50s] SPEAKER_03: Please go
+[4526.54s] SPEAKER_03: Talk to him
+[4527.82s] SPEAKER_03: Talk to him
+[4529.34s] SPEAKER_04: Please, what happens? Tell me
+[4531.86s] SPEAKER_03: Shit
+[4533.62s] UNKNOWN: Dammit
+[4534.62s] UNKNOWN: What happened?
+[4560.77s] SPEAKER_04: All the three of you were born in the same house
+[4566.78s] SPEAKER_04: Please
+[4567.78s] SPEAKER_02: Did you get a chance to meet him?
+[4570.64s] SPEAKER_03: And whenever I met him, he was alone
+[4573.08s] SPEAKER_03: I always came here
+[4574.76s] SPEAKER_03: What was that pic?
+[4575.84s] SPEAKER_03: Where was Megna with us?
+[4577.80s] SPEAKER_03: How can you forget?
+[4579.24s] SPEAKER_03: Your charity of fires made fuel out of fuel
+[4582.32s] SPEAKER_03: And I
+[4583.36s] SPEAKER_04: I was the result of asking for one hour
+[4586.68s] SPEAKER_02: Anyway, the point is
+[4588.16s] SPEAKER_02: Jay and Megna were behaving like this
+[4590.60s] SPEAKER_02: Like this, no one else
+[4592.48s] UNKNOWN: I will meet someone again
+[4889.22s] SPEAKER_00: Jay, do you miss me?
+[4891.74s] UNKNOWN: Of course not
+[4893.60s] SPEAKER_05: We meet each other
+[4895.75s] UNKNOWN: Yes
+[4896.86s] SPEAKER_05: Today, Megna is always with us
+[4902.94s] SPEAKER_00: Not like this
+[4905.09s] SPEAKER_04: Just forget all the other things
+[4910.64s] SPEAKER_05: Jay, I miss you so much
+[4913.83s] SPEAKER_04: I am so proud of you
+[4915.47s] UNKNOWN: That you were the first one
+[4969.54s] SPEAKER_05: No, sir, thank you
+[4970.94s] UNKNOWN: Hey, how is this a fight?
+[4975.77s] SPEAKER_04: Hey, do you have a drink with your enemy?
+[4978.57s] UNKNOWN: Yes
+[4980.98s] SPEAKER_04: My char drink is down
+[4982.58s] SPEAKER_04: And you will get a glass of water
+[4985.10s] SPEAKER_04: Come on, let's go
+[4986.82s] SPEAKER_00: Let's go
+[4987.82s] SPEAKER_04: Papa, what did you promise today?
+[4990.30s] SPEAKER_04: You will drink less and we will eat soon
+[4992.26s] SPEAKER_05: Do you believe your papa's promises?
+[4996.19s] SPEAKER_04: Silly girl
+[4997.51s] UNKNOWN: Don't call her a silly girl
+[5001.47s] SPEAKER_05: You silly woman?
+[5003.86s] UNKNOWN: Hmm
+[5005.41s] SPEAKER_05: You are also trying to promise me
+[5008.33s] SPEAKER_04: That one day you won't hurt your head
+[5011.22s] SPEAKER_05: One day
+[5012.70s] SPEAKER_00: I still believe
+[5014.58s] SPEAKER_04: Then
+[5015.58s] SPEAKER_00: Papa, stop making fun of my mom
+[5018.67s] SPEAKER_04: No, dear, don't say it
+[5021.23s] SPEAKER_04: This is the same entertainment in my life
+[5024.71s] SPEAKER_00: There is no one in this house
+[5027.28s] SPEAKER_05: In the evening, these things start
+[5030.89s] UNKNOWN: Yes, that's right
+[5033.25s] SPEAKER_05: I am the clown
+[5035.84s] SPEAKER_00: I am the clown, everybody laugh at me
+[5038.14s] SPEAKER_04: Come on Jay, laugh
+[5040.46s] UNKNOWN: You don't laugh at me
+[5043.90s] SPEAKER_00: My wife will like it
+[5045.46s] SPEAKER_04: You have no problem
+[5046.66s] SPEAKER_04: Okay, okay
+[5048.14s] SPEAKER_04: Stop it, you too
+[5049.34s] SPEAKER_00: Dad, that's our deal
+[5051.34s] UNKNOWN: Okay
+[5057.11s] SPEAKER_05: Don't worry Jay
+[5058.31s] SPEAKER_00: We are only 5 now
+[5060.31s] SPEAKER_04: He is fine
+[5062.57s] SPEAKER_00: Shambhu, please eat
+[5065.01s] SPEAKER_04: Drink it now
+[5066.62s] UNKNOWN: Mahesh
+[5081.51s] SPEAKER_04: Dad, you eat less and you play more
+[5085.27s] UNKNOWN: He is so funny
+[5088.63s] SPEAKER_00: How do you like the food?
+[5090.55s] UNKNOWN: Hmm
+[5091.81s] SPEAKER_04: It's excellent, aunty
+[5093.21s] UNKNOWN: Please call Mishira
+[5096.17s] SPEAKER_04: Hello
+[5097.17s] SPEAKER_05: Don't fight with the kids
+[5100.42s] UNKNOWN: Shila
+[5102.28s] SPEAKER_04: Is she your daughter's boyfriend?
+[5106.04s] SPEAKER_05: Do you want to talk to her?
+[5108.36s] SPEAKER_05: Yes, mom
+[5109.36s] SPEAKER_05: No flirting with my boyfriend
+[5111.36s] SPEAKER_05: Besides, all the members of our club have crush on you
+[5114.68s] SPEAKER_04: He is mine
+[5115.68s] UNKNOWN: All mine
+[5118.00s] SPEAKER_01: Ah
+[5120.79s] SPEAKER_04: The day when you were young
+[5122.79s] UNKNOWN: When you were in love
+[5126.85s] SPEAKER_01: Love
+[5128.20s] SPEAKER_05: Is for the young
+[5131.80s] SPEAKER_05: When you get married
+[5133.80s] SPEAKER_05: You will be able to play another game
+[5136.18s] SPEAKER_01: And if you don't want to play
+[5138.18s] SPEAKER_04: You should learn to ignore
+[5140.18s] SPEAKER_04: Mahesh
+[5141.18s] UNKNOWN: How funny
+[5142.18s] UNKNOWN: You are so cute
+[5147.67s] UNKNOWN: So, did you like the food?
+[5149.86s] UNKNOWN: Yeah
+[5151.44s] UNKNOWN: How do you like mom?
+[5154.66s] UNKNOWN: It's good
+[5156.14s] SPEAKER_01: They are really nice
+[5158.26s] SPEAKER_05: They are gorgeous
+[5160.26s] UNKNOWN: They don't care
+[5162.74s] SPEAKER_05: But they can't stay for a second
+[5166.13s] SPEAKER_01: Sometimes you look at me and look at me
+[5169.67s] UNKNOWN: I am so sick
+[5174.71s] UNKNOWN: Rufi, baby, come out
+[5194.50s] SPEAKER_05: Baby, come to mommy
+[5198.26s] UNKNOWN: Rufi
+[5199.78s] UNKNOWN: What are you doing here?
+[5204.34s] SPEAKER_05: You are giving it to me
+[5205.34s] UNKNOWN: Why?
+[5206.40s] SPEAKER_01: Are you three girlfriends?
+[5260.56s] SPEAKER_01: You two are so close
+[5261.56s] SPEAKER_05: Before you go out, you will see the time
+[5265.38s] SPEAKER_00: What is the matter?
+[5266.38s] UNKNOWN: Nothing just
+[5268.47s] UNKNOWN: I just want to do a issue
+[5274.12s] SPEAKER_00: Sorry, I can't stay in my body
+[5276.12s] UNKNOWN: Hey, meow
+[5278.27s] SPEAKER_05: Seriously sorry
+[5280.69s] UNKNOWN: You told me before
+[5285.89s] SPEAKER_01: You are late today
+[5289.30s] UNKNOWN: I know
+[5291.00s] UNKNOWN: I am here
+[5294.62s] SPEAKER_01: Okay
+[5295.62s] UNKNOWN: Tomorrow
+[5296.66s] SPEAKER_05: I will be in full day
+[5298.66s] SPEAKER_05: I will come in the morning
+[5300.66s] SPEAKER_00: And I will come in the evening
+[5302.66s] UNKNOWN: We were together
+[5306.64s] SPEAKER_00: Because we were together
+[5308.64s] SPEAKER_00: This is not a duty or responsibility
+[5312.34s] UNKNOWN: So, please
+[5315.72s] SPEAKER_00: Sorry, KK
+[5316.72s] SPEAKER_01: Don't insult me
+[5319.20s] SPEAKER_04: You wanted to go to Meghana's house
+[5321.20s] SPEAKER_04: You went to Meghana's house?
+[5322.20s] UNKNOWN: Your parents didn't tell you
+[5327.69s] SPEAKER_00: They will have problems with each time
+[5329.69s] SPEAKER_04: Don't worry, I will find a total stud type girl
+[5336.31s] SPEAKER_04: You too can't find her
+[5337.31s] UNKNOWN: Dad, I don't want your sister-in-law
+[5341.74s] UNKNOWN: I can find a girl myself
+[5344.67s] UNKNOWN: In fact, I am meeting someone yesterday
+[5351.12s] SPEAKER_00: My father's son
+[5353.73s] UNKNOWN: So please, don't get hurt
+[5358.94s] UNKNOWN: That's great
+[5365.90s] SPEAKER_00: Congratulations
+[5368.16s] SPEAKER_01: I hope you like it
+[5369.16s] UNKNOWN: Thanks
+[5372.82s] SPEAKER_00: I will be late
+[5374.82s] UNKNOWN: Bloody stupid
+[5401.49s] SPEAKER_00: Why aren't you telling him?
+[5403.49s] SPEAKER_00: He was so angry
+[5405.49s] SPEAKER_00: That he is the only friend
+[5407.49s] SPEAKER_00: And he is the daughter of the dad
+[5408.49s] SPEAKER_00: He is the daughter of the son
+[5409.49s] SPEAKER_00: Yes
+[5410.49s] SPEAKER_00: Enta
+[5411.49s] SPEAKER_00: Sushant
+[5412.49s] SPEAKER_00: Moody
+[5413.49s] UNKNOWN: And
+[5414.55s] SPEAKER_04: Exactly what you want
+[5416.55s] UNKNOWN: I go to the office early in the morning
+[5426.17s] SPEAKER_04: I don't think so
+[5428.17s] SPEAKER_05: Your life is a long holiday
+[5430.17s] SPEAKER_05: Not a long holiday
+[5432.17s] SPEAKER_01: But a lot of small holidays
+[5434.17s] SPEAKER_04: And a lot of restaurants
+[5436.39s] SPEAKER_04: Because I love food
+[5438.87s] SPEAKER_00: And small parties
+[5440.97s] SPEAKER_01: Because I like to drink sometimes
+[5443.22s] SPEAKER_00: What do you like?
+[5445.54s] SPEAKER_00: Traveling
+[5446.54s] SPEAKER_00: Did you jump to the bench?
+[5447.54s] SPEAKER_00: Not yet
+[5448.54s] SPEAKER_05: The first vacation
+[5450.54s] SPEAKER_05: You started planning your life
+[5453.54s] SPEAKER_05: Relax, Dad
+[5455.54s] SPEAKER_01: Don't get married
+[5456.54s] SPEAKER_05: Go with your friends
+[5458.54s] UNKNOWN: Happy?
+[5463.48s] SPEAKER_05: Really?
+[5464.77s] SPEAKER_05: Or did I go to the studio?
+[5467.89s] SPEAKER_00: Let's just say
+[5470.14s] SPEAKER_01: I will not live with you
+[5472.82s] SPEAKER_05: I will not live with you
+[5476.13s] UNKNOWN: What?
+[5478.12s] UNKNOWN: Nothing
+[5483.89s] UNKNOWN: Ex-girlfriends?
+[5485.53s] SPEAKER_04: Not all
+[5486.53s] SPEAKER_04: I think
+[5487.53s] SPEAKER_00: Listen to me
+[5488.59s] UNKNOWN: Friends
+[5490.62s] UNKNOWN: Everything is your fault
+[5493.86s] UNKNOWN: I don't get it in 16 years
+[5497.66s] UNKNOWN: What?
+[5500.48s] UNKNOWN: Are you threatening me?
+[5504.59s] UNKNOWN: Chetavni, my foot
+[5506.94s] SPEAKER_01: Remember
+[5507.94s] SPEAKER_04: You have just been suspended for a week
+[5509.94s] SPEAKER_04: If you call again
+[5511.94s] SPEAKER_04: I will dismiss you
+[5513.94s] UNKNOWN: I understand
+[5515.81s] SPEAKER_01: Drunken jerk
+[5516.81s] SPEAKER_04: Inspector, call again
+[5518.81s] SPEAKER_04: Yeah, he is just
+[5520.81s] UNKNOWN: Come on, mom
+[5521.81s] SPEAKER_00: Funny?
+[5522.81s] UNKNOWN: Yes
+[5523.81s] SPEAKER_00: I have a glass of chullu
+[5524.81s] SPEAKER_00: And for that girl
+[5525.81s] SPEAKER_05: Mom, sit down
+[5527.81s] SPEAKER_00: Jai, I had called Aditya
+[5529.81s] UNKNOWN: Do?
+[5530.84s] SPEAKER_00: Do you want to take a mobile phone?
+[5534.93s] SPEAKER_01: I don't need it, mom
+[5536.96s] SPEAKER_05: I will take the phone
+[5538.96s] UNKNOWN: I know
+[5542.58s] SPEAKER_01: Did you call?
+[5543.58s] SPEAKER_01: Yes
+[5544.58s] SPEAKER_05: I was going to give you a good news
+[5546.10s] SPEAKER_00: Are you getting married?
+[5548.10s] UNKNOWN: Yes
+[5549.22s] UNKNOWN: I am engaged
+[5551.80s] UNKNOWN: Hey, that's great!
+[5556.78s] SPEAKER_05: Congratulations
+[5557.78s] UNKNOWN: Sushant
+[5559.78s] SPEAKER_01: Sushant Modi
+[5562.32s] UNKNOWN: Congratulations, man
+[5565.98s] SPEAKER_00: I wish you all the happiness in the world
+[5567.98s] SPEAKER_01: Thanks
+[5569.02s] UNKNOWN: Come on, I have to go
+[5571.02s] SPEAKER_00: Good night
+[5572.02s] SPEAKER_01: Right?
+[5573.02s] UNKNOWN: Yes
+[5581.31s] UNKNOWN: The interview is starting tomorrow
+[5585.36s] SPEAKER_01: So, it will be a good job for the marketing
+[5589.49s] SPEAKER_05: It will be fun
+[5590.49s] UNKNOWN: What are you eating?
+[5594.54s] UNKNOWN: Dupai, when are you going to sleep?
+[5597.69s] SPEAKER_05: Today, I am going to cook
+[5600.52s] SPEAKER_00: Tell me, what are you going to eat?
+[5602.94s] UNKNOWN: Samosa
+[5606.50s] UNKNOWN: Okay
+[5607.66s] SPEAKER_00: Mom, guess what?
+[5610.46s] SPEAKER_01: Aditya's engagement is over
+[5612.46s] UNKNOWN: Listen, man
+[5617.88s] UNKNOWN: Silly boy
+[5618.88s] UNKNOWN: Stop when you are happy
+[5627.27s] SPEAKER_05: We all think about it
+[5629.27s] SPEAKER_05: What is the problem?
+[5631.56s] SPEAKER_02: And his girlfriend, boss
+[5633.56s] SPEAKER_00: Very cute
+[5634.56s] UNKNOWN: Yes
+[5637.38s] SPEAKER_00: Yes, his plane takes two runs for the take-off
+[5640.38s] SPEAKER_02: What do you mean?
+[5641.38s] SPEAKER_00: He is a little slow
+[5645.88s] SPEAKER_01: What?
+[5647.49s] UNKNOWN: Anjya, that's it
+[5650.58s] SPEAKER_00: So, when are you going to meet everyone?
+[5652.58s] SPEAKER_01: After the wedding, I will definitely run away
+[5655.58s] UNKNOWN: Sushant, come here
+[5666.34s] UNKNOWN: Why?
+[5667.34s] SPEAKER_01: Just trust me
+[5668.34s] SPEAKER_02: Hey, dad, tell me
+[5670.34s] SPEAKER_00: Are you waiting for my friends?
+[5674.24s] SPEAKER_00: They are staring at me
+[5675.24s] SPEAKER_00: Yes
+[5676.24s] SPEAKER_00: They sit and sit on them
+[5678.24s] SPEAKER_01: Last time, I had started a business with them
+[5680.24s] SPEAKER_01: And I am sure this matter will also be a problem
+[5683.59s] SPEAKER_00: Problems?
+[5684.59s] SPEAKER_01: I will handle it
+[5686.59s] UNKNOWN: Okay
+[5738.09s] SPEAKER_00: Just two drinks
+[5741.10s] UNKNOWN: I am sorry
+[5743.80s] UNKNOWN: I should not call him
+[5751.30s] SPEAKER_02: He is getting angry
+[5752.30s] UNKNOWN: After two drinks, you can't handle him
+[5850.49s] SPEAKER_00: I was just trying to protect him
+[5855.01s] UNKNOWN: Which is like some wine
+[5889.45s] UNKNOWN: You are a mother
+[5893.78s] UNKNOWN: This is crazy
+[5899.58s] UNKNOWN: Aditya is getting married
+[5904.32s] UNKNOWN: What do you mean?
+[5905.32s] UNKNOWN: Let's go
+[5911.34s] SPEAKER_05: It's late
+[5912.34s] SPEAKER_05: Everybody must sleep now
+[5914.34s] SPEAKER_00: Dad, first we have to meet Sushant
+[5916.34s] SPEAKER_00: Talk to him
+[5917.34s] SPEAKER_02: What happened, dear?
+[5918.63s] SPEAKER_02: Then sometimes, we are anxious
+[5919.63s] SPEAKER_00: Aunty, I am absolutely fine
+[5921.63s] SPEAKER_02: Whenever I had to meet my friends
+[5923.63s] UNKNOWN: He says
+[5924.92s] SPEAKER_00: He says
+[5925.92s] SPEAKER_01: All the world is set up
+[5927.92s] UNKNOWN: So am it
+[5930.04s] SPEAKER_00: What do you do?
+[5931.04s] SPEAKER_01: Books
+[5932.04s] UNKNOWN: Do you listen to music?
+[5934.39s] SPEAKER_00: Do you watch movies?
+[5936.58s] SPEAKER_01: And work?
+[5937.58s] SPEAKER_02: Not at all
+[5938.58s] SPEAKER_00: Amir is one and only fighter
+[5940.68s] UNKNOWN: Hey Amit, it's a matter of the day
+[5942.68s] SPEAKER_00: Every man has to recognise himself
+[5944.87s] SPEAKER_02: Dear, he is painting
+[5947.87s] SPEAKER_00: He is named
+[5948.87s] UNKNOWN: Really?
+[5949.97s] UNKNOWN: An artist?
+[5951.03s] SPEAKER_00: Not really
+[5952.83s] UNKNOWN: But like this
+[5954.83s] SPEAKER_01: I will show you
+[5956.22s] SPEAKER_01: Sure
+[5957.22s] SPEAKER_01: Excuse me
+[5959.22s] UNKNOWN: Bloody hair?
+[5965.95s] SPEAKER_01: I have never seen such a beautiful room
+[5968.95s] SPEAKER_05: Amit, I beat for the room
+[5970.95s] SPEAKER_05: And I haven't even seen it yet
+[5972.95s] UNKNOWN: You know what?
+[5976.71s] SPEAKER_01: Sushant likes
+[5977.71s] UNKNOWN: He actually likes him
+[5985.77s] UNKNOWN: Sir, hats off
+[5987.77s] SPEAKER_00: Your son is a genius
+[5990.06s] SPEAKER_01: But who are these?
+[5991.06s] SPEAKER_01: You must be so proud of him
+[5993.34s] SPEAKER_01: Right?
+[5994.34s] SPEAKER_00: Giju
+[5995.34s] UNKNOWN: How sweet
+[5998.54s] UNKNOWN: Okay, I'll be off
+[6000.54s] SPEAKER_02: Good night Amir
+[6001.54s] UNKNOWN: Good night, Vita
+[6005.46s] SPEAKER_02: Thank you for the painting Amit
+[6006.46s] SPEAKER_02: Bye, Giju
+[6007.46s] UNKNOWN: Hey Sushant, give me the painting
+[6012.30s] UNKNOWN: Sushant is a good girl, right?
+[6017.99s] UNKNOWN: You haven't seen the room, right?
+[6024.16s] UNKNOWN: You are married to her?
+[6066.70s] SPEAKER_02: Aditi, listen carefully
+[6069.41s] SPEAKER_05: Sushant is not a good girl
+[6071.41s] SPEAKER_01: He is mean
+[6072.66s] SPEAKER_02: He is arrogant
+[6073.66s] SPEAKER_02: He is selfish
+[6074.66s] SPEAKER_00: He is not the only one who is responsible for himself
+[6077.08s] SPEAKER_01: What are you saying?
+[6081.01s] SPEAKER_00: You really don't know that you love Jai
+[6087.66s] SPEAKER_02: You can only be happy with him
+[6089.88s] SPEAKER_05: You stupid, stupid girl
+[6091.88s] SPEAKER_01: Amit, I don't think you like Jai
+[6094.91s] SPEAKER_01: I thought you hate him
+[6097.71s] SPEAKER_01: Of course I hate him
+[6098.71s] SPEAKER_05: I thought my parents thought
+[6100.71s] SPEAKER_05: Kashamara was my son
+[6102.71s] SPEAKER_01: My sister
+[6104.16s] SPEAKER_02: Who was my best friend
+[6106.16s] SPEAKER_05: She started to know more
+[6108.16s] UNKNOWN: Of course I hate him
+[6110.25s] SPEAKER_01: And the worst part
+[6111.25s] SPEAKER_02: I know why
+[6114.08s] SPEAKER_00: Because he
+[6115.08s] UNKNOWN: He is very good
+[6118.07s] UNKNOWN: He knows
+[6125.73s] SPEAKER_00: But he likes Meghna
+[6131.06s] SPEAKER_01: And I am marrying Sushant
+[6133.61s] SPEAKER_01: No
+[6134.61s] UNKNOWN: Aditi, Jai wants you
+[6141.51s] SPEAKER_01: Maybe he doesn't understand this thing
+[6144.06s] SPEAKER_01: Like you don't understand
+[6147.05s] SPEAKER_03: You do amend for each other
+[6149.05s] UNKNOWN: It's difficult, man
+[6155.24s] SPEAKER_01: It's a super interview
+[6156.24s] SPEAKER_01: Don't do this, man
+[6158.24s] SPEAKER_01: My surprise birthday party
+[6162.42s] SPEAKER_02: Aditi, why aren't you coming?
+[6163.42s] SPEAKER_02: It's a party of Sushant's friend
+[6165.42s] SPEAKER_02: It's a party
+[6166.42s] SPEAKER_01: Let me see
+[6167.42s] SPEAKER_02: I will be 100% sure
+[6170.15s] UNKNOWN: What did you say, man?
+[6176.34s] SPEAKER_01: What did you say?
+[6177.34s] UNKNOWN: Tell me if you need oil
+[6195.89s] UNKNOWN: Okay
+[6197.43s] UNKNOWN: So tell me
+[6199.94s] SPEAKER_02: About your past
+[6201.94s] SPEAKER_03: What past?
+[6204.10s] SPEAKER_01: You know
+[6205.10s] SPEAKER_01: Be boyfriend, be fresh
+[6207.10s] SPEAKER_01: Be a fair
+[6208.10s] SPEAKER_03: Sushant, please
+[6210.13s] UNKNOWN: Hey
+[6211.19s] SPEAKER_01: What's the matter with Sharmani?
+[6213.19s] SPEAKER_02: Everybody has a past
+[6215.48s] SPEAKER_03: You never said a good thing
+[6219.11s] UNKNOWN: You never said a good thing
+[6221.11s] SPEAKER_02: When you told him
+[6223.11s] UNKNOWN: He went to the teacher
+[6225.53s] SPEAKER_02: And in your group
+[6227.91s] SPEAKER_03: You didn't have a friend
+[6230.01s] SPEAKER_01: Who likes you more than others
+[6232.01s] UNKNOWN: Sushant, what's your problem?
+[6236.44s] SPEAKER_02: For your girlfriends
+[6238.44s] SPEAKER_02: You have a bond with each other
+[6240.44s] SPEAKER_00: And for me
+[6241.44s] SPEAKER_00: About my friends
+[6244.46s] UNKNOWN: Yes
+[6247.19s] SPEAKER_02: A special friend
+[6249.48s] SPEAKER_03: His name is Jai
+[6251.67s] SPEAKER_00: And we were so busy
+[6252.67s] SPEAKER_00: that everyone thought
+[6253.67s] UNKNOWN: Hush
+[6258.10s] UNKNOWN: You?
+[6259.84s] SPEAKER_03: You?
+[6260.84s] SPEAKER_01: And what was your friendship
+[6262.97s] SPEAKER_02: Oh God, no
+[6265.42s] SPEAKER_03: Did he get a good one?
+[6267.58s] SPEAKER_00: Everything is over in my life
+[6270.58s] UNKNOWN: And also his girlfriend
+[6279.91s] SPEAKER_03: Hi Sushant
+[6280.91s] UNKNOWN: Hey Richard
+[6282.81s] UNKNOWN: How are you doing, Wait
+[6287.08s] UNKNOWN: I am doing good
+[6291.86s] SPEAKER_01: That's my boyfriend
+[6295.86s] SPEAKER_01: Sushant
+[6296.86s] SPEAKER_03: Boyfriend, huh?
+[6299.78s] SPEAKER_01: Congratulations
+[6300.78s] UNKNOWN: तोद्यों नहेवं वद़ादे Lotus
+[6307.13s] SPEAKER_02: सिषना हे प्राश्व लिंड़ लिम ज़़े केशहाव लिंड़ नहें स्छ़ड लिंड़ लिंड़ लिंड़ लिड़़ लिंड़ं़ लिंड़ लिंचूग़्।
+[6312.45s] UNKNOWN: स्योटू है में आपके करे तो जरगं यश्व गासबगं है।
+[6316.94s] UNKNOWN: اچھا, ایک دانس, پورٹانسے,
+[6321.04s] SPEAKER_03: och come on,
+[6323.29s] SPEAKER_00: ہم ایک کیا ہم ایک کیا, ایک دانسے قترانے,
+[6325.79s] SPEAKER_02: come on, be a sport.
+[6326.99s] SPEAKER_03: you know, thank you shaman,
+[6328.49s] SPEAKER_03: ہم ایک چلنا چاہیے.
+[6329.79s] SPEAKER_01: ایک میں نے,
+[6331.74s] SPEAKER_02: be a dance yaar.
+[6333.44s] SPEAKER_03: آ چھوٹ,
+[6337.10s] SPEAKER_01: شلمار بیٹھے,
+[6338.99s] SPEAKER_02: تو قلائے,
+[6339.99s] SPEAKER_02: میں سالو سےیں.
+[6340.99s] SPEAKER_02: تو کیا ہے اور کچھے ہے,
+[6342.19s] SPEAKER_02: اسم مجھے کچھ مجھے چیسٹے ہیں.
+[6343.49s] SPEAKER_02: آت چھوٹ,
+[6347.06s] SPEAKER_01: go to hell man,
+[6348.06s] UNKNOWN: really sorry man,
+[6376.62s] SPEAKER_02: میں نشے میں تھا.
+[6378.22s] SPEAKER_00: تو گاڑی مجھے چلانے تو,
+[6379.42s] SPEAKER_00: please.
+[6379.92s] SPEAKER_00: اب دیکھا.
+[6380.72s] UNKNOWN: آئی آجگی,
+[6388.79s] SPEAKER_01: دے رو گئی ہے گھر جارے.
+[6390.79s] SPEAKER_03: آکان جگی,
+[6393.47s] SPEAKER_01: جگی, stop it.
+[6396.48s] SPEAKER_02: بعد میں بات کرتے,
+[6397.48s] SPEAKER_03: good night.
+[6400.38s] SPEAKER_01: کیا ہوا?
+[6402.53s] SPEAKER_02: میر تو اس کی گھر میں پاتی تھے.
+[6404.23s] SPEAKER_03: تو چلو نہ,
+[6406.01s] SPEAKER_01: تمہیں دوستہ سے ملکات بھی ہو جائے گی.
+[6408.01s] SPEAKER_01: چھوڑنا سشان,
+[6409.01s] SPEAKER_01: ay,
+[6409.71s] SPEAKER_01: come on.
+[6410.94s] SPEAKER_03: ay yo shamed of me.
+[6412.77s] SPEAKER_01: tell me,
+[6413.57s] SPEAKER_02: ay yo shamed of me.
+[6414.57s] SPEAKER_02: سشانت,
+[6415.87s] SPEAKER_03: مجھے جانہے,
+[6417.26s] SPEAKER_01: بتاو کہا ہے?
+[6419.91s] SPEAKER_02: پیاروں پیار.
+[6423.52s] SPEAKER_03: جائے ہوگا مہاں?
+[6425.85s] SPEAKER_01: پہتا ہے.
+[6427.67s] UNKNOWN: ایک ہو روٹلوں,
+[6448.29s] SPEAKER_02: میں تو انسکیاروں رہاں.
+[6487.82s] UNKNOWN: جیہ سشان.
+[6491.38s] SPEAKER_03: حافیان سے.
+[6492.64s] UNKNOWN: جان تھاں.
+[6494.41s] SPEAKER_02: پیم رجلیشنس.
+[6496.20s] SPEAKER_03: Thank you.
+[6498.14s] SPEAKER_01: تو,
+[6499.30s] SPEAKER_01: تمہ رہ دیتی کالجمت چھے دوستے رہاں, right?
+[6504.59s] SPEAKER_03: اب پیھیں.
+[6508.21s] SPEAKER_01: ہمیں شرے گے.
+[6510.21s] UNKNOWN: میکنہ?
+[6513.10s] SPEAKER_01: سشانت.
+[6514.10s] SPEAKER_01: سشانت,
+[6514.60s] SPEAKER_01: this is make-up.
+[6515.10s] SPEAKER_01: Hi.
+[6515.60s] SPEAKER_01: Ladies.
+[6517.50s] SPEAKER_03: you are truly beautiful.
+[6519.50s] SPEAKER_00: I'm cute.
+[6520.50s] SPEAKER_00: کیا لوگے?
+[6521.50s] SPEAKER_00: سوسانت.
+[6523.49s] SPEAKER_02: small whisky.
+[6524.49s] SPEAKER_03: on the rocks.
+[6525.49s] SPEAKER_01: sushant.
+[6526.99s] SPEAKER_02: relax.
+[6531.56s] SPEAKER_00: sushant,
+[6532.06s] SPEAKER_00: کیا سوجے گا?
+[6532.56s] SPEAKER_00: کیا سے دوکھی دوستے آدیتی کے?
+[6534.56s] SPEAKER_00: come on,
+[6535.06s] SPEAKER_00: everybody on the floor.
+[6536.56s] SPEAKER_02: jai.
+[6537.56s] SPEAKER_03: tu bhi.
+[6538.56s] SPEAKER_01: come sushant.
+[6539.69s] UNKNOWN: no thanks.
+[6541.65s] SPEAKER_01: I don't dance.
+[6543.65s] SPEAKER_01: what happened sushant?
+[6544.65s] SPEAKER_02: کچھ دے پہلے بات نچنے کے مورد میں تھے?
+[6548.06s] UNKNOWN: come on,
+[6550.02s] UNKNOWN: let's go.
+[6612.27s] SPEAKER_01: this one's for you.
+[6613.27s] UNKNOWN: it's a school.
+[6762.75s] SPEAKER_03: I don't think this is make-up.
+[6764.10s] SPEAKER_03: it's for bed-cut,
+[6764.60s] SPEAKER_03: for an immediate class,
+[6765.10s] SPEAKER_03: I'm going to work everyday.
+[6766.60s] UNKNOWN: I know.
+[6781.40s] UNKNOWN: tell me, jai.
+[6791.00s] SPEAKER_01: it'll be like that you can't see any of these things.
+[6795.82s] SPEAKER_01: if you don't want to see them,
+[6797.82s] SPEAKER_03: I don't know.
+[6799.20s] SPEAKER_04: why are you talking about?
+[6802.00s] SPEAKER_02: forget it.
+[6803.93s] SPEAKER_03: I want to know.
+[6805.99s] UNKNOWN: let me play what's this.
+[6811.40s] UNKNOWN: everything.
+[6814.55s] UNKNOWN: okay?
+[6816.19s] SPEAKER_03: take your parents for example.
+[6817.19s] UNKNOWN: I'm sorry.
+[6818.19s] SPEAKER_03: but I don't think I can live without my friends.
+[6821.19s] UNKNOWN: I think I can live without my friends.
+[6822.32s] SPEAKER_02: Shara!
+[6823.32s] UNKNOWN: Shara!
+[6826.56s] UNKNOWN: I was just standing by a woman.
+[6850.19s] SPEAKER_04: if I knew,
+[6851.19s] SPEAKER_02: she would have left the house.
+[6854.34s] SPEAKER_03: back then,
+[6855.34s] UNKNOWN: only for me.
+[6858.80s] SPEAKER_03: every day,
+[6859.80s] SPEAKER_03: I would have come to live.
+[6862.57s] SPEAKER_02: I would have killed one of them.
+[6864.64s] UNKNOWN: yes, I would have.
+[6867.72s] SPEAKER_04: I was alone in my room,
+[6869.75s] UNKNOWN: but I wouldn't have done anything.
+[6875.46s] SPEAKER_03: what would I have done?
+[6877.78s] SPEAKER_04: what would I have done?
+[6878.78s] UNKNOWN: what would I have done?
+[6882.12s] UNKNOWN: she was sad.
+[6884.82s] SPEAKER_03: because of me.
+[6885.82s] UNKNOWN: every moment.
+[6888.00s] UNKNOWN: I have to see and understand.
+[6896.88s] SPEAKER_03: I believe you.
+[6900.48s] SPEAKER_03: she is very happy.
+[6901.48s] SPEAKER_04: and I love her very much.
+[6903.48s] UNKNOWN: and the world is perfect.
+[6908.02s] UNKNOWN: Meghna,
+[6910.81s] UNKNOWN: this is the only thing.
+[6912.58s] UNKNOWN: is that we should stop the eyes.
+[6914.68s] SPEAKER_03: and think that if we can't see the world.
+[6917.68s] SPEAKER_04: then we can't see the world.
+[6920.32s] UNKNOWN: maybe,
+[6922.34s] SPEAKER_02: maybe I have stopped my eyes.
+[6924.66s] SPEAKER_02: and yes,
+[6925.88s] UNKNOWN: I have to see the truth one day.
+[6928.52s] UNKNOWN: please do me a favor.
+[6932.73s] UNKNOWN: before that,
+[6934.18s] SPEAKER_02: don't try to open my eyes.
+[6936.18s] UNKNOWN: I'm not ready.
+[6939.48s] SPEAKER_04: okay?
+[6940.48s] UNKNOWN: go ahead.
+[6942.57s] UNKNOWN: Jai?
+[6945.84s] UNKNOWN: what happened?
+[6967.08s] UNKNOWN: nothing.
+[6970.38s] UNKNOWN: what happened?
+[6981.56s] UNKNOWN: Aditi was here.
+[6993.48s] UNKNOWN: she came for a while.
+[6996.50s] UNKNOWN: she came for a while.
+[7063.11s] SPEAKER_04: no, thanks auntie.
+[7064.11s] UNKNOWN: how are you?
+[7069.81s] SPEAKER_03: Jai,
+[7070.81s] UNKNOWN: I think you love Aditi very much.
+[7076.85s] UNKNOWN: and frankly,
+[7079.61s] SPEAKER_04: you both are perfect for each other.
+[7082.19s] UNKNOWN: Jai,
+[7084.66s] SPEAKER_03: you shouldn't marry Aditi.
+[7087.46s] UNKNOWN: and Jai,
+[7104.81s] UNKNOWN: I knew you were so serious.
+[7108.54s] UNKNOWN: I'm really sorry.
+[7111.47s] UNKNOWN: sorry, Baba.
+[7113.11s] UNKNOWN: no,
+[7117.47s] UNKNOWN: I'm sorry.
+[7119.82s] SPEAKER_02: you told me the truth.
+[7122.43s] SPEAKER_03: I love Aditi.
+[7125.87s] UNKNOWN: no, it's okay.
+[7144.86s] UNKNOWN: I know.
+[7151.56s] UNKNOWN: Jai,
+[7153.39s] UNKNOWN: what's this?
+[7166.04s] SPEAKER_03: she must have been shattered, right?
+[7168.04s] SPEAKER_03: shattered and smashed.
+[7170.04s] SPEAKER_03: that night,
+[7171.04s] SPEAKER_03: she went out with that friend.
+[7173.04s] SPEAKER_05: you know?
+[7174.55s] SPEAKER_05: yes.
+[7175.55s] SPEAKER_03: and there,
+[7176.55s] SPEAKER_04: she met Aditi and Sushan.
+[7179.55s] SPEAKER_05: yes.
+[7180.55s] SPEAKER_02: she told him
+[7181.55s] SPEAKER_02: she was talking about Aditi and Sushan.
+[7183.55s] SPEAKER_02: sorry.
+[7184.55s] SPEAKER_04: Aditi went to America for two weeks.
+[7186.55s] SPEAKER_04: she got visa too.
+[7188.55s] SPEAKER_04: yes.
+[7189.55s] SPEAKER_04: everyone doesn't get it.
+[7190.55s] SPEAKER_02: but she didn't have anything else there.
+[7193.84s] UNKNOWN: why?
+[7195.67s] UNKNOWN: in New York University,
+[7199.36s] SPEAKER_03: there is a filmmaking course.
+[7201.36s] SPEAKER_04: if you think about it,
+[7203.36s] SPEAKER_04: look at the details of it.
+[7205.58s] UNKNOWN: you can apply for the course.
+[7210.65s] SPEAKER_04: how much is the course?
+[7211.65s] UNKNOWN: 3 years.
+[7213.04s] UNKNOWN: thank you.
+[7218.61s] UNKNOWN: after you get married,
+[7226.98s] SPEAKER_04: you don't want to live in New York for 3 years.
+[7228.98s] SPEAKER_02: actually, Sushan,
+[7230.98s] SPEAKER_02: I was thinking,
+[7231.98s] SPEAKER_04: if you could do the course first,
+[7233.98s] SPEAKER_04: I mean, I'm just 21.
+[7236.62s] SPEAKER_04: what's the hurry to get married?
+[7238.62s] UNKNOWN: I make, right?
+[7245.48s] SPEAKER_03: yes, Aditi.
+[7246.48s] SPEAKER_04: how are you?
+[7247.57s] SPEAKER_04: I'm fine.
+[7248.57s] UNKNOWN: where is Jaya?
+[7250.89s] SPEAKER_03: don't you know?
+[7251.99s] SPEAKER_04: I'm not with Jaya.
+[7256.65s] SPEAKER_05: I'm sorry.
+[7257.65s] UNKNOWN: come on.
+[7258.65s] UNKNOWN: what happened?
+[7261.32s] SPEAKER_03: the whole world is sorry.
+[7264.58s] UNKNOWN: the one who is in love with you.
+[7278.20s] UNKNOWN: who was talking about her?
+[7290.86s] UNKNOWN: you two were wrong.
+[7305.78s] SPEAKER_02: right?
+[7306.78s] SPEAKER_02: you two wanted to get married to your parents.
+[7310.96s] SPEAKER_02: so?
+[7311.96s] SPEAKER_02: what happened to you?
+[7316.46s] SPEAKER_04: did you do it?
+[7318.74s] SPEAKER_04: that's it.
+[7319.80s] SPEAKER_04: I'm leaving.
+[7321.00s] SPEAKER_02: don't try to ignore me.
+[7323.00s] SPEAKER_02: don't leave me, Sushan.
+[7325.51s] SPEAKER_02: I'm scared.
+[7327.31s] SPEAKER_02: you're getting me, Aditi.
+[7328.31s] UNKNOWN: just tell me.
+[7332.13s] SPEAKER_03: did you love me?
+[7334.77s] SPEAKER_04: tell me, Aditi.
+[7337.48s] UNKNOWN: just tell me once.
+[7340.56s] SPEAKER_02: I promise you,
+[7341.56s] SPEAKER_02: I'll never leave this topic.
+[7342.56s] SPEAKER_04: just once.
+[7344.56s] UNKNOWN: I love you.
+[7350.81s] UNKNOWN: you know, right?
+[7362.98s] UNKNOWN: answer me Aditi.
+[7367.22s] SPEAKER_04: now you love me, right?
+[7368.22s] UNKNOWN: yes, like me.
+[7417.97s] SPEAKER_04: just look at chance.
+[7418.97s] UNKNOWN: you went home.
+[7420.52s] SPEAKER_03: you didn't know where your parents are.
+[7422.90s] UNKNOWN: you went home in the morning.
+[7424.25s] SPEAKER_03: you called everyone.
+[7425.25s] SPEAKER_03: didn't you know anyone?
+[7426.25s] SPEAKER_05: I forgot about the phone.
+[7429.08s] UNKNOWN: it's good that you got it.
+[7430.95s] SPEAKER_04: I got a chance to say bye.
+[7434.01s] SPEAKER_04: I'm going to America today.
+[7436.01s] UNKNOWN: and if you don't get it?
+[7438.87s] SPEAKER_04: it's just a holiday, Rad.
+[7441.76s] SPEAKER_05: I'll go back in two or three weeks.
+[7443.76s] SPEAKER_03: you're going for three years, right?
+[7446.50s] SPEAKER_04: what three years, Rad?
+[7448.63s] SPEAKER_05: and why you made mission halwa?
+[7450.63s] UNKNOWN: what's the matter now?
+[7455.32s] UNKNOWN: something's wrong.
+[7457.15s] UNKNOWN: why are you going?
+[7459.44s] UNKNOWN: it's just a matter of time.
+[7465.36s] UNKNOWN: what happened with Sushan?
+[7467.48s] UNKNOWN: I don't have a problem with you.
+[7471.46s] SPEAKER_02: you're broke up with him for three years.
+[7476.22s] UNKNOWN: yes, I broke up with him.
+[7480.31s] SPEAKER_03: don't think I'm ready for the Shadi business.
+[7483.85s] SPEAKER_05: why didn't you tell me?
+[7485.92s] SPEAKER_03: you didn't tell me.
+[7488.49s] SPEAKER_04: about your and Meghna?
+[7490.49s] UNKNOWN: terrible.
+[7492.61s] SPEAKER_02: did you make a wrong girl for yourself?
+[7495.16s] SPEAKER_02: and you made a wrong girl for yourself?
+[7498.18s] SPEAKER_04: I'm just to messed up, Rath.
+[7500.66s] SPEAKER_05: I think I need some time off.
+[7503.11s] SPEAKER_03: you're running away?
+[7504.11s] UNKNOWN: Aditi Mahand.
+[7508.76s] SPEAKER_05: Kaali Billi.
+[7509.76s] SPEAKER_03: the ultimate fighter.
+[7512.40s] SPEAKER_04: is running away.
+[7513.40s] SPEAKER_05: yes, I'm running away, Rath.
+[7515.40s] UNKNOWN: and you know what?
+[7517.92s] UNKNOWN: sometimes it's all with you.
+[7524.01s] UNKNOWN: what happened?
+[7527.06s] SPEAKER_03: nothing.
+[7528.06s] UNKNOWN: who did it?
+[7531.76s] SPEAKER_05: didn't you calm down?
+[7533.17s] SPEAKER_03: did you bring him here?
+[7534.17s] SPEAKER_04: I didn't tell you anything.
+[7536.33s] UNKNOWN: I was playing with him.
+[7540.48s] SPEAKER_04: I told you.
+[7541.48s] SPEAKER_03: I hit him a lot.
+[7543.51s] UNKNOWN: you're right.
+[7547.97s] SPEAKER_05: I'll call you.
+[7550.93s] UNKNOWN: uncle, are you at home?
+[7574.31s] SPEAKER_02: yes.
+[7575.31s] SPEAKER_04: I'm Aditi's friend.
+[7576.69s] SPEAKER_04: yes.
+[7577.69s] UNKNOWN: son, come.
+[7578.95s] UNKNOWN: please.
+[7580.52s] SPEAKER_03: son, I just don't understand.
+[7582.52s] SPEAKER_04: maybe you can explain to both of them.
+[7584.81s] SPEAKER_05: son, I'll call you.
+[7586.81s] SPEAKER_03: please.
+[7588.04s] SPEAKER_04: thank you.
+[7589.04s] SPEAKER_05: I'll call you.
+[7590.04s] UNKNOWN: listen.
+[7595.55s] SPEAKER_03: I met Aditi's friend.
+[7597.64s] SPEAKER_04: will you come down?
+[7598.64s] UNKNOWN: son, what's your name?
+[7603.28s] SPEAKER_04: Jay.
+[7604.56s] SPEAKER_05: Jay is here.
+[7605.56s] UNKNOWN: okay.
+[7606.69s] UNKNOWN: uncle.
+[7609.77s] UNKNOWN: yes.
+[7610.77s] SPEAKER_02: can I talk to Sushant?
+[7612.77s] SPEAKER_02: yes.
+[7613.77s] UNKNOWN: sure.
+[7614.77s] UNKNOWN: what are you doing here?
+[7633.53s] SPEAKER_05: did you bring Aditi's hand?
+[7636.91s] UNKNOWN: why did you bring Aditi's hand?
+[7650.61s] UNKNOWN: I don't know.
+[7657.76s] SPEAKER_04: it's fun.
+[7658.76s] SPEAKER_03: I'll take care of you.
+[7661.56s] UNKNOWN: you don't have to take care of Aditi.
+[7667.18s] UNKNOWN: he took care of Aditi.
+[7734.68s] SPEAKER_04: I'm going to Aditi.
+[7735.68s] UNKNOWN: I swear.
+[7745.90s] SPEAKER_04: please.
+[7748.63s] SPEAKER_04: I know.
+[7749.69s] SPEAKER_05: will you talk to me later?
+[7750.69s] UNKNOWN: please.
+[7752.20s] SPEAKER_00: I want to go to Aditi.
+[7753.20s] UNKNOWN: I want to stop her.
+[7756.87s] SPEAKER_04: I want to go to her.
+[7757.87s] SPEAKER_04: mom.
+[7758.87s] UNKNOWN: I love her.
+[7767.90s] UNKNOWN: dad, what will you do?
+[7768.90s] SPEAKER_05: you won't get a bus taxi after 12 o'clock.
+[7771.90s] SPEAKER_05: okay.
+[7772.90s] SPEAKER_04: I'll go.
+[7773.90s] UNKNOWN: this will never happen to you.
+[7779.16s] UNKNOWN: never.
+[7781.19s] SPEAKER_04: I promise.
+[7782.19s] SPEAKER_05: then go and get her.
+[7783.35s] UNKNOWN: day two.
+[7792.52s] SPEAKER_03: happy day two.
+[7795.67s] SPEAKER_05: today is my happy day.
+[7799.81s] UNKNOWN: you are my dear.
+[7802.19s] SPEAKER_03: my dear brother.
+[7805.72s] UNKNOWN: shit.
+[7810.54s] SPEAKER_00: inspector Wabmaray.
+[7812.54s] SPEAKER_04: but how?
+[7813.54s] SPEAKER_05: Sushant's dad.
+[7816.47s] SPEAKER_05: he told me to go to Sushant's house
+[7819.14s] SPEAKER_05: and make a mistake.
+[7820.14s] SPEAKER_05: and what about the black bell?
+[7822.14s] SPEAKER_05: it's night.
+[7824.14s] SPEAKER_05: night.
+[7825.14s] SPEAKER_05: night.
+[7826.14s] SPEAKER_04: that means Jai is also here.
+[7828.75s] UNKNOWN: that means two shards are complete.
+[7835.26s] SPEAKER_00: inspector.
+[7836.26s] SPEAKER_04: please.
+[7837.26s] SPEAKER_04: I have only one coordinate.
+[7839.29s] SPEAKER_04: only one.
+[7840.29s] SPEAKER_00: how do I have to do it?
+[7842.61s] SPEAKER_04: do you know?
+[7843.61s] SPEAKER_05: if you call P.M.
+[7845.61s] SPEAKER_05: then you'll have to leave me.
+[7847.74s] SPEAKER_05: what?
+[7849.00s] SPEAKER_03: my birthday party.
+[7851.00s] SPEAKER_03: how do I have to go home?
+[7853.00s] SPEAKER_05: please.
+[7854.00s] SPEAKER_05: only one coordinate.
+[7855.00s] SPEAKER_00: after that, do whatever you want.
+[7857.00s] SPEAKER_04: do whatever you want.
+[7861.48s] SPEAKER_05: don't do this much.
+[7863.67s] SPEAKER_05: I'm confused.
+[7865.67s] UNKNOWN: here.
+[7867.21s] UNKNOWN: here.
+[7868.69s] SPEAKER_04: here.
+[7869.69s] SPEAKER_04: I was talking about the eyes of the poor.
+[7871.69s] SPEAKER_04: do you know how to say it twice?
+[7872.69s] UNKNOWN: hey!
+[7873.69s] UNKNOWN: come on.
+[7877.48s] SPEAKER_03: I heard that you are in the violent street.
+[7880.48s] UNKNOWN: okay.
+[7883.36s] SPEAKER_05: okay.
+[7884.75s] SPEAKER_00: okay.
+[7885.75s] SPEAKER_04: who will call you?
+[7887.75s] SPEAKER_05: my friend.
+[7889.75s] SPEAKER_00: my friend.
+[7892.26s] SPEAKER_04: my female friend.
+[7895.03s] SPEAKER_04: who will call you?
+[7896.03s] SPEAKER_04: just now.
+[7897.03s] SPEAKER_05: if I don't call you then
+[7899.03s] SPEAKER_05: he will go to America.
+[7900.03s] SPEAKER_05: and you won't go there?
+[7902.03s] SPEAKER_05: no.
+[7903.03s] UNKNOWN: why?
+[7904.03s] SPEAKER_04: because he loves me.
+[7906.03s] SPEAKER_05: but he doesn't want me to go there.
+[7908.03s] UNKNOWN: no.
+[7921.86s] SPEAKER_05: he won't talk to you.
+[7922.86s] SPEAKER_05: he will meet us there.
+[7923.86s] SPEAKER_05: police station.
+[7924.89s] SPEAKER_04: okay.
+[7925.89s] SPEAKER_05: then you should also call me.
+[7926.89s] SPEAKER_00: please.
+[7927.89s] SPEAKER_00: immediately.
+[7928.89s] UNKNOWN: listen.
+[7930.37s] UNKNOWN: you should go to cash.
+[7937.33s] SPEAKER_00: police gate.
+[7938.33s] SPEAKER_03: he will take all his money for my birthday party.
+[7942.71s] UNKNOWN: he will have a flight time.
+[7953.48s] UNKNOWN: mom.
+[7968.02s] SPEAKER_04: I have no other choice.
+[7969.02s] UNKNOWN: let's go.
+[7971.72s] UNKNOWN: how much flight will you have?
+[7983.13s] SPEAKER_04: your violent street.
+[7988.81s] SPEAKER_04: I told you that you are very dangerous.
+[7990.81s] SPEAKER_04: yes.
+[7991.81s] UNKNOWN: sir.
+[8005.13s] SPEAKER_04: they are in a hospital.
+[8008.80s] SPEAKER_04: and you have come to the house to report.
+[8010.80s] SPEAKER_04: your mom's birthday is okay.
+[8012.80s] UNKNOWN: yes.
+[8015.68s] SPEAKER_00: who will file the case?
+[8019.44s] SPEAKER_04: leave the warning.
+[8020.44s] SPEAKER_05: wait.
+[8021.44s] SPEAKER_05: wait.
+[8022.44s] SPEAKER_00: don't do this.
+[8023.44s] SPEAKER_03: you have started a big marriage.
+[8024.44s] SPEAKER_03: what?
+[8025.44s] SPEAKER_03: yes.
+[8026.44s] SPEAKER_04: tell me in the evening.
+[8027.44s] SPEAKER_04: warning.
+[8028.44s] SPEAKER_04: warning.
+[8029.44s] SPEAKER_04: come on.
+[8030.44s] UNKNOWN: come on.
+[8033.28s] SPEAKER_04: no.
+[8034.28s] SPEAKER_05: no.
+[8035.28s] UNKNOWN: you are studying here.
+[8036.63s] SPEAKER_00: okay.
+[8037.63s] UNKNOWN: yes.
+[8061.92s] UNKNOWN: you have seen this girl.
+[8076.40s] SPEAKER_04: who had made a fool.
+[8078.08s] SPEAKER_05: she is a fool.
+[8079.08s] UNKNOWN: she is an idiot.
+[8085.39s] SPEAKER_05: I agree.
+[8086.39s] SPEAKER_05: we both are very close to the intelligence.
+[8088.39s] SPEAKER_05: we are very close.
+[8090.39s] SPEAKER_04: we met hands.
+[8093.32s] UNKNOWN: please forgive us.
+[8097.65s] SPEAKER_00: you both are very happy in the lock-up.
+[8099.65s] SPEAKER_04: what is the matter?
+[8100.91s] UNKNOWN: what is your name?
+[8103.68s] SPEAKER_00: Jay.
+[8104.68s] SPEAKER_00: so Jay.
+[8105.68s] SPEAKER_05: the matter is that today we have become dead from both the boys.
+[8110.80s] SPEAKER_03: we are close to the family.
+[8112.80s] SPEAKER_03: we have to be dead.
+[8113.80s] SPEAKER_03: we have to complete the three steps.
+[8115.80s] SPEAKER_05: one.
+[8116.80s] SPEAKER_00: Kursavari.
+[8118.80s] SPEAKER_04: two.
+[8119.80s] SPEAKER_04: someone's father.
+[8120.80s] SPEAKER_04: and once Jay went to jail.
+[8123.41s] SPEAKER_05: Ranshwar's death.
+[8124.41s] SPEAKER_05: no.
+[8125.41s] SPEAKER_03: but how?
+[8126.64s] SPEAKER_03: why?
+[8127.64s] SPEAKER_03: Halu's father had become MLA.
+[8129.64s] SPEAKER_03: he was not arresting Ranshwar.
+[8131.64s] SPEAKER_03: and if he had killed someone
+[8133.64s] SPEAKER_03: he would have been arrested.
+[8136.64s] SPEAKER_03: he would have been arrested.
+[8139.80s] SPEAKER_05: the problem was that everyone was arrested.
+[8142.80s] SPEAKER_05: so we thought that we should go to Mumbai.
+[8145.80s] SPEAKER_04: if anyone knows about it,
+[8147.80s] SPEAKER_04: then we came to jail.
+[8149.80s] UNKNOWN: okay brother.
+[8152.53s] SPEAKER_05: Ranshwar was not going to be arrested.
+[8154.53s] UNKNOWN: Ranshwar.
+[8155.60s] SPEAKER_00: Ranshwar.
+[8156.60s] SPEAKER_04: in Ranshwar.
+[8157.60s] SPEAKER_05: why?
+[8158.69s] SPEAKER_05: my father's murder was from Ranshwar.
+[8161.76s] SPEAKER_04: is it?
+[8162.76s] SPEAKER_05: what's his name?
+[8163.76s] SPEAKER_05: Amar Singh Rathor.
+[8164.76s] UNKNOWN: you are Ranshwar's son.
+[8168.64s] SPEAKER_03: you are Ranshwar's son.
+[8170.64s] SPEAKER_03: like Ranshwar.
+[8171.64s] UNKNOWN: your father was..
+[8176.08s] SPEAKER_00: my childhood friend.
+[8178.08s] UNKNOWN: your mother's name is Savitri.
+[8182.52s] UNKNOWN: how do you know?
+[8185.24s] UNKNOWN: and how did he start to listen to his father?
+[8212.80s] SPEAKER_00: he says,
+[8214.05s] SPEAKER_00: he would have saved Jangli Swar from his hands.
+[8216.05s] SPEAKER_00: yes.
+[8217.05s] SPEAKER_00: and he would have saved two dead people in Ranshwar.
+[8219.05s] SPEAKER_00: the one who didn't kill Ranshwar
+[8221.05s] SPEAKER_00: who was Ranshwar.
+[8222.05s] SPEAKER_05: and what was his name?
+[8224.08s] SPEAKER_00: yes brother.
+[8225.08s] SPEAKER_00: what was his name?
+[8226.08s] SPEAKER_01: Nathep.
+[8227.08s] SPEAKER_01: alone.
+[8228.08s] SPEAKER_05: he was going to be arrested
+[8230.08s] SPEAKER_05: in the hands of the Batwal Khan.
+[8232.08s] SPEAKER_05: and he was going to be arrested.
+[8234.08s] UNKNOWN: wow.
+[8235.08s] SPEAKER_01: yes brother.
+[8236.21s] SPEAKER_04: Ranshwar's biggest crime was Amar Singh.
+[8238.21s] SPEAKER_05: yes.
+[8239.21s] SPEAKER_05: today also.
+[8240.21s] UNKNOWN: the name of the child's son.
+[8251.78s] SPEAKER_00: what happened?
+[8252.78s] UNKNOWN: I don't know.
+[8255.86s] SPEAKER_00: he was so angry with Hinsa.
+[8257.86s] UNKNOWN: I was so angry with Hinsa.
+[8260.66s] SPEAKER_00: I was so angry with Hinsa.
+[8261.66s] UNKNOWN: I was so angry with Hinsa.
+[8263.11s] SPEAKER_01: I was so angry with Hinsa.
+[8264.11s] SPEAKER_04: he was so angry with Hinsa.
+[8267.10s] SPEAKER_04: he was so angry with Hinsa.
+[8269.10s] SPEAKER_00: he was so angry with Hinsa.
+[8271.29s] SPEAKER_00: he was so angry with Hinsa.
+[8273.29s] SPEAKER_00: he was so angry with Hinsa.
+[8275.36s] SPEAKER_04: he was so angry with Hinsa.
+[8278.22s] UNKNOWN: what happened?
+[8281.05s] SPEAKER_01: nothing.
+[8283.31s] UNKNOWN: I am so worried.
+[8287.29s] SPEAKER_00: if you do my job,
+[8288.29s] SPEAKER_01: then tell me.
+[8289.29s] SPEAKER_05: I have to come out from here.
+[8291.55s] SPEAKER_00: but how did you come inside?
+[8293.55s] SPEAKER_01: to get someone to help you.
+[8295.96s] SPEAKER_04: oh my God!
+[8297.96s] SPEAKER_04: come out from here.
+[8299.96s] SPEAKER_04: if you come out from here,
+[8301.96s] SPEAKER_04: you will stop at night.
+[8304.16s] SPEAKER_00: my outside is very important.
+[8306.16s] UNKNOWN: otherwise, you will go away.
+[8311.48s] SPEAKER_04: come out from here.
+[8313.48s] UNKNOWN: hello.
+[8314.77s] UNKNOWN: yes, sir.
+[8315.93s] SPEAKER_01: you are mad, sir.
+[8317.00s] SPEAKER_05: no, sir.
+[8318.00s] SPEAKER_00: not at all, sir.
+[8320.32s] SPEAKER_01: yes, sir.
+[8321.32s] SPEAKER_05: now, sir.
+[8322.32s] SPEAKER_05: at this time, sir.
+[8323.32s] SPEAKER_00: ok, sir.
+[8324.32s] SPEAKER_01: yes, sir.
+[8325.32s] UNKNOWN: sir, sir.
+[8328.91s] SPEAKER_04: you are mad.
+[8330.91s] SPEAKER_04: if you want to get married,
+[8333.16s] SPEAKER_05: then give me a lock-up.
+[8335.16s] SPEAKER_00: and give me a jacket.
+[8337.20s] SPEAKER_00: report it, sir.
+[8339.20s] SPEAKER_05: so, why did you write it?
+[8341.36s] UNKNOWN: sorry, sir.
+[8343.61s] SPEAKER_05: yes, sir.
+[8344.61s] SPEAKER_00: give it to him.
+[8345.61s] UNKNOWN: sir.
+[8346.80s] SPEAKER_01: maybe.
+[8347.80s] SPEAKER_04: now, ask me.
+[8349.80s] SPEAKER_04: sir, before going, we will get tea.
+[8351.80s] SPEAKER_01: what?
+[8352.80s] SPEAKER_04: what we have talked about.
+[8354.80s] SPEAKER_04: what we have said is the same.
+[8356.84s] SPEAKER_00: and give me a jacket.
+[8359.12s] SPEAKER_00: sir, you?
+[8360.12s] SPEAKER_00: you will go to the stutter.
+[8364.08s] UNKNOWN: you are going to the stutter, son.
+[8371.20s] SPEAKER_00: go to the stutter.
+[8372.43s] SPEAKER_00: and come here.
+[8373.43s] SPEAKER_00: never take your hand on the stutter.
+[8375.43s] SPEAKER_05: its violence is very dangerous.
+[8378.91s] UNKNOWN: and come here.
+[8381.23s] UNKNOWN: you are doing your own thing.
+[8388.70s] SPEAKER_05: Savitriji told me hello.
+[8390.70s] UNKNOWN: thanks, hello, brother.
+[8395.07s] SPEAKER_00: thanks, brother.
+[8396.07s] SPEAKER_00: no problem, brother.
+[8397.07s] SPEAKER_00: you go.
+[8398.07s] UNKNOWN: stop.
+[8401.28s] SPEAKER_05: you are out of your mind.
+[8402.28s] SPEAKER_05: now, what should I do?
+[8403.28s] SPEAKER_05: why?
+[8404.28s] UNKNOWN: you have come to the stutter.
+[8405.37s] SPEAKER_00: you have come to the stutter.
+[8406.37s] UNKNOWN: you have come to the stutter.
+[8412.21s] SPEAKER_05: your friend is my brother.
+[8415.66s] UNKNOWN: you don't have to.
+[8422.24s] SPEAKER_05: come here.
+[8424.56s] SPEAKER_00: is it that которое of a prince is learnt by a mother?
+[8428.16s] UNKNOWN: go.
+[8430.16s] SPEAKER_00: save your love.
+[8432.16s] UNKNOWN: go.
+[8472.08s] UNKNOWN: she was not in good health.
+[8542.42s] SPEAKER_00: she was my husband's son.

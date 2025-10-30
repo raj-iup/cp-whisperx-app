@@ -1,0 +1,25 @@
+{
+  "corrections": [
+    {
+      "original": "Batwal Khan",
+      "corrected": "Ayaz Khan",
+      "type": "person",
+      "occurrences": 1,
+      "avg_confidence": 0.7
+    }
+  ],
+  "statistics": {
+    "segments_processed": 2242,
+    "segments_with_corrections": 1,
+    "total_corrections": 1,
+    "unique_corrections": 1,
+    "corrections_by_type": {
+      "person": 1
+    },
+    "threshold_used": 0.7
+  },
+  "config": {
+    "similarity_threshold": 0.7,
+    "enable_fuzzy_matching": true
+  }
+}

@@ -1,0 +1,214 @@
+# ============================================================================
+# Native MPS Pipeline - .gitignore
+# ============================================================================
+
+# Python cache and compiled files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pyz
+.Python
+
+# Virtual environments
+.venv/
+venv/
+.bollyenv/
+ENV/
+env/
+env.bak/
+venv.bak/
+
+# Native pipeline virtual environments
+native/venvs/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+!.env.template
+config/.env
+config/secrets.json
+secrets.json
+*.key
+*.pem
+
+# Input/Output directories (ignore contents but keep structure)
+logs/*
+!logs/.gitkeep
+in/*
+!in/.gitkeep
+out/*
+!out/.gitkeep
+temp/*
+!temp/.gitkeep
+tmp/
+native-mps-results/
+
+
+# Pipeline artifacts
+*.wav
+*.mp4
+*.mkv
+*.avi
+*.mov
+*.srt
+*.vtt
+*.json.bak
+*.json.tmp
+manifest.json.lock
+
+# Model cache and downloads
+models/
+.cache/
+*.pt
+*.pth
+*.onnx
+*.bin
+*.safetensors
+
+# Build and distribution
+build/
+dist/
+*.egg-info/
+*.egg
+*.whl
+.eggs/
+
+# Testing and type-checking caches
+.pytest_cache/
+.mypy_cache/
+.tox/
+.coverage
+.coverage.*
+htmlcov/
+.hypothesis/
+*.cover
+.cache
+nosetests.xml
+coverage.xml
+
+# Docker-specific
+docker/*.log
+docker/*/logs/
+*.dockerignore.tmp
+
+# IDE and editor settings
+.vscode/
+!.vscode/settings.json.example
+.idea/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# JetBrains IDEs
+.idea/
+*.iml
+*.iws
+*.ipr
+# Note: out/ directory is used by pipeline, not ignored here
+
+# OS-specific files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Log files
+*.log
+*.log.*
+*.out
+*.err
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Backup files
+*.bak
+*.backup
+*.old
+*.orig
+*~
+
+# Temporary files
+*.tmp
+*.temp
+.tmp/
+.temp/
+
+# Archive files (keep if needed for releases)
+# *.zip
+# *.tar.gz
+# *.tar.bz2
+# *.7z
+
+# Documentation builds (if using Sphinx or similar)
+docs/_build/
+docs/_static/
+docs/_templates/
+
+# Profiling data
+*.prof
+*.lprof
+*.pstats
+
+# Core dumps
+core.*
+
+# MacOS specific
+*.dmg
+.AppleDouble
+.LSOverride
+
+# Windows specific
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Media files (uncomment if you want to ignore sample files)
+# *.mp3
+# *.ogg
+# *.flac
+
+# Keep these directories but ignore contents
+!logs/.gitkeep
+!in/.gitkeep
+!out/.gitkeep
+!temp/.gitkeep
+
+# Keep example and template files
+!**/*.example
+!**/*.template
+!**/*.sample
+
+# Keep .gitkeep files to preserve directory structure
+!**/.gitkeep
+!logs/.gitkeep
+!in/.gitkeep
+!out/.gitkeep
+!temp/.gitkeep
+
+# Ignore specific config variants but keep examples
+config/.env.local
+config/.env.development
+config/.env.production
+config/.env.test
