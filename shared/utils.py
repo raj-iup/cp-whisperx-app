@@ -1,8 +1,10 @@
 """
 Shared utilities for all pipeline containers.
+Cross-platform compatible (Windows, Linux, macOS).
 """
 import json
 import re
+import platform
 from pathlib import Path
 from typing import Dict, Any, Optional
 
@@ -12,6 +14,9 @@ def save_json(data: Dict[str, Any], filepath: Path) -> None:
     filepath.parent.mkdir(parents=True, exist_ok=True)
     with open(filepath, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
+        f.flush()
+        import os
+        os.fsync(f.fileno())
 
 
 def load_json(filepath: Path) -> Optional[Dict[str, Any]]:
@@ -19,7 +24,10 @@ def load_json(filepath: Path) -> Optional[Dict[str, Any]]:
     if not filepath.exists():
         return None
     with open(filepath, 'r', encoding='utf-8') as f:
-        return json.load(f)
+        content = f.read()
+        if not content or content.strip() == '':
+            return None
+        return json.loads(content)
 
 
 def parse_filename(filename: str) -> Dict[str, str]:
@@ -71,6 +79,61 @@ def sanitize_dirname(name: str) -> str:
     
     # Remove leading/trailing underscores
     safe = safe.strip('_')
+    
+    return safe
+
+
+def is_windows() -> bool:
+    """Check if running on Windows."""
+    return platform.system() == 'Windows'
+
+
+def is_linux() -> bool:
+    """Check if running on Linux."""
+    return platform.system() == 'Linux'
+
+
+def is_macos() -> bool:
+    """Check if running on macOS."""
+    return platform.system() == 'Darwin'
+
+
+def normalize_path(path_str: str) -> Path:
+    """
+    Normalize path for current platform.
+    Handles Windows, Linux, and macOS paths.
+    
+    Args:
+        path_str: Path string (may contain mixed separators)
+    
+    Returns:
+        Normalized Path object
+    """
+    # Convert to Path object (handles conversion automatically)
+    path = Path(path_str)
+    
+    # Resolve to absolute path if needed
+    if not path.is_absolute():
+        path = path.resolve()
+    
+    return path
+
+
+def get_platform_info() -> Dict[str, str]:
+    """
+    Get platform information for logging and diagnostics.
+    
+    Returns:
+        Dictionary with platform details
+    """
+    return {
+        'system': platform.system(),
+        'release': platform.release(),
+        'version': platform.version(),
+        'machine': platform.machine(),
+        'processor': platform.processor(),
+        'python_version': platform.python_version(),
+    }
     
     return safe
 

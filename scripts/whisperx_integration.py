@@ -21,24 +21,44 @@ from .logger import PipelineLogger
 
 
 class WhisperXProcessor:
-    """WhisperX processor with bias prompt support"""
+    """WhisperX processor with configurable transcription parameters"""
 
     def __init__(
         self,
-        model_name: str = "large-v2",
+        model_name: str = "large-v3",
         device: str = "cpu",
         compute_type: str = "int8",
         hf_token: Optional[str] = None,
+        temperature: str = "0.0,0.2,0.4,0.6,0.8,1.0",
+        beam_size: int = 5,
+        best_of: int = 5,
+        patience: float = 1.0,
+        length_penalty: float = 1.0,
+        no_speech_threshold: float = 0.6,
+        logprob_threshold: float = -1.0,
+        compression_ratio_threshold: float = 2.4,
+        condition_on_previous_text: bool = True,
+        initial_prompt: str = "",
         logger: Optional[PipelineLogger] = None
     ):
         """
         Initialize WhisperX processor
 
         Args:
-            model_name: WhisperX model name (e.g., "large-v2", "medium")
+            model_name: WhisperX model name (e.g., "large-v3", "medium")
             device: Device to use (cpu, cuda, mps)
             compute_type: Compute type (int8, float16, float32)
             hf_token: Hugging Face token for model access
+            temperature: Sampling temperature(s), comma-separated
+            beam_size: Beam size for beam search
+            best_of: Number of candidates to consider
+            patience: Beam search patience factor
+            length_penalty: Length penalty for beam search
+            no_speech_threshold: Threshold for no speech detection
+            logprob_threshold: Log probability threshold for filtering
+            compression_ratio_threshold: Compression ratio threshold
+            condition_on_previous_text: Condition on previous text
+            initial_prompt: Initial prompt for transcription
             logger: Logger instance
         """
         self.model_name = model_name
@@ -46,10 +66,30 @@ class WhisperXProcessor:
         self.compute_type = compute_type
         self.hf_token = hf_token
         self.logger = logger or self._create_default_logger()
+        
+        # Transcription parameters
+        self.temperature = self._parse_temperature(temperature)
+        self.beam_size = beam_size
+        self.best_of = best_of
+        self.patience = patience
+        self.length_penalty = length_penalty
+        self.no_speech_threshold = no_speech_threshold
+        self.logprob_threshold = logprob_threshold
+        self.compression_ratio_threshold = compression_ratio_threshold
+        self.condition_on_previous_text = condition_on_previous_text
+        self.initial_prompt = initial_prompt
 
         self.model = None
         self.align_model = None
         self.align_metadata = None
+    
+    def _parse_temperature(self, temperature: str) -> list:
+        """Parse temperature string to list of floats"""
+        if isinstance(temperature, (list, tuple)):
+            return list(temperature)
+        if isinstance(temperature, str):
+            return [float(t.strip()) for t in temperature.split(',')]
+        return [float(temperature)]
 
     def _create_default_logger(self):
         """Create default logger if none provided"""
@@ -61,13 +101,18 @@ class WhisperXProcessor:
         self.logger.info(f"Loading WhisperX model: {self.model_name}")
         self.logger.info(f"  Device: {self.device}")
         self.logger.info(f"  Compute type: {self.compute_type}")
+        
+        # Use LLM directory for model cache
+        cache_dir = Path("/app/LLM/whisperx")
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        self.logger.info(f"  Cache directory: {cache_dir}")
 
         try:
             self.model = whisperx.load_model(
                 self.model_name,
                 device=self.device,
                 compute_type=self.compute_type,
-                download_root=None  # Use default cache
+                download_root=str(cache_dir)
             )
             self.logger.info("  Model loaded successfully")
         except Exception as e:
@@ -79,7 +124,7 @@ class WhisperXProcessor:
                     self.model_name,
                     device=self.device,
                     compute_type=self.compute_type,
-                    download_root=None
+                    download_root=str(cache_dir)
                 )
                 self.logger.info("  Model loaded successfully on CPU")
             else:
@@ -139,20 +184,37 @@ class WhisperXProcessor:
 
         # Transcribe with translation
         self.logger.info("Transcribing and translating...")
+        self.logger.debug(f"  Temperature: {self.temperature}")
+        self.logger.debug(f"  Beam size: {self.beam_size}")
+        self.logger.debug(f"  Best of: {self.best_of}")
 
-        # Note: WhisperX/faster-whisper doesn't support initial_prompt parameter
         # Bias prompts are saved for potential post-processing use
         if bias_windows:
             self.logger.info(f"  Bias windows available: {len(bias_windows)}")
 
-        try:
-            result = self.model.transcribe(
-                audio,
-                language=source_lang,
-                task="translate" if source_lang != target_lang else "transcribe",
-                batch_size=batch_size
-            )
+        # Build transcription options
+        transcribe_options = {
+            "language": source_lang if source_lang else None,
+            "task": "translate" if source_lang != target_lang else "transcribe",
+            "batch_size": batch_size,
+            "temperature": self.temperature,
+            "beam_size": self.beam_size,
+            "best_of": self.best_of,
+            "patience": self.patience,
+            "length_penalty": self.length_penalty,
+            "no_speech_threshold": self.no_speech_threshold,
+            "logprob_threshold": self.logprob_threshold,
+            "compression_ratio_threshold": self.compression_ratio_threshold,
+            "condition_on_previous_text": self.condition_on_previous_text,
+        }
+        
+        # Add initial prompt if provided and not empty
+        if self.initial_prompt:
+            transcribe_options["initial_prompt"] = self.initial_prompt
+            self.logger.info(f"  Using initial prompt: {self.initial_prompt[:50]}...")
 
+        try:
+            result = self.model.transcribe(audio, **transcribe_options)
             self.logger.info(f"  Transcription complete: {len(result.get('segments', []))} segments")
         except Exception as e:
             self.logger.error(f"  Transcription failed: {e}")

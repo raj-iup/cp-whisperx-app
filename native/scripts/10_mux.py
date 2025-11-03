@@ -3,6 +3,7 @@
 import sys
 import json
 import argparse
+import os
 from pathlib import Path
 import time
 
@@ -12,15 +13,25 @@ from manifest import StageManifest
 from ffmpeg_mux import FFmpegMuxer
 
 
+def load_env_config() -> dict:
+    """Load configuration from environment variables."""
+    return {
+        'subtitle_codec': os.getenv('MUX_SUBTITLE_CODEC', 'mov_text'),
+        'subtitle_language': os.getenv('MUX_SUBTITLE_LANGUAGE', 'eng'),
+        'subtitle_title': os.getenv('MUX_SUBTITLE_TITLE', 'English'),
+        'copy_video': os.getenv('MUX_COPY_VIDEO', 'true').lower() == 'true',
+        'copy_audio': os.getenv('MUX_COPY_AUDIO', 'true').lower() == 'true',
+        'container_format': os.getenv('MUX_CONTAINER_FORMAT', 'mp4')
+    }
+
+
 def run_mux(
     video_file: Path,
     subtitle_file: Path,
     output_file: Path,
     logger,
-    metadata: dict = None,
-    container_format: str = 'mp4',
-    subtitle_language: str = 'eng',
-    subtitle_title: str = 'English'
+    config: dict,
+    metadata: dict = None
 ):
     """
     Mux subtitles into video file using FFmpeg.
@@ -30,10 +41,8 @@ def run_mux(
         subtitle_file: SRT subtitle file
         output_file: Output video file with embedded subtitles
         logger: Logger instance
+        config: Configuration dict
         metadata: Optional metadata dict
-        container_format: Output container format (mp4 or mkv)
-        subtitle_language: ISO 639-2 language code
-        subtitle_title: Subtitle track title
         
     Returns:
         Dictionary with mux statistics
@@ -42,7 +51,14 @@ def run_mux(
     logger.debug(f"Video: {video_file}")
     logger.debug(f"Subtitles: {subtitle_file}")
     logger.debug(f"Output: {output_file}")
-    logger.debug(f"Format: {container_format}")
+    
+    logger.info(f"Configuration:")
+    logger.info(f"  Container format: {config['container_format']}")
+    logger.info(f"  Subtitle codec: {config['subtitle_codec']}")
+    logger.info(f"  Subtitle language: {config['subtitle_language']}")
+    logger.info(f"  Subtitle title: {config['subtitle_title']}")
+    logger.info(f"  Copy video: {config['copy_video']}")
+    logger.info(f"  Copy audio: {config['copy_audio']}")
     
     start = time.time()
     
@@ -66,9 +82,12 @@ def run_mux(
             video_file=video_file,
             subtitle_file=subtitle_file,
             output_file=output_file,
-            subtitle_language=subtitle_language,
-            subtitle_title=subtitle_title,
-            container_format=container_format,
+            subtitle_language=config['subtitle_language'],
+            subtitle_title=config['subtitle_title'],
+            subtitle_codec=config['subtitle_codec'],
+            container_format=config['container_format'],
+            copy_video=config['copy_video'],
+            copy_audio=config['copy_audio'],
             overwrite=True
         )
         
@@ -94,9 +113,12 @@ def run_mux(
             'size_increase': size_diff,
             'size_increase_percent': round((size_diff/input_size)*100, 2),
             'duration': round(duration, 2),
-            'container_format': container_format,
-            'subtitle_language': subtitle_language,
-            'subtitle_title': subtitle_title,
+            'container_format': config['container_format'],
+            'subtitle_codec': config['subtitle_codec'],
+            'subtitle_language': config['subtitle_language'],
+            'subtitle_title': config['subtitle_title'],
+            'copy_video': config['copy_video'],
+            'copy_audio': config['copy_audio'],
             'streams': len(stream_info.get('streams', []))
         }
         
@@ -121,14 +143,8 @@ def main():
                        help='Input video file')
     parser.add_argument('--movie-dir', required=True,
                        help='Movie output directory')
-    parser.add_argument('--format', default='mp4', choices=['mp4', 'mkv'],
-                       help='Output container format (default: mp4)')
-    parser.add_argument('--subtitle-lang', default='eng',
-                       help='Subtitle language code (default: eng)')
-    parser.add_argument('--subtitle-title', default='English',
-                       help='Subtitle track title (default: English)')
     parser.add_argument('--output-name',
-                       help='Custom output filename (default: {movie_name}_subtitled.{format})')
+                       help='Custom output filename (default: final_output.{format})')
     args = parser.parse_args()
     
     movie_dir = Path(args.movie_dir)
@@ -138,6 +154,11 @@ def main():
     try:
         logger.log_stage_start("FFmpeg Muxing - Embed Subtitles")
         
+        # Load configuration from environment
+        env_config = load_env_config()
+        
+        logger.info(f"Configuration loaded from environment")
+        
         with StageManifest('mux', movie_dir, logger.logger) as manifest:
             # Locate required files
             video_file = Path(args.input)
@@ -145,11 +166,14 @@ def main():
                 raise FileNotFoundError(f"Video file not found: {video_file}")
             
             # Find subtitle file
-            subtitles_dir = movie_dir / 'subtitles'
-            subtitle_file = subtitles_dir / f'{movie_name}.srt'
+            subtitle_files = list(movie_dir.glob('en_merged/*.srt'))
+            if not subtitle_files:
+                subtitle_files = list(movie_dir.glob('en_merged/*.merged.srt'))
             
-            if not subtitle_file.exists():
-                raise FileNotFoundError(f"Subtitle file not found: {subtitle_file}")
+            if not subtitle_files:
+                raise FileNotFoundError(f"No subtitle files found in en_merged/")
+            
+            subtitle_file = subtitle_files[0]
             
             logger.info(f"Input video: {video_file}")
             logger.info(f"Subtitle file: {subtitle_file}")
@@ -158,7 +182,8 @@ def main():
             if args.output_name:
                 output_filename = args.output_name
             else:
-                output_filename = f'{movie_name}_subtitled.{args.format}'
+                container_format = env_config['container_format']
+                output_filename = f'final_output.{container_format}'
             
             output_file = movie_dir / output_filename
             logger.info(f"Output file: {output_file}")
@@ -174,20 +199,18 @@ def main():
                         'title': tmdb_data.get('title', movie_name),
                         'year': str(tmdb_data.get('release_date', '')[:4]),
                         'genre': ', '.join(g['name'] for g in tmdb_data.get('genres', [])),
-                        'comment': 'Processed with WhisperX Native MPS Pipeline'
+                        'comment': 'Processed with WhisperX Native Pipeline'
                     }
                     logger.debug(f"Metadata: {metadata}")
             
-            # Run muxing
+            # Run muxing with configuration
             stats = run_mux(
                 video_file=video_file,
                 subtitle_file=subtitle_file,
                 output_file=output_file,
                 logger=logger,
-                metadata=metadata,
-                container_format=args.format,
-                subtitle_language=args.subtitle_lang,
-                subtitle_title=args.subtitle_title
+                config=env_config,
+                metadata=metadata
             )
             
             # Save statistics
@@ -204,6 +227,9 @@ def main():
             manifest.add_metadata('output_size', stats['output_size'])
             manifest.add_metadata('size_increase_mb', round(stats['size_increase'] / 1024 / 1024, 2))
             manifest.add_metadata('container_format', stats['container_format'])
+            manifest.add_metadata('subtitle_codec', stats['subtitle_codec'])
+            manifest.add_metadata('copy_video', stats['copy_video'])
+            manifest.add_metadata('copy_audio', stats['copy_audio'])
             manifest.add_metadata('subtitle_language', stats['subtitle_language'])
             manifest.add_metadata('processing_time', stats['duration'])
             

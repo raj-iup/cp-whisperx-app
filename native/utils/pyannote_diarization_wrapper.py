@@ -18,17 +18,19 @@ class PyannoteDiarization:
     and label different speakers in the audio.
     """
     
-    def __init__(self, hf_token: str, device: str = "cpu", logger=None):
+    def __init__(self, hf_token: str, device: str = "cpu", model_name: str = "pyannote/speaker-diarization-3.1", logger=None):
         """
         Initialize Pyannote Diarization.
         
         Args:
             hf_token: HuggingFace API token for model access
             device: Device to run on (cpu, cuda, mps)
+            model_name: Pyannote diarization model name
             logger: Logger instance
         """
         self.hf_token = hf_token
         self.device = device
+        self.model_name = model_name
         self.logger = logger
         self.pipeline = None
         
@@ -36,6 +38,7 @@ class PyannoteDiarization:
         """Load Pyannote diarization pipeline from HuggingFace."""
         if self.logger:
             self.logger.info(f"Loading Pyannote diarization pipeline on {self.device}")
+            self.logger.info(f"Model: {self.model_name}")
         
         try:
             from pyannote.audio import Pipeline
@@ -43,7 +46,7 @@ class PyannoteDiarization:
             # Load the speaker diarization pipeline
             # This will download models from HuggingFace if not cached
             self.pipeline = Pipeline.from_pretrained(
-                "pyannote/speaker-diarization-3.1",
+                self.model_name,
                 use_auth_token=self.hf_token
             )
             

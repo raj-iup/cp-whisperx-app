@@ -470,11 +470,16 @@ class PreflightCheck:
     def check_compute_devices(self) -> Dict[str, Any]:
         """
         Check available compute devices (CUDA, MPS, CPU).
+        Cross-platform: Windows (CUDA), Linux (CUDA), macOS (MPS/CUDA).
         
         Returns:
             Dict with device capabilities
         """
+        import platform
+        system = platform.system()
+        
         devices = {
+            "platform": system,
             "cuda": {"available": False, "device_count": 0, "devices": []},
             "mps": {"available": False},
             "cpu": {"available": True}  # CPU always available
@@ -483,10 +488,12 @@ class PreflightCheck:
         try:
             import torch
             
-            # Check CUDA
+            # Check CUDA (Windows, Linux, macOS with eGPU)
             if torch.cuda.is_available():
                 devices["cuda"]["available"] = True
                 devices["cuda"]["device_count"] = torch.cuda.device_count()
+                devices["cuda"]["cuda_version"] = torch.version.cuda
+                devices["cuda"]["cudnn_version"] = torch.backends.cudnn.version() if torch.backends.cudnn.is_available() else None
                 
                 for i in range(torch.cuda.device_count()):
                     device_info = {
@@ -497,7 +504,81 @@ class PreflightCheck:
                     }
                     devices["cuda"]["devices"].append(device_info)
                 
-                self.print_check("CUDA available", True, 
+                # Platform-specific CUDA info
+                if system == 'Windows':
+                    self.print_check("CUDA available (Windows)", True, 
+                                   f"{devices['cuda']['device_count']} device(s), CUDA {devices['cuda']['cuda_version']}")
+                else:
+                    self.print_check("CUDA available", True, 
+                                   f"{devices['cuda']['device_count']} device(s), CUDA {devices['cuda']['cuda_version']}")
+                
+                for dev in devices["cuda"]["devices"]:
+                    print(f"       GPU {dev['id']}: {dev['name']} ({dev['total_memory_gb']:.1f}GB VRAM, CC {dev['compute_capability']})")
+                
+                # Windows-specific: Check if NVIDIA driver version is sufficient
+                if system == 'Windows':
+                    try:
+                        result = subprocess.run(
+                            ["nvidia-smi", "--query-gpu=driver_version", "--format=csv,noheader"],
+                            capture_output=True,
+                            text=True,
+                            timeout=10,
+                            check=True
+                        )
+                        driver_version = result.stdout.strip()
+                        print(f"       NVIDIA Driver: {driver_version}")
+                        devices["cuda"]["driver_version"] = driver_version
+                    except:
+                        pass
+                
+            else:
+                if system == 'Windows':
+                    self.print_check("CUDA available (Windows)", False, "No NVIDIA GPU detected or CUDA not installed")
+                    self.print_warning("For GPU acceleration on Windows, install:")
+                    self.print_warning("  1. NVIDIA Driver 560.94+ from https://www.nvidia.com/Download/index.aspx")
+                    self.print_warning("  2. CUDA Toolkit 12.6+ from https://developer.nvidia.com/cuda-downloads")
+                    self.print_warning("  3. PyTorch with CUDA: pip install torch --index-url https://download.pytorch.org/whl/cu121")
+                else:
+                    self.print_check("CUDA available", False, "No NVIDIA GPU detected")
+            
+            # Check MPS (macOS Apple Silicon only)
+            if system == 'Darwin':  # macOS
+                if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+                    devices["mps"]["available"] = True
+                    self.print_check("MPS available (Apple Silicon)", True, "Metal Performance Shaders acceleration")
+                else:
+                    self.print_check("MPS available", False, "Not available (Intel Mac or macOS < 12.3)")
+            
+            # CPU is always available
+            self.print_check("CPU available", True, f"Fallback device on {system}")
+            
+            # Determine recommended device
+            if devices["cuda"]["available"]:
+                recommended = "cuda"
+                if system == 'Windows':
+                    print(f"{GREEN}       Recommended: CUDA (Windows native with NVIDIA GPU){RESET}")
+                else:
+                    print(f"{GREEN}       Recommended: CUDA (NVIDIA GPU acceleration){RESET}")
+            elif devices["mps"]["available"]:
+                recommended = "mps"
+                print(f"{GREEN}       Recommended: MPS (Apple Silicon acceleration){RESET}")
+            else:
+                recommended = "cpu"
+                print(f"{YELLOW}       Recommended: CPU (no GPU acceleration available){RESET}")
+            
+            devices["recommended"] = recommended
+            
+        except ImportError:
+            self.print_warning("PyTorch not installed - cannot check GPU support")
+            self.print_warning("Install PyTorch to enable GPU acceleration")
+            if system == 'Windows':
+                self.print_warning("  For Windows with CUDA: pip install torch --index-url https://download.pytorch.org/whl/cu121")
+            devices["recommended"] = "cpu"
+        except Exception as e:
+            self.print_warning(f"Error checking compute devices: {e}")
+            devices["recommended"] = "cpu"
+        
+        return devices 
                                f"{devices['cuda']['device_count']} device(s)")
                 for dev in devices["cuda"]["devices"]:
                     print(f"       GPU {dev['id']}: {dev['name']}")
@@ -532,18 +613,30 @@ class PreflightCheck:
     
     def determine_best_device(self, devices: Dict) -> str:
         """
-        Determine the best compute device to use.
+        Determine the best compute device to use (cross-platform).
         
-        Priority: CUDA > CPU (MPS not yet supported)
+        Priority (Windows/Linux): CUDA > CPU
+        Priority (macOS): MPS > CPU
         
         Returns:
-            Device string: "cuda" or "cpu"
+            Device string: "cuda", "mps", or "cpu"
         """
-        if devices["cuda"]["available"]:
-            return "cuda"
-        else:
-            # Force CPU for now - MPS support not ready yet
-            return "cpu"
+        system = devices.get("platform", "Unknown")
+        
+        if system == "Darwin":  # macOS
+            # Prefer MPS on Apple Silicon
+            if devices.get("mps", {}).get("available"):
+                return "mps"
+            # Fallback to CUDA if available (Intel Mac with eGPU)
+            if devices.get("cuda", {}).get("available"):
+                return "cuda"
+        else:  # Windows or Linux
+            # Prefer CUDA on Windows/Linux
+            if devices.get("cuda", {}).get("available"):
+                return "cuda"
+        
+        # Ultimate fallback
+        return "cpu"
     
     def check_memory(self) -> bool:
         """Check available system memory."""
@@ -623,11 +716,14 @@ class PreflightCheck:
         
         print(f"\n{GREEN}Pipeline device: {best_device.upper()}{RESET}")
         if best_device == "cuda":
-            print(f"       Using CUDA GPU acceleration for optimal performance")
+            if devices.get("platform") == "Windows":
+                print(f"       Using CUDA GPU acceleration (Windows native)")
+            else:
+                print(f"       Using CUDA GPU acceleration")
+        elif best_device == "mps":
+            print(f"       Using MPS GPU acceleration (Apple Silicon)")
         else:
-            print(f"       Using CPU")
-            if devices["mps"]["available"]:
-                print(f"{YELLOW}       Note: MPS detected but not yet supported - using CPU{RESET}")
+            print(f"       Using CPU (no GPU acceleration available)")
         
         # Summary
         print(f"\n{BLUE}{'='*60}{RESET}")

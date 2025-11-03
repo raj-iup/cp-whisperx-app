@@ -37,7 +37,7 @@ class StageManifest:
             # Automatic success on exit
     """
     
-    def __init__(self, stage_name: str, movie_dir: Path, logger=None):
+    def __init__(self, stage_name: str, movie_dir: Path, logger=None, job_id: str = None, user_id: int = None, job_env_file: Path = None):
         """
         Initialize stage manifest.
         
@@ -45,14 +45,21 @@ class StageManifest:
             stage_name: Name of the stage (e.g., "demux", "asr")
             movie_dir: Movie output directory
             logger: Optional logger instance
+            job_id: Job ID for this pipeline run
+            user_id: User ID for this pipeline run
+            job_env_file: Path to job-specific environment file
         """
         self.stage_name = stage_name
         self.movie_dir = Path(movie_dir)
         self.manifest_file = self.movie_dir / "manifest.json"
         self.logger = logger
+        self.job_id = job_id
+        self.user_id = user_id
+        self.job_env_file = str(job_env_file) if job_env_file else None
         self.start_time = datetime.now()
         self.outputs = {}
         self.metadata = {}
+        self.input_files = []
         self.error = None
         self.status = "running"
         
@@ -68,6 +75,9 @@ class StageManifest:
             data = {
                 "version": "1.0.0",
                 "created_at": datetime.now().isoformat(),
+                "job_id": self.job_id,
+                "user_id": self.user_id,
+                "job_env_file": self.job_env_file,
                 "movie_dir": str(self.movie_dir),
                 "stages": {},
                 "pipeline": {
@@ -77,6 +87,14 @@ class StageManifest:
                     "failed_stages": []
                 }
             }
+        
+        # Update job info if provided
+        if self.job_id:
+            data["job_id"] = self.job_id
+        if self.user_id:
+            data["user_id"] = self.user_id
+        if self.job_env_file:
+            data["job_env_file"] = self.job_env_file
         
         # Ensure stages dict exists
         if "stages" not in data:
@@ -103,6 +121,26 @@ class StageManifest:
         if self.logger:
             self.logger.debug(f"Recorded output: {key} -> {filepath}")
     
+    def add_input(self, key: str, filepath: Path, description: str = None):
+        """
+        Add an input file to the manifest.
+        
+        Args:
+            key: Input identifier
+            filepath: Full path to input file
+            description: Optional description of the input
+        """
+        self.input_files.append({
+            "key": key,
+            "path": str(filepath.resolve()),
+            "exists": filepath.exists(),
+            "size_bytes": filepath.stat().st_size if filepath.exists() else 0,
+            "description": description
+        })
+        
+        if self.logger:
+            self.logger.debug(f"Recorded input: {key} -> {filepath}")
+    
     def add_metadata(self, key: str, value: Any):
         """Add stage-specific metadata."""
         self.metadata[key] = value
@@ -127,12 +165,25 @@ class StageManifest:
         end_time = datetime.now()
         duration = (end_time - self.start_time).total_seconds()
         
+        # Get stage number from stage name mapping
+        stage_numbers = {
+            "demux": 1, "tmdb": 2, "pre_ner": 3, "silero_vad": 4,
+            "pyannote_vad": 5, "diarization": 6, "asr": 7,
+            "post_ner": 8, "subtitle_gen": 9, "mux": 10
+        }
+        
         # Record stage data
         stage_data = {
+            "job_id": self.job_id,
+            "user_id": self.user_id,
+            "stage_number": stage_numbers.get(self.stage_name, 0),
+            "stage_name": self.stage_name,
+            "job_env_file": self.job_env_file,
             "status": self.status,
             "started_at": self.start_time.isoformat(),
             "completed_at": end_time.isoformat(),
             "duration_seconds": duration,
+            "input_files": self.input_files,
             "outputs": self.outputs,
             "metadata": self.metadata
         }
@@ -200,10 +251,13 @@ class PipelineManifest:
     Individual stages should use StageManifest instead.
     """
     
-    def __init__(self, manifest_file: Path):
+    def __init__(self, manifest_file: Path, job_id: str = None, user_id: int = None, job_env_file: Path = None):
         """Initialize pipeline manifest."""
         self.manifest_file = manifest_file
         self.start_time = datetime.now()
+        self.job_id = job_id
+        self.user_id = user_id
+        self.job_env_file = str(job_env_file) if job_env_file else None
         self.data = self._load_or_create()
     
     def _load_or_create(self) -> Dict[str, Any]:
@@ -215,6 +269,9 @@ class PipelineManifest:
             return {
                 "version": "1.0.0",
                 "created_at": self.start_time.isoformat(),
+                "job_id": self.job_id,
+                "user_id": self.user_id,
+                "job_env_file": self.job_env_file,
                 "input": {},
                 "stages": {},
                 "pipeline": {
@@ -228,13 +285,37 @@ class PipelineManifest:
                 }
             }
     
-    def set_input(self, input_file: str, title: str, year: Optional[int]):
+    def set_input(self, input_file: str, title: str, year: Optional[int], job_id: str = None):
         """Set input file information."""
         self.data["input"] = {
             "file": input_file,
             "title": title,
             "year": year
         }
+        if job_id:
+            self.data["job_id"] = job_id
+        self.save()
+    
+    def set_output_dir(self, output_dir: str):
+        """Set output directory."""
+        self.data["output_dir"] = output_dir
+        self.save()
+    
+    def set_pipeline_step(self, stage_name: str, success: bool, **kwargs):
+        """Record a pipeline step."""
+        if stage_name not in self.data["stages"]:
+            self.data["stages"][stage_name] = {}
+        
+        self.data["stages"][stage_name].update(kwargs)
+        self.data["stages"][stage_name]["success"] = success
+        
+        if success and kwargs.get("completed", False):
+            if stage_name not in self.data["pipeline"]["completed_stages"]:
+                self.data["pipeline"]["completed_stages"].append(stage_name)
+        elif not success:
+            if stage_name not in self.data["pipeline"]["failed_stages"]:
+                self.data["pipeline"]["failed_stages"].append(stage_name)
+        
         self.save()
     
     def is_stage_completed(self, stage_name: str) -> bool:
@@ -265,6 +346,10 @@ class PipelineManifest:
         self.manifest_file.parent.mkdir(parents=True, exist_ok=True)
         with open(self.manifest_file, 'w') as f:
             json.dump(self.data, f, indent=2)
+
+
+# Alias for compatibility with existing code
+ManifestBuilder = PipelineManifest
 
 
 def get_manifest_file(movie_dir: Path) -> Path:

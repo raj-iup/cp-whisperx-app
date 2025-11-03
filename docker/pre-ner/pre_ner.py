@@ -15,7 +15,7 @@ from logger import setup_logger
 from utils import save_json, load_json, get_movie_dir
 
 
-def extract_entities_from_text(text: str, nlp, logger) -> List[Dict]:
+def extract_entities_from_text(text: str, nlp, logger, confidence_threshold: float = 0.0) -> List[Dict]:
     """
     Extract named entities from text using spaCy.
     
@@ -23,6 +23,7 @@ def extract_entities_from_text(text: str, nlp, logger) -> List[Dict]:
         text: Text to analyze
         nlp: spaCy NLP model
         logger: Logger instance
+        confidence_threshold: Minimum confidence score (0.0-1.0)
     
     Returns:
         List of entity dicts with text, label, start, end
@@ -35,13 +36,21 @@ def extract_entities_from_text(text: str, nlp, logger) -> List[Dict]:
         entities = []
         
         for ent in doc.ents:
-            entities.append({
-                "text": ent.text,
-                "label": ent.label_,
-                "start": ent.start_char,
-                "end": ent.end_char,
-                "confidence": 1.0  # spaCy doesn't provide confidence for base models
-            })
+            # Get confidence score if available (transformer models)
+            if hasattr(ent, '_') and hasattr(ent._, 'score'):
+                confidence = float(ent._.score)
+            else:
+                confidence = 1.0  # Base models don't provide confidence
+            
+            # Filter by confidence threshold
+            if confidence >= confidence_threshold:
+                entities.append({
+                    "text": ent.text,
+                    "label": ent.label_,
+                    "start": ent.start_char,
+                    "end": ent.end_char,
+                    "confidence": confidence
+                })
         
         return entities
         
@@ -50,7 +59,7 @@ def extract_entities_from_text(text: str, nlp, logger) -> List[Dict]:
         return []
 
 
-def extract_from_tmdb_metadata(metadata: Dict, nlp, logger) -> Dict[str, List[str]]:
+def extract_from_tmdb_metadata(metadata: Dict, nlp, logger, confidence_threshold: float = 0.0) -> Dict[str, List[str]]:
     """
     Extract all entities from TMDB metadata.
     
@@ -58,6 +67,7 @@ def extract_from_tmdb_metadata(metadata: Dict, nlp, logger) -> Dict[str, List[st
         metadata: TMDB metadata dict
         nlp: spaCy NLP model
         logger: Logger instance
+        confidence_threshold: Minimum confidence score for NER entities
     
     Returns:
         Dict mapping entity types to lists of entity texts
@@ -83,13 +93,13 @@ def extract_from_tmdb_metadata(metadata: Dict, nlp, logger) -> Dict[str, List[st
     
     # Extract from overview using NER
     if metadata.get('overview'):
-        overview_entities = extract_entities_from_text(metadata['overview'], nlp, logger)
+        overview_entities = extract_entities_from_text(metadata['overview'], nlp, logger, confidence_threshold)
         for ent in overview_entities:
             entities_by_type[ent['label']].add(ent['text'])
     
     # Extract from tagline using NER
     if metadata.get('tagline'):
-        tagline_entities = extract_entities_from_text(metadata['tagline'], nlp, logger)
+        tagline_entities = extract_entities_from_text(metadata['tagline'], nlp, logger, confidence_threshold)
         for ent in tagline_entities:
             entities_by_type[ent['label']].add(ent['text'])
     
@@ -102,7 +112,7 @@ def extract_from_tmdb_metadata(metadata: Dict, nlp, logger) -> Dict[str, List[st
     if metadata.get('keywords'):
         for keyword in metadata['keywords']:
             # Keywords might contain locations or organizations
-            keyword_entities = extract_entities_from_text(keyword, nlp, logger)
+            keyword_entities = extract_entities_from_text(keyword, nlp, logger, confidence_threshold)
             for ent in keyword_entities:
                 entities_by_type[ent['label']].add(ent['text'])
     
@@ -114,7 +124,7 @@ def extract_from_tmdb_metadata(metadata: Dict, nlp, logger) -> Dict[str, List[st
     return result
 
 
-def generate_ner_enhanced_prompt(entities: Dict[str, List[str]], metadata: Dict, logger) -> str:
+def generate_ner_enhanced_prompt(entities: Dict[str, List[str]], metadata: Dict, logger, entity_types: List[str]) -> str:
     """
     Generate NER-enhanced prompt for WhisperX.
     
@@ -122,6 +132,7 @@ def generate_ner_enhanced_prompt(entities: Dict[str, List[str]], metadata: Dict,
         entities: Extracted entities by type
         metadata: Original TMDB metadata
         logger: Logger instance
+        entity_types: List of entity types to include
     
     Returns:
         Enhanced prompt string
@@ -139,26 +150,23 @@ def generate_ner_enhanced_prompt(entities: Dict[str, List[str]], metadata: Dict,
     if metadata.get('genres'):
         prompt_parts.append(f"Genres: {', '.join(metadata['genres'][:3])}")
     
-    # Named Entities
-    if entities.get('PERSON'):
-        # Top 15 person names
-        people = entities['PERSON'][:15]
-        prompt_parts.append(f"Characters & Cast: {', '.join(people)}")
+    # Named Entities - use configured entity types
+    entity_labels = {
+        'PERSON': 'Characters & Cast',
+        'GPE': 'Locations',
+        'LOC': 'Places',
+        'ORG': 'Organizations',
+        'FAC': 'Facilities',
+        'NORP': 'Nationalities',
+        'EVENT': 'Events',
+        'WORK_OF_ART': 'Works'
+    }
     
-    if entities.get('GPE'):
-        # Locations (countries, cities)
-        locations = entities['GPE'][:5]
-        prompt_parts.append(f"Locations: {', '.join(locations)}")
-    
-    if entities.get('LOC'):
-        # Specific places
-        places = entities['LOC'][:5]
-        prompt_parts.append(f"Places: {', '.join(places)}")
-    
-    if entities.get('ORG'):
-        # Organizations
-        orgs = entities['ORG'][:5]
-        prompt_parts.append(f"Organizations: {', '.join(orgs)}")
+    for entity_type in entity_types:
+        if entities.get(entity_type):
+            entity_list = entities[entity_type][:15 if entity_type == 'PERSON' else 5]
+            label = entity_labels.get(entity_type, entity_type)
+            prompt_parts.append(f"{label}: {', '.join(entity_list)}")
     
     # Keywords/themes
     if metadata.get('keywords'):
@@ -179,7 +187,21 @@ def generate_ner_enhanced_prompt(entities: Dict[str, List[str]], metadata: Dict,
 
 def main():
     """Main entry point."""
-    config = load_config()
+    # Validate arguments BEFORE setting up logger (though it's optional here)
+    # Still validate early to avoid unnecessary config loading
+    if len(sys.argv) < 2:
+        # For pre-ner, argument is somewhat optional but let's be explicit
+        # Load config to check if we have output_root
+        try:
+            config = load_config()
+            if not config.output_root:
+                print("ERROR: Usage: pre_ner.py <movie_dir>", file=sys.stderr)
+                sys.exit(1)
+        except:
+            print("ERROR: Usage: pre_ner.py <movie_dir>", file=sys.stderr)
+            sys.exit(1)
+    else:
+        config = load_config()
     
     logger = setup_logger(
         "pre-ner",
@@ -194,24 +216,21 @@ def main():
     
     # Get movie directory from command line or config
     if len(sys.argv) >= 2:
-        # Movie title provided
-        title = sys.argv[1]
-        year = sys.argv[2] if len(sys.argv) >= 3 else None
-        temp_filename = f"{title} {year}.mp4" if year else f"{title}.mp4"
-        movie_dir = get_movie_dir(Path(temp_filename), Path(config.output_root))
-    elif config.input_file:
-        input_path = Path(config.input_file)
-        movie_dir = get_movie_dir(input_path, Path(config.output_root))
+        movie_dir = Path(sys.argv[1])
+        logger.info(f"Using movie directory from argument: {movie_dir}")
     else:
-        logger.error("No movie specified. Usage: pre_ner.py <title> [year]")
-        sys.exit(1)
+        # Always use output_root directly when it's set (should be job-specific)
+        movie_dir = Path(config.output_root)
+        logger.info(f"Using output_root as movie directory: {movie_dir}")
     
     logger.info(f"Movie directory: {movie_dir}")
     
     # Load TMDB metadata
     metadata_file = movie_dir / "metadata" / "tmdb_data.json"
-    if not metadata_file.exists():
-        logger.warning(f"TMDB metadata not found: {metadata_file}")
+    
+    # Helper function to create empty entities
+    def create_empty_entities(reason: str):
+        logger.warning(reason)
         logger.warning("Pre-NER will run with empty entity list")
         
         # Create empty entities output
@@ -223,32 +242,53 @@ def main():
             "entities": [],
             "entities_by_type": {},
             "total_entities": 0,
-            "source": "none - TMDB metadata unavailable"
+            "source": f"none - {reason}"
         }
         
         with open(entities_file, 'w', encoding='utf-8') as f:
             import json
             json.dump(empty_data, f, indent=2, ensure_ascii=False)
+            f.flush()
+            import os
+            os.fsync(f.fileno())
         
         logger.info(f"Empty entity file created: {entities_file}")
         sys.exit(0)
     
+    if not metadata_file.exists():
+        create_empty_entities(f"TMDB metadata not found: {metadata_file}")
+    
     metadata = load_json(metadata_file)
+    if not metadata:
+        create_empty_entities(f"TMDB metadata file is empty or invalid: {metadata_file}")
+    
     logger.info(f"Loaded metadata for: {metadata.get('title', 'Unknown')}")
     
+    # Get configuration parameters
+    model_name = getattr(config, 'pre_ner_model', 'en_core_web_sm')
+    confidence_threshold = float(getattr(config, 'pre_ner_confidence_threshold', 0.0))
+    entity_types_str = getattr(config, 'pre_ner_entity_types', 'PERSON,ORG,GPE,LOC,FAC')
+    entity_types = [t.strip() for t in entity_types_str.split(',')]
+    
+    logger.info(f"Configuration:")
+    logger.info(f"  Model: {model_name}")
+    logger.info(f"  Confidence threshold: {confidence_threshold}")
+    logger.info(f"  Entity types: {entity_types}")
+    
     # Load spaCy model
-    logger.info("Loading spaCy model...")
+    logger.info(f"Loading spaCy model: {model_name}...")
     try:
         import spacy
-        nlp = spacy.load("en_core_web_sm")
-        logger.info("spaCy model loaded")
+        nlp = spacy.load(model_name)
+        logger.info(f"spaCy model loaded: {model_name}")
     except Exception as e:
-        logger.error(f"Failed to load spaCy model: {e}")
+        logger.error(f"Failed to load spaCy model '{model_name}': {e}")
+        logger.error(f"Make sure the model is installed: python -m spacy download {model_name}")
         sys.exit(1)
     
     # Extract entities
     logger.info("Extracting named entities...")
-    entities = extract_from_tmdb_metadata(metadata, nlp, logger)
+    entities = extract_from_tmdb_metadata(metadata, nlp, logger, confidence_threshold)
     
     # Log statistics
     total_entities = sum(len(ents) for ents in entities.values())
@@ -274,8 +314,8 @@ def main():
     save_json(output_data, entities_file)
     logger.info(f"Entities saved: {entities_file}")
     
-    # Generate enhanced prompt
-    enhanced_prompt = generate_ner_enhanced_prompt(entities, metadata, logger)
+    # Generate enhanced prompt using configured entity types
+    enhanced_prompt = generate_ner_enhanced_prompt(entities, metadata, logger, entity_types)
     
     prompt_dir = movie_dir / "prompts"
     prompt_dir.mkdir(parents=True, exist_ok=True)

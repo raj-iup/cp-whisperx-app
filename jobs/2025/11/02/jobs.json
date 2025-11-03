@@ -1,0 +1,109 @@
+{
+  "jobs": [
+    {
+      "job_id": "20251102-0001",
+      "job_no": 1,
+      "created_at": "2025-11-02T04:17:40.816927",
+      "job_dir": "/Users/rpatel/Projects/cp-whisperx-app/jobs/2025/11/02/20251102-0001",
+      "job_env_file": "/Users/rpatel/Projects/cp-whisperx-app/jobs/2025/11/02/20251102-0001/.20251102-0001.env",
+      "source_media": "/Users/rpatel/Projects/cp-whisperx-app/in/Jaane Tu Ya Jaane Na 2008.mp4",
+      "status": "ready",
+      "is_clip": false,
+      "media_path": "/Users/rpatel/Projects/cp-whisperx-app/jobs/2025/11/02/20251102-0001/Jaane Tu Ya Jaane Na 2008.mp4",
+      "output_root": "out/2025/11/02/20251102-0001",
+      "log_root": "out/2025/11/02/20251102-0001/logs"
+    },
+    {
+      "job_id": "20251102-0002",
+      "job_no": 2,
+      "created_at": "2025-11-02T05:58:08.276942",
+      "job_dir": "/Users/rpatel/Projects/cp-whisperx-app/jobs/2025/11/02/20251102-0002",
+      "job_env_file": "/Users/rpatel/Projects/cp-whisperx-app/jobs/2025/11/02/20251102-0002/.20251102-0002.env",
+      "source_media": "/Users/rpatel/Projects/cp-whisperx-app/in/Jaane Tu Ya Jaane Na 2008.mp4",
+      "status": "ready",
+      "is_clip": false,
+      "media_path": "/Users/rpatel/Projects/cp-whisperx-app/jobs/2025/11/02/20251102-0002/Jaane Tu Ya Jaane Na 2008.mp4",
+      "output_root": "out/2025/11/02/20251102-0002",
+      "log_root": "out/2025/11/02/20251102-0002/logs"
+    },
+    {
+      "job_id": "20251102-0003",
+      "job_no": 3,
+      "created_at": "2025-11-02T09:06:59.521754",
+      "job_dir": "/Users/rpatel/Projects/cp-whisperx-app/jobs/2025/11/02/20251102-0003",
+      "job_env_file": "/Users/rpatel/Projects/cp-whisperx-app/jobs/2025/11/02/20251102-0003/.20251102-0003.env",
+      "source_media": "/Users/rpatel/Projects/cp-whisperx-app/in/Jaane Tu Ya Jaane Na 2008.mp4",
+      "status": "ready",
+      "is_clip": false,
+      "media_path": "/Users/rpatel/Projects/cp-whisperx-app/jobs/2025/11/02/20251102-0003/Jaane Tu Ya Jaane Na 2008.mp4",
+      "output_root": "out/2025/11/02/20251102-0003",
+      "log_root": "out/2025/11/02/20251102-0003/logs"
+    },
+    {
+      "job_id": "20251102-0004",
+      "job_no": 4,
+      "created_at": "2025-11-02T12:14:07.641139",
+      "job_dir": "/Users/rpatel/Projects/cp-whisperx-app/jobs/2025/11/02/20251102-0004",
+      "job_env_file": "/Users/rpatel/Projects/cp-whisperx-app/jobs/2025/11/02/20251102-0004/.20251102-0004.env",
+      "source_media": "/Users/rpatel/Projects/cp-whisperx-app/in/Jaane Tu Ya Jaane Na 2008.mp4",
+      "status": "ready",
+      "is_clip": false,
+      "media_path": "/Users/rpatel/Projects/cp-whisperx-app/jobs/2025/11/02/20251102-0004/Jaane Tu Ya Jaane Na 2008.mp4",
+      "output_root": "out/2025/11/02/20251102-0004",
+      "log_root": "out/2025/11/02/20251102-0004/logs"
+    },
+    {
+      "job_id": "20251102-0005",
+      "job_no": 5,
+      "created_at": "2025-11-02T23:35:53.458651",
+      "job_dir": "/Users/rpatel/Projects/cp-whisperx-app/jobs/2025/11/02/20251102-0005",
+      "job_env_file": "/Users/rpatel/Projects/cp-whisperx-app/jobs/2025/11/02/20251102-0005/.20251102-0005.env",
+      "source_media": "/Users/rpatel/Projects/cp-whisperx-app/in/Jaane Tu Ya Jaane Na 2008.mp4",
+      "status": "ready",
+      "is_clip": false,
+      "media_path": "/Users/rpatel/Projects/cp-whisperx-app/jobs/2025/11/02/20251102-0005/Jaane Tu Ya Jaane Na 2008.mp4",
+      "output_root": "out/2025/11/02/20251102-0005",
+      "log_root": "out/2025/11/02/20251102-0005/logs"
+    },
+    {
+      "job_id": "20251102-0006",
+      "job_no": 6,
+      "created_at": "2025-11-02T23:39:09.225902",
+      "job_dir": "/Users/rpatel/Projects/cp-whisperx-app/jobs/2025/11/02/20251102-0006",
+      "job_env_file": "/Users/rpatel/Projects/cp-whisperx-app/jobs/2025/11/02/20251102-0006/.20251102-0006.env",
+      "source_media": "/Users/rpatel/Projects/cp-whisperx-app/in/Jaane Tu Ya Jaane Na 2008.mp4",
+      "status": "ready",
+      "is_clip": false,
+      "media_path": "/Users/rpatel/Projects/cp-whisperx-app/jobs/2025/11/02/20251102-0006/Jaane Tu Ya Jaane Na 2008.mp4",
+      "output_root": "out/2025/11/02/20251102-0006",
+      "log_root": "out/2025/11/02/20251102-0006/logs"
+    },
+    {
+      "job_id": "20251102-0007",
+      "job_no": 7,
+      "created_at": "2025-11-02T23:41:10.362328",
+      "job_dir": "/Users/rpatel/Projects/cp-whisperx-app/jobs/2025/11/02/20251102-0007",
+      "job_env_file": "/Users/rpatel/Projects/cp-whisperx-app/jobs/2025/11/02/20251102-0007/.20251102-0007.env",
+      "source_media": "/Users/rpatel/Projects/cp-whisperx-app/in/Jaane Tu Ya Jaane Na 2008.mp4",
+      "status": "ready",
+      "is_clip": false,
+      "media_path": "/Users/rpatel/Projects/cp-whisperx-app/jobs/2025/11/02/20251102-0007/Jaane Tu Ya Jaane Na 2008.mp4",
+      "output_root": "out/2025/11/02/20251102-0007",
+      "log_root": "out/2025/11/02/20251102-0007/logs"
+    },
+    {
+      "job_id": "20251102-0008",
+      "job_no": 8,
+      "created_at": "2025-11-02T23:43:47.357276",
+      "job_dir": "/Users/rpatel/Projects/cp-whisperx-app/jobs/2025/11/02/20251102-0008",
+      "job_env_file": "/Users/rpatel/Projects/cp-whisperx-app/jobs/2025/11/02/20251102-0008/.20251102-0008.env",
+      "source_media": "/Users/rpatel/Projects/cp-whisperx-app/in/Jaane Tu Ya Jaane Na 2008.mp4",
+      "status": "ready",
+      "is_clip": false,
+      "media_path": "/Users/rpatel/Projects/cp-whisperx-app/jobs/2025/11/02/20251102-0008/Jaane Tu Ya Jaane Na 2008.mp4",
+      "output_root": "out/2025/11/02/20251102-0008",
+      "log_root": "out/2025/11/02/20251102-0008/logs"
+    }
+  ],
+  "next_job_no": 9
+}

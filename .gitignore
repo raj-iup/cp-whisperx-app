@@ -34,16 +34,11 @@ secrets.json
 *.pem
 
 # Input/Output directories (ignore contents but keep structure)
-logs/*
-!logs/.gitkeep
 in/*
 !in/.gitkeep
 out/*
 !out/.gitkeep
-temp/*
-!temp/.gitkeep
 tmp/
-native-mps-results/
 
 
 # Pipeline artifacts
@@ -190,10 +185,8 @@ core.*
 # *.flac
 
 # Keep these directories but ignore contents
-!logs/.gitkeep
 !in/.gitkeep
 !out/.gitkeep
-!temp/.gitkeep
 
 # Keep example and template files
 !**/*.example
@@ -202,10 +195,8 @@ core.*
 
 # Keep .gitkeep files to preserve directory structure
 !**/.gitkeep
-!logs/.gitkeep
 !in/.gitkeep
 !out/.gitkeep
-!temp/.gitkeep
 
 # Ignore specific config variants but keep examples
 config/.env.local

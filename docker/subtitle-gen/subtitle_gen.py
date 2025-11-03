@@ -37,6 +37,68 @@ def format_srt_time(seconds: float) -> str:
     return f"{hours:02d}:{minutes:02d}:{secs:02d},{millis:03d}"
 
 
+def split_long_lines(text: str, max_line_length: int, max_lines: int) -> str:
+    """
+    Split long text into multiple lines based on max line length and max lines.
+    
+    Args:
+        text: Text to split
+        max_line_length: Maximum characters per line
+        max_lines: Maximum number of lines
+    
+    Returns:
+        Text with line breaks inserted
+    """
+    if len(text) <= max_line_length:
+        return text
+    
+    words = text.split()
+    lines = []
+    current_line = []
+    current_length = 0
+    
+    for word in words:
+        word_length = len(word)
+        # +1 for space between words
+        if current_length + word_length + (1 if current_line else 0) <= max_line_length:
+            current_line.append(word)
+            current_length += word_length + (1 if current_length > 0 else 0)
+        else:
+            # Start new line
+            if current_line:
+                lines.append(" ".join(current_line))
+            current_line = [word]
+            current_length = word_length
+            
+            # Check if we've hit max lines
+            if len(lines) >= max_lines:
+                break
+    
+    # Add remaining words to last line
+    if current_line and len(lines) < max_lines:
+        lines.append(" ".join(current_line))
+    
+    # Trim to max_lines
+    return "\n".join(lines[:max_lines])
+
+
+def format_speaker_label(speaker: str, speaker_format: str) -> str:
+    """
+    Format speaker label according to template.
+    
+    Args:
+        speaker: Speaker identifier
+        speaker_format: Format template (e.g., "[{speaker}]", "({speaker})", "{speaker}:")
+    
+    Returns:
+        Formatted speaker label
+    """
+    if not speaker or not speaker_format:
+        return ""
+    
+    return speaker_format.replace("{speaker}", speaker)
+
+
 def merge_short_subtitles(
     segments: List[Dict],
     max_duration: float = 7.0,
@@ -103,6 +165,9 @@ def generate_srt(
     segments: List[Dict],
     output_file: Path,
     include_speaker: bool = True,
+    speaker_format: str = "[{speaker}]",
+    max_line_length: int = 42,
+    max_lines: int = 2,
     logger: PipelineLogger = None
 ):
     """
@@ -112,28 +177,44 @@ def generate_srt(
         segments: List of subtitle segments
         output_file: Output SRT file path
         include_speaker: Include speaker labels in subtitles
+        speaker_format: Format template for speaker labels
+        max_line_length: Maximum characters per line
+        max_lines: Maximum number of lines per subtitle
         logger: Logger instance
     """
     if logger:
         logger.info(f"Generating SRT with {len(segments)} subtitles...")
     
     with open(output_file, "w", encoding="utf-8") as f:
+        lyric_count = 0
         for i, segment in enumerate(segments, 1):
             start = segment.get("start", 0)
             end = segment.get("end", start + 1)
             text = segment.get("text", "").strip()
             speaker = segment.get("speaker", "")
+            is_lyric = segment.get("is_lyric", False)
             
             if not text:
                 continue
+            
+            if is_lyric:
+                lyric_count += 1
             
             # Format timestamps
             start_time = format_srt_time(start)
             end_time = format_srt_time(end)
             
-            # Add speaker prefix if enabled
-            if include_speaker and speaker:
-                text = f"[{speaker}] {text}"
+            # Format text based on content type
+            if is_lyric:
+                # Special formatting for lyrics
+                text = f"♪ {text} ♪"
+            elif include_speaker and speaker:
+                # Add speaker prefix for dialogue
+                speaker_label = format_speaker_label(speaker, speaker_format)
+                text = f"{speaker_label} {text}"
+            
+            # Split long lines
+            text = split_long_lines(text, max_line_length, max_lines)
             
             # Write SRT entry
             f.write(f"{i}\n")
@@ -143,6 +224,8 @@ def generate_srt(
     
     if logger:
         logger.info(f"✓ SRT file generated: {output_file}")
+        if lyric_count > 0:
+            logger.info(f"  {lyric_count} lyric subtitles with special formatting")
 
 
 def main():
@@ -152,8 +235,16 @@ def main():
     
     movie_dir = Path(sys.argv[1])
     
+    # Load config to get log level
+    try:
+        from config import load_config
+        config = load_config()
+        log_level = config.log_level.upper() if hasattr(config, 'log_level') else "INFO"
+    except:
+        log_level = "INFO"
+    
     # Setup logger
-    logger = PipelineLogger("subtitle-gen")
+    logger = PipelineLogger("subtitle-gen", log_level=log_level)
     logger.info(f"Starting subtitle generation for: {movie_dir}")
     
     # Find corrected transcript (Post-NER output - preferred)
@@ -187,14 +278,31 @@ def main():
     
     logger.info(f"Loaded {len(segments)} segments")
     
-    # Get config
-    merge_subtitles = os.getenv("MERGE_SUBTITLES", "true").lower() == "true"
-    include_speaker = os.getenv("INCLUDE_SPEAKER", "true").lower() == "true"
-    max_duration = float(os.getenv("MAX_SUBTITLE_DURATION", "7.0"))
-    max_chars = int(os.getenv("MAX_SUBTITLE_CHARS", "84"))
+    # Get configuration parameters
+    subtitle_format = config.get('subtitle_format', 'srt')
+    max_line_length = config.get('subtitle_max_line_length', 42)
+    max_lines = config.get('subtitle_max_lines', 2)
+    include_speaker = config.get('subtitle_include_speaker_labels', True)
+    speaker_format = config.get('subtitle_speaker_format', '[{speaker}]')
+    word_level = config.get('subtitle_word_level_timestamps', False)
+    max_duration = config.get('subtitle_max_duration', 7.0)
+    merge_subtitles = config.get('subtitle_merge_short', True)
     
-    logger.info(f"Merge subtitles: {merge_subtitles}")
-    logger.info(f"Include speaker: {include_speaker}")
+    # Calculate max chars (max_line_length * max_lines)
+    max_chars = max_line_length * max_lines
+    
+    logger.info(f"Configuration:")
+    logger.info(f"  Format: {subtitle_format}")
+    logger.info(f"  Max line length: {max_line_length}")
+    logger.info(f"  Max lines: {max_lines}")
+    logger.info(f"  Include speaker: {include_speaker}")
+    logger.info(f"  Speaker format: {speaker_format}")
+    logger.info(f"  Word-level timestamps: {word_level}")
+    logger.info(f"  Max duration: {max_duration}s")
+    logger.info(f"  Merge short subtitles: {merge_subtitles}")
+    
+    if word_level:
+        logger.warning("Word-level timestamps requested but not yet implemented")
     
     # Merge if requested
     if merge_subtitles:
@@ -210,16 +318,24 @@ def main():
     output_dir = movie_dir / "en_merged"
     output_dir.mkdir(exist_ok=True, parents=True)
     
-    output_file = output_dir / f"{movie_dir.name}.merged.srt"
+    output_file = output_dir / f"{movie_dir.name}.merged.{subtitle_format}"
     
-    # Generate SRT
+    # Generate subtitle file
     try:
-        generate_srt(
-            segments,
-            output_file,
-            include_speaker=include_speaker,
-            logger=logger
-        )
+        if subtitle_format.lower() == 'srt':
+            generate_srt(
+                segments,
+                output_file,
+                include_speaker=include_speaker,
+                speaker_format=speaker_format,
+                max_line_length=max_line_length,
+                max_lines=max_lines,
+                logger=logger
+            )
+        else:
+            logger.error(f"Unsupported subtitle format: {subtitle_format}")
+            logger.error("Only 'srt' format is currently supported")
+            sys.exit(1)
         
         logger.info(f"✓ Subtitle generation complete")
         logger.info(f"Output: {output_file}")

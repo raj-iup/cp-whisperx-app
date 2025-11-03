@@ -112,7 +112,10 @@ class FFmpegMuxer:
         output_file: Path,
         subtitle_language: str = 'eng',
         subtitle_title: str = 'English',
+        subtitle_codec: str = None,
         container_format: str = 'mp4',
+        copy_video: bool = True,
+        copy_audio: bool = True,
         overwrite: bool = False
     ) -> Tuple[bool, str]:
         """
@@ -124,7 +127,10 @@ class FFmpegMuxer:
             output_file: Output video file
             subtitle_language: ISO 639-2 language code (default: 'eng')
             subtitle_title: Subtitle track title (default: 'English')
+            subtitle_codec: Subtitle codec (default: auto-detect from container)
             container_format: Output container format (default: 'mp4')
+            copy_video: Copy video stream without re-encoding (default: True)
+            copy_audio: Copy audio stream without re-encoding (default: True)
             overwrite: Overwrite output file if exists (default: False)
             
         Returns:
@@ -137,6 +143,8 @@ class FFmpegMuxer:
             self.logger.debug(f"Output: {output_file}")
             self.logger.debug(f"Language: {subtitle_language}")
             self.logger.debug(f"Format: {container_format}")
+            self.logger.debug(f"Copy video: {copy_video}")
+            self.logger.debug(f"Copy audio: {copy_audio}")
         
         # Validate inputs
         if not video_file.exists():
@@ -151,32 +159,45 @@ class FFmpegMuxer:
         # Ensure output directory exists
         output_file.parent.mkdir(parents=True, exist_ok=True)
         
+        # Determine codecs
+        video_codec = 'copy' if copy_video else 'libx264'
+        audio_codec = 'copy' if copy_audio else 'aac'
+        
+        # Auto-detect subtitle codec if not specified
+        if subtitle_codec is None:
+            if container_format.lower() == 'mp4':
+                subtitle_codec = 'mov_text'
+            elif container_format.lower() in ['mkv', 'matroska']:
+                subtitle_codec = 'srt'
+            else:
+                subtitle_codec = 'mov_text'  # Default fallback
+        
         # Build FFmpeg command based on container format
         if container_format.lower() == 'mp4':
-            # MP4 format - use mov_text codec for subtitles
-            cmd = [
-                self.ffmpeg_path,
-                '-y' if overwrite else '-n',  # Overwrite or no-overwrite
-                '-i', str(video_file),
-                '-i', str(subtitle_file),
-                '-c:v', 'copy',  # Copy video stream
-                '-c:a', 'copy',  # Copy audio stream
-                '-c:s', 'mov_text',  # Convert subtitles to mov_text
-                '-metadata:s:s:0', f'language={subtitle_language}',
-                '-metadata:s:s:0', f'title={subtitle_title}',
-                '-movflags', '+faststart',  # Optimize for streaming
-                str(output_file)
-            ]
-        elif container_format.lower() in ['mkv', 'matroska']:
-            # MKV format - can use SRT directly
+            # MP4 format
             cmd = [
                 self.ffmpeg_path,
                 '-y' if overwrite else '-n',
                 '-i', str(video_file),
                 '-i', str(subtitle_file),
-                '-c:v', 'copy',
-                '-c:a', 'copy',
-                '-c:s', 'srt',  # Keep SRT format
+                '-c:v', video_codec,
+                '-c:a', audio_codec,
+                '-c:s', subtitle_codec,
+                '-metadata:s:s:0', f'language={subtitle_language}',
+                '-metadata:s:s:0', f'title={subtitle_title}',
+                '-movflags', '+faststart',
+                str(output_file)
+            ]
+        elif container_format.lower() in ['mkv', 'matroska']:
+            # MKV format
+            cmd = [
+                self.ffmpeg_path,
+                '-y' if overwrite else '-n',
+                '-i', str(video_file),
+                '-i', str(subtitle_file),
+                '-c:v', video_codec,
+                '-c:a', audio_codec,
+                '-c:s', subtitle_codec,
                 '-metadata:s:s:0', f'language={subtitle_language}',
                 '-metadata:s:s:0', f'title={subtitle_title}',
                 str(output_file)

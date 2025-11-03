@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-"""Stage 7: WhisperX ASR + Forced Alignment
-
-NOTE: Due to WhisperX dependency conflicts, this uses faster-whisper directly.
-Provides transcription without word-level alignment but avoids dependency issues.
-"""
+"""Stage 7: WhisperX ASR + Forced Alignment"""
 import os
 import sys
 import json
@@ -15,7 +11,54 @@ sys.path.insert(0, 'native/utils')
 from device_manager import get_device
 from native_logger import NativePipelineLogger
 from manifest import StageManifest
-from simplified_asr_wrapper import SimplifiedASR, load_secrets
+
+
+def load_env_config() -> dict:
+    """Load configuration from environment variables."""
+    return {
+        'model_name': os.getenv('WHISPER_MODEL', 'large-v3'),
+        'compute_type': os.getenv('WHISPER_COMPUTE_TYPE', 'int8'),
+        'batch_size': int(os.getenv('WHISPER_BATCH_SIZE', '16')),
+        'source_language': os.getenv('WHISPER_LANGUAGE', 'hi'),
+        'target_language': os.getenv('TARGET_LANGUAGE', 'en'),
+        'task': os.getenv('WHISPER_TASK', 'translate'),
+        'device': os.getenv('WHISPERX_DEVICE', 'cpu'),
+        'temperature': os.getenv('WHISPER_TEMPERATURE', '0.0,0.2,0.4,0.6,0.8,1.0'),
+        'beam_size': int(os.getenv('WHISPER_BEAM_SIZE', '5')),
+        'best_of': int(os.getenv('WHISPER_BEST_OF', '5')),
+        'patience': float(os.getenv('WHISPER_PATIENCE', '1.0')),
+        'length_penalty': float(os.getenv('WHISPER_LENGTH_PENALTY', '1.0')),
+        'no_speech_threshold': float(os.getenv('WHISPER_NO_SPEECH_THRESHOLD', '0.6')),
+        'logprob_threshold': float(os.getenv('WHISPER_LOGPROB_THRESHOLD', '-1.0')),
+        'compression_ratio_threshold': float(os.getenv('WHISPER_COMPRESSION_RATIO_THRESHOLD', '2.4')),
+        'condition_on_previous_text': os.getenv('WHISPER_CONDITION_ON_PREVIOUS_TEXT', 'true').lower() == 'true',
+        'initial_prompt': os.getenv('WHISPER_INITIAL_PROMPT', '')
+    }
+
+
+def load_initial_prompt(movie_dir: Path, logger) -> str:
+    """Load initial prompt from file."""
+    # Try NER-enhanced prompt first
+    ner_prompt = movie_dir / "prompts" / "ner_enhanced_prompt.txt"
+    if ner_prompt.exists():
+        with open(ner_prompt, 'r') as f:
+            prompt = f.read().strip()
+        logger.info(f"Loaded NER-enhanced prompt: {len(prompt)} chars")
+        return prompt
+    
+    # Try other prompt files
+    for prompt_file in [
+        movie_dir / f"{movie_dir.name}.combined.initial_prompt.txt",
+        movie_dir / f"{movie_dir.name}.initial_prompt.txt"
+    ]:
+        if prompt_file.exists():
+            with open(prompt_file, 'r') as f:
+                prompt = f.read().strip()
+            logger.info(f"Loaded prompt from {prompt_file.name}: {len(prompt)} chars")
+            return prompt
+    
+    logger.warning("No initial prompt file found")
+    return ""
 
 
 def run_asr(
@@ -33,74 +76,137 @@ def run_asr(
         speaker_segments_file: Path to speaker segments JSON
         device: Device to run on (cpu, mps, cuda)
         logger: Logger instance
-        config: Optional config dict
+        config: Configuration dict
         
     Returns:
         Tuple of (transcription_result, statistics)
     """
-    # Default configuration
-    default_config = {
-        'model_name': 'base',
-        'compute_type': 'float32',
-        'language': None,  # Auto-detect
-        'batch_size': 16
-    }
-    
-    if config:
-        default_config.update(config)
-    
-    logger.info(f"Running Faster-Whisper ASR on {device}")
-    logger.info("Note: Using simplified ASR (faster-whisper) due to WhisperX dependency conflicts")
-    logger.debug(f"Configuration: {default_config}")
-    logger.info(f"Model: {default_config['model_name']}")
+    logger.info(f"Running WhisperX ASR on {device}")
+    logger.info(f"Model: {config.get('model_name', 'large-v3')}")
+    logger.info(f"Source: {config.get('source_language', 'hi')} -> Target: {config.get('target_language', 'en')}")
     
     # Load speaker segments if available
     speaker_segments = None
     if speaker_segments_file and speaker_segments_file.exists():
         with open(speaker_segments_file, 'r') as f:
             speaker_data = json.load(f)
-        speaker_segments = speaker_data.get('segments', [])
+        speaker_segments = speaker_data.get('speaker_segments', [])
         logger.info(f"Loaded {len(speaker_segments)} speaker segments")
     else:
-        logger.warning("No speaker segments found, transcription will not have speaker labels")
+        logger.warning("No speaker segments found")
     
     import time
     start = time.time()
     
     try:
-        # Initialize Simplified ASR
-        asr = SimplifiedASR(
-            model_name=default_config['model_name'],
+        # Import WhisperX
+        import whisperx
+        
+        # Load model
+        logger.info("Loading WhisperX model...")
+        model = whisperx.load_model(
+            config['model_name'],
             device=device,
-            compute_type=default_config['compute_type'],
-            language=default_config['language'],
-            logger=logger
+            compute_type=config['compute_type']
         )
+        logger.info("✓ Model loaded")
         
-        # Process audio
-        result, stats = asr.process(
-            audio_path=audio_file,
-            speaker_segments=speaker_segments,
-            batch_size=default_config['batch_size']
-        )
+        # Load audio
+        logger.info("Loading audio...")
+        audio = whisperx.load_audio(str(audio_file))
         
-        # Cleanup
-        asr.cleanup()
+        # Parse temperature
+        temperature = [float(t.strip()) for t in config['temperature'].split(',')]
+        
+        # Transcribe
+        logger.info("Transcribing...")
+        logger.debug(f"  Temperature: {temperature}")
+        logger.debug(f"  Beam size: {config['beam_size']}")
+        
+        transcribe_options = {
+            "language": config['source_language'],
+            "task": config['task'],
+            "batch_size": config['batch_size'],
+            "temperature": temperature,
+            "beam_size": config['beam_size'],
+            "best_of": config['best_of'],
+            "patience": config['patience'],
+            "length_penalty": config['length_penalty'],
+            "no_speech_threshold": config['no_speech_threshold'],
+            "logprob_threshold": config['logprob_threshold'],
+            "compression_ratio_threshold": config['compression_ratio_threshold'],
+            "condition_on_previous_text": config['condition_on_previous_text']
+        }
+        
+        if config['initial_prompt']:
+            transcribe_options['initial_prompt'] = config['initial_prompt']
+            logger.info(f"  Using initial prompt: {len(config['initial_prompt'])} chars")
+        
+        result = model.transcribe(audio, **transcribe_options)
+        segments = result.get("segments", [])
+        logger.info(f"✓ Transcription complete: {len(segments)} segments")
+        
+        # Load alignment model
+        target_lang = config['target_language']
+        logger.info(f"Loading alignment model for {target_lang}...")
+        try:
+            align_model, align_metadata = whisperx.load_align_model(
+                language_code=target_lang,
+                device=device
+            )
+            
+            # Align words
+            logger.info("Aligning words...")
+            result = whisperx.align(
+                segments,
+                align_model,
+                align_metadata,
+                audio,
+                device=device,
+                return_char_alignments=False
+            )
+            logger.info("✓ Word alignment complete")
+        except Exception as e:
+            logger.warning(f"Alignment failed: {e}")
+            logger.warning("Continuing without word-level timestamps")
+        
+        # Assign speakers if available
+        if speaker_segments:
+            logger.info("Assigning speakers...")
+            segments = result.get("segments", [])
+            for segment in segments:
+                seg_mid = (segment.get("start", 0) + segment.get("end", 0)) / 2
+                for spk_seg in speaker_segments:
+                    if spk_seg["start"] <= seg_mid <= spk_seg["end"]:
+                        segment["speaker"] = spk_seg["speaker"]
+                        break
+            
+            speakers_assigned = sum(1 for seg in segments if "speaker" in seg)
+            logger.info(f"✓ Assigned speakers to {speakers_assigned}/{len(segments)} segments")
+            result["segments"] = segments
         
         duration = time.time() - start
         
-        # Log results
-        logger.log_processing("ASR and alignment complete", duration)
-        logger.log_metric("Transcribed segments", stats['num_segments'])
-        logger.log_metric("Total words", stats['total_words'])
-        logger.log_metric("Language", stats['language'])
+        # Calculate statistics
+        total_words = sum(len(seg.get('words', [])) for seg in segments)
+        stats = {
+            'num_segments': len(segments),
+            'total_words': total_words,
+            'duration': duration,
+            'language': config['source_language'],
+            'target_language': target_lang,
+            'device': device,
+            'model': config['model_name']
+        }
+        
+        logger.info(f"ASR complete: {len(segments)} segments, {total_words} words")
         
         return result, stats
         
     except Exception as e:
-        logger.error(f"ASR processing failed: {e}")
+        logger.error(f"ASR failed: {e}")
         import traceback
-        logger.debug(traceback.format_exc())
+        logger.error(traceback.format_exc())
         raise
 
 
@@ -108,99 +214,124 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--input', required=True, help='Input video file')
     parser.add_argument('--movie-dir', required=True, help='Movie output directory')
-    parser.add_argument('--model', default='base', 
-                       choices=['tiny', 'base', 'small', 'medium', 'large-v2', 'large-v3'],
-                       help='Whisper model size')
-    parser.add_argument('--language', help='Language code (e.g., en, hi, es)')
-    parser.add_argument('--batch-size', type=int, default=16, help='Batch size')
-    parser.add_argument('--compute-type', default='float32',
-                       choices=['float16', 'float32', 'int8'],
-                       help='Computation precision')
-    parser.add_argument('--log-level', default=None,
-                       choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
-                       help='Logging level')
     args = parser.parse_args()
     
     movie_dir = Path(args.movie_dir)
     movie_name = movie_dir.name
-    
-    # Use LOG_LEVEL from environment or argument
-    log_level = args.log_level or os.getenv('LOG_LEVEL', 'INFO')
-    logger = NativePipelineLogger('asr', movie_name, log_level=log_level)
+    logger = NativePipelineLogger('asr', movie_name)
     
     try:
-        logger.log_stage_start("Faster-Whisper ASR (Simplified)")
+        logger.log_stage_start("WhisperX ASR - Transcription and translation")
         
-        device = get_device(prefer_mps=False, stage_name='asr')  # Prefer CPU for faster-whisper
-        logger.log_model_load(f"Faster-Whisper ({args.model})", device)
+        # Load configuration from environment
+        env_config = load_env_config()
         
-        # Prepare config
-        config = {
-            'model_name': args.model,
-            'compute_type': args.compute_type,
-            'language': args.language,
-            'batch_size': args.batch_size
-        }
+        # Load initial prompt from file (override env if file exists)
+        prompt_from_file = load_initial_prompt(movie_dir, logger)
+        if prompt_from_file:
+            env_config['initial_prompt'] = prompt_from_file
+        
+        logger.info(f"Configuration: model={env_config['model_name']}, "
+                   f"device={env_config['device']}, "
+                   f"language={env_config['source_language']}->{env_config['target_language']}")
+        
+        # Get device
+        if env_config['device'].upper() not in ['CPU', 'MPS', 'CUDA']:
+            device = get_device(prefer_mps=True, stage_name='asr')
+        else:
+            device = env_config['device'].lower()
+        
+        logger.log_model_load(f"WhisperX {env_config['model_name']}", device)
+        
+        import time
+        start = time.time()
         
         with StageManifest('asr', movie_dir, logger.logger) as manifest:
+            # Get paths
             audio_file = movie_dir / 'audio' / 'audio.wav'
             speaker_segments_file = movie_dir / 'diarization' / 'speaker_segments.json'
             
             if not audio_file.exists():
                 raise FileNotFoundError(f"Audio file not found: {audio_file}")
             
-            logger.debug(f"Input audio: {audio_file}")
-            logger.info(f"Audio file size: {audio_file.stat().st_size / (1024*1024):.1f} MB")
+            logger.debug(f"Audio file: {audio_file}")
             
-            # Run ASR
+            # Run ASR with configuration
             result, stats = run_asr(
                 audio_file=audio_file,
                 speaker_segments_file=speaker_segments_file,
                 device=device,
                 logger=logger,
-                config=config
+                config=env_config
             )
             
-            # Create output directory
-            trans_dir = movie_dir / 'transcription'
-            trans_dir.mkdir(parents=True, exist_ok=True)
-            logger.debug(f"Transcription directory: {trans_dir}")
+            duration = time.time() - start
             
-            # Save transcript
-            output_file = trans_dir / 'transcript.json'
-            output_data = {
-                'segments': result.get('segments', []),
-                'language': result.get('language', 'unknown'),
-                'statistics': stats,
-                'config': config
+            # Log results
+            logger.log_processing("ASR complete", duration)
+            logger.log_metric("Segments", stats['num_segments'])
+            logger.log_metric("Words", stats['total_words'])
+            logger.log_metric("Language", f"{stats['language']}->{stats['target_language']}")
+            
+            # Create output directory
+            asr_dir = movie_dir / 'asr'
+            asr_dir.mkdir(parents=True, exist_ok=True)
+            logger.debug(f"ASR directory: {asr_dir}")
+            
+            # Save ASR result
+            output_file = asr_dir / f'{movie_name}.asr.json'
+            with open(output_file, 'w', encoding='utf-8') as f:
+                json.dump(result, f, indent=2, ensure_ascii=False)
+            
+            logger.log_file_operation("Saved ASR result", output_file, success=True)
+            
+            # Save transcript text
+            txt_file = asr_dir / f'{movie_name}.asr.txt'
+            with open(txt_file, 'w', encoding='utf-8') as f:
+                for seg in result.get('segments', []):
+                    text = seg.get('text', '').strip()
+                    if text:
+                        f.write(f"{text}\n")
+            
+            logger.log_file_operation("Saved transcript", txt_file, success=True)
+            
+            # Save metadata
+            metadata = {
+                'model': env_config['model_name'],
+                'device': device,
+                'compute_type': env_config['compute_type'],
+                'source_language': env_config['source_language'],
+                'target_language': env_config['target_language'],
+                'task': env_config['task'],
+                'segments_count': stats['num_segments'],
+                'words_count': stats['total_words'],
+                'transcription_parameters': {
+                    'batch_size': env_config['batch_size'],
+                    'temperature': env_config['temperature'],
+                    'beam_size': env_config['beam_size'],
+                    'best_of': env_config['best_of'],
+                    'patience': env_config['patience'],
+                    'length_penalty': env_config['length_penalty'],
+                    'no_speech_threshold': env_config['no_speech_threshold'],
+                    'logprob_threshold': env_config['logprob_threshold'],
+                    'compression_ratio_threshold': env_config['compression_ratio_threshold'],
+                    'condition_on_previous_text': env_config['condition_on_previous_text'],
+                    'initial_prompt_length': len(env_config['initial_prompt'])
+                }
             }
             
-            with open(output_file, 'w', encoding='utf-8') as f:
-                json.dump(output_data, f, indent=2, ensure_ascii=False)
+            meta_file = asr_dir / f'{movie_name}.asr.meta.json'
+            with open(meta_file, 'w', encoding='utf-8') as f:
+                json.dump(metadata, f, indent=2)
             
-            logger.log_file_operation("Saved transcript", output_file, success=True)
-            
-            # Save human-readable transcript
-            txt_file = trans_dir / 'transcript.txt'
-            with open(txt_file, 'w', encoding='utf-8') as f:
-                for segment in result.get('segments', []):
-                    speaker = segment.get('speaker', 'UNKNOWN')
-                    text = segment.get('text', '').strip()
-                    start = segment.get('start', 0)
-                    f.write(f"[{start:.2f}s] {speaker}: {text}\n")
-            
-            logger.log_file_operation("Saved text transcript", txt_file, success=True)
+            logger.log_file_operation("Saved metadata", meta_file, success=True)
             
             # Add to manifest
-            manifest.add_output('transcript', output_file, 'Full transcript with timestamps')
-            manifest.add_output('transcript_txt', txt_file, 'Human-readable transcript')
+            manifest.add_output('transcript', output_file, 'WhisperX ASR transcript')
             manifest.add_metadata('device', device)
-            manifest.add_metadata('model_name', config['model_name'])
-            manifest.add_metadata('language', stats['language'])
-            manifest.add_metadata('num_segments', stats['num_segments'])
-            manifest.add_metadata('total_words', stats['total_words'])
-            manifest.add_metadata('has_alignment', stats['has_alignment'])
-            manifest.add_metadata('has_speakers', stats['has_speakers'])
+            manifest.add_metadata('model', env_config['model_name'])
+            manifest.add_metadata('segments', stats['num_segments'])
+            manifest.add_metadata('words', stats['total_words'])
         
         logger.log_stage_end(success=True)
         

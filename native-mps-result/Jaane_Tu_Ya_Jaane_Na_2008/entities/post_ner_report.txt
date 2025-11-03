@@ -1,5 +1,0 @@
-=== Entity Corrections Report ===
-
-
-PERSONS:
-  Batwal Khan          → Ayaz Khan            ( 1x, conf: 0.70)

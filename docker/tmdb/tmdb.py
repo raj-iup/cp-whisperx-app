@@ -15,7 +15,7 @@ from logger import setup_logger
 from utils import save_json, parse_filename, get_movie_dir
 
 
-def search_tmdb(title: str, year: Optional[str], api_key: str, logger) -> Optional[Dict]:
+def search_tmdb(title: str, year: Optional[str], api_key: str, language: str, logger) -> Optional[Dict]:
     """
     Search TMDB for movie metadata.
     
@@ -23,6 +23,7 @@ def search_tmdb(title: str, year: Optional[str], api_key: str, logger) -> Option
         title: Movie title
         year: Release year (optional)
         api_key: TMDB API key
+        language: TMDB language code (e.g., 'en-US', 'es-ES')
         logger: Logger instance
     
     Returns:
@@ -34,7 +35,7 @@ def search_tmdb(title: str, year: Optional[str], api_key: str, logger) -> Option
         # Initialize TMDB
         tmdb = TMDb()
         tmdb.api_key = api_key
-        tmdb.language = 'en-US'
+        tmdb.language = language
         
         movie_api = Movie()
         
@@ -180,7 +181,19 @@ def generate_asr_prompt(metadata: Dict, logger) -> str:
 
 def main():
     """Main entry point."""
-    config = load_config()
+    # Validate arguments BEFORE setting up logger
+    if len(sys.argv) < 3:
+        # Check if we can fall back to config
+        try:
+            config = load_config()
+            if not config.output_root:
+                print("ERROR: Usage: tmdb.py <output_dir> <title> [year]", file=sys.stderr)
+                sys.exit(1)
+        except:
+            print("ERROR: Usage: tmdb.py <output_dir> <title> [year]", file=sys.stderr)
+            sys.exit(1)
+    else:
+        config = load_config()
     
     logger = setup_logger(
         "tmdb",
@@ -207,32 +220,33 @@ def main():
         logger.error("Please set TMDB_API_KEY in config/.env or config/secrets.json")
         sys.exit(1)
     
-    # Get movie title and year from command line or parse from filename
-    if len(sys.argv) >= 2:
-        title = sys.argv[1]
-        year = sys.argv[2] if len(sys.argv) >= 3 else None
-        # Get movie directory from title
-        from pathlib import Path
-        temp_filename = f"{title} {year}.mp4" if year else f"{title}.mp4"
-        movie_dir = get_movie_dir(Path(temp_filename), Path(config.output_root))
-    elif config.input_file:
-        # Parse from input filename and get movie directory
-        input_path = Path(config.input_file)
-        file_info = parse_filename(input_path.name)
-        title = file_info['title']
-        year = file_info.get('year')
-        movie_dir = get_movie_dir(input_path, Path(config.output_root))
+    # Get movie title, year, and output directory from command line
+    # Expected: tmdb.py <output_dir> <title> [year]
+    if len(sys.argv) >= 3:
+        movie_dir = Path(sys.argv[1])
+        title = sys.argv[2]
+        year = sys.argv[3] if len(sys.argv) >= 4 else None
+        logger.info(f"Using output directory from argument: {movie_dir}")
     else:
-        logger.error("No title provided. Usage: tmdb.py <title> [year]")
-        sys.exit(1)
+        # Must have been validated earlier - use output_root
+        # Always use output_root directly when it's set (should be job-specific)
+        movie_dir = Path(config.output_root)
+        # Parse from config - this path shouldn't normally be reached
+        title = "Unknown"
+        year = None
+        logger.info(f"Using output_root as movie directory: {movie_dir}")
     
     logger.info(f"Movie: {title}")
     if year:
         logger.info(f"Year: {year}")
     logger.info(f"Output directory: {movie_dir}")
     
+    # Get TMDB language from config
+    tmdb_language = getattr(config, 'tmdb_language', 'en-US')
+    logger.info(f"TMDB language: {tmdb_language}")
+    
     # Search TMDB
-    metadata = search_tmdb(title, year, api_key, logger)
+    metadata = search_tmdb(title, year, api_key, tmdb_language, logger)
     
     if not metadata:
         logger.warning("Could not fetch TMDB metadata")

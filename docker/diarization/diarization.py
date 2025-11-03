@@ -29,8 +29,17 @@ def main():
     
     movie_dir = Path(sys.argv[1])
     
+    # Load config
+    try:
+        from config import load_config
+        config = load_config()
+        log_level = config.log_level.upper() if hasattr(config, 'log_level') else "INFO"
+    except Exception as e:
+        logger.error(f"Failed to load config: {e}")
+        sys.exit(1)
+    
     # Setup logger
-    logger = PipelineLogger("diarization")
+    logger = PipelineLogger("diarization", log_level=log_level)
     logger.info(f"Starting diarization for: {movie_dir}")
     logger.info("Per workflow-arch.txt: Stage 6 BEFORE Stage 7 (ASR)")
     
@@ -48,8 +57,8 @@ def main():
     diar_dir = movie_dir / "diarization"
     diar_dir.mkdir(exist_ok=True, parents=True)
     
-    # Get config - Try environment first, then secrets.json
-    hf_token = os.getenv("HF_TOKEN", "")
+    # Get HF token from config or environment
+    hf_token = config.hf_token if hasattr(config, 'hf_token') and config.hf_token else os.getenv("HF_TOKEN", "")
     if not hf_token:
         # Try loading from secrets.json
         try:
@@ -62,27 +71,32 @@ def main():
             logger.warning(f"Could not load secrets.json: {e}")
     
     if not hf_token:
-        logger.error("HF_TOKEN not found in environment or config/secrets.json")
+        logger.error("HF_TOKEN not found in config, environment, or config/secrets.json")
         logger.error("Required for pyannote diarization model")
         sys.exit(1)
     
-    device = os.getenv("DEVICE", "cpu")
-    min_speakers = os.getenv("MIN_SPEAKERS")
-    max_speakers = os.getenv("MAX_SPEAKERS")
+    # Get diarization parameters from config
+    device = config.get('diarization_device', 'cpu')
+    min_speakers = config.get('diarization_min_speakers')
+    max_speakers = config.get('diarization_max_speakers')
+    model_name = config.get('diarization_model', 'pyannote/speaker-diarization-3.1')
+    speaker_map_str = config.get('speaker_map', '')
+    auto_speaker_mapping = config.get('diarization_auto_speaker_mapping', True)
     
-    if min_speakers:
-        min_speakers = int(min_speakers)
-    if max_speakers:
-        max_speakers = int(max_speakers)
-    
-    logger.info(f"Device: {device}")
-    logger.info(f"Min speakers: {min_speakers or 'auto'}")
-    logger.info(f"Max speakers: {max_speakers or 'auto'}")
+    logger.info(f"Configuration:")
+    logger.info(f"  Device: {device}")
+    logger.info(f"  Model: {model_name}")
+    logger.info(f"  Min speakers: {min_speakers or 'auto'}")
+    logger.info(f"  Max speakers: {max_speakers or 'auto'}")
+    logger.info(f"  Auto speaker mapping: {auto_speaker_mapping}")
+    if speaker_map_str:
+        logger.info(f"  Speaker map: {speaker_map_str}")
     
     # Initialize diarization processor
     processor = DiarizationProcessor(
         hf_token=hf_token,
         device=device,
+        model_name=model_name,
         logger=logger
     )
     
@@ -90,6 +104,14 @@ def main():
     try:
         logger.info("Loading PyAnnote diarization model...")
         processor.load_model()
+        
+        # Parse speaker map if provided
+        speaker_map = None
+        if speaker_map_str:
+            try:
+                speaker_map = json.loads(speaker_map_str) if speaker_map_str.startswith('{') else None
+            except:
+                logger.warning(f"Could not parse SPEAKER_MAP, ignoring")
         
         # Run diarization on audio (BEFORE ASR per workflow-arch.txt)
         logger.info("Running diarization on audio file...")
@@ -112,12 +134,69 @@ def main():
                     "speaker": speaker
                 })
         
+        # Load TMDB character names for auto-mapping if enabled
+        character_names = None
+        if auto_speaker_mapping and not speaker_map_str:
+            tmdb_file = movie_dir / 'metadata' / 'tmdb_data.json'
+            if tmdb_file.exists():
+                try:
+                    with open(tmdb_file, 'r', encoding='utf-8') as f:
+                        tmdb_data = json.load(f)
+                    
+                    cast = tmdb_data.get('cast', [])
+                    if cast:
+                        character_names = []
+                        for actor in sorted(cast, key=lambda x: x.get('order', 999))[:max_speakers or 10]:
+                            character = actor.get('character', '')
+                            if character:
+                                character = character.split('(')[0].strip()
+                                character_names.append(character)
+                        
+                        logger.info(f"Loaded {len(character_names)} character names from TMDB")
+                except Exception as e:
+                    logger.warning(f"Could not load TMDB metadata: {e}")
+        
+        # Apply manual speaker map if provided
+        if speaker_map:
+            logger.info("Applying manual speaker name mapping...")
+            for seg in speaker_segments:
+                if seg["speaker"] in speaker_map:
+                    seg["speaker_original"] = seg["speaker"]
+                    seg["speaker"] = speaker_map[seg["speaker"]]
+        # Apply auto speaker mapping from TMDB if available and no manual map
+        elif character_names:
+            logger.info("Applying auto speaker mapping from TMDB cast...")
+            speaker_ids = sorted(set(seg['speaker'] for seg in speaker_segments))
+            
+            for i, speaker_id in enumerate(speaker_ids):
+                if i < len(character_names):
+                    character_name = character_names[i]
+                    for seg in speaker_segments:
+                        if seg['speaker'] == speaker_id:
+                            seg['speaker_original'] = speaker_id
+                            seg['speaker'] = character_name
+                    logger.info(f"Mapped {speaker_id} → {character_name}")
+        
+        output_data = {
+            "speaker_segments": speaker_segments,
+            "num_speakers": len(set(seg["speaker"] for seg in speaker_segments)),
+            "total_segments": len(speaker_segments),
+            "config": {
+                "model": model_name,
+                "device": device,
+                "min_speakers": min_speakers,
+                "max_speakers": max_speakers,
+                "speaker_map_applied": bool(speaker_map),
+                "auto_speaker_mapping": auto_speaker_mapping,
+                "tmdb_mapping_applied": bool(character_names) and not bool(speaker_map)
+            }
+        }
+        
+        if character_names and not speaker_map:
+            output_data['character_names'] = character_names
+        
         with open(output_file, "w", encoding="utf-8") as f:
-            json.dump({
-                "speaker_segments": speaker_segments,
-                "num_speakers": len(set(seg["speaker"] for seg in speaker_segments)),
-                "total_segments": len(speaker_segments)
-            }, f, indent=2, ensure_ascii=False)
+            json.dump(output_data, f, indent=2, ensure_ascii=False)
         
         logger.info(f"✓ Diarization complete: {len(speaker_segments)} speaker turns")
         logger.info(f"✓ Identified {len(set(seg['speaker'] for seg in speaker_segments))} unique speakers")

@@ -41,18 +41,55 @@ def mux_subtitles(video_file: Path, subtitle_file: Path, output_file: Path, conf
     logger.info(f"Subtitles: {subtitle_file.name}")
     logger.info(f"Output: {output_file}")
     
+    # Get configuration parameters
+    subtitle_codec = config.get("mux_subtitle_codec", "mov_text")
+    subtitle_language = config.get("mux_subtitle_language", "eng")
+    subtitle_title = config.get("mux_subtitle_title", "English")
+    copy_video = config.get("mux_copy_video", True)
+    copy_audio = config.get("mux_copy_audio", True)
+    container_format = config.get("mux_container_format", "mp4")
+    
+    logger.info(f"Configuration:")
+    logger.info(f"  Subtitle codec: {subtitle_codec}")
+    logger.info(f"  Subtitle language: {subtitle_language}")
+    logger.info(f"  Subtitle title: {subtitle_title}")
+    logger.info(f"  Copy video: {copy_video}")
+    logger.info(f"  Copy audio: {copy_audio}")
+    logger.info(f"  Container format: {container_format}")
+    
+    # Determine video codec
+    if copy_video:
+        video_codec = "copy"
+    else:
+        # Default to libx264 if re-encoding
+        video_codec = "libx264"
+        logger.info(f"Video will be re-encoded with {video_codec}")
+    
+    # Determine audio codec
+    if copy_audio:
+        audio_codec = "copy"
+    else:
+        # Default to aac if re-encoding
+        audio_codec = "aac"
+        logger.info(f"Audio will be re-encoded with {audio_codec}")
+    
     try:
         cmd = [
             "ffmpeg", "-y",
             "-i", str(video_file),
             "-i", str(subtitle_file),
-            "-c:v", "copy",
-            "-c:a", "copy",
-            "-c:s", config.get("mux_subtitle_codec", "mov_text"),
-            "-metadata:s:s:0", f"language={config.get('mux_subtitle_language', 'eng')}",
-            "-metadata:s:s:0", f"title={config.get('mux_subtitle_title', 'English')}",
-            str(output_file)
+            "-c:v", video_codec,
+            "-c:a", audio_codec,
+            "-c:s", subtitle_codec,
+            "-metadata:s:s:0", f"language={subtitle_language}",
+            "-metadata:s:s:0", f"title={subtitle_title}",
         ]
+        
+        # Add format-specific options
+        if container_format.lower() == "mp4":
+            cmd.extend(["-movflags", "+faststart"])
+        
+        cmd.append(str(output_file))
         
         logger.debug(f"Running: {' '.join(cmd)}")
         
@@ -71,8 +108,14 @@ def mux_subtitles(video_file: Path, subtitle_file: Path, output_file: Path, conf
             "video_file": str(video_file),
             "subtitle_file": str(subtitle_file),
             "output_file": str(output_file),
-            "subtitle_codec": config.get("mux_subtitle_codec", "mov_text"),
-            "subtitle_language": config.get("mux_subtitle_language", "eng"),
+            "subtitle_codec": subtitle_codec,
+            "subtitle_language": subtitle_language,
+            "subtitle_title": subtitle_title,
+            "video_codec": video_codec,
+            "audio_codec": audio_codec,
+            "container_format": container_format,
+            "copy_video": copy_video,
+            "copy_audio": copy_audio,
             "file_size_mb": output_file.stat().st_size / (1024*1024)
         }
         
@@ -92,6 +135,23 @@ def mux_subtitles(video_file: Path, subtitle_file: Path, output_file: Path, conf
 
 def main():
     """Main entry point."""
+    # Validate arguments BEFORE setting up logger to avoid polluting log files
+    if len(sys.argv) < 3:
+        print("ERROR: Usage: mux.py <video_file> <subtitle_file> [output_file]", file=sys.stderr)
+        sys.exit(1)
+    
+    video_file = Path(sys.argv[1])
+    subtitle_file = Path(sys.argv[2])
+    
+    if not video_file.exists():
+        print(f"ERROR: Video file not found: {video_file}", file=sys.stderr)
+        sys.exit(1)
+    
+    if not subtitle_file.exists():
+        print(f"ERROR: Subtitle file not found: {subtitle_file}", file=sys.stderr)
+        sys.exit(1)
+    
+    # Now load config and setup logger
     config = load_config()
     
     logger = setup_logger(
@@ -103,29 +163,15 @@ def main():
         log_dir=config.log_root
     )
     
-    # Get paths from command line
-    if len(sys.argv) < 3:
-        logger.error("Usage: mux.py <video_file> <subtitle_file> [output_file]")
-        sys.exit(1)
-    
-    video_file = Path(sys.argv[1])
-    subtitle_file = Path(sys.argv[2])
-    
+    # Determine output file
     if len(sys.argv) > 3:
         output_file = Path(sys.argv[3])
     else:
-        # Use movie directory structure
-        movie_dir = get_movie_dir(video_file, Path(config.output_root))
-        output_file = movie_dir / f"{movie_dir.name}_with_subs.mp4"
-    
-    # Validate inputs
-    if not video_file.exists():
-        logger.error(f"Video file not found: {video_file}")
-        sys.exit(1)
-    
-    if not subtitle_file.exists():
-        logger.error(f"Subtitle file not found: {subtitle_file}")
-        sys.exit(1)
+        # Use output_root directly (should be job-specific directory)
+        output_root = Path(config.output_root)
+        movie_dir = output_root
+        container_format = config.get("mux_container_format", "mp4")
+        output_file = movie_dir / f"final_output.{container_format}"
     
     # Run mux
     success = mux_subtitles(video_file, subtitle_file, output_file, config)

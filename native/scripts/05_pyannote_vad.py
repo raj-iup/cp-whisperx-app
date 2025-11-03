@@ -1,55 +1,63 @@
 #!/usr/bin/env python3
-"""Stage 5: Pyannote VAD - Refined Voice Activity Detection
-
-NOTE: This is currently using a simplified implementation that passes through
-Silero VAD segments due to pyannote.audio dependency conflicts.
-
-For full Pyannote VAD functionality, install in a separate environment:
-  pip install torch==2.0.1 torchaudio==2.0.2 pyannote.audio==3.0.0
-"""
+"""Stage 5: Pyannote VAD - Refined Voice Activity Detection"""
 import sys
 import json
 import argparse
+import os
 from pathlib import Path
 
 sys.path.insert(0, 'native/utils')
 from device_manager import get_device
 from native_logger import NativePipelineLogger
 from manifest import StageManifest
+from pyannote_vad_wrapper import PyannoteVAD, load_secrets
 
 
-def load_secrets(secrets_path: Path = None) -> dict:
-    """Load secrets from config/secrets.json."""
-    if secrets_path is None:
-        secrets_path = Path("config/secrets.json")
-    
-    if not secrets_path.exists():
-        raise FileNotFoundError(f"Secrets file not found: {secrets_path}")
-    
-    with open(secrets_path, 'r') as f:
-        secrets = json.load(f)
-    
-    return secrets
+def load_env_config() -> dict:
+    """Load configuration from environment variables."""
+    return {
+        'onset': float(os.getenv('PYANNOTE_ONSET', '0.5')),
+        'offset': float(os.getenv('PYANNOTE_OFFSET', '0.5')),
+        'min_duration_on': float(os.getenv('PYANNOTE_MIN_DURATION_ON', '0.0')),
+        'min_duration_off': float(os.getenv('PYANNOTE_MIN_DURATION_OFF', '0.0')),
+        'device': os.getenv('PYANNOTE_DEVICE', 'cpu')
+    }
 
 
-def run_simplified_vad(
+def run_pyannote_vad(
+    audio_file: Path,
     coarse_segments_file: Path,
-    logger
+    device: str,
+    logger,
+    config: dict = None
 ):
     """
-    Simplified VAD implementation that uses Silero segments.
-    
-    TODO: Replace with full Pyannote.audio implementation once dependencies are resolved.
+    Run Pyannote VAD for refined speech segmentation.
     
     Args:
+        audio_file: Path to audio file
         coarse_segments_file: Path to Silero VAD segments JSON
+        device: Device to run on
         logger: Logger instance
+        config: Configuration dict with VAD parameters
         
     Returns:
         Tuple of (refined_segments, statistics)
     """
-    logger.warning("Using simplified VAD implementation (Silero segments pass-through)")
-    logger.info("Full Pyannote VAD requires resolving dependency conflicts")
+    # Default configuration
+    default_config = {
+        'onset': 0.5,
+        'offset': 0.5,
+        'min_duration_on': 0.0,
+        'min_duration_off': 0.0,
+        'filter_by_coarse': True
+    }
+    
+    if config:
+        default_config.update(config)
+    
+    logger.info(f"Running Pyannote VAD on {device}")
+    logger.debug(f"Configuration: {default_config}")
     
     # Load coarse segments from Silero VAD
     if not coarse_segments_file.exists():
@@ -64,23 +72,35 @@ def run_simplified_vad(
     logger.info(f"Loaded {len(coarse_segments)} segments from Silero VAD")
     logger.info(f"Total audio duration: {total_duration:.2f} seconds")
     
-    # For now, use Silero segments as-is
-    refined_segments = coarse_segments
+    # Load secrets for HF token
+    try:
+        secrets = load_secrets()
+        hf_token = secrets.get('hf_token') or secrets.get('pyannote_token')
+        if not hf_token:
+            logger.error("HuggingFace token not found in secrets.json")
+            raise ValueError("HuggingFace token required for Pyannote VAD")
+    except Exception as e:
+        logger.error(f"Failed to load secrets: {e}")
+        raise
     
-    # Calculate statistics
-    speech_duration = sum(seg['end'] - seg['start'] for seg in refined_segments)
-    speech_ratio = speech_duration / total_duration if total_duration > 0 else 0.0
+    # Initialize Pyannote VAD
+    vad = PyannoteVAD(hf_token=hf_token, device=device, logger=logger)
     
-    stats = {
-        'total_duration': total_duration,
-        'num_segments': len(refined_segments),
-        'speech_duration': speech_duration,
-        'speech_ratio': speech_ratio,
-        'avg_segment_duration': speech_duration / len(refined_segments) if refined_segments else 0.0,
-        'device': 'cpu',
-        'method': 'silero_passthrough',
-        'note': 'Using Silero VAD segments directly due to Pyannote dependency issues'
-    }
+    # Load model
+    if not vad.load_model():
+        raise RuntimeError("Failed to load Pyannote VAD model")
+    
+    # Process audio with configuration
+    refined_segments, stats = vad.process(
+        audio_path=audio_file,
+        coarse_segments=coarse_segments,
+        total_duration=total_duration,
+        onset=default_config['onset'],
+        offset=default_config['offset'],
+        min_duration_on=default_config['min_duration_on'],
+        min_duration_off=default_config['min_duration_off'],
+        filter_by_coarse=default_config['filter_by_coarse']
+    )
     
     logger.info(f"Refined segments: {len(refined_segments)}")
     logger.info(f"Speech ratio: {stats['speech_ratio']:.1%}")
@@ -101,33 +121,44 @@ def main():
     try:
         logger.log_stage_start("Pyannote VAD - Refined speech segmentation")
         
-        # Load secrets for documentation (not used in simplified version)
-        try:
-            secrets = load_secrets()
-            hf_token = secrets.get('hf_token') or secrets.get('pyannote_token')
-            if hf_token:
-                logger.info(f"HuggingFace token available (not used in simplified version)")
-        except Exception as e:
-            logger.warning(f"Could not load secrets: {e}")
+        # Load configuration from environment
+        env_config = load_env_config()
+        logger.info(f"Configuration: onset={env_config['onset']}, offset={env_config['offset']}, "
+                   f"min_duration_on={env_config['min_duration_on']}, "
+                   f"min_duration_off={env_config['min_duration_off']}")
         
-        device = get_device(prefer_mps=False, stage_name='pyannote-vad')
-        logger.log_model_load("Pyannote VAD (simplified)", device)
+        # Get device - use env config if specified, otherwise detect
+        if env_config['device'].upper() not in ['CPU', 'MPS', 'CUDA']:
+            device = get_device(prefer_mps=False, stage_name='pyannote-vad')
+        else:
+            device = env_config['device'].lower()
+        
+        logger.log_model_load("Pyannote VAD", device)
         
         import time
         start = time.time()
         
         with StageManifest('pyannote-vad', movie_dir, logger.logger) as manifest:
+            # Get paths
+            audio_file = movie_dir / 'audio' / 'audio.wav'
             coarse_segments_file = movie_dir / 'vad' / 'silero_segments.json'
+            
+            if not audio_file.exists():
+                raise FileNotFoundError(f"Audio file not found: {audio_file}")
             
             if not coarse_segments_file.exists():
                 raise FileNotFoundError(f"Silero segments file not found: {coarse_segments_file}")
             
+            logger.debug(f"Audio file: {audio_file}")
             logger.debug(f"Coarse segments: {coarse_segments_file}")
             
-            # Run simplified VAD
-            refined_segments, stats = run_simplified_vad(
+            # Run Pyannote VAD with configuration
+            refined_segments, stats = run_pyannote_vad(
+                audio_file=audio_file,
                 coarse_segments_file=coarse_segments_file,
-                logger=logger
+                device=device,
+                logger=logger,
+                config=env_config
             )
             
             duration = time.time() - start
@@ -150,8 +181,12 @@ def main():
                 'segments': refined_segments,
                 'statistics': stats,
                 'config': {
-                    'method': 'silero_passthrough',
-                    'note': 'Simplified implementation pending Pyannote dependency resolution'
+                    'onset': env_config['onset'],
+                    'offset': env_config['offset'],
+                    'min_duration_on': env_config['min_duration_on'],
+                    'min_duration_off': env_config['min_duration_off'],
+                    'device': device,
+                    'method': 'pyannote_vad'
                 }
             }
             
@@ -166,7 +201,9 @@ def main():
             manifest.add_metadata('segment_count', len(refined_segments))
             manifest.add_metadata('speech_ratio', stats['speech_ratio'])
             manifest.add_metadata('total_duration', stats['total_duration'])
-            manifest.add_metadata('method', 'silero_passthrough')
+            manifest.add_metadata('onset', env_config['onset'])
+            manifest.add_metadata('offset', env_config['offset'])
+            manifest.add_metadata('method', 'pyannote_vad')
         
         logger.log_stage_end(success=True)
         

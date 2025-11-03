@@ -22,6 +22,10 @@ from utils import save_json, get_movie_dir, load_json
 
 def load_silero_model():
     """Load Silero VAD model from torch.hub"""
+    # Set cache directory
+    import os
+    os.environ['TORCH_HOME'] = '/app/LLM/torch'
+    
     model, utils = torch.hub.load(
         repo_or_dir='snakers4/silero-vad',
         model='silero_vad',
@@ -182,22 +186,17 @@ def main():
             movie_dir = Path(sys.argv[1])
             logger.info(f"Using movie directory from argument: {movie_dir}")
         else:
-            # Fallback: Find the movie directory by looking for audio files in output
+            # Fallback: Try to use output_root or find movie directory
             output_root = Path(config.output_root)
             
-            # Try to find audio file from demux stage
-            audio_file = None
-            movie_dir = None
-            
-            # If INPUT_FILE is set, try to use it to determine movie dir
-            if config.input_file and Path(config.input_file).exists():
-                input_file_path = Path(config.input_file)
-                movie_dir = get_movie_dir(input_file_path, output_root)
-            
-            # If that didn't work, search for any audio.wav in output directory
-            if not movie_dir:
+            # Always use output_root directly when it's set (should be job-specific)
+            if (output_root / "audio").exists():
+                movie_dir = output_root
+                logger.info(f"Using output_root as movie directory: {movie_dir}")
+            else:
+                # Search for any audio.wav in output directory
                 logger.info("Searching for audio files in output directory...")
-                audio_files = list(output_root.glob("*/audio/audio.wav"))
+                audio_files = list(output_root.glob("**/audio/audio.wav"))
                 if audio_files:
                     audio_file = audio_files[0]
                     movie_dir = audio_file.parent.parent

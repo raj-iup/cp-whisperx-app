@@ -99,6 +99,9 @@ def correct_entity_spelling(
 def correct_segments(
     segments: List[Dict],
     reference_entities: List[str],
+    model_name: str,
+    device: str,
+    threshold: float,
     logger: PipelineLogger
 ) -> List[Dict]:
     """
@@ -107,17 +110,23 @@ def correct_segments(
     Args:
         segments: Diarized transcript segments
         reference_entities: List of reference entities from TMDB/Pre-NER
+        model_name: spaCy NER model name
+        device: Device to run on
+        threshold: Confidence threshold for fuzzy matching (0-100)
         logger: Logger instance
     
     Returns:
         Corrected segments with entity annotations
     """
     logger.info("Running NER on transcript segments...")
+    logger.info(f"  Model: {model_name}")
+    logger.info(f"  Device: {device}")
+    logger.info(f"  Threshold: {threshold}")
     
     # Initialize NER processor
     ner_processor = NERProcessor(
-        model_name="en_core_web_trf",
-        device=os.getenv("DEVICE", "cpu"),
+        model_name=model_name,
+        device=device,
         logger=logger
     )
     ner_processor.load_model()
@@ -141,7 +150,7 @@ def correct_segments(
             corrected_text = correct_entity_spelling(
                 entity_text,
                 reference_entities,
-                threshold=85
+                threshold=int(threshold)  # Convert to int for rapidfuzz
             )
             
             if corrected_text and corrected_text != entity_text:
@@ -170,9 +179,35 @@ def main():
     
     movie_dir = Path(sys.argv[1])
     
+    # Load config
+    try:
+        from config import load_config
+        config = load_config()
+        log_level = config.log_level.upper() if hasattr(config, 'log_level') else "INFO"
+    except Exception as e:
+        logger.error(f"Failed to load config: {e}")
+        sys.exit(1)
+    
     # Setup logger
-    logger = PipelineLogger("post-ner")
+    logger = PipelineLogger("post-ner", log_level=log_level)
     logger.info(f"Starting Post-ASR NER for: {movie_dir}")
+    
+    # Get configuration parameters
+    model_name = config.get('post_ner_model', 'en_core_web_trf')
+    device = config.get('post_ner_device', 'cpu')
+    entity_correction = config.get('post_ner_entity_correction', True)
+    tmdb_matching = config.get('post_ner_tmdb_matching', True)
+    confidence_threshold = config.get('post_ner_confidence_threshold', 0.8)
+    
+    # Convert threshold to 0-100 scale for rapidfuzz
+    threshold = confidence_threshold * 100
+    
+    logger.info(f"Configuration:")
+    logger.info(f"  Model: {model_name}")
+    logger.info(f"  Device: {device}")
+    logger.info(f"  Entity correction: {entity_correction}")
+    logger.info(f"  TMDB matching: {tmdb_matching}")
+    logger.info(f"  Confidence threshold: {confidence_threshold} ({threshold:.0f}%)")
     
     # Find ASR transcript with speaker labels (from Stage 7)
     asr_files = list(movie_dir.glob("asr/*.asr.json"))
@@ -200,29 +235,65 @@ def main():
     speakers_with_labels = sum(1 for seg in segments if seg.get("speaker"))
     logger.info(f"Segments with speaker labels: {speakers_with_labels}/{len(segments)}")
     
-    # Load reference entities from TMDB and Pre-NER
-    tmdb_entities = load_tmdb_entities(movie_dir, logger)
+    # Load reference entities based on config
+    reference_entities = []
+    
+    if tmdb_matching:
+        tmdb_entities = load_tmdb_entities(movie_dir, logger)
+        reference_entities.extend(tmdb_entities)
+    else:
+        logger.info("TMDB matching disabled")
+    
     pre_ner_entities = load_pre_ner_entities(movie_dir, logger)
+    reference_entities.extend(pre_ner_entities)
     
     # Combine and deduplicate
-    reference_entities = list(set(tmdb_entities + pre_ner_entities))
+    reference_entities = list(set(reference_entities))
     logger.info(f"Total reference entities: {len(reference_entities)}")
     
-    # Run entity correction
+    # Check if entity correction is enabled
+    if not entity_correction:
+        logger.info("Entity correction disabled - saving original segments")
+        corrected_segments = segments
+    else:
+        # Run entity correction
+        try:
+            corrected_segments = correct_segments(
+                segments,
+                reference_entities,
+                model_name,
+                device,
+                threshold,
+                logger
+            )
+        except Exception as e:
+            logger.error(f"Entity correction failed: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            sys.exit(1)
+    
+    # Save results
     try:
-        corrected_segments = correct_segments(
-            segments,
-            reference_entities,
-            logger
-        )
-        
-        # Save results
         output_dir = movie_dir / "post_ner"
         output_dir.mkdir(exist_ok=True, parents=True)
         
         output_file = output_dir / f"{movie_dir.name}.corrected.json"
+        
+        # Add metadata
+        output_data = {
+            "segments": corrected_segments,
+            "config": {
+                "model": model_name,
+                "device": device,
+                "entity_correction_enabled": entity_correction,
+                "tmdb_matching_enabled": tmdb_matching,
+                "confidence_threshold": confidence_threshold,
+                "reference_entities_count": len(reference_entities)
+            }
+        }
+        
         with open(output_file, "w", encoding="utf-8") as f:
-            json.dump(corrected_segments, f, indent=2, ensure_ascii=False)
+            json.dump(output_data, f, indent=2, ensure_ascii=False)
         
         logger.info(f"✓ Post-ASR NER complete: {output_file}")
         

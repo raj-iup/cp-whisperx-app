@@ -7,12 +7,13 @@ services:
     container_name: cp_whisperx_demux
     volumes:
       - ./in:/app/in:ro
+
       - ./out:/app/out
-      - ./logs:/app/logs
+
       - ./config:/app/config:ro
       - ./shared:/app/shared:ro
     environment:
-      - CONFIG_PATH=/app/config/.env
+      - CONFIG_PATH=${CONFIG_PATH:-/app/config/.env}
       - PYTHONPATH=/app
 
   tmdb:
@@ -22,12 +23,13 @@ services:
     image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-tmdb:latest"
     container_name: cp_whisperx_tmdb
     volumes:
+
       - ./out:/app/out
-      - ./logs:/app/logs
+
       - ./config:/app/config:ro
       - ./shared:/app/shared:ro
     environment:
-      - CONFIG_PATH=/app/config/.env
+      - CONFIG_PATH=${CONFIG_PATH:-/app/config/.env}
       - PYTHONPATH=/app
     depends_on:
       - demux
@@ -39,12 +41,13 @@ services:
     image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-silero-vad:latest"
     container_name: cp_whisperx_silero_vad
     volumes:
+
       - ./out:/app/out
-      - ./logs:/app/logs
+
       - ./config:/app/config:ro
       - ./shared:/app/shared:ro
     environment:
-      - CONFIG_PATH=/app/config/.env
+      - CONFIG_PATH=${CONFIG_PATH:-/app/config/.env}
       - PYTHONPATH=/app
     depends_on:
       - pre-ner
@@ -56,13 +59,15 @@ services:
     image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-pre-ner:latest"
     container_name: cp_whisperx_pre_ner
     volumes:
+
       - ./out:/app/out
-      - ./logs:/app/logs
+
+      - ./LLM:/app/LLM
       - ./config:/app/config:ro
       - ./scripts:/app/scripts:ro
       - ./shared:/app/shared:ro
     environment:
-      - CONFIG_PATH=/app/config/.env
+      - CONFIG_PATH=${CONFIG_PATH:-/app/config/.env}
       - PYTHONPATH=/app
     depends_on:
       - tmdb
@@ -77,18 +82,20 @@ services:
     container_name: cp_whisperx_asr
     volumes:
       - ./in:/app/in
+
       - ./out:/app/out
-      - ./logs:/app/logs
+
+      - ./LLM:/app/LLM
       - ./config:/app/config:ro
       - ./scripts:/app/scripts:ro
       - ./shared:/app/shared:ro
     environment:
-      - CONFIG_PATH=/app/config/.env
+      - CONFIG_PATH=${CONFIG_PATH:-/app/config/.env}
       - PYTHONPATH=/app
     # If you need to force a specific platform on Apple Silicon, add 'platform: linux/amd64'
     # platform: linux/amd64
-    mem_limit: 10g
-    memswap_limit: 10g
+    mem_limit: 16g
+    memswap_limit: 16g
     depends_on:
       - diarization
 
@@ -100,13 +107,15 @@ services:
     container_name: cp_whisperx_diarization
     volumes:
       - ./in:/app/in
+
       - ./out:/app/out
-      - ./logs:/app/logs
+
+      - ./LLM:/app/LLM
       - ./config:/app/config:ro
       - ./scripts:/app/scripts:ro
       - ./shared:/app/shared:ro
     environment:
-      - CONFIG_PATH=/app/config/.env
+      - CONFIG_PATH=${CONFIG_PATH:-/app/config/.env}
       - PYTHONPATH=/app
     depends_on:
       - pyannote-vad
@@ -119,12 +128,14 @@ services:
     container_name: cp_whisperx_pyannote_vad
     volumes:
       - ./in:/app/in
+
       - ./out:/app/out
-      - ./logs:/app/logs
+
+      - ./LLM:/app/LLM
       - ./config:/app/config:ro
       - ./shared:/app/shared:ro
     environment:
-      - CONFIG_PATH=/app/config/.env
+      - CONFIG_PATH=${CONFIG_PATH:-/app/config/.env}
       - PYTHONPATH=/app
     depends_on:
       - silero-vad
@@ -137,12 +148,13 @@ services:
     image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-subtitle-gen:latest"
     container_name: cp_whisperx_subtitle_gen
     volumes:
+
       - ./out:/app/out
-      - ./logs:/app/logs
+
       - ./config:/app/config:ro
       - ./shared:/app/shared:ro
     environment:
-      - CONFIG_PATH=/app/config/.env
+      - CONFIG_PATH=${CONFIG_PATH:-/app/config/.env}
       - PYTHONPATH=/app
     depends_on:
       - post-ner
@@ -154,13 +166,14 @@ services:
     image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-post-ner:latest"
     container_name: cp_whisperx_post_ner
     volumes:
+
       - ./out:/app/out
-      - ./logs:/app/logs
+
       - ./config:/app/config:ro
       - ./scripts:/app/scripts:ro
       - ./shared:/app/shared:ro
     environment:
-      - CONFIG_PATH=/app/config/.env
+      - CONFIG_PATH=${CONFIG_PATH:-/app/config/.env}
       - PYTHONPATH=/app
     depends_on:
       - asr
@@ -173,12 +186,13 @@ services:
     container_name: cp_whisperx_mux
     volumes:
       - ./in:/app/in:ro
+
       - ./out:/app/out
-      - ./logs:/app/logs
+
       - ./config:/app/config:ro
       - ./shared:/app/shared:ro
     environment:
-      - CONFIG_PATH=/app/config/.env
+      - CONFIG_PATH=${CONFIG_PATH:-/app/config/.env}
       - PYTHONPATH=/app
     depends_on:
       - subtitle-gen

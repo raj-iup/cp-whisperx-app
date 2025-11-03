@@ -1,22 +1,16 @@
 #!/usr/bin/env python3
-"""Stage 6: Pyannote Diarization - Speaker Identification
-
-NOTE: Due to pyannote.audio dependency conflicts with torch 2.x/pytorch-lightning,
-this uses a simplified clustering-based approach for speaker assignment.
-
-For full Pyannote diarization, install in a separate environment:
-  pip install torch==2.0.1 torchaudio==2.0.2 pyannote.audio==3.0.0
-"""
+"""Stage 6: Pyannote Diarization - Speaker Identification"""
 import sys
 import json
 import argparse
+import os
 from pathlib import Path
-import random
 
 sys.path.insert(0, 'native/utils')
 from device_manager import get_device
 from native_logger import NativePipelineLogger
 from manifest import StageManifest
+from pyannote_diarization_wrapper import PyannoteDiarization
 
 
 def load_secrets(secrets_path: Path = None) -> dict:
@@ -33,124 +27,161 @@ def load_secrets(secrets_path: Path = None) -> dict:
     return secrets
 
 
-def run_simplified_diarization(
-    vad_segments_file: Path,
+def load_env_config() -> dict:
+    """Load configuration from environment variables."""
+    return {
+        'min_speakers': int(os.getenv('DIARIZATION_MIN_SPEAKERS', '1')) if os.getenv('DIARIZATION_MIN_SPEAKERS') else None,
+        'max_speakers': int(os.getenv('DIARIZATION_MAX_SPEAKERS', '10')) if os.getenv('DIARIZATION_MAX_SPEAKERS') else None,
+        'model_name': os.getenv('DIARIZATION_MODEL', 'pyannote/speaker-diarization-3.1'),
+        'device': os.getenv('DIARIZATION_DEVICE', 'cpu'),
+        'speaker_map': os.getenv('SPEAKER_MAP', ''),
+        'auto_speaker_mapping': os.getenv('DIARIZATION_AUTO_SPEAKER_MAPPING', 'true').lower() == 'true'
+    }
+
+
+def load_tmdb_speaker_names(movie_dir: Path, logger, max_speakers: int = 10) -> Optional[dict]:
+    """
+    Load speaker names from TMDB metadata for auto-mapping.
+    
+    Args:
+        movie_dir: Movie output directory
+        logger: Logger instance
+        max_speakers: Maximum number of speakers to extract from cast
+    
+    Returns:
+        Dictionary mapping SPEAKER_XX to character names, or None
+    """
+    tmdb_file = movie_dir / 'metadata' / 'tmdb_data.json'
+    if not tmdb_file.exists():
+        logger.warning(f"TMDB metadata not found: {tmdb_file}")
+        return None
+    
+    try:
+        with open(tmdb_file, 'r', encoding='utf-8') as f:
+            tmdb_data = json.load(f)
+        
+        cast = tmdb_data.get('cast', [])
+        if not cast:
+            logger.warning("No cast information in TMDB data")
+            return None
+        
+        # Extract top N character names based on cast order
+        character_names = []
+        for actor in sorted(cast, key=lambda x: x.get('order', 999))[:max_speakers]:
+            character = actor.get('character', '')
+            if character:
+                # Clean up character name (remove extra info in parentheses)
+                character = character.split('(')[0].strip()
+                character_names.append(character)
+        
+        if not character_names:
+            logger.warning("No character names found in cast")
+            return None
+        
+        logger.info(f"Loaded {len(character_names)} character names from TMDB")
+        logger.debug(f"Characters: {', '.join(character_names)}")
+        
+        return character_names
+    
+    except Exception as e:
+        logger.warning(f"Failed to load TMDB metadata: {e}")
+        return None
+
+
+def run_diarization(
+    audio_file: Path,
+    device: str,
     logger,
     config: dict = None
 ):
     """
-    Simplified diarization using clustering on segment patterns.
-    
-    TODO: Replace with full Pyannote.audio implementation once dependencies are resolved.
+    Run Pyannote diarization for speaker identification.
     
     Args:
-        vad_segments_file: Path to VAD segments JSON
+        audio_file: Path to audio file
+        device: Device to run on
         logger: Logger instance
-        config: Configuration dict
+        config: Configuration dict with diarization parameters
         
     Returns:
-        Tuple of (speaker_segments, statistics)
+        Tuple of (speaker_segments, statistics, character_names)
     """
-    logger.warning("Using simplified diarization implementation (clustering-based)")
-    logger.info("Full Pyannote diarization requires resolving dependency conflicts")
-    
-    # Default config
+    # Default configuration
     default_config = {
-        'num_speakers': None,
-        'min_speakers': 2,
-        'max_speakers': 10
+        'min_speakers': None,
+        'max_speakers': None,
+        'model_name': 'pyannote/speaker-diarization-3.1',
+        'speaker_map': '',
+        'auto_speaker_mapping': True
     }
+    
     if config:
         default_config.update(config)
     
-    # Load VAD segments
-    if not vad_segments_file.exists():
-        raise FileNotFoundError(f"VAD segments file not found: {vad_segments_file}")
+    logger.info(f"Running Pyannote diarization on {device}")
+    logger.info(f"Model: {default_config['model_name']}")
+    logger.debug(f"Configuration: {default_config}")
     
-    with open(vad_segments_file, 'r') as f:
-        vad_data = json.load(f)
+    # Load secrets for HF token
+    try:
+        secrets = load_secrets()
+        hf_token = secrets.get('hf_token') or secrets.get('pyannote_token')
+        if not hf_token:
+            logger.error("HuggingFace token not found in secrets.json")
+            raise ValueError("HuggingFace token required for Pyannote diarization")
+    except Exception as e:
+        logger.error(f"Failed to load secrets: {e}")
+        raise
     
-    vad_segments = vad_data['segments']
-    total_duration = vad_data['statistics']['total_duration']
+    # Initialize Pyannote Diarization
+    diarization = PyannoteDiarization(
+        hf_token=hf_token, 
+        device=device,
+        model_name=default_config['model_name'],
+        logger=logger
+    )
     
-    logger.info(f"Loaded {len(vad_segments)} VAD segments")
-    logger.info(f"Total audio duration: {total_duration:.2f} seconds")
+    # Load model
+    if not diarization.load_model():
+        raise RuntimeError("Failed to load Pyannote diarization model")
     
-    # Estimate number of speakers based on segment patterns
-    if default_config['num_speakers']:
-        num_speakers = default_config['num_speakers']
-    else:
-        # Simple heuristic: use segment duration patterns to estimate speakers
-        # For movies, typically 2-8 speakers in main scenes
-        num_speakers = min(
-            max(default_config['min_speakers'], len(vad_segments) // 300),
-            default_config['max_speakers']
-        )
-        # Default to a reasonable number for movies
-        num_speakers = max(2, min(num_speakers, 6))
+    # Run diarization
+    speaker_segments = diarization.diarize(
+        audio_path=audio_file,
+        min_speakers=default_config['min_speakers'],
+        max_speakers=default_config['max_speakers']
+    )
     
-    logger.info(f"Assigning {num_speakers} speakers")
-    
-    # Assign speakers using simple clustering based on timing patterns
-    # Group segments by temporal proximity and duration similarity
-    speaker_segments = []
-    speaker_labels = [f"SPEAKER_{i:02d}" for i in range(num_speakers)]
-    
-    # Simple round-robin assignment with some temporal logic
-    random.seed(42)  # For reproducibility
-    for i, seg in enumerate(vad_segments):
-        # Assign speakers based on position and duration patterns
-        # This is a simplified heuristic - real diarization uses acoustic features
-        duration = seg['end'] - seg['start']
-        
-        # Use temporal position and duration to pseudo-cluster
-        time_cluster = int((seg['start'] / total_duration) * num_speakers * 3) % num_speakers
-        duration_factor = 1 if duration < 2.0 else 0
-        
-        # Assign speaker with some randomization to simulate natural conversation
-        speaker_idx = (time_cluster + duration_factor + (i % 3)) % num_speakers
-        speaker = speaker_labels[speaker_idx]
-        
-        speaker_segments.append({
-            'start': seg['start'],
-            'end': seg['end'],
-            'speaker': speaker,
-            'duration': duration
-        })
+    # Apply speaker map if provided
+    speaker_map = None
+    if default_config['speaker_map']:
+        try:
+            speaker_map = json.loads(default_config['speaker_map']) if default_config['speaker_map'].startswith('{') else None
+            if speaker_map:
+                logger.info("Applying speaker name mapping...")
+                for seg in speaker_segments:
+                    if seg["speaker"] in speaker_map:
+                        seg["speaker_original"] = seg["speaker"]
+                        seg["speaker"] = speaker_map[seg["speaker"]]
+        except Exception as e:
+            logger.warning(f"Could not parse speaker map: {e}")
     
     # Calculate statistics
-    speaker_stats = {}
-    for seg in speaker_segments:
-        speaker = seg['speaker']
-        if speaker not in speaker_stats:
-            speaker_stats[speaker] = {
-                'segments': 0,
-                'duration': 0.0,
-                'ratio': 0.0
-            }
-        speaker_stats[speaker]['segments'] += 1
-        speaker_stats[speaker]['duration'] += seg['duration']
-    
-    # Calculate ratios
-    for speaker in speaker_stats:
-        speaker_stats[speaker]['ratio'] = speaker_stats[speaker]['duration'] / total_duration
+    num_speakers = len(set(seg['speaker'] for seg in speaker_segments))
+    total_duration = max(seg['end'] for seg in speaker_segments) if speaker_segments else 0
     
     stats = {
-        'total_duration': total_duration,
-        'num_segments': len(speaker_segments),
         'num_speakers': num_speakers,
-        'speaker_stats': speaker_stats,
-        'device': 'cpu',
-        'method': 'simplified_clustering',
-        'note': 'Using simplified clustering due to Pyannote dependency issues'
+        'total_segments': len(speaker_segments),
+        'total_duration': total_duration,
+        'device': device,
+        'model': default_config['model_name'],
+        'speaker_map_applied': bool(speaker_map),
+        'auto_speaker_mapping_enabled': default_config['auto_speaker_mapping']
     }
     
-    logger.info(f"Assigned {num_speakers} speakers to {len(speaker_segments)} segments")
-    
-    # Log speaker breakdown
-    for speaker, sp_stats in speaker_stats.items():
-        logger.info(f"  {speaker}: {sp_stats['segments']} segments, "
-                   f"{sp_stats['duration']:.1f}s ({sp_stats['ratio']:.1%})")
+    logger.info(f"Diarization complete: {len(speaker_segments)} speaker segments")
+    logger.info(f"Identified {num_speakers} unique speakers")
     
     return speaker_segments, stats
 
@@ -159,9 +190,6 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--input', required=True, help='Input video file')
     parser.add_argument('--movie-dir', required=True, help='Movie output directory')
-    parser.add_argument('--num-speakers', type=int, help='Exact number of speakers')
-    parser.add_argument('--min-speakers', type=int, default=2, help='Minimum number of speakers')
-    parser.add_argument('--max-speakers', type=int, default=10, help='Maximum number of speakers')
     args = parser.parse_args()
     
     movie_dir = Path(args.movie_dir)
@@ -171,49 +199,76 @@ def main():
     try:
         logger.log_stage_start("Pyannote Diarization - Speaker identification")
         
-        # Load secrets for documentation (not used in simplified version)
-        try:
-            secrets = load_secrets()
-            hf_token = secrets.get('hf_token') or secrets.get('pyannote_token')
-            if hf_token:
-                logger.info(f"HuggingFace token available (not used in simplified version)")
-        except Exception as e:
-            logger.warning(f"Could not load secrets: {e}")
+        # Load configuration from environment
+        env_config = load_env_config()
+        logger.info(f"Configuration: min_speakers={env_config['min_speakers']}, "
+                   f"max_speakers={env_config['max_speakers']}, "
+                   f"model={env_config['model_name']}")
         
-        device = get_device(prefer_mps=False, stage_name='diarization')
-        logger.log_model_load("Pyannote Diarization (simplified)", device)
+        # Get device - use env config if specified, otherwise detect
+        if env_config['device'].upper() not in ['CPU', 'MPS', 'CUDA']:
+            device = get_device(prefer_mps=False, stage_name='diarization')
+        else:
+            device = env_config['device'].lower()
+        
+        logger.log_model_load("Pyannote Diarization", device)
         
         import time
         start = time.time()
         
-        # Prepare config
-        config = {
-            'num_speakers': args.num_speakers,
-            'min_speakers': args.min_speakers,
-            'max_speakers': args.max_speakers
-        }
-        
         with StageManifest('diarization', movie_dir, logger.logger) as manifest:
-            vad_segments_file = movie_dir / 'vad' / 'pyannote_segments.json'
+            # Get paths
+            audio_file = movie_dir / 'audio' / 'audio.wav'
             
-            if not vad_segments_file.exists():
-                raise FileNotFoundError(f"VAD segments file not found: {vad_segments_file}")
+            if not audio_file.exists():
+                raise FileNotFoundError(f"Audio file not found: {audio_file}")
             
-            logger.debug(f"VAD segments: {vad_segments_file}")
+            logger.debug(f"Audio file: {audio_file}")
             
-            # Run simplified diarization
-            speaker_segments, stats = run_simplified_diarization(
-                vad_segments_file=vad_segments_file,
+            # Load TMDB character names for auto-mapping if enabled
+            character_names = None
+            if env_config.get('auto_speaker_mapping', True):
+                character_names = load_tmdb_speaker_names(
+                    movie_dir, 
+                    logger, 
+                    max_speakers=env_config.get('max_speakers') or 10
+                )
+                if character_names:
+                    logger.info(f"Auto speaker mapping enabled: {len(character_names)} character names loaded")
+            
+            # Run Pyannote diarization with configuration
+            speaker_segments, stats = run_diarization(
+                audio_file=audio_file,
+                device=device,
                 logger=logger,
-                config=config
+                config=env_config
             )
+            
+            # Apply auto speaker mapping if available and no manual map provided
+            if character_names and not env_config['speaker_map']:
+                logger.info("Applying auto speaker mapping from TMDB cast...")
+                speaker_ids = sorted(set(seg['speaker'] for seg in speaker_segments))
+                
+                # Map SPEAKER_XX to character names
+                for i, speaker_id in enumerate(speaker_ids):
+                    if i < len(character_names):
+                        character_name = character_names[i]
+                        for seg in speaker_segments:
+                            if seg['speaker'] == speaker_id:
+                                seg['speaker_original'] = speaker_id
+                                seg['speaker'] = character_name
+                        logger.info(f"Mapped {speaker_id} → {character_name}")
+                
+                stats['tmdb_speaker_mapping'] = True
+                stats['character_names'] = character_names[:len(speaker_ids)]
             
             duration = time.time() - start
             
             # Log results
             logger.log_processing("Diarization complete", duration)
-            logger.log_metric("Unique speakers", stats['num_speakers'])
             logger.log_metric("Speaker segments", len(speaker_segments))
+            logger.log_metric("Unique speakers", stats['num_speakers'])
+            logger.log_metric("Total duration", f"{stats['total_duration']:.2f}", "seconds")
             
             # Create output directory
             diar_dir = movie_dir / 'diarization'
@@ -223,32 +278,30 @@ def main():
             # Save speaker segments
             output_file = diar_dir / 'speaker_segments.json'
             output_data = {
-                'segments': speaker_segments,
+                'speaker_segments': speaker_segments,
                 'statistics': stats,
                 'config': {
-                    **config,
-                    'method': 'simplified_clustering',
-                    'note': 'Simplified implementation pending Pyannote dependency resolution'
+                    'min_speakers': env_config['min_speakers'],
+                    'max_speakers': env_config['max_speakers'],
+                    'model': env_config['model_name'],
+                    'device': device,
+                    'speaker_map': env_config['speaker_map'],
+                    'method': 'pyannote_diarization'
                 }
             }
             
             with open(output_file, 'w', encoding='utf-8') as f:
                 json.dump(output_data, f, indent=2)
             
-            logger.log_file_operation("Saved speaker segments", output_file, success=True)
+            logger.log_file_operation("Saved diarization segments", output_file, success=True)
             
             # Add to manifest
-            manifest.add_output('speakers', output_file, 'Speaker-labeled segments')
+            manifest.add_output('segments', output_file, 'Pyannote diarization speaker segments')
             manifest.add_metadata('device', device)
             manifest.add_metadata('num_speakers', stats['num_speakers'])
-            manifest.add_metadata('num_segments', len(speaker_segments))
-            manifest.add_metadata('total_duration', stats['total_duration'])
-            manifest.add_metadata('method', 'simplified_clustering')
-            
-            # Add speaker stats
-            for speaker, speaker_stats in stats['speaker_stats'].items():
-                manifest.add_metadata(f'speaker_{speaker}_segments', speaker_stats['segments'])
-                manifest.add_metadata(f'speaker_{speaker}_duration', speaker_stats['duration'])
+            manifest.add_metadata('total_segments', len(speaker_segments))
+            manifest.add_metadata('model', env_config['model_name'])
+            manifest.add_metadata('method', 'pyannote_diarization')
         
         logger.log_stage_end(success=True)
         

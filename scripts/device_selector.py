@@ -3,31 +3,46 @@ device_selector.py - Device selection with graceful fallback
 
 Handles device selection for WhisperX, diarization, transformers, and spaCy
 with automatic fallback to CPU if requested device unavailable.
+
+Cross-platform support:
+- Windows: CUDA, CPU
+- Linux: CUDA, CPU
+- macOS: MPS, CPU
 """
 
 import torch
-from typing import Tuple, Literal
+import platform
+from typing import Tuple, Literal, Optional
 
 DeviceType = Literal["cpu", "cuda", "mps"]
 
 
 def check_device_available(device: str) -> bool:
     """
-    Check if a device is available
+    Check if a device is available (cross-platform).
 
     Args:
         device: Device name (cpu, cuda, mps)
 
     Returns:
         True if device is available
+        
+    Note:
+        - Windows: CUDA or CPU only
+        - Linux: CUDA or CPU
+        - macOS: MPS or CPU
     """
     device = device.lower()
 
     if device == "cpu":
         return True
     elif device == "cuda":
+        # CUDA available on Windows and Linux with NVIDIA GPU
         return torch.cuda.is_available()
     elif device == "mps":
+        # MPS only available on Apple Silicon (macOS)
+        if platform.system() != 'Darwin':
+            return False
         return hasattr(torch.backends, "mps") and torch.backends.mps.is_available()
     else:
         return False
@@ -157,3 +172,80 @@ def select_spacy_device(requested: str) -> Tuple[str, bool]:
         return 0, False  # spaCy uses integer device IDs
     else:
         return -1, requested != "cpu"  # -1 means CPU in spaCy
+
+
+def get_platform_optimal_device() -> str:
+    """
+    Get the optimal device for current platform.
+    
+    Returns:
+        Optimal device name: 'cuda', 'mps', or 'cpu'
+        
+    Platform-specific recommendations:
+        - Windows: CUDA (NVIDIA GPU) or CPU
+        - Linux: CUDA (NVIDIA GPU) or CPU
+        - macOS: MPS (Apple Silicon) or CPU
+    """
+    system = platform.system()
+    
+    if system == 'Windows' or system == 'Linux':
+        # Windows and Linux: prefer CUDA
+        if check_device_available('cuda'):
+            return 'cuda'
+    elif system == 'Darwin':
+        # macOS: prefer MPS on Apple Silicon
+        if check_device_available('mps'):
+            return 'mps'
+        # Fallback to CUDA if available (Intel Mac with eGPU)
+        if check_device_available('cuda'):
+            return 'cuda'
+    
+    # Ultimate fallback
+    return 'cpu'
+
+
+def get_cuda_info() -> Optional[dict]:
+    """
+    Get CUDA device information (Windows/Linux only).
+    
+    Returns:
+        Dictionary with CUDA info or None if CUDA not available
+    """
+    if not torch.cuda.is_available():
+        return None
+    
+    return {
+        'available': True,
+        'device_count': torch.cuda.device_count(),
+        'current_device': torch.cuda.current_device(),
+        'device_name': torch.cuda.get_device_name(0),
+        'cuda_version': torch.version.cuda,
+        'cudnn_version': torch.backends.cudnn.version() if torch.backends.cudnn.is_available() else None,
+    }
+
+
+def get_device_memory_info(device: str) -> Optional[dict]:
+    """
+    Get memory information for device.
+    
+    Args:
+        device: Device name (cuda, mps, cpu)
+        
+    Returns:
+        Dictionary with memory info or None
+    """
+    if device == 'cuda' and torch.cuda.is_available():
+        props = torch.cuda.get_device_properties(0)
+        return {
+            'total_memory': props.total_memory,
+            'total_memory_gb': props.total_memory / (1024**3),
+            'compute_capability': f"{props.major}.{props.minor}",
+        }
+    elif device == 'mps' and platform.system() == 'Darwin':
+        # MPS uses unified memory, harder to query
+        return {
+            'type': 'unified_memory',
+            'note': 'MPS uses shared system memory'
+        }
+    
+    return None

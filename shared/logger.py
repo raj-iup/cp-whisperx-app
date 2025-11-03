@@ -7,10 +7,47 @@ Use this module for all Python scripts, Docker containers, and pipeline stages.
 """
 import logging
 import sys
+import os
 from pathlib import Path
 from datetime import datetime
 from typing import Optional
 from pythonjsonlogger import jsonlogger
+
+
+# Stage order mapping for log file prefixes
+STAGE_ORDER = {
+    "orchestrator": 0,
+    "demux": 1,
+    "tmdb": 2,
+    "pre-ner": 3,
+    "silero-vad": 4,
+    "silero_vad": 4,
+    "pyannote-vad": 5,
+    "pyannote_vad": 5,
+    "diarization": 6,
+    "asr": 7,
+    "post-ner": 8,
+    "subtitle-gen": 9,
+    "mux": 10,
+}
+
+
+def get_stage_log_filename(stage_name: str, timestamp: Optional[str] = None) -> str:
+    """
+    Generate a stage-prefixed log filename.
+    
+    Args:
+        stage_name: Name of the stage (e.g., "asr", "diarization")
+        timestamp: Optional timestamp string (defaults to current time)
+    
+    Returns:
+        Formatted log filename with stage number prefix (e.g., "07_asr_20251101_120000.log")
+    """
+    if timestamp is None:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    
+    stage_num = STAGE_ORDER.get(stage_name, 99)
+    return f"{stage_num:02d}_{stage_name}_{timestamp}.log"
 
 
 def setup_logger(
@@ -67,10 +104,23 @@ def setup_logger(
         log_path = Path(log_dir)
         log_path.mkdir(parents=True, exist_ok=True)
         
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        log_file = log_path / f"{name}_{timestamp}.log"
+        # Check for existing log file for this stage today
+        stage_num = STAGE_ORDER.get(name, 99)
+        prefix = f"{stage_num:02d}_{name}_"
+        today = datetime.now().strftime("%Y%m%d")
         
-        file_handler = logging.FileHandler(log_file)
+        # Look for existing log file from today
+        existing_logs = list(log_path.glob(f"{prefix}{today}_*.log"))
+        
+        if existing_logs:
+            # Reuse the most recent log file
+            log_file = sorted(existing_logs)[-1]
+        else:
+            # Create new log file with timestamp
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            log_file = log_path / get_stage_log_filename(name, timestamp)
+        
+        file_handler = logging.FileHandler(log_file, mode='a')  # Append mode
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
     
@@ -109,6 +159,16 @@ class PipelineLogger:
         """
         self.module_name = module_name
         
+        # Try to load log level from config/environment if not explicitly set
+        if log_level == "INFO":
+            try:
+                from config import load_config
+                config = load_config()
+                if hasattr(config, 'log_level') and config.log_level:
+                    log_level = config.log_level.upper()
+            except:
+                pass
+        
         if log_file:
             # Use specific log file
             log_dir = str(log_file.parent)
@@ -121,14 +181,22 @@ class PipelineLogger:
                 log_dir=log_dir
             )
         else:
-            # Use default logging setup
+            # Load log directory from config if available
+            try:
+                from config import load_config
+                config = load_config()
+                log_dir = config.log_root
+            except:
+                # Fallback to default if config loading fails
+                log_dir = "/app/logs"
+            
             self.logger = setup_logger(
                 module_name,
                 log_level=log_level,
                 log_format=log_format,
                 log_to_console=True,
                 log_to_file=True,
-                log_dir="/app/logs"
+                log_dir=log_dir
             )
     
     def debug(self, msg: str):

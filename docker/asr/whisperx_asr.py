@@ -24,7 +24,17 @@ def load_initial_prompt(movie_dir: Path, logger: PipelineLogger) -> str:
     """Load initial prompt from Pre-NER output"""
     prompt = ""
     
-    # Try combined prompt first
+    # PRIORITY 1: Try NER-enhanced prompt from pre_ner stage (as per requirements)
+    ner_enhanced_prompt = movie_dir / "prompts" / "ner_enhanced_prompt.txt"
+    logger.debug(f"Checking for NER-enhanced prompt: {ner_enhanced_prompt}")
+    logger.debug(f"File exists: {ner_enhanced_prompt.exists()}")
+    if ner_enhanced_prompt.exists():
+        with open(ner_enhanced_prompt) as f:
+            prompt = f.read().strip()
+        logger.info(f"Loaded NER-enhanced prompt from pre_ner: {len(prompt)} chars")
+        return prompt
+    
+    # PRIORITY 2: Try combined prompt
     combined_prompt = movie_dir / f"{movie_dir.name}.combined.initial_prompt.txt"
     if combined_prompt.exists():
         with open(combined_prompt) as f:
@@ -32,7 +42,7 @@ def load_initial_prompt(movie_dir: Path, logger: PipelineLogger) -> str:
         logger.info(f"Loaded combined prompt: {len(prompt)} chars")
         return prompt
     
-    # Try initial prompt
+    # PRIORITY 3: Try initial prompt
     initial_prompt = movie_dir / f"{movie_dir.name}.initial_prompt.txt"
     if initial_prompt.exists():
         with open(initial_prompt) as f:
@@ -40,7 +50,7 @@ def load_initial_prompt(movie_dir: Path, logger: PipelineLogger) -> str:
         logger.info(f"Loaded initial prompt: {len(prompt)} chars")
         return prompt
     
-    # Try Pre-NER entities
+    # PRIORITY 4: Try Pre-NER entities
     pre_ner_file = movie_dir / "pre_ner" / "entities.json"
     if pre_ner_file.exists():
         with open(pre_ner_file) as f:
@@ -85,9 +95,18 @@ def main():
     
     movie_dir = Path(sys.argv[1])
     
-    # Setup logger
-    logger = PipelineLogger("asr")
+    # Load config first to get all settings
+    from config import load_config
+    config = load_config()
+    
+    # Setup logger with config
+    log_level = config.log_level.upper() if hasattr(config, 'log_level') else "INFO"
+    logger = PipelineLogger("asr", log_level=log_level)
     logger.info(f"Starting WhisperX ASR for: {movie_dir}")
+    
+    # Log config source
+    config_path = os.getenv('CONFIG_PATH', '/app/config/.env')
+    logger.info(f"Using config: {config_path}")
     
     # Find audio file
     audio_file = movie_dir / "audio" / "audio.wav"
@@ -98,32 +117,64 @@ def main():
     logger.info(f"Audio file: {audio_file}")
     
     # Load initial prompt
-    initial_prompt = load_initial_prompt(movie_dir, logger)
+    # Load initial prompt from file or use env var
+    initial_prompt_file = load_initial_prompt(movie_dir, logger)
+    initial_prompt = config.get('whisper_initial_prompt', '') or initial_prompt_file
     
     # Load VAD segments (optional)
     vad_segments = load_vad_segments(movie_dir, logger)
     
-    # Get config
-    model_name = os.getenv("WHISPER_MODEL", "large-v2")
-    device = os.getenv("DEVICE", "cpu")
-    compute_type = os.getenv("COMPUTE_TYPE", "int8")
-    source_lang = os.getenv("SOURCE_LANG", "hi")
-    target_lang = os.getenv("TARGET_LANG", "en")
-    batch_size = int(os.getenv("BATCH_SIZE", "16"))
-    hf_token = os.getenv("HF_TOKEN", "")
+    # Get config values with proper fallbacks
+    model_name = config.get('whisper_model', 'large-v3')
+    device = config.get('whisperx_device', config.get('device_whisperx', 'cpu'))
+    compute_type = config.get('whisper_compute_type', 'int8')
+    source_lang = config.get('whisper_language', 'hi')
     
-    logger.info(f"Model: {model_name}")
-    logger.info(f"Device: {device}")
-    logger.info(f"Compute type: {compute_type}")
-    logger.info(f"Source language: {source_lang}")
-    logger.info(f"Target language: {target_lang}")
+    # Get target language - check multiple possible field names
+    target_lang = config.get('target_lang') or config.get('tgt_lang', 'en')
     
-    # Initialize WhisperX processor
+    # Get transcription parameters
+    batch_size = config.get('whisper_batch_size', 16)
+    temperature = config.get('whisper_temperature', '0.0,0.2,0.4,0.6,0.8,1.0')
+    beam_size = config.get('whisper_beam_size', 5)
+    best_of = config.get('whisper_best_of', 5)
+    patience = config.get('whisper_patience', 1.0)
+    length_penalty = config.get('whisper_length_penalty', 1.0)
+    no_speech_threshold = config.get('whisper_no_speech_threshold', 0.6)
+    logprob_threshold = config.get('whisper_logprob_threshold', -1.0)
+    compression_ratio_threshold = config.get('whisper_compression_ratio_threshold', 2.4)
+    condition_on_previous_text = config.get('whisper_condition_on_previous_text', True)
+    
+    hf_token = config.get('hf_token', '')
+    
+    logger.info(f"Configuration:")
+    logger.info(f"  Model: {model_name}")
+    logger.info(f"  Device: {device}")
+    logger.info(f"  Compute type: {compute_type}")
+    logger.info(f"  Source language: {source_lang}")
+    logger.info(f"  Target language: {target_lang}")
+    logger.info(f"  Batch size: {batch_size}")
+    logger.info(f"  Temperature: {temperature}")
+    logger.info(f"  Beam size: {beam_size}")
+    if initial_prompt:
+        logger.info(f"  Initial prompt: {len(initial_prompt)} chars")
+    
+    # Initialize WhisperX processor with all parameters
     processor = WhisperXProcessor(
         model_name=model_name,
         device=device,
         compute_type=compute_type,
         hf_token=hf_token,
+        temperature=temperature,
+        beam_size=beam_size,
+        best_of=best_of,
+        patience=patience,
+        length_penalty=length_penalty,
+        no_speech_threshold=no_speech_threshold,
+        logprob_threshold=logprob_threshold,
+        compression_ratio_threshold=compression_ratio_threshold,
+        condition_on_previous_text=condition_on_previous_text,
+        initial_prompt=initial_prompt,
         logger=logger
     )
     
@@ -216,7 +267,7 @@ def main():
         
         logger.info(f"✓ Text transcript saved: {txt_file}")
         
-        # Save metadata
+        # Save metadata with transcription parameters
         metadata = {
             "model": model_name,
             "device": device,
@@ -224,7 +275,20 @@ def main():
             "source_language": source_lang,
             "target_language": target_lang,
             "segments_count": len(segments),
-            "has_word_timestamps": processor.align_model is not None
+            "has_word_timestamps": processor.align_model is not None,
+            "transcription_parameters": {
+                "batch_size": batch_size,
+                "temperature": temperature,
+                "beam_size": beam_size,
+                "best_of": best_of,
+                "patience": patience,
+                "length_penalty": length_penalty,
+                "no_speech_threshold": no_speech_threshold,
+                "logprob_threshold": logprob_threshold,
+                "compression_ratio_threshold": compression_ratio_threshold,
+                "condition_on_previous_text": condition_on_previous_text,
+                "initial_prompt_length": len(initial_prompt) if initial_prompt else 0
+            }
         }
         
         meta_file = output_dir / f"{movie_dir.name}.asr.meta.json"

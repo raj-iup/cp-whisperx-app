@@ -24,6 +24,7 @@ class DiarizationProcessor:
         self,
         hf_token: str,
         device: str = "cpu",
+        model_name: str = "pyannote/speaker-diarization-3.1",
         logger: Optional[PipelineLogger] = None
     ):
         """
@@ -31,11 +32,13 @@ class DiarizationProcessor:
 
         Args:
             hf_token: Hugging Face token for pyannote model access
-            device: Device to use (cpu, cuda)
+            device: Device to use (cpu, cuda, mps)
+            model_name: Pyannote model to use
             logger: Logger instance
         """
         self.hf_token = hf_token
         self.device = device
+        self.model_name = model_name
         self.logger = logger or self._create_default_logger()
         self.diarize_model = None
 
@@ -47,12 +50,13 @@ class DiarizationProcessor:
     def load_model(self):
         """Load pyannote diarization model"""
         self.logger.info("Loading pyannote diarization model...")
+        self.logger.info(f"  Model: {self.model_name}")
         self.logger.info(f"  Device: {self.device}")
 
         try:
             # Use pyannote.audio Pipeline directly
             self.diarize_model = Pipeline.from_pretrained(
-                "pyannote/speaker-diarization-3.1",
+                self.model_name,
                 use_auth_token=self.hf_token
             )
             # Move to specified device

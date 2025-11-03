@@ -91,6 +91,19 @@ def demux_audio(input_file: Path, output_file: Path, config) -> bool:
 
 def main():
     """Main entry point with manifest tracking."""
+    # Validate arguments BEFORE setting up logger to avoid polluting log files
+    if len(sys.argv) < 2:
+        # Early exit without logging - prevents polluting shared log files
+        print("ERROR: Usage: demux.py <input_file> [output_directory]", file=sys.stderr)
+        sys.exit(1)
+    
+    input_file = Path(sys.argv[1])
+    
+    if not input_file.exists():
+        print(f"ERROR: Input file not found: {input_file}", file=sys.stderr)
+        sys.exit(1)
+    
+    # Now that we have valid arguments, load config and setup logger
     config = load_config()
     
     logger = setup_logger(
@@ -102,19 +115,16 @@ def main():
         log_dir=config.log_root
     )
     
-    # Get input/output from environment or command line
-    if len(sys.argv) > 1:
-        input_file = Path(sys.argv[1])
-    else:
-        input_file = Path(config.input_file)
-    
-    if not input_file.exists():
-        logger.error(f"Input file not found: {input_file}")
-        sys.exit(1)
-    
     # Get movie-specific output directory
-    output_root = Path(config.output_root)
-    movie_dir = get_movie_dir(input_file, output_root)
+    # If provided as argument, use it; otherwise use output_root directly
+    if len(sys.argv) > 2:
+        movie_dir = Path(sys.argv[2])
+        logger.info(f"Using output directory from argument: {movie_dir}")
+    else:
+        # Use output_root directly (should be job-specific directory)
+        movie_dir = Path(config.output_root)
+        logger.info(f"Using output_root as movie directory: {movie_dir}")
+    
     logger.info(f"Movie directory: {movie_dir}")
     
     # Create audio output directory

@@ -244,6 +244,11 @@ def main():
         try:
             from pyannote.audio import Pipeline
             
+            # Set cache directory for HuggingFace models
+            import os
+            os.environ['HF_HOME'] = '/app/LLM/huggingface'
+            os.environ['TORCH_HOME'] = '/app/LLM/torch'
+            
             # Get HuggingFace token from config secrets
             hf_token = None
             if hasattr(config, 'hf_token'):
@@ -259,25 +264,51 @@ def main():
                 try:
                     vad_pipeline = Pipeline.from_pretrained(
                         "pyannote/voice-activity-detection",
-                        token=hf_token
+                        token=hf_token,
+                        cache_dir="/app/LLM/huggingface"
                     )
                 except TypeError:
                     # Fallback for older versions that still use use_auth_token
                     vad_pipeline = Pipeline.from_pretrained(
                         "pyannote/voice-activity-detection",
-                        use_auth_token=hf_token
+                        use_auth_token=hf_token,
+                        cache_dir="/app/LLM/huggingface"
                     )
             else:
                 # Try without token (may fail for gated models)
-                vad_pipeline = Pipeline.from_pretrained("pyannote/voice-activity-detection")
+                vad_pipeline = Pipeline.from_pretrained(
+                    "pyannote/voice-activity-detection",
+                    cache_dir="/app/LLM/huggingface"
+                )
+            
+            # Configure pipeline with hyperparameters
+            try:
+                vad_pipeline.instantiate({
+                    "onset": config.get('pyannote_onset', 0.5),
+                    "offset": config.get('pyannote_offset', 0.5),
+                    "min_duration_on": config.get('pyannote_min_duration_on', 0.0),
+                    "min_duration_off": config.get('pyannote_min_duration_off', 0.0)
+                })
+                logger.info(f"Configured PyAnnote VAD pipeline with onset={config.get('pyannote_onset', 0.5)}, "
+                           f"offset={config.get('pyannote_offset', 0.5)}, "
+                           f"min_duration_on={config.get('pyannote_min_duration_on', 0.0)}, "
+                           f"min_duration_off={config.get('pyannote_min_duration_off', 0.0)}")
+            except Exception as e:
+                logger.warning(f"Could not configure pipeline hyperparameters: {e}")
+                logger.info("Using default hyperparameters")
             
             # Try to move to GPU if available
-            device = config.get('device', 'cpu')
-            try:
-                vad_pipeline.to(device)
-                logger.info(f"PyAnnote VAD pipeline loaded on device: {device}")
-            except Exception:
-                logger.warning(f"Could not move pipeline to {device}, using CPU")
+            device = config.get('pyannote_device', config.get('device', 'cpu'))
+            if device and device.lower() != 'cpu':
+                try:
+                    vad_pipeline.to(device)
+                    logger.info(f"PyAnnote VAD pipeline loaded on device: {device}")
+                except Exception as e:
+                    logger.warning(f"Could not move pipeline to {device}: {e}")
+                    logger.info("Using CPU instead")
+                    device = "cpu"
+            else:
+                logger.info(f"PyAnnote VAD pipeline loaded on device: cpu")
                 device = "cpu"
         except Exception as e:
             logger.error(f"Failed to load PyAnnote VAD pipeline: {e}")
@@ -294,18 +325,24 @@ def main():
             movie_dir = Path(sys.argv[1])
             logger.info(f"Using movie directory from argument: {movie_dir}")
         else:
-            # Fallback: Find the movie directory
+            # Fallback: Try to use output_root or find movie directory
             output_root = Path(config.output_root)
             
-            # Try to find VAD directory with Silero segments
-            vad_dirs = list(output_root.glob("*/vad"))
-            if not vad_dirs:
-                logger.error("No VAD directory found in output")
-                logger.error("Run Silero VAD stage first")
-                sys.exit(1)
-            
-            vad_dir = vad_dirs[0]
-            movie_dir = vad_dir.parent
+            # Always use output_root directly when it's set (should be job-specific)
+            if (output_root / "vad").exists():
+                movie_dir = output_root
+                logger.info(f"Using output_root as movie directory: {movie_dir}")
+            else:
+                # Try to find VAD directory with Silero segments
+                vad_dirs = list(output_root.glob("**/vad"))
+                if not vad_dirs:
+                    logger.error("No VAD directory found in output")
+                    logger.error("Run Silero VAD stage first")
+                    sys.exit(1)
+                
+                vad_dir = vad_dirs[0]
+                movie_dir = vad_dir.parent
+                logger.info(f"Found VAD directory: {vad_dir}")
         
         logger.info(f"Movie directory: {movie_dir}")
         vad_dir = movie_dir / "vad"
@@ -315,8 +352,11 @@ def main():
         silero_segments = []
         if silero_file.exists():
             silero_data = load_json(silero_file)
-            silero_segments = silero_data.get('segments', [])
-            logger.info(f"Loaded {len(silero_segments)} Silero segments for comparison")
+            if silero_data:
+                silero_segments = silero_data.get('segments', [])
+                logger.info(f"Loaded {len(silero_segments)} Silero segments for comparison")
+            else:
+                logger.warning("Silero segments file is empty or invalid - will process full audio")
         else:
             logger.warning("Silero segments not found - will process full audio")
         
@@ -414,6 +454,11 @@ def main():
             "model": model_name,
             "source_segments": str(silero_file) if silero_file.exists() else None,
             "parameters": {
+                "onset": config.get('pyannote_onset', 0.5),
+                "offset": config.get('pyannote_offset', 0.5),
+                "min_duration_on": config.get('pyannote_min_duration_on', 0.0),
+                "min_duration_off": config.get('pyannote_min_duration_off', 0.0),
+                "device": device,
                 "merge_gap_sec": merge_gap,
                 "api_process_time": process_time,
                 "chunk_win": config.get('pyannote_chunk_win', 45.0),
