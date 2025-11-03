@@ -1,8 +1,5 @@
 services:
   demux:
-    build:
-      context: .
-      dockerfile: docker/demux/Dockerfile
     image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-demux:latest"
     container_name: cp_whisperx_demux
     volumes:
@@ -17,9 +14,6 @@ services:
       - PYTHONPATH=/app
 
   tmdb:
-    build:
-      context: .
-      dockerfile: docker/tmdb/Dockerfile
     image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-tmdb:latest"
     container_name: cp_whisperx_tmdb
     volumes:
@@ -35,9 +29,6 @@ services:
       - demux
 
   silero-vad:
-    build:
-      context: .
-      dockerfile: docker/silero-vad/Dockerfile
     image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-silero-vad:latest"
     container_name: cp_whisperx_silero_vad
     volumes:
@@ -53,9 +44,6 @@ services:
       - pre-ner
 
   pre-ner:
-    build:
-      context: .
-      dockerfile: docker/pre-ner/Dockerfile
     image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-pre-ner:latest"
     container_name: cp_whisperx_pre_ner
     volumes:
@@ -73,11 +61,6 @@ services:
       - tmdb
 
   asr:
-    build:
-      # Use the repository root as the build context so Docker has access to
-      # top-level files like requirements-asr.txt and requirements-ner.txt.
-      context: .
-      dockerfile: docker/asr/Dockerfile
     image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-asr:latest"
     container_name: cp_whisperx_asr
     volumes:
@@ -100,9 +83,6 @@ services:
       - diarization
 
   diarization:
-    build:
-      context: .
-      dockerfile: docker/diarization/Dockerfile
     image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-diarization:latest"
     container_name: cp_whisperx_diarization
     volumes:
@@ -121,9 +101,6 @@ services:
       - pyannote-vad
 
   pyannote-vad:
-    build:
-      context: .
-      dockerfile: docker/pyannote-vad/Dockerfile
     image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-pyannote-vad:latest"
     container_name: cp_whisperx_pyannote_vad
     volumes:
@@ -142,9 +119,6 @@ services:
     # platform: linux/amd64
 
   subtitle-gen:
-    build:
-      context: .
-      dockerfile: docker/subtitle-gen/Dockerfile
     image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-subtitle-gen:latest"
     container_name: cp_whisperx_subtitle_gen
     volumes:
@@ -160,9 +134,6 @@ services:
       - post-ner
 
   post-ner:
-    build:
-      context: .
-      dockerfile: docker/post-ner/Dockerfile
     image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-post-ner:latest"
     container_name: cp_whisperx_post_ner
     volumes:
@@ -179,9 +150,6 @@ services:
       - asr
 
   mux:
-    build:
-      context: .
-      dockerfile: docker/mux/Dockerfile
     image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-mux:latest"
     container_name: cp_whisperx_mux
     volumes:
