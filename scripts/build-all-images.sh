@@ -68,9 +68,7 @@ CPU_STAGES=(
 )
 
 for stage in "${CPU_STAGES[@]}"; do
-    build_image "${stage}" "latest" "docker/${stage}/Dockerfile" || FAILED_BUILDS+=("${stage}:latest")
-    # Also tag as cpu
-    docker tag "${REGISTRY}/${REPO_NAME}-${stage}:latest" "${REGISTRY}/${REPO_NAME}-${stage}:cpu" || true
+    build_image "${stage}" "cpu" "docker/${stage}/Dockerfile" || FAILED_BUILDS+=("${stage}:cpu")
     echo ""
 done
 

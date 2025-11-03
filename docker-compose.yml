@@ -1,6 +1,6 @@
 services:
   demux:
-    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-demux:latest"
+    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-demux:cpu"
     container_name: cp_whisperx_demux
     volumes:
       - ./in:/app/in:ro
@@ -14,7 +14,7 @@ services:
       - PYTHONPATH=/app
 
   tmdb:
-    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-tmdb:latest"
+    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-tmdb:cpu"
     container_name: cp_whisperx_tmdb
     volumes:
 
@@ -29,7 +29,7 @@ services:
       - demux
 
   silero-vad:
-    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-silero-vad:latest"
+    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-silero-vad:cpu"
     container_name: cp_whisperx_silero_vad
     volumes:
 
@@ -44,7 +44,7 @@ services:
       - pre-ner
 
   pre-ner:
-    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-pre-ner:latest"
+    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-pre-ner:cpu"
     container_name: cp_whisperx_pre_ner
     volumes:
 
@@ -61,7 +61,7 @@ services:
       - tmdb
 
   asr:
-    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-asr:latest"
+    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-asr:cpu"
     container_name: cp_whisperx_asr
     volumes:
       - ./in:/app/in
@@ -83,7 +83,7 @@ services:
       - diarization
 
   diarization:
-    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-diarization:latest"
+    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-diarization:cpu"
     container_name: cp_whisperx_diarization
     volumes:
       - ./in:/app/in
@@ -101,7 +101,7 @@ services:
       - pyannote-vad
 
   pyannote-vad:
-    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-pyannote-vad:latest"
+    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-pyannote-vad:cpu"
     container_name: cp_whisperx_pyannote_vad
     volumes:
       - ./in:/app/in
@@ -119,7 +119,7 @@ services:
     # platform: linux/amd64
 
   subtitle-gen:
-    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-subtitle-gen:latest"
+    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-subtitle-gen:cpu"
     container_name: cp_whisperx_subtitle_gen
     volumes:
 
@@ -134,7 +134,7 @@ services:
       - post-ner
 
   post-ner:
-    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-post-ner:latest"
+    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-post-ner:cpu"
     container_name: cp_whisperx_post_ner
     volumes:
 
@@ -150,7 +150,7 @@ services:
       - asr
 
   mux:
-    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-mux:latest"
+    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-mux:cpu"
     container_name: cp_whisperx_mux
     volumes:
       - ./in:/app/in:ro
