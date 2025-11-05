@@ -1,12 +1,11 @@
 services:
+  # CPU-Only Stages - use :cpu tag
   demux:
     image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-demux:cpu"
     container_name: cp_whisperx_demux
     volumes:
       - ./in:/app/in:ro
-
       - ./out:/app/out
-
       - ./config:/app/config:ro
       - ./shared:/app/shared:ro
     environment:
@@ -17,9 +16,7 @@ services:
     image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-tmdb:cpu"
     container_name: cp_whisperx_tmdb
     volumes:
-
       - ./out:/app/out
-
       - ./config:/app/config:ro
       - ./shared:/app/shared:ro
     environment:
@@ -28,28 +25,11 @@ services:
     depends_on:
       - demux
 
-  silero-vad:
-    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-silero-vad:cpu"
-    container_name: cp_whisperx_silero_vad
-    volumes:
-
-      - ./out:/app/out
-
-      - ./config:/app/config:ro
-      - ./shared:/app/shared:ro
-    environment:
-      - CONFIG_PATH=${CONFIG_PATH:-/app/config/.env}
-      - PYTHONPATH=/app
-    depends_on:
-      - pre-ner
-
   pre-ner:
     image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-pre-ner:cpu"
     container_name: cp_whisperx_pre_ner
     volumes:
-
       - ./out:/app/out
-
       - ./LLM:/app/LLM
       - ./config:/app/config:ro
       - ./scripts:/app/scripts:ro
@@ -60,36 +40,82 @@ services:
     depends_on:
       - tmdb
 
-  asr:
-    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-asr:cpu"
-    container_name: cp_whisperx_asr
+  post-ner:
+    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-post-ner:cpu"
+    container_name: cp_whisperx_post_ner
     volumes:
-      - ./in:/app/in
-
       - ./out:/app/out
-
-      - ./LLM:/app/LLM
       - ./config:/app/config:ro
       - ./scripts:/app/scripts:ro
       - ./shared:/app/shared:ro
     environment:
       - CONFIG_PATH=${CONFIG_PATH:-/app/config/.env}
       - PYTHONPATH=/app
-    # If you need to force a specific platform on Apple Silicon, add 'platform: linux/amd64'
-    # platform: linux/amd64
-    mem_limit: 16g
-    memswap_limit: 16g
     depends_on:
-      - diarization
+      - asr
+
+  subtitle-gen:
+    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-subtitle-gen:cpu"
+    container_name: cp_whisperx_subtitle_gen
+    volumes:
+      - ./out:/app/out
+      - ./config:/app/config:ro
+      - ./shared:/app/shared:ro
+    environment:
+      - CONFIG_PATH=${CONFIG_PATH:-/app/config/.env}
+      - PYTHONPATH=/app
+    depends_on:
+      - post-ner
+
+  mux:
+    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-mux:cpu"
+    container_name: cp_whisperx_mux
+    volumes:
+      - ./in:/app/in:ro
+      - ./out:/app/out
+      - ./config:/app/config:ro
+      - ./shared:/app/shared:ro
+    environment:
+      - CONFIG_PATH=${CONFIG_PATH:-/app/config/.env}
+      - PYTHONPATH=/app
+    depends_on:
+      - subtitle-gen
+
+  # GPU Stages - use :cuda tag
+  silero-vad:
+    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-silero-vad:cuda"
+    container_name: cp_whisperx_silero_vad
+    volumes:
+      - ./out:/app/out
+      - ./config:/app/config:ro
+      - ./shared:/app/shared:ro
+    environment:
+      - CONFIG_PATH=${CONFIG_PATH:-/app/config/.env}
+      - PYTHONPATH=/app
+    depends_on:
+      - pre-ner
+
+  pyannote-vad:
+    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-pyannote-vad:cuda"
+    container_name: cp_whisperx_pyannote_vad
+    volumes:
+      - ./in:/app/in
+      - ./out:/app/out
+      - ./LLM:/app/LLM
+      - ./config:/app/config:ro
+      - ./shared:/app/shared:ro
+    environment:
+      - CONFIG_PATH=${CONFIG_PATH:-/app/config/.env}
+      - PYTHONPATH=/app
+    depends_on:
+      - silero-vad
 
   diarization:
-    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-diarization:cpu"
+    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-diarization:cuda"
     container_name: cp_whisperx_diarization
     volumes:
       - ./in:/app/in
-
       - ./out:/app/out
-
       - ./LLM:/app/LLM
       - ./config:/app/config:ro
       - ./scripts:/app/scripts:ro
@@ -100,76 +126,38 @@ services:
     depends_on:
       - pyannote-vad
 
-  pyannote-vad:
-    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-pyannote-vad:cpu"
-    container_name: cp_whisperx_pyannote_vad
+  asr:
+    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-asr:cuda"
+    container_name: cp_whisperx_asr
     volumes:
       - ./in:/app/in
-
       - ./out:/app/out
-
       - ./LLM:/app/LLM
-      - ./config:/app/config:ro
-      - ./shared:/app/shared:ro
-    environment:
-      - CONFIG_PATH=${CONFIG_PATH:-/app/config/.env}
-      - PYTHONPATH=/app
-    depends_on:
-      - silero-vad
-    # platform: linux/amd64
-
-  subtitle-gen:
-    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-subtitle-gen:cpu"
-    container_name: cp_whisperx_subtitle_gen
-    volumes:
-
-      - ./out:/app/out
-
-      - ./config:/app/config:ro
-      - ./shared:/app/shared:ro
-    environment:
-      - CONFIG_PATH=${CONFIG_PATH:-/app/config/.env}
-      - PYTHONPATH=/app
-    depends_on:
-      - post-ner
-
-  post-ner:
-    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-post-ner:cpu"
-    container_name: cp_whisperx_post_ner
-    volumes:
-
-      - ./out:/app/out
-
       - ./config:/app/config:ro
       - ./scripts:/app/scripts:ro
       - ./shared:/app/shared:ro
     environment:
       - CONFIG_PATH=${CONFIG_PATH:-/app/config/.env}
       - PYTHONPATH=/app
+    mem_limit: 16g
+    memswap_limit: 16g
     depends_on:
-      - asr
-
-  mux:
-    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-mux:cpu"
-    container_name: cp_whisperx_mux
-    volumes:
-      - ./in:/app/in:ro
-
-      - ./out:/app/out
-
-      - ./config:/app/config:ro
-      - ./shared:/app/shared:ro
-    environment:
-      - CONFIG_PATH=${CONFIG_PATH:-/app/config/.env}
-      - PYTHONPATH=/app
-    depends_on:
-      - subtitle-gen
+      - diarization
 
 # Usage notes:
 # 1) Build all images:
-#    docker compose build
-# 2) Run complete pipeline (via run_pipeline_arch.py):
-#    python3 run_pipeline_arch.py -i in/movie.mp4 --infer-tmdb-from-filename
-# 3) Or run individual services:
+#    scripts\build-all-images.bat (Windows)
+#    ./scripts/build-all-images.sh (Linux/Mac)
+# 
+# 2) Run complete pipeline:
+#    python pipeline.py -i in/movie.mp4
+#
+# 3) Run individual services:
 #    docker compose run --rm demux in/movie.mp4
 #    docker compose run --rm asr out/Movie_Name
+#
+# Image Tagging Strategy:
+# - CPU-Only Stages (demux, tmdb, pre-ner, post-ner, subtitle-gen, mux): :cpu tag
+# - GPU Stages (silero-vad, pyannote-vad, diarization, asr): :cuda tag
+# - All CPU stages built from rajiup/cp-whisperx-app-base:cpu
+# - All GPU stages built from rajiup/cp-whisperx-app-base:cuda

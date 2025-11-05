@@ -1,35 +1,26 @@
-FROM rajiup/cp-whisperx-app-base:latest
+ARG REGISTRY=rajiup
+FROM ${REGISTRY}/cp-whisperx-app-base-ml:cuda
 
 LABEL description="WhisperX ASR - Automatic Speech Recognition with translation"
 
 USER root
 WORKDIR /app
 
-# Install compatible torch versions (2.2.1 for pyannote compatibility)
+# PyTorch, numpy, transformers, librosa already in base-ml
+# Install WhisperX and ASR-specific dependencies
 RUN pip install --no-cache-dir \
-    "numpy>=1.24.0,<2.0.0" \
-    torch==2.2.1 \
-    torchaudio==2.2.1 \
-    --index-url https://download.pytorch.org/whl/cpu
-
-# Install WhisperX and dependencies
-RUN pip install --no-cache-dir \
-    git+https://github.com/m-bain/whisperX.git \
-    faster-whisper \
-    transformers \
-    ctranslate2 \
-    soundfile>=0.12.1 \
-    scipy>=1.10.0 \
-    tqdm
+    whisperx==3.7.2 \
+    faster-whisper==1.2.0 \
+    ctranslate2==4.6.0
 
 # Install translation models
-RUN pip install --no-cache-dir \
-    sentencepiece \
-    sacremoses
+RUN pip install --no-cache-dir sacremoses
 
-# Copy scripts and shared modules
-COPY scripts/ /app/scripts/
+# Copy shared modules (changes occasionally)
 COPY shared/ /app/shared/
+COPY scripts/ /app/scripts/
+
+# Copy stage script (changes most frequently)
 COPY docker/asr/whisperx_asr.py /app/
 
 USER appuser

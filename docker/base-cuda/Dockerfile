@@ -18,53 +18,51 @@ ENV DEBIAN_FRONTEND=noninteractive \
     LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH \
     PATH=/usr/local/cuda/bin:$PATH
 
-# Install Python 3.11 and system dependencies
+# Install Python 3.11 and system dependencies (minimal set)
+# Removed: build-essential (stages can add if needed)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     software-properties-common \
     && add-apt-repository ppa:deadsnakes/ppa \
     && apt-get update && apt-get install -y --no-install-recommends \
     python3.11 \
     python3.11-dev \
+    python3.11-venv \
     python3.11-distutils \
-    python3-pip \
     ffmpeg \
     git \
     wget \
-    curl \
     ca-certificates \
-    build-essential \
     libsndfile1 \
     libsndfile1-dev \
-    pkg-config \
+    && apt-get purge -y python3.10* \
+    && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Set python3.11 as default python
 RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1 && \
     update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1
 
-# Upgrade pip and install common Python packages
-RUN python3 -m pip install --upgrade pip wheel setuptools && \
-    pip install --no-cache-dir \
-    python-dotenv>=1.0.0 \
+# Manually install pip using get-pip.py (ensurepip not available in Ubuntu apt python3.11)
+RUN wget https://bootstrap.pypa.io/get-pip.py -O get-pip.py && \
+    python3 get-pip.py && \
+    rm get-pip.py && \
+    python3 -m pip install --no-cache-dir --upgrade pip wheel setuptools
+
+
+# Install common dependencies from shared requirements
+COPY docker/requirements-common.txt /tmp/
+RUN pip install --no-cache-dir -r /tmp/requirements-common.txt && \
+    rm /tmp/requirements-common.txt
+
+# Install base utilities
+RUN pip install --no-cache-dir \
     pydantic>=2.0.0 \
     pydantic-settings>=2.0.0 \
     requests>=2.31.0 \
-    tqdm>=4.66.0 \
     python-json-logger>=2.0.7
 
-# Install PyTorch with CUDA support
-RUN pip install --no-cache-dir \
-    torch==2.1.0+cu121 \
-    torchaudio==2.1.0+cu121 \
-    --index-url https://download.pytorch.org/whl/cu121
-
-# Install common ML packages
-RUN pip install --no-cache-dir \
-    numpy>=1.24.0 \
-    scipy>=1.11.0 \
-    scikit-learn>=1.3.0 \
-    pandas>=2.0.0 \
-    soundfile>=0.12.1
+# Note: PyTorch and ML packages are installed in base-ml:cuda
+# This keeps the base:cuda image smaller for non-ML stages
 
 # Create directory structure
 WORKDIR /app

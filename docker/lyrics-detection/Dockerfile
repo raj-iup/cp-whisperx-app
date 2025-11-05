@@ -1,22 +1,20 @@
-FROM python:3.11-slim
+ARG REGISTRY=rajiup
+FROM ${REGISTRY}/cp-whisperx-app-base-ml:cuda
 
+LABEL description="Lyrics Detection - Identify musical segments"
+
+USER root
 WORKDIR /app
 
-# Install system dependencies for audio processing
-RUN apt-get update && apt-get install -y \
-    libsndfile1 \
-    ffmpeg \
-    && rm -rf /var/lib/apt/lists/*
+# librosa, numpy, scipy, soundfile already in base-ml
+# No additional dependencies needed
 
-# Install Python dependencies
-COPY docker/lyrics-detection/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy shared utilities
+# Copy shared modules (changes occasionally)
 COPY shared/ /app/shared/
 
-# Copy stage script
+# Copy stage script (changes most frequently)
 COPY docker/lyrics-detection/lyrics_detection.py /app/
 
-# Set entrypoint
+USER appuser
+
 ENTRYPOINT ["python", "/app/lyrics_detection.py"]

@@ -39,6 +39,7 @@ import json
 import shutil
 import argparse
 import subprocess
+import psutil
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, Dict
@@ -48,6 +49,190 @@ SCRIPT_DIR = Path(__file__).parent
 sys.path.insert(0, str(SCRIPT_DIR / 'shared'))
 
 from shared.logger import PipelineLogger, get_stage_log_filename
+
+
+def detect_hardware_capabilities():
+    """Detect hardware capabilities and recommend optimal settings.
+    
+    Returns:
+        dict: Hardware capabilities and recommended settings
+            {
+                'cpu_cores': int,
+                'memory_gb': float,
+                'gpu_available': bool,
+                'gpu_type': str,  # 'cuda', 'mps', or None
+                'gpu_memory_gb': float or None,
+                'gpu_name': str or None,
+                'recommended_settings': dict
+            }
+    """
+    import psutil
+    
+    hw_info = {
+        'cpu_cores': psutil.cpu_count(logical=False) or 1,
+        'cpu_threads': psutil.cpu_count(logical=True) or 1,
+        'memory_gb': round(psutil.virtual_memory().total / (1024**3), 2),
+        'gpu_available': False,
+        'gpu_type': None,
+        'gpu_memory_gb': None,
+        'gpu_name': None,
+        'recommended_settings': {}
+    }
+    
+    # Detect GPU
+    try:
+        import torch
+        
+        # Check for CUDA
+        if torch.cuda.is_available():
+            hw_info['gpu_available'] = True
+            hw_info['gpu_type'] = 'cuda'
+            hw_info['gpu_name'] = torch.cuda.get_device_name(0)
+            hw_info['gpu_memory_gb'] = round(
+                torch.cuda.get_device_properties(0).total_memory / (1024**3), 2
+            )
+        # Check for MPS (Apple Silicon)
+        elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+            hw_info['gpu_available'] = True
+            hw_info['gpu_type'] = 'mps'
+            hw_info['gpu_name'] = 'Apple Silicon (MPS)'
+            # MPS doesn't report memory, estimate based on system
+            if hw_info['memory_gb'] >= 32:
+                hw_info['gpu_memory_gb'] = 16  # Estimate for M1/M2 Max
+            else:
+                hw_info['gpu_memory_gb'] = 8   # Estimate for M1/M2 base
+        else:
+            hw_info['gpu_type'] = 'cpu'
+    except Exception:
+        hw_info['gpu_type'] = 'cpu'
+    
+    # Generate recommended settings
+    hw_info['recommended_settings'] = _calculate_optimal_settings(hw_info)
+    
+    return hw_info
+
+
+def _calculate_optimal_settings(hw_info: dict) -> dict:
+    """Calculate optimal settings based on hardware capabilities.
+    
+    Args:
+        hw_info: Hardware information dictionary
+    
+    Returns:
+        dict: Recommended settings with explanations
+    """
+    settings = {
+        'whisper_model': 'large-v3',
+        'whisper_model_reason': '',
+        'batch_size': 16,
+        'batch_size_reason': '',
+        'compute_type': 'float16',
+        'compute_type_reason': '',
+        'device_whisperx': 'cpu',
+        'device_diarization': 'cpu',
+        'device_vad': 'cpu',
+        'chunk_length_s': 30,
+        'chunk_length_reason': '',
+        'max_speakers': 10,
+        'max_speakers_reason': '',
+        'use_docker_cpu_fallback': True,
+        'docker_recommendation': ''
+    }
+    
+    memory_gb = hw_info['memory_gb']
+    gpu_type = hw_info['gpu_type']
+    gpu_memory_gb = hw_info.get('gpu_memory_gb', 0) or 0
+    cpu_cores = hw_info['cpu_cores']
+    
+    # Model selection based on available memory
+    if gpu_type in ['cuda', 'mps']:
+        # GPU available
+        if gpu_memory_gb >= 10:
+            settings['whisper_model'] = 'large-v3'
+            settings['whisper_model_reason'] = f'GPU has {gpu_memory_gb}GB VRAM - can handle large-v3'
+        elif gpu_memory_gb >= 6:
+            settings['whisper_model'] = 'medium'
+            settings['whisper_model_reason'] = f'GPU has {gpu_memory_gb}GB VRAM - medium model recommended'
+        else:
+            settings['whisper_model'] = 'base'
+            settings['whisper_model_reason'] = f'GPU has {gpu_memory_gb}GB VRAM - base model recommended'
+        
+        settings['device_whisperx'] = gpu_type
+        settings['device_diarization'] = gpu_type
+        settings['device_vad'] = gpu_type
+        settings['use_docker_cpu_fallback'] = True
+        settings['docker_recommendation'] = f'Use {gpu_type} images with CPU fallback enabled'
+    else:
+        # CPU only
+        if memory_gb >= 16:
+            settings['whisper_model'] = 'medium'
+            settings['whisper_model_reason'] = f'System has {memory_gb}GB RAM - medium model feasible'
+        elif memory_gb >= 8:
+            settings['whisper_model'] = 'base'
+            settings['whisper_model_reason'] = f'System has {memory_gb}GB RAM - base model recommended'
+        else:
+            settings['whisper_model'] = 'tiny'
+            settings['whisper_model_reason'] = f'System has {memory_gb}GB RAM - tiny model required'
+        
+        settings['device_whisperx'] = 'cpu'
+        settings['device_diarization'] = 'cpu'
+        settings['device_vad'] = 'cpu'
+        settings['use_docker_cpu_fallback'] = False
+        settings['docker_recommendation'] = 'Use CPU images only'
+    
+    # Batch size based on available resources
+    if gpu_type in ['cuda', 'mps']:
+        if gpu_memory_gb >= 12:
+            settings['batch_size'] = 32
+            settings['batch_size_reason'] = 'High VRAM available'
+        elif gpu_memory_gb >= 8:
+            settings['batch_size'] = 16
+            settings['batch_size_reason'] = 'Moderate VRAM available'
+        else:
+            settings['batch_size'] = 8
+            settings['batch_size_reason'] = 'Limited VRAM - conservative batch size'
+    else:
+        if memory_gb >= 32:
+            settings['batch_size'] = 16
+            settings['batch_size_reason'] = 'High RAM available'
+        elif memory_gb >= 16:
+            settings['batch_size'] = 8
+            settings['batch_size_reason'] = 'Moderate RAM available'
+        else:
+            settings['batch_size'] = 4
+            settings['batch_size_reason'] = 'Limited RAM - small batch size'
+    
+    # Compute type
+    if gpu_type == 'cuda':
+        settings['compute_type'] = 'float16'
+        settings['compute_type_reason'] = 'CUDA supports FP16 for faster computation'
+    elif gpu_type == 'mps':
+        settings['compute_type'] = 'float32'
+        settings['compute_type_reason'] = 'MPS requires FP32 (FP16 support limited)'
+    else:
+        settings['compute_type'] = 'int8'
+        settings['compute_type_reason'] = 'CPU benefits from INT8 quantization'
+    
+    # Chunk length based on memory
+    if memory_gb >= 32:
+        settings['chunk_length_s'] = 30
+        settings['chunk_length_reason'] = 'High memory - optimal chunk size'
+    elif memory_gb >= 16:
+        settings['chunk_length_s'] = 20
+        settings['chunk_length_reason'] = 'Moderate memory - reduced chunk size'
+    else:
+        settings['chunk_length_s'] = 10
+        settings['chunk_length_reason'] = 'Limited memory - small chunks to avoid OOM'
+    
+    # Max speakers based on complexity tolerance
+    if gpu_type in ['cuda', 'mps'] or memory_gb >= 16:
+        settings['max_speakers'] = 10
+        settings['max_speakers_reason'] = 'Sufficient resources for complex scenes'
+    else:
+        settings['max_speakers'] = 5
+        settings['max_speakers_reason'] = 'Limited resources - reduce diarization complexity'
+    
+    return settings
 
 
 def detect_device_capability():
@@ -303,6 +488,7 @@ DEVICE_NER=cpu
         
         Creates final .env configuration file based on:
         - Template: config/.env.pipeline
+        - Hardware detection and optimization
         - Job parameters: workflow_mode, native_mode, device
         - Calculated paths: output_root, log_root
         
@@ -316,6 +502,24 @@ DEVICE_NER=cpu
         # Job environment file path
         job_env_file = job_dir / f".{job_id}.env"
         
+        # Detect hardware capabilities
+        if self.logger:
+            self.logger.info("Detecting hardware capabilities...")
+        
+        hw_info = detect_hardware_capabilities()
+        
+        if self.logger:
+            self.logger.info(f"CPU: {hw_info['cpu_cores']} cores, {hw_info['cpu_threads']} threads")
+            self.logger.info(f"Memory: {hw_info['memory_gb']} GB")
+            if hw_info['gpu_available']:
+                self.logger.info(f"GPU: {hw_info['gpu_name']} ({hw_info['gpu_type'].upper()})")
+                self.logger.info(f"GPU Memory: {hw_info['gpu_memory_gb']} GB")
+            else:
+                self.logger.warning("No GPU detected - CPU-only execution")
+        
+        # Get recommended settings
+        settings = hw_info['recommended_settings']
+        
         # Load config template from config/.env.pipeline
         config_template = Path("config/.env.pipeline")
         
@@ -327,6 +531,7 @@ DEVICE_NER=cpu
         
         if self.logger:
             self.logger.info(f"Using config template: {config_template}")
+            self.logger.info("Applying hardware-optimized settings...")
         
         # Read template
         with open(config_template) as f:
@@ -376,14 +581,48 @@ DEVICE_NER=cpu
                 'WORKFLOW_MODE': 'subtitle-gen'
             }
         
-        # Update config values
+        # Build configuration with hardware optimization comments
         config_lines = []
-        job_id_set = False
-        in_root_set = False
-        output_root_set = False
-        log_root_set = False
-        workflow_mode_set = False
         
+        # Add hardware detection header
+        config_lines.extend([
+            "# ============================================================================",
+            "# CP-WhisperX-App Job Configuration",
+            f"# Generated: {datetime.now().isoformat()}",
+            f"# Job ID: {job_id}",
+            "# ============================================================================",
+            "",
+            "# ============================================================================",
+            "# HARDWARE DETECTION & OPTIMIZATION",
+            "# ============================================================================",
+            f"# CPU: {hw_info['cpu_cores']} cores ({hw_info['cpu_threads']} threads)",
+            f"# Memory: {hw_info['memory_gb']} GB RAM",
+        ])
+        
+        if hw_info['gpu_available']:
+            config_lines.extend([
+                f"# GPU: {hw_info['gpu_name']}",
+                f"# GPU Memory: {hw_info['gpu_memory_gb']} GB",
+                f"# GPU Type: {hw_info['gpu_type'].upper()}",
+                "#",
+                "# RECOMMENDATION: GPU acceleration available",
+                f"# Docker: {settings['docker_recommendation']}",
+            ])
+        else:
+            config_lines.extend([
+                "# GPU: Not available",
+                "#",
+                "# RECOMMENDATION: CPU-only execution",
+                "# Docker: Use CPU images only",
+                "# WARNING: Processing will be slower without GPU",
+            ])
+        
+        config_lines.extend([
+            "# ============================================================================",
+            "",
+        ])
+        
+        # Process template lines
         for line in config_content.split('\n'):
             # Skip removed fields
             if line.startswith('INPUT_FILE=') or \
@@ -392,110 +631,157 @@ DEVICE_NER=cpu
                line.startswith('START_CLIP=') or \
                line.startswith('END_CLIP='):
                 continue
-                
+            
+            # Handle job-specific overrides with comments
             if line.startswith('JOB_ID='):
                 config_lines.append(f'JOB_ID={job_info["job_id"]}')
-                job_id_set = True
             elif line.startswith('IN_ROOT='):
                 config_lines.append(f'IN_ROOT={media_path.absolute()}')
-                in_root_set = True
             elif line.startswith('OUTPUT_ROOT='):
                 config_lines.append(f'OUTPUT_ROOT={output_root}')
-                output_root_set = True
             elif line.startswith('LOG_ROOT='):
                 config_lines.append(f'LOG_ROOT={log_root}')
-                log_root_set = True
             elif line.startswith('WORKFLOW_MODE='):
                 config_lines.append(f'WORKFLOW_MODE={workflow_config.get("WORKFLOW_MODE", "subtitle-gen")}')
-                workflow_mode_set = True
-            elif native_mode and line.startswith('WHISPERX_DEVICE='):
-                config_lines.append(f'WHISPERX_DEVICE={device.upper()}')
-            elif native_mode and line.startswith('DIARIZATION_DEVICE='):
-                config_lines.append(f'DIARIZATION_DEVICE={device.upper()}')
-            elif native_mode and line.startswith('PYANNOTE_DEVICE='):
-                config_lines.append(f'PYANNOTE_DEVICE={device.upper()}')
-            elif workflow_mode == 'transcribe' and line.split('=')[0] in workflow_config:
-                # Override workflow-specific settings
-                key = line.split('=')[0]
-                config_lines.append(f'{key}={workflow_config[key]}')
+            
+            # Whisper model optimization
             elif line.startswith('WHISPER_MODEL='):
-                if line == 'WHISPER_MODEL=' or not line.split('=', 1)[1].strip():
-                    config_lines.append('WHISPER_MODEL=large-v3')
-                else:
-                    config_lines.append(line)
+                config_lines.extend([
+                    f"# Hardware-optimized model selection",
+                    f"# {settings['whisper_model_reason']}",
+                    f"WHISPER_MODEL={settings['whisper_model']}"
+                ])
+            
+            # Batch size optimization
+            elif line.startswith('WHISPER_BATCH_SIZE=') or line.startswith('BATCH_SIZE='):
+                config_lines.extend([
+                    f"# Batch size optimized for available resources",
+                    f"# {settings['batch_size_reason']}",
+                    f"BATCH_SIZE={settings['batch_size']}"
+                ])
+            
+            # Compute type optimization
+            elif line.startswith('COMPUTE_TYPE='):
+                config_lines.extend([
+                    f"# Compute type optimized for device",
+                    f"# {settings['compute_type_reason']}",
+                    f"COMPUTE_TYPE={settings['compute_type']}"
+                ])
+            
+            # Chunk length optimization
+            elif line.startswith('CHUNK_LENGTH='):
+                config_lines.extend([
+                    f"# Chunk length tuned for memory constraints",
+                    f"# {settings['chunk_length_reason']}",
+                    f"CHUNK_LENGTH={settings['chunk_length_s']}"
+                ])
+            
+            # Max speakers optimization
+            elif line.startswith('MAX_SPEAKERS='):
+                config_lines.extend([
+                    f"# Max speakers based on resource availability",
+                    f"# {settings['max_speakers_reason']}",
+                    f"MAX_SPEAKERS={settings['max_speakers']}"
+                ])
+            
+            # Device configuration (native mode)
+            elif native_mode and line.startswith('DEVICE_WHISPERX='):
+                config_lines.extend([
+                    f"# Device set to: {device.upper()}",
+                    f"DEVICE_WHISPERX={device}"
+                ])
+            elif native_mode and line.startswith('DEVICE_DIARIZATION='):
+                config_lines.append(f'DEVICE_DIARIZATION={device}')
+            elif native_mode and line.startswith('DEVICE_VAD='):
+                config_lines.append(f'DEVICE_VAD={device}')
+            elif native_mode and line.startswith('DEVICE_NER='):
+                config_lines.append(f'DEVICE_NER={device}')
+            
+            # Docker-specific settings
+            elif line.startswith('USE_GPU_FALLBACK='):
+                config_lines.extend([
+                    f"# GPU fallback enabled for reliability",
+                    f"USE_GPU_FALLBACK={'true' if settings['use_docker_cpu_fallback'] else 'false'}"
+                ])
+            
             else:
+                # Keep original line
                 config_lines.append(line)
-        
-        # Add if not present (find insertion point after comments)
-        insert_idx = 0
-        for i, line in enumerate(config_lines):
-            if line.strip() and not line.strip().startswith('#'):
-                insert_idx = i
-                break
-        
-        if not job_id_set:
-            config_lines.insert(insert_idx, f'JOB_ID={job_info["job_id"]}')
-            insert_idx += 1
-            
-        if not in_root_set:
-            config_lines.insert(insert_idx, f'IN_ROOT={media_path.absolute()}')
-            insert_idx += 1
-            
-        if not output_root_set:
-            config_lines.insert(insert_idx, f'OUTPUT_ROOT={output_root}')
-            insert_idx += 1
-            
-        if not log_root_set:
-            config_lines.insert(insert_idx, f'LOG_ROOT={log_root}')
-            insert_idx += 1
-        
-        if not workflow_mode_set:
-            config_lines.insert(insert_idx, f'WORKFLOW_MODE={workflow_config.get("WORKFLOW_MODE", "subtitle-gen")}')
-            insert_idx += 1
         
         # Add workflow-specific overrides at the end
         if workflow_mode == 'transcribe':
-            config_lines.append('')
-            config_lines.append('# Transcribe workflow overrides')
+            config_lines.extend([
+                "",
+                "# ============================================================================",
+                "# TRANSCRIBE WORKFLOW OVERRIDES",
+                "# ============================================================================",
+                "# Simplified pipeline - only transcription, no diarization or subtitles",
+            ])
             for key, value in workflow_config.items():
                 if key != 'WORKFLOW_MODE':
-                    config_lines.append(f'{key}={value}')
+                    config_lines.append(f"{key}={value}")
         
-        # Add device settings if native mode
-        if native_mode:
-            config_lines.append('')
-            config_lines.append(f'# Native execution with {device.upper()} acceleration')
+        # Add resource monitoring recommendations
+        config_lines.extend([
+            "",
+            "# ============================================================================",
+            "# RESOURCE MONITORING RECOMMENDATIONS",
+            "# ============================================================================",
+        ])
         
-        # Write job environment file
+        if hw_info['memory_gb'] < 16:
+            config_lines.extend([
+                "# WARNING: Low memory detected",
+                "# - Monitor memory usage during processing",
+                "# - Consider processing in smaller chunks",
+                "# - Use smaller Whisper model if OOM occurs",
+            ])
+        
+        if hw_info['gpu_available'] and hw_info['gpu_memory_gb'] < 8:
+            config_lines.extend([
+                "# WARNING: Limited GPU memory",
+                "# - Reduce batch size if OOM errors occur",
+                "# - Monitor GPU memory with: nvidia-smi (CUDA) or Activity Monitor (MPS)",
+                "# - CPU fallback will activate automatically if GPU fails",
+            ])
+        
+        if not hw_info['gpu_available']:
+            config_lines.extend([
+                "# CPU-ONLY EXECUTION:",
+                "# - Processing will be significantly slower (10-25x)",
+                "# - Consider using GPU-enabled system for large files",
+                f"# - Estimated processing time: {settings['whisper_model']} model on CPU",
+            ])
+        
+        config_lines.append("")
+        
+        # Write final configuration
         with open(job_env_file, 'w') as f:
             f.write('\n'.join(config_lines))
         
-        # Update job info
-        job_info["media_path"] = str(media_path.absolute())
-        job_info["output_root"] = output_root
-        job_info["log_root"] = log_root
-        # Update job info with final paths
-        job_info["job_env_file"] = str(job_env_file.absolute())
-        job_info["media_path"] = str(media_path.absolute())
-        job_info["output_root"] = output_root
-        job_info["log_root"] = log_root
-        job_info["workflow_mode"] = workflow_mode
-        job_info["native_mode"] = native_mode
-        if native_mode:
-            job_info["device"] = device
-        job_info["status"] = "ready"
+        # Update job info with hardware details
+        job_info['hardware'] = {
+            'cpu_cores': hw_info['cpu_cores'],
+            'memory_gb': hw_info['memory_gb'],
+            'gpu_type': hw_info['gpu_type'],
+            'gpu_name': hw_info['gpu_name'],
+            'optimized_settings': settings
+        }
         
-        # Update job.json file
-        job_dir = Path(job_info["job_dir"])
+        # Save updated job.json
         job_json_file = job_dir / "job.json"
         with open(job_json_file, 'w') as f:
             json.dump(job_info, f, indent=2)
         
         if self.logger:
-            self.logger.info(f"Job environment file created: {job_env_file}")
-            self.logger.info(f"Job definition updated: {job_json_file}")
-            self.logger.info("✓ Job ready for pipeline processing")
-            self.logger.info(f"  Run: python pipeline.py --job {job_info['job_id']}")
+            self.logger.info(f"Configuration saved: {job_env_file}")
+            self.logger.info(f"Hardware profile saved to: {job_json_file}")
+            self.logger.info(f"Recommended model: {settings['whisper_model']}")
+            self.logger.info(f"Batch size: {settings['batch_size']}")
+            self.logger.info(f"Compute type: {settings['compute_type']}")
+        
+        job_info["env_file"] = str(job_env_file.absolute())
+        job_info["status"] = "ready"
 
 
 def main():

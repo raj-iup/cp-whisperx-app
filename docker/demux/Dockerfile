@@ -1,11 +1,14 @@
-FROM rajiup/cp-whisperx-app-base:latest
+ARG REGISTRY=rajiup
+FROM ${REGISTRY}/cp-whisperx-app-base:cpu
 
 LABEL description="FFmpeg Demux - Extract audio from video"
 
 USER root
 WORKDIR /app
 
-# Copy demux script
+# No additional dependencies needed - ffmpeg from base
+
+# Copy demux script (last - changes most frequently)
 COPY docker/demux/demux.py /app/
 
 USER appuser

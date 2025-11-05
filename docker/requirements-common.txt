@@ -1,0 +1,19 @@
+# Common dependencies for all pipeline stages
+# Shared across CPU and GPU containers for better layer caching
+
+# Core scientific computing
+numpy==1.24.3
+scipy==1.11.4
+
+# Audio processing
+soundfile==0.12.1
+
+# Utilities
+python-dotenv==1.2.1
+tqdm==4.66.0
+
+# Output formatting
+rich==14.2.0
+
+# Subtitle formats
+pysubs2==1.8.0

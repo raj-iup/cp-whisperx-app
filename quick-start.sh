@@ -1,85 +1,112 @@
 #!/bin/bash
-# Quick Start - CP-WhisperX-App Dockerized Pipeline
+# CP-WhisperX-App Quick Start Script
+# Full subtitle generation workflow with consistent logging
 
 set -e
 
 # Colors
+RED='\033[0;31m'
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
 NC='\033[0m'
 
-echo -e "${BLUE}╔══════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║                                                          ║${NC}"
-echo -e "${BLUE}║  CP-WHISPERX-APP DOCKERIZED PIPELINE                     ║${NC}"
-echo -e "${BLUE}║  Quick Start Setup                                       ║${NC}"
-echo -e "${BLUE}║                                                          ║${NC}"
-echo -e "${BLUE}╚══════════════════════════════════════════════════════════╝${NC}"
-echo ""
-
-# Step 1: Create directories
-echo -e "${BLUE}[1/5] Creating directory structure...${NC}"
-mkdir -p in out logs temp config shared
-echo -e "${GREEN}✓ Directories created${NC}\n"
-
-# Step 2: Copy configuration template
-echo -e "${BLUE}[2/5] Setting up configuration...${NC}"
-if [ ! -f "config/.env" ]; then
-    if [ -f "config/.env.template" ]; then
-        cp config/.env.template config/.env
-        echo -e "${GREEN}✓ Configuration template copied to config/.env${NC}"
-        echo -e "${YELLOW}  Edit config/.env with your settings${NC}"
-    else
-        echo -e "${YELLOW}  No template found - create config/.env manually${NC}"
-    fi
-else
-    echo -e "${GREEN}✓ Configuration file already exists${NC}"
-fi
-echo ""
-
-# Step 3: Setup secrets (optional)
-echo -e "${BLUE}[3/5] Setting up secrets...${NC}"
-if [ ! -f "config/secrets.json" ]; then
-    cat > config/secrets.json << 'EOF'
-{
-  "TMDB_API_KEY": "",
-  "HF_TOKEN": ""
+# Logging functions
+log_message() {
+    local level=$1
+    shift
+    local message="$@"
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    echo -e "[${timestamp}] [quick-start] [${level}] ${message}"
 }
-EOF
-    echo -e "${GREEN}✓ Secrets template created${NC}"
-    echo -e "${YELLOW}  Edit config/secrets.json with your API keys${NC}"
-else
-    echo -e "${GREEN}✓ Secrets file already exists${NC}"
+
+log_info() { log_message "INFO" "$@"; }
+log_success() { echo -e "${GREEN}$(log_message "SUCCESS" "$@")${NC}"; }
+log_warning() { echo -e "${YELLOW}$(log_message "WARNING" "$@")${NC}"; }
+log_error() { echo -e "${RED}$(log_message "ERROR" "$@")${NC}"; }
+
+print_header() {
+    echo ""
+    echo -e "${CYAN}============================================================${NC}"
+    echo -e "${CYAN}$1${NC}"
+    echo -e "${CYAN}============================================================${NC}"
+}
+
+print_step() {
+    echo ""
+    echo -e "${YELLOW}$1${NC}"
+    echo -e "${YELLOW}------------------------------------------------------------${NC}"
+}
+
+# Check arguments
+if [ $# -lt 1 ]; then
+    log_error "Input video is required"
+    echo "Usage: ./quick-start.sh <input_video>"
+    echo "Example: ./quick-start.sh in/movie.mp4"
+    exit 1
 fi
+
+INPUT_VIDEO="$1"
+
+print_header "CP-WHISPERX-APP QUICK START"
+log_info "Input: $INPUT_VIDEO"
 echo ""
 
-# Step 4: Run preflight checks
-echo -e "${BLUE}[4/5] Running preflight validation...${NC}"
-if python3 preflight.py; then
-    echo -e "\n${GREEN}✓ Preflight checks passed!${NC}\n"
-else
-    echo -e "\n${YELLOW}⚠ Some preflight checks failed${NC}"
-    echo -e "${YELLOW}  Review the issues above before proceeding${NC}\n"
+# Validate input
+if [ ! -f "$INPUT_VIDEO" ]; then
+    log_error "Input video not found: $INPUT_VIDEO"
+    exit 1
 fi
 
-# Step 5: Next steps
-echo -e "${BLUE}[5/5] Next Steps:${NC}\n"
-echo -e "  1. ${YELLOW}Configure pipeline:${NC}"
-echo -e "     nano config/.env"
-echo -e ""
-echo -e "  2. ${YELLOW}Add API keys (optional):${NC}"
-echo -e "     nano config/secrets.json"
-echo -e ""
-echo -e "  3. ${YELLOW}Place input video:${NC}"
-echo -e "     cp your-movie.mp4 in/"
-echo -e ""
-echo -e "  4. ${YELLOW}Build Docker images:${NC}"
-echo -e "     ./scripts/build-images.sh"
-echo -e ""
-echo -e "  5. ${YELLOW}Run pipeline:${NC}"
-echo -e "     python3 pipeline.py in/your-movie.mp4"
-echo -e ""
+# Step 1: Preflight checks
+print_step "Step 1/3: Running preflight checks..."
+log_info "Validating system requirements..."
 
-echo -e "${GREEN}╔══════════════════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║  Setup Complete!                                         ║${NC}"
-echo -e "${GREEN}╚══════════════════════════════════════════════════════════╝${NC}"
+if python3 preflight.py; then
+    log_success "Preflight checks passed"
+else
+    log_error "Preflight checks failed! Please fix errors before continuing."
+    exit 1
+fi
+
+# Step 2: Prepare job
+print_step "Step 2/3: Preparing job..."
+log_info "Creating job structure and configuration..."
+
+python3 prepare-job.py "$INPUT_VIDEO" --subtitle-gen
+if [ $? -ne 0 ]; then
+    log_error "Job preparation failed!"
+    exit 1
+fi
+
+# Extract job ID from most recent job directory
+YEAR=$(date +%Y)
+MONTH=$(date +%m)
+DAY=$(date +%d)
+
+JOB_ID=$(find out/$YEAR/$MONTH/$DAY -maxdepth 2 -type d -name "2*-*" 2>/dev/null | sort -r | head -1 | xargs basename)
+
+if [ -z "$JOB_ID" ]; then
+    log_error "Could not find created job directory"
+    exit 1
+fi
+
+log_success "Job ID: $JOB_ID"
+
+# Step 3: Run pipeline
+print_step "Step 3/3: Running pipeline..."
+log_info "Executing full subtitle generation pipeline..."
+
+python3 pipeline.py --job "$JOB_ID"
+if [ $? -ne 0 ]; then
+    log_error "Pipeline execution failed!"
+    exit 1
+fi
+
+# Success
+print_header "QUICK START COMPLETE"
+log_success "Job completed successfully"
+echo ""
+echo "Check output directory: out/$YEAR/$MONTH/$DAY/*/$JOB_ID"
+echo ""

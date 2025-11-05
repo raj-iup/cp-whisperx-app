@@ -1,29 +1,23 @@
-FROM rajiup/cp-whisperx-app-base:latest
+ARG REGISTRY=rajiup
+FROM ${REGISTRY}/cp-whisperx-app-base-ml:cuda
 
 LABEL description="PyAnnote VAD - Local voice activity detection with chunking"
 
 USER root
 WORKDIR /app
 
-# Install torch and torchaudio versions compatible with pyannote.audio 3.4.0
-# Using the same versions as whisperx uses in diarization container
+# PyTorch, numpy, soundfile, transformers, huggingface-hub already in base-ml
+# Install pyannote.audio and dependencies
 RUN pip install --no-cache-dir \
-    torch==2.8.0 \
-    torchaudio==2.8.0 \
-    --index-url https://download.pytorch.org/whl/cpu
+    pyannote.audio==3.4.0 \
+    pyannote.core==5.0.0 \
+    pytorch-lightning==2.5.5
 
-# Install compatible huggingface-hub version (< 1.0 supports use_auth_token)
-RUN pip install --no-cache-dir "huggingface-hub>=0.20.0,<1.0"
-
-# Install pyannote.audio 3.4.0 (same as diarization container)
-RUN pip install --no-cache-dir \
-    "pyannote.audio==3.4.0" \
-    "soundfile>=0.12.1" \
-    "pytorch-lightning>=2.0.0"
-
-# Copy PyAnnote VAD script and shared modules
-COPY docker/pyannote-vad/pyannote_vad.py /app/
+# Copy shared modules (changes occasionally)
 COPY shared/ /app/shared/
+
+# Copy stage script (changes most frequently)
+COPY docker/pyannote-vad/pyannote_vad.py /app/
 
 USER appuser
 

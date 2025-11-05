@@ -1,45 +1,33 @@
 # Diarization container - Speaker labeling using PyAnnote
-FROM rajiup/cp-whisperx-app-base:latest
+ARG REGISTRY=rajiup
+FROM ${REGISTRY}/cp-whisperx-app-base-ml:cuda
 
 LABEL description="PyAnnote Diarization - Speaker labeling (MANDATORY per workflow-arch.txt)"
 
 USER root
 
-# Install additional system dependencies for PyAV
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libavformat-dev \
-    libavcodec-dev \
-    libavdevice-dev \
-    libavutil-dev \
-    libavfilter-dev \
-    libswscale-dev \
-    libswresample-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install torch and torchaudio with specific compatible versions
-# Using torch 2.0.1 + torchaudio 2.0.2 for compatibility with pyannote.audio 3.1
+# FFmpeg and its libraries are already installed in base-ml:cuda
+# PyTorch, numpy, transformers, librosa also available from base-ml:cuda
+# Install PyAnnote and dependencies
 RUN pip install --no-cache-dir \
-    torch==2.0.1 \
-    torchaudio==2.0.2 \
-    --index-url https://download.pytorch.org/whl/cpu
+    av \
+    pyannote.audio==3.4.0 \
+    pyannote.core==5.0.0 \
+    pyannote.pipeline==3.0.1 \
+    pytorch-lightning==2.5.5 \
+    torchmetrics==1.8.2
 
-# Pre-install av and other dependencies
-RUN pip install --no-cache-dir av "numpy>=1.24.0,<2.0.0"
+# Install speechbrain separately
+RUN pip install --no-cache-dir --no-build-isolation speechbrain==1.0.1
 
-# Install PyAnnote dependencies (excluding those already installed)
-RUN pip install --no-cache-dir \
-    "pyannote.audio==3.1.1" \
-    "pytorch-lightning>=2.0.0"
+# Install whisperx for integration
+RUN pip install --no-cache-dir whisperx==3.7.2
 
-# Install speechbrain separately (it has complex dependencies)
-RUN pip install --no-cache-dir --no-build-isolation "speechbrain>=0.5.0"
-
-# Install whisperx
-RUN pip install --no-cache-dir whisperx
-
-# Copy scripts and shared modules
-COPY scripts/ /app/scripts/
+# Copy shared modules (changes occasionally)
 COPY shared/ /app/shared/
+COPY scripts/ /app/scripts/
+
+# Copy stage script (changes most frequently)
 COPY docker/diarization/diarization.py /app/
 
 USER appuser

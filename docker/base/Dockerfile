@@ -12,26 +12,31 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Install system dependencies
+# Install system dependencies (minimal set)
+# Removed: build-essential (not needed in base, stages can add if needed)
+# Removed: pkg-config (unused)
+# Removed: curl (using wget only)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     git \
     wget \
-    curl \
     ca-certificates \
-    build-essential \
     libsndfile1 \
-    pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
 # Upgrade pip and install common Python packages
-RUN pip install --no-cache-dir -U pip wheel && \
-    pip install --no-cache-dir \
-    python-dotenv>=1.0.0 \
+RUN pip install --no-cache-dir -U pip wheel
+
+# Install common dependencies from shared requirements
+COPY docker/requirements-common.txt /tmp/
+RUN pip install --no-cache-dir -r /tmp/requirements-common.txt && \
+    rm /tmp/requirements-common.txt
+
+# Install base utilities
+RUN pip install --no-cache-dir \
     pydantic>=2.0.0 \
     pydantic-settings>=2.0.0 \
     requests>=2.31.0 \
-    tqdm>=4.66.0 \
     python-json-logger>=2.0.7
 
 # Create directory structure

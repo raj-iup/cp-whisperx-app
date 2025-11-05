@@ -1,16 +1,19 @@
 # Subtitle Generation container - Create .srt files from corrected transcripts
-FROM rajiup/cp-whisperx-app-base:latest
+ARG REGISTRY=rajiup
+FROM ${REGISTRY}/cp-whisperx-app-base:cpu
 
 LABEL description="Subtitle Generation - Speaker-prefixed English SRT (workflow-arch.txt Stage 9)"
 
 USER root
 
-# Install subtitle handling dependencies
-RUN pip install --no-cache-dir pysrt>=1.1.2
+# Install subtitle handling dependencies (pinned version)
+RUN pip install --no-cache-dir pysrt==1.1.2
 
-# Copy scripts and shared modules
-COPY scripts/ /app/scripts/
+# Copy shared modules (changes occasionally)
 COPY shared/ /app/shared/
+COPY scripts/ /app/scripts/
+
+# Copy stage script (changes most frequently)
 COPY docker/subtitle-gen/subtitle_gen.py /app/
 
 USER appuser

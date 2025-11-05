@@ -1,5 +1,25 @@
 # CUDA GPU Acceleration Guide
 
+## 🚨 Important: Current Docker Images Are CPU-Only
+
+**The Docker images built by `build-all-images.bat` are CPU-only.** They install PyTorch with the CPU-only index URL.
+
+**For CUDA acceleration, you have two options:**
+
+1. ✅ **Use Native Pipeline** (Recommended)
+   - Full CUDA support with auto-detection
+   - No Docker containers needed
+   - Run: `native\pipeline.bat "path\to\movie.mp4"`
+
+2. ⏳ **Build CUDA Docker Images** (Future)
+   - Requires creating CUDA-specific Dockerfiles
+   - Must install PyTorch with CUDA support
+   - Requires GPU device passthrough configuration
+
+**This guide documents which stages BENEFIT from CUDA (when using native pipeline or future CUDA images).**
+
+---
+
 ## Quick Answer: Which Stages Benefit from CUDA?
 
 **The SAME 4 stages that benefit from MPS also benefit from CUDA, but FASTER:**
@@ -10,6 +30,20 @@
 4. ⚡⚡⚡⚡ **Silero VAD (Stage 4)** - 14x speedup (vs 5.6x on MPS)
 
 **CUDA is 2-3x faster than MPS** due to mature ecosystem, dedicated VRAM, and optimized kernels.
+
+### Which Docker Images Support CUDA?
+
+**Currently: CPU-only images are built** (using `--index-url https://download.pytorch.org/whl/cpu`)
+
+To enable CUDA in Docker containers, you need:
+1. **CUDA Base Image**: `rajiup/cp-whisperx-app-base:cuda` (uses nvidia/cuda base)
+2. **CUDA Stage Images**: Build with `--index-url https://download.pytorch.org/whl/cu121` for PyTorch CUDA support
+3. **Docker Compose**: Add `deploy.resources.reservations.devices` for GPU passthrough
+
+**Current Status:**
+- ✅ CPU images built and ready
+- ⏳ CUDA images require separate Dockerfiles or build-time arguments
+- ✅ Native pipeline supports CUDA automatically (no containers)
 
 ---
 
@@ -153,17 +187,40 @@
 
 ## CUDA Support in Your Pipeline
 
-### Docker Pipeline
-✅ **Full CUDA support configured**
-- Uses nvidia-docker runtime
-- GPU device passthrough enabled
-- Configured in docker-compose.yml
+### Docker Pipeline - CPU Images Only (Current)
 
-### Native Pipeline
+The Docker images currently built are **CPU-only** versions:
+- All Dockerfiles install PyTorch with `--index-url https://download.pytorch.org/whl/cpu`
+- Images tagged as `:cpu` (e.g., `rajiup/cp-whisperx-app-asr:cpu`)
+- No CUDA support in containers (yet)
+
+**To add CUDA support to Docker:**
+1. Create CUDA-specific Dockerfiles (or use build args)
+2. Change PyTorch install to: `--index-url https://download.pytorch.org/whl/cu121`
+3. Use `rajiup/cp-whisperx-app-base:cuda` as base image
+4. Tag images as `:cuda` (e.g., `rajiup/cp-whisperx-app-asr:cuda`)
+5. Add GPU device configuration to docker-compose.yml:
+   ```yaml
+   asr:
+     image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-asr:cuda"
+     deploy:
+       resources:
+         reservations:
+           devices:
+             - driver: nvidia
+               count: all
+               capabilities: [gpu]
+   ```
+
+### Native Pipeline - Full CUDA Support ✅
+
 ✅ **Full CUDA support via device manager**
 - Auto-detects CUDA availability
 - Priority: **CUDA > MPS > CPU**
 - Seamless fallback if no GPU
+- No additional configuration needed
+
+**Recommendation:** Use native pipeline for CUDA acceleration until CUDA Docker images are built.
 
 ---
 
@@ -172,30 +229,54 @@
 ### Prerequisites
 1. NVIDIA GPU (GTX 1060+ or RTX series recommended)
 2. NVIDIA drivers installed
-3. nvidia-docker runtime installed (for Docker)
+3. For Docker: nvidia-docker runtime installed
+4. For Native: PyTorch with CUDA support
 
-### Option 1: Docker Pipeline (Recommended)
+### Option 1: Native Pipeline (Recommended for CUDA) ✅
 
-```bash
-# Edit job config file:
-# jobs/2025/11/02/20251102-0004/.20251102-0004.env
-
-device_whisperx=cuda
-whisper_compute_type=float16
-whisper_batch_size=32  # Adjust based on VRAM
-
-# Run pipeline
-python pipeline.py --job 20251102-0004
-```
-
-### Option 2: Native Pipeline
+**CUDA is auto-detected with highest priority:**
 
 ```bash
-# CUDA auto-detected (highest priority)
+# Windows
+native\pipeline.bat "path\to\movie.mp4"
+
+# Linux/Mac
 ./native/pipeline.sh "path/to/movie.mp4"
 
-# No additional config needed!
+# No additional config needed - CUDA auto-detected!
 ```
+
+The device manager automatically selects CUDA if available.
+
+### Option 2: Docker Pipeline (CPU-Only Currently) ⚠️
+
+**Current Docker images are CPU-only.** To use CUDA in Docker:
+
+1. **Build CUDA images** (not yet implemented):
+   ```bash
+   # Future: Build CUDA variants
+   scripts\build-cuda-images.bat
+   ```
+
+2. **Edit docker-compose.yml** to use CUDA images:
+   ```yaml
+   asr:
+     image: "rajiup/cp-whisperx-app-asr:cuda"  # Change from :cpu
+     deploy:
+       resources:
+         reservations:
+           devices:
+             - driver: nvidia
+               count: all
+               capabilities: [gpu]
+   ```
+
+3. **Run with GPU access**:
+   ```bash
+   docker compose run --gpus all asr
+   ```
+
+**For now, use the native pipeline for CUDA acceleration.**
 
 ### Verify CUDA Setup
 
@@ -256,19 +337,28 @@ whisper_batch_size=48
 
 ## Summary Table
 
-| Stage | ML Model | CPU | MPS | CUDA | CUDA Benefit |
-|-------|----------|-----|-----|------|--------------|
-| Demux | ❌ FFmpeg | 48s | 11s | 11s | None |
-| TMDB | ❌ API | 2s | 0.2s | 0.2s | None |
-| Pre-NER | ⚠️ spaCy | 3s | 0.002s | 0.002s | Minimal |
-| **Silero VAD** | ✅ PyTorch | 217s | 39s | **15s** | **14x** ⚡⚡⚡⚡ |
-| **PyAnnote VAD** | ✅ PyTorch | 687s | 120s | **40s** | **17x** ⚡⚡⚡⚡ |
-| **Diarization** | ✅ PyTorch | 5917s | 900s | **240s** | **25x** ⚡⚡⚡⚡ |
-| **ASR** | ✅ PyTorch | 2236s | 600s | **180s** | **12x** ⚡⚡⚡⚡ |
-| Post-NER | ⚠️ spaCy | 5s | 5s | 5s | Minimal |
-| Subtitle | ❌ Text | 2s | 2s | 2s | None |
-| Mux | ❌ FFmpeg | 10s | 10s | 10s | None |
-| **TOTAL** | | **151m** | **28m** | **8m** | **19x** 🚀 |
+| Stage | ML Model | CPU | MPS | CUDA | CUDA in Docker? |
+|-------|----------|-----|-----|------|-----------------|
+| Demux | ❌ FFmpeg | 48s | 11s | 11s | N/A (CPU tool) |
+| TMDB | ❌ API | 2s | 0.2s | 0.2s | N/A (API call) |
+| Pre-NER | ⚠️ spaCy | 3s | 0.002s | 0.002s | ❌ CPU-only |
+| **Silero VAD** | ✅ PyTorch | 217s | 39s | **15s** | ❌ Built with CPU PyTorch |
+| **PyAnnote VAD** | ✅ PyTorch | 687s | 120s | **40s** | ❌ Built with CPU PyTorch |
+| **Diarization** | ✅ PyTorch | 5917s | 900s | **240s** | ❌ Built with CPU PyTorch |
+| **ASR** | ✅ PyTorch | 2236s | 600s | **180s** | ❌ Built with CPU PyTorch |
+| Post-NER | ⚠️ spaCy | 5s | 5s | 5s | ❌ CPU-only |
+| Subtitle | ❌ Text | 2s | 2s | 2s | N/A (Text processing) |
+| Mux | ❌ FFmpeg | 10s | 10s | 10s | N/A (CPU tool) |
+| **TOTAL** | | **151m** | **28m** | **8m** | **Native only** ✅ |
+
+**Key:**
+- ✅ = Supports GPU acceleration
+- ❌ = CPU-only (no GPU benefit)
+- ⚠️ = Minimal GPU benefit
+
+**CUDA Support Status:**
+- ✅ **Native Pipeline**: Full CUDA support via device manager
+- ❌ **Docker Pipeline**: CPU-only images (CUDA images not yet built)
 
 ---
 
@@ -320,13 +410,29 @@ def get_device(prefer_mps=True):
 
 **Total speedup: 2.5 hours → 8 minutes (19x faster)**
 
+### Current Implementation Status
+
+| Pipeline Type | CUDA Support | Status |
+|--------------|--------------|--------|
+| **Native** | ✅ Yes | Full CUDA support with auto-detection |
+| **Docker** | ❌ No | CPU-only images built (CUDA images TODO) |
+
 ### Recommendation
 
-- **Have NVIDIA GPU?** → Use CUDA (fastest)
-- **Have M1/M2/M3 Mac?** → Use MPS (fast)
+- **Have NVIDIA GPU?** → Use **Native Pipeline** for CUDA (fastest) ✅
+- **Want to use Docker?** → Current images are CPU-only ⚠️
+- **Have M1/M2/M3 Mac?** → Use MPS via native pipeline (fast)
 - **Neither?** → Use CPU (works, but slow)
 
-Your pipeline supports all three with automatic device detection!
+### To Enable CUDA in Docker (Future)
+
+1. Create CUDA Dockerfiles or add build arguments
+2. Change PyTorch install to CUDA variant: `--index-url https://download.pytorch.org/whl/cu121`
+3. Tag images as `:cuda` instead of `:cpu`
+4. Add GPU device configuration to docker-compose.yml
+5. Build and push CUDA images: `scripts\build-cuda-images.bat` (to be created)
+
+**For now, the native pipeline is the recommended way to use CUDA acceleration!**
 
 ---
 
