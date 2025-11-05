@@ -3,6 +3,25 @@
 # Source this file at the beginning of your shell scripts:
 #   source "$(dirname "$0")/common-logging.sh"
 
+# Auto-initialize logging for the calling script
+_initialize_logging() {
+    # Get the calling script name
+    local calling_script="${BASH_SOURCE[-1]}"
+    local script_name=$(basename "$calling_script" | sed 's/\.[^.]*$//')
+    
+    # Create logs directory if it doesn't exist
+    local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local logs_dir="$script_dir/../logs"
+    mkdir -p "$logs_dir"
+    
+    # Generate log filename: YYYYMMDD-HHMMSS-scriptname.log
+    local timestamp=$(date '+%Y%m%d-%H%M%S')
+    local log_filename="${timestamp}-${script_name}.log"
+    local log_filepath="${logs_dir}/${log_filename}"
+    
+    echo "$log_filepath"
+}
+
 # Color codes (optional, can be disabled)
 if [ -t 1 ]; then
     # Terminal supports colors
@@ -23,8 +42,10 @@ fi
 # Log level (can be overridden by setting LOG_LEVEL environment variable)
 LOG_LEVEL=${LOG_LEVEL:-INFO}
 
-# Log file (optional, set LOG_FILE environment variable to enable file logging)
-LOG_FILE=${LOG_FILE:-}
+# Auto-create log file if not explicitly set
+if [ -z "$LOG_FILE" ]; then
+    LOG_FILE=$(_initialize_logging)
+fi
 
 # Helper function to write to log file if enabled
 _log_to_file() {
@@ -112,9 +133,14 @@ if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
     echo "  log_failure <message>  - Failure message with X"
     echo "  log_section <message>  - Section header"
     echo ""
+    echo "Automatic Logging:"
+    echo "  Log files are automatically created in logs/ directory"
+    echo "  Format: YYYYMMDD-HHMMSS-scriptname.log"
+    echo "  Example: 20251105-113045-build-all-images.log"
+    echo ""
     echo "Environment Variables:"
     echo "  LOG_LEVEL    - Set to DEBUG to see debug messages (default: INFO)"
-    echo "  LOG_FILE     - Set to file path to enable file logging"
+    echo "  LOG_FILE     - Override automatic log file path (optional)"
     echo ""
     echo "Examples:"
     echo "  log_info \"Starting build process\""

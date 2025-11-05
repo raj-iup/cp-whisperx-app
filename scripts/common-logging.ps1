@@ -6,9 +6,43 @@
 #   Write-Log "Message" "INFO"
 #   Write-LogSection "Section Title"
 
+# Auto-initialize logging for the calling script
+function Initialize-Logging {
+    param([string]$CallingScript)
+    
+    # Extract script name without extension
+    $scriptName = [System.IO.Path]::GetFileNameWithoutExtension($CallingScript)
+    
+    # Create logs directory if it doesn't exist
+    $logsDir = Join-Path $PSScriptRoot "..\logs"
+    if (-not (Test-Path $logsDir)) {
+        New-Item -ItemType Directory -Path $logsDir -Force | Out-Null
+    }
+    
+    # Generate log filename: YYYYMMDD-HHMMSS-scriptname.log
+    $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+    $logFileName = "$timestamp-$scriptName.log"
+    $logFilePath = Join-Path $logsDir $logFileName
+    
+    return $logFilePath
+}
+
 # Environment variables
 $script:LogLevel = if ($env:LOG_LEVEL) { $env:LOG_LEVEL } else { "INFO" }
-$script:LogFile = $env:LOG_FILE
+
+# Auto-create log file if not explicitly set
+if (-not $env:LOG_FILE) {
+    # Get the calling script path (skip common-logging.ps1 itself)
+    $callingScript = Get-PSCallStack | Where-Object { $_.ScriptName -and $_.ScriptName -notmatch 'common-logging\.ps1$' } | Select-Object -First 1 -ExpandProperty ScriptName
+    
+    if ($callingScript) {
+        $script:LogFile = Initialize-Logging -CallingScript $callingScript
+    } else {
+        $script:LogFile = $null
+    }
+} else {
+    $script:LogFile = $env:LOG_FILE
+}
 
 function Write-LogMessage {
     param(
@@ -132,8 +166,13 @@ if ($MyInvocation.InvocationName -eq "common-logging.ps1") {
     Write-Host "  Write-LogFailure   - Failure message" -ForegroundColor Gray
     Write-Host "  Write-LogSection   - Section header" -ForegroundColor Gray
     Write-Host ""
+    Write-Host "Automatic Logging:" -ForegroundColor Yellow
+    Write-Host "  Log files are automatically created in logs/ directory" -ForegroundColor Gray
+    Write-Host "  Format: YYYYMMDD-HHMMSS-scriptname.log" -ForegroundColor Gray
+    Write-Host "  Example: 20251105-113045-build-all-images.log" -ForegroundColor Gray
+    Write-Host ""
     Write-Host "Environment Variables:" -ForegroundColor Yellow
     Write-Host "  LOG_LEVEL - Set to DEBUG to see debug messages (default: INFO)" -ForegroundColor Gray
-    Write-Host "  LOG_FILE  - Set to file path to enable file logging" -ForegroundColor Gray
+    Write-Host "  LOG_FILE  - Override automatic log file path (optional)" -ForegroundColor Gray
     Write-Host ""
 }

@@ -5,10 +5,12 @@
 
 ## Executive Summary
 
-**Primary Log Location**: `logs/` directory (in job directory structure)  
-**Log Format**: `XX_stage-name_YYYYMMDD_HHMMSS.log` (where XX = stage number 01-10)  
-**Shell Scripts**: Most output to **STDOUT only** (no file logging by default)  
-**Python Scripts**: Log to **both STDOUT and files** in `logs/` directory
+**Primary Log Location**: `logs/` directory (project root for shell scripts, job directory for pipeline)  
+**Log Format**: 
+- Shell scripts: `YYYYMMDD-HHMMSS-scriptname.log` (automatic)
+- Pipeline: `XX_stage-name_YYYYMMDD_HHMMSS.log` (where XX = stage number 01-10)  
+**Shell Scripts**: **Automatic file logging** to `logs/` directory  
+**Python Scripts**: Log to **both STDOUT and files** in job `logs/` directory
 
 ## Log Directory Structure
 
@@ -95,19 +97,26 @@ PipelineLogger(stage_name, log_file, log_level)
 - `scripts/common-logging.ps1` (PowerShell)
 - `scripts/common-logging.sh` (Bash)
 
-**Default Behavior**: **STDOUT only** (no file logging)
+**Default Behavior**: **Automatic file logging to `logs/` directory**
 
-**Optional File Logging**: Set `LOG_FILE` environment variable
+**Log Filename Format**: `YYYYMMDD-HHMMSS-scriptname.log`
+
+**Examples**:
+- `20251105-113045-build-all-images.log`
+- `20251105-113050-push-images.log`
+- `20251105-113055-run-docker-stage.log`
+
+**Override**: Set `LOG_FILE` environment variable to use custom path
 
 ```powershell
-# PowerShell - Enable file logging
-$env:LOG_FILE = "logs/build-images.log"
+# PowerShell - Use custom log path (optional)
+$env:LOG_FILE = "custom-path.log"
 .\scripts\build-all-images.ps1
 ```
 
 ```bash
-# Bash - Enable file logging
-export LOG_FILE="logs/build-images.log"
+# Bash - Use custom log path (optional)
+export LOG_FILE="custom-path.log"
 ./scripts/build-all-images.sh
 ```
 
@@ -205,34 +214,30 @@ log_section "header"          # Section separator
 #### Build Scripts
 
 **1. `scripts/build-all-images.ps1` / `scripts/build-all-images.sh`**
-- **Log Output**: **STDOUT only** (by default)
-- **Optional File Logging**: Set `$env:LOG_FILE` (PowerShell) or `export LOG_FILE` (Bash)
-- **Format**: `[YYYY-MM-DD HH:mm:ss] [build-all-images] [LEVEL] message`
+- **Log Output**: **Automatic file logging**
+- **Location**: `logs/YYYYMMDD-HHMMSS-build-all-images.log`
+- **Format**: `[YYYY-MM-DD HH:mm:ss] [LEVEL] message`
 
-**To enable file logging**:
-```powershell
-$env:LOG_FILE = "logs/build-images.log"
-.\scripts\build-all-images.ps1
-```
+**No configuration needed - logs created automatically**
 
 #### Push Scripts
 
 **2. `scripts/push-images.ps1` / `scripts/push-images.sh`**
-- **Log Output**: **STDOUT only** (by default)
-- **Optional File Logging**: Set `LOG_FILE` environment variable
+- **Log Output**: **Automatic file logging**
+- **Location**: `logs/YYYYMMDD-HHMMSS-push-images.log`
 - **Creates**: `push_all.log` (if using push-all variant)
 
 #### Utility Scripts
 
 **3. `scripts/bootstrap.ps1` / `scripts/bootstrap.sh`**
-- **Log Output**: **STDOUT only**
+- **Log Output**: **Automatic file logging**
+- **Location**: `logs/YYYYMMDD-HHMMSS-bootstrap.log`
 - **Purpose**: Python environment setup
-- **No file logging**: Use shell redirection if needed
 
 **4. `scripts/docker-run.ps1` / `scripts/docker-run.sh`**
-- **Log Output**: **STDOUT only**
+- **Log Output**: **Automatic file logging**
+- **Location**: `logs/YYYYMMDD-HHMMSS-docker-run.log`
 - **Purpose**: Docker service management
-- **No file logging**: Use shell redirection if needed
 
 **5. `scripts/pipeline-status.ps1` / `scripts/pipeline-status.sh`**
 - **Log Output**: **STDOUT only** (informational display)
@@ -240,9 +245,10 @@ $env:LOG_FILE = "logs/build-images.log"
 - **No file logging needed**
 
 **6. `scripts/run-docker-stage.ps1` / `scripts/run-docker-stage.sh`**
-- **Log Output**: **STDOUT only**
+- **Log Output**: **Automatic file logging**
+- **Location**: `logs/YYYYMMDD-HHMMSS-run-docker-stage.log`
 - **Purpose**: Run individual Docker stage
-- **Stage logs**: Handled by container (goes to `logs/` in job directory)
+- **Stage logs**: Also handled by container (goes to `logs/` in job directory)
 
 #### Test Scripts
 
@@ -281,14 +287,16 @@ out/<MovieName>/                          # Output directory
 └── <MovieName>.srt                       # Final subtitle
 ```
 
-### Development/Build Logs (Optional)
+### Development/Build Logs (Automatic)
 
-**Location**: Project root `logs/` directory (if enabled)
+**Location**: Project root `logs/` directory
 
-**Files**:
-- `logs/preflight_*.json` - Preflight check reports
-- `logs/build-images.log` - Build script logs (if `LOG_FILE` set)
-- `logs/push-images.log` - Push script logs (if `LOG_FILE` set)
+**Files** (automatically created):
+- `logs/YYYYMMDD-HHMMSS-build-all-images.log` - Build script logs
+- `logs/YYYYMMDD-HHMMSS-push-images.log` - Push script logs
+- `logs/YYYYMMDD-HHMMSS-bootstrap.log` - Bootstrap script logs
+- `logs/YYYYMMDD-HHMMSS-run-docker-stage.log` - Stage execution logs
+- `logs/preflight_*.json` - Preflight check reports (Python)
 - `push_all.log` - Docker push progress (created by push scripts)
 
 ### Docker Container Logs
@@ -350,17 +358,13 @@ All logs persist in: out/Movie_Title/logs/
 ```
 User runs: .\scripts\build-all-images.ps1
 ↓
-Script uses: common-logging.ps1
+Script sources: common-logging.ps1
 ↓
-Logs written to: STDOUT only (by default)
+Log file auto-created: logs/YYYYMMDD-HHMMSS-build-all-images.log
 ↓
-Optional file logging:
-  $env:LOG_FILE = "logs/build.log"
-  .\scripts\build-all-images.ps1
-  ↓
-  Logs written to BOTH:
-    - STDOUT (console)
-    - logs/build.log
+Logs written to BOTH:
+  - STDOUT (console)
+  - File: logs/YYYYMMDD-HHMMSS-build-all-images.log
 ```
 
 ## Viewing Logs
@@ -399,10 +403,16 @@ docker-compose logs -f
 ### Build/Development Logs
 
 ```powershell
-# If LOG_FILE was set during build
-Get-Content logs\build-images.log
+# View build logs
+Get-ChildItem logs\*build-all-images*.log | Sort-Object LastWriteTime -Descending | Select-Object -First 1 | Get-Content -Tail 50
 
-# Docker push monitor
+# View latest push log
+Get-ChildItem logs\*push-images*.log | Sort-Object LastWriteTime -Descending | Select-Object -First 1 | Get-Content
+
+# View all logs from today
+Get-ChildItem logs\$(Get-Date -Format 'yyyyMMdd')-*.log
+
+# Docker push monitor (separate log)
 Get-Content push_all.log -Wait
 
 # Preflight report
@@ -426,43 +436,50 @@ $env:LOG_LEVEL = "DEBUG"
 ### Shell Scripts (PowerShell/Bash)
 
 **Environment Variables**:
-- `LOG_FILE` - Enable file logging (path to log file)
-- `LOG_LEVEL` - Set minimum level (not implemented yet in common-logging modules)
+- `LOG_FILE` - Override automatic log file path (optional)
+- `LOG_LEVEL` - Set minimum level (default: INFO)
 
 ```powershell
-# Example: Enable file logging for build script
-$env:LOG_FILE = "logs\build-$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
+# Example: Override automatic log file path
+$env:LOG_FILE = "custom-logs\my-build.log"
+.\scripts\build-all-images.ps1
+
+# Example: Enable DEBUG logging
+$env:LOG_LEVEL = "DEBUG"
 .\scripts\build-all-images.ps1
 ```
+
+**Default**: Logs automatically created in `logs/YYYYMMDD-HHMMSS-scriptname.log`
 
 ## Best Practices
 
 ### For Users
 
-1. **Pipeline logs are automatic** - No configuration needed
-2. **Logs persist** in `out/<MovieName>/logs/` directory
-3. **Check logs** after failures: Look for `[ERROR]` or `[CRITICAL]` entries
-4. **Monitor real-time**: Use `Get-Content -Wait` (PowerShell) or `tail -f` (Bash)
+1. **Pipeline logs are automatic** - Saved in `out/<MovieName>/logs/`
+2. **Shell script logs are automatic** - Saved in project `logs/` directory
+3. **Logs persist** in their respective directories
+4. **Check logs** after failures: Look for `[ERROR]` or `[CRITICAL]` entries
+5. **Monitor real-time**: Use `Get-Content -Wait` (PowerShell) or `tail -f` (Bash)
 
 ### For Developers
 
 1. **Use shared/logger.py** for all Python scripts
-2. **Use common-logging modules** for shell scripts
-3. **Always log to STDOUT** - Let users choose file output
+2. **Use common-logging modules** for shell scripts - logs auto-created
+3. **Logs go to STDOUT and files** - Best of both worlds
 4. **Include timestamps** - Already handled by logging modules
-5. **Use stage prefixes** - Helps identify which stage failed
+5. **Use stage prefixes** - Helps identify which stage failed (pipeline only)
 
 ### For CI/CD
 
-1. **Enable file logging** for build scripts:
+1. **Logs are automatic** - No environment variables needed
    ```bash
-   export LOG_FILE="logs/ci-build.log"
    ./scripts/build-all-images.sh
+   # Log saved to: logs/YYYYMMDD-HHMMSS-build-all-images.log
    ```
 
 2. **Archive logs** after pipeline runs:
    ```bash
-   tar -czf logs-archive.tar.gz out/*/logs/
+   tar -czf logs-archive.tar.gz logs/*.log out/*/logs/
    ```
 
 3. **Parse JSON logs** for metrics/errors:
@@ -477,19 +494,20 @@ $env:LOG_FILE = "logs\build-$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
 | **Pipeline (Python)** | `<job-dir>/logs/XX_*.log` | ✅ Always | JSON/Text |
 | **Preparation (Python)** | `<job-dir>/logs/prepare-job_*.log` | ✅ Always | Text |
 | **Preflight (Python)** | `logs/preflight_*.json` | ✅ Always | JSON |
-| **Build Scripts (Shell)** | STDOUT | ❌ Optional | Text |
-| **Push Scripts (Shell)** | STDOUT / `push_all.log` | ⚠️ Partial | Text |
-| **Utility Scripts (Shell)** | STDOUT | ❌ Optional | Text |
-| **Test Scripts (Shell)** | STDOUT | ❌ No | Text |
+| **Build Scripts (Shell)** | `logs/YYYYMMDD-HHMMSS-*.log` | ✅ Automatic | Text |
+| **Push Scripts (Shell)** | `logs/YYYYMMDD-HHMMSS-*.log` + `push_all.log` | ✅ Automatic | Text |
+| **Utility Scripts (Shell)** | `logs/YYYYMMDD-HHMMSS-*.log` | ✅ Automatic | Text |
+| **Test Scripts (Shell)** | `logs/YYYYMMDD-HHMMSS-*.log` | ✅ Automatic | Text |
 | **Docker Containers** | Container logs + shared volume | ✅ Both | JSON/Text |
 
 ## Quick Reference
 
-**Primary Log Location**: `out/<MovieName>/logs/`  
+**Pipeline Logs**: `out/<MovieName>/logs/XX_stage-name_YYYYMMDD_HHMMSS.log`  
+**Shell Script Logs**: `logs/YYYYMMDD-HHMMSS-scriptname.log` (automatic)  
 **Python Logger**: `shared/logger.py`  
-**PowerShell Logger**: `scripts/common-logging.ps1`  
-**Bash Logger**: `scripts/common-logging.sh`  
-**Log Format**: `[YYYY-MM-DD HH:mm:ss] [name] [LEVEL] message`  
+**PowerShell Logger**: `scripts/common-logging.ps1` (auto-logging)  
+**Bash Logger**: `scripts/common-logging.sh` (auto-logging)  
+**Log Format**: `[YYYY-MM-DD HH:mm:ss] [LEVEL] message`  
 **Stage Logs**: Prefixed with `XX_` where XX is stage number (01-10)
 
 **Most Important Logs**:
@@ -497,25 +515,27 @@ $env:LOG_FILE = "logs\build-$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
 2. `07_asr_*.log` - WhisperX transcription (most time-consuming)
 3. `06_diarization_*.log` - Speaker identification
 4. `prepare-job_*.log` - Job setup issues
+5. `logs/YYYYMMDD-HHMMSS-build-all-images.log` - Build logs
 
-**Enable File Logging for Shell Scripts**:
+**Override Automatic Logging** (optional):
 ```powershell
 # PowerShell
-$env:LOG_FILE = "logs/my-script.log"
+$env:LOG_FILE = "custom-path.log"
 
 # Bash
-export LOG_FILE="logs/my-script.log"
+export LOG_FILE="custom-path.log"
 ```
 
 ## Conclusion
 
 **Default Behavior**: 
 - ✅ Python pipeline scripts: **Always log to files** in `<job-dir>/logs/`
-- ✅ Shell scripts: **STDOUT only** (file logging optional via `LOG_FILE`)
+- ✅ Shell scripts: **Automatic logging** to `logs/YYYYMMDD-HHMMSS-scriptname.log`
 
 **Recommendation**: 
-- Pipeline logs are handled automatically - no action needed
-- For build/utility scripts, use shell redirection or set `LOG_FILE` if file output desired
+- All logging is automatic - no configuration needed
+- Logs saved to both console and files
+- Override with `LOG_FILE` environment variable if custom path desired
 - All logs use consistent timestamp format for easy correlation
 
-**Log Retention**: User's responsibility - logs persist in job directories until manually deleted
+**Log Retention**: User's responsibility - logs persist until manually deleted
