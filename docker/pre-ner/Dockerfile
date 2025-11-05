@@ -7,7 +7,9 @@ USER root
 WORKDIR /app
 
 # Install spaCy with pinned version and download model
-RUN pip install --no-cache-dir spacy==3.8.7 && \
+# BuildKit cache mount speeds up spaCy downloads
+RUN --mount=type=cache,id=pip-cache-pre-ner,target=/root/.cache/pip \
+    pip install spacy==3.8.7 && \
     python -m spacy download en_core_web_sm
 
 # Copy Pre-NER script (last - changes most frequently)

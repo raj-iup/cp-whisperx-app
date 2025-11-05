@@ -8,13 +8,15 @@ WORKDIR /app
 
 # PyTorch, numpy, transformers, librosa already in base-ml
 # Install WhisperX and ASR-specific dependencies
-RUN pip install --no-cache-dir \
+RUN --mount=type=cache,id=pip-cache-asr,target=/root/.cache/pip \
+    pip install \
     whisperx==3.7.2 \
     faster-whisper==1.2.0 \
     ctranslate2==4.6.0
 
 # Install translation models
-RUN pip install --no-cache-dir sacremoses
+RUN --mount=type=cache,id=pip-cache-asr,target=/root/.cache/pip \
+    pip install sacremoses
 
 # Copy shared modules (changes occasionally)
 COPY shared/ /app/shared/

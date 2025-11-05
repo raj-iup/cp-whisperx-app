@@ -14,13 +14,17 @@ WORKDIR /app
 
 # Install PyTorch ONCE with CUDA 12.1 support
 # Using torch 2.1.0 for broad compatibility with pyannote, whisperx, etc.
-RUN pip install --no-cache-dir \
+# BuildKit cache mount dramatically speeds up PyTorch downloads (~2GB)
+RUN --mount=type=cache,id=pip-cache-base-ml,target=/root/.cache/pip \
+    pip install \
     torch==2.1.0 \
     torchaudio==2.1.0 \
     --index-url https://download.pytorch.org/whl/cu121
 
 # Install common ML packages used across multiple stages
-RUN pip install --no-cache-dir \
+# BuildKit cache mount reuses downloads for transformers (~500MB)
+RUN --mount=type=cache,id=pip-cache-base-ml,target=/root/.cache/pip \
+    pip install \
     librosa==0.10.1 \
     transformers==4.57.1 \
     huggingface-hub==0.34.0 \

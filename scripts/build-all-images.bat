@@ -3,8 +3,14 @@ REM Build all Docker images for cp-whisperx-app pipeline
 REM New Tagging Strategy:
 REM - CPU-Only Stages: :cpu tag (built from base:cpu)
 REM - GPU Stages: :cuda tag (built from base:cuda)
+REM
+REM BuildKit Optimization: Enabled for faster builds with cache mounts
 
 setlocal enabledelayedexpansion
+
+REM Enable Docker BuildKit for cache mount support
+set DOCKER_BUILDKIT=1
+set BUILDKIT_PROGRESS=plain
 
 REM Configuration
 if "%DOCKERHUB_USER%"=="" (
@@ -18,6 +24,7 @@ echo ========================================
 echo CP-WhisperX-App Docker Image Builder
 echo ========================================
 echo.
+echo BuildKit: ENABLED (cache mounts active)
 echo Registry: %REGISTRY%
 echo Repository: %REPO_NAME%
 echo.

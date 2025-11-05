@@ -8,7 +8,8 @@ WORKDIR /app
 
 # PyTorch, transformers, sentencepiece already in base-ml
 # Install additional translation dependencies if needed
-RUN pip install --no-cache-dir protobuf==3.20.3
+RUN --mount=type=cache,id=pip-cache-second-pass,target=/root/.cache/pip \
+    pip install protobuf==3.20.3
 
 # Copy shared modules (changes occasionally)
 COPY shared/ /app/shared/

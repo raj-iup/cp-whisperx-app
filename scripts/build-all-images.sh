@@ -3,8 +3,14 @@
 # New Tagging Strategy:
 # - CPU-Only Stages: :cpu tag (built from base:cpu)
 # - GPU Stages: :cuda tag (built from base:cuda)
+#
+# BuildKit Optimization: Enabled for faster builds with cache mounts
 
 set -e
+
+# Enable Docker BuildKit for cache mount support
+export DOCKER_BUILDKIT=1
+export BUILDKIT_PROGRESS=plain
 
 # Colors for output
 RED='\033[0;31m'
@@ -21,6 +27,7 @@ echo -e "${BLUE}========================================${NC}"
 echo -e "${BLUE}CP-WhisperX-App Docker Image Builder${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
+echo -e "${GREEN}BuildKit: ENABLED${NC} (cache mounts active)"
 echo -e "Registry: ${GREEN}${REGISTRY}${NC}"
 echo -e "Repository: ${GREEN}${REPO_NAME}${NC}"
 echo ""

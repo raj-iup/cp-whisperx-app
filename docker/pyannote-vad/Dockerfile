@@ -8,7 +8,8 @@ WORKDIR /app
 
 # PyTorch, numpy, soundfile, transformers, huggingface-hub already in base-ml
 # Install pyannote.audio and dependencies
-RUN pip install --no-cache-dir \
+RUN --mount=type=cache,id=pip-cache-pyannote-vad,target=/root/.cache/pip \
+    pip install \
     pyannote.audio==3.4.0 \
     pyannote.core==5.0.0 \
     pytorch-lightning==2.5.5

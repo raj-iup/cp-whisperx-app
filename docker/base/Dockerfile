@@ -1,7 +1,9 @@
 # Base image for all cp-whisperx-app pipeline containers
 # Provides common dependencies and utilities
 
-FROM python:3.11-slim
+# python:3.11-slim pinned by digest for reproducible builds
+# Tag reference: python:3.11-slim (2025-11-05)
+FROM python@sha256:fa9b525a0be0c5ae5e6f2209f4be6fdc5a15a36fed0222144d98ac0d08f876d4
 
 LABEL maintainer="rajiup"
 LABEL description="Base image for cp-whisperx-app pipeline"
@@ -16,7 +18,10 @@ ENV DEBIAN_FRONTEND=noninteractive \
 # Removed: build-essential (not needed in base, stages can add if needed)
 # Removed: pkg-config (unused)
 # Removed: curl (using wget only)
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# BuildKit cache mount for apt speeds up rebuilds
+RUN --mount=type=cache,id=apt-cache-base-cpu,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,id=apt-lib-base-cpu,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     git \
     wget \
@@ -25,15 +30,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Upgrade pip and install common Python packages
-RUN pip install --no-cache-dir -U pip wheel
+# BuildKit cache mount for pip dramatically speeds up rebuilds
+RUN --mount=type=cache,id=pip-cache-base-cpu,target=/root/.cache/pip \
+    pip install -U pip wheel
 
 # Install common dependencies from shared requirements
+# BuildKit cache mount allows pip to reuse downloads across builds
 COPY docker/requirements-common.txt /tmp/
-RUN pip install --no-cache-dir -r /tmp/requirements-common.txt && \
+RUN --mount=type=cache,id=pip-cache-base-cpu,target=/root/.cache/pip \
+    pip install -r /tmp/requirements-common.txt && \
     rm /tmp/requirements-common.txt
 
 # Install base utilities
-RUN pip install --no-cache-dir \
+RUN --mount=type=cache,id=pip-cache-base-cpu,target=/root/.cache/pip \
+    pip install \
     pydantic>=2.0.0 \
     pydantic-settings>=2.0.0 \
     requests>=2.31.0 \

@@ -9,7 +9,8 @@ USER root
 # FFmpeg and its libraries are already installed in base-ml:cuda
 # PyTorch, numpy, transformers, librosa also available from base-ml:cuda
 # Install PyAnnote and dependencies
-RUN pip install --no-cache-dir \
+RUN --mount=type=cache,id=pip-cache-diarization,target=/root/.cache/pip \
+    pip install \
     av \
     pyannote.audio==3.4.0 \
     pyannote.core==5.0.0 \
@@ -18,10 +19,12 @@ RUN pip install --no-cache-dir \
     torchmetrics==1.8.2
 
 # Install speechbrain separately
-RUN pip install --no-cache-dir --no-build-isolation speechbrain==1.0.1
+RUN --mount=type=cache,id=pip-cache-diarization,target=/root/.cache/pip \
+    pip install --no-build-isolation speechbrain==1.0.1
 
 # Install whisperx for integration
-RUN pip install --no-cache-dir whisperx==3.7.2
+RUN --mount=type=cache,id=pip-cache-diarization,target=/root/.cache/pip \
+    pip install whisperx==3.7.2
 
 # Copy shared modules (changes occasionally)
 COPY shared/ /app/shared/

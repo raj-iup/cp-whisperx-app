@@ -7,7 +7,9 @@ LABEL description="Subtitle Generation - Speaker-prefixed English SRT (workflow-
 USER root
 
 # Install subtitle handling dependencies (pinned version)
-RUN pip install --no-cache-dir pysrt==1.1.2
+# BuildKit cache mount speeds up rebuilds
+RUN --mount=type=cache,id=pip-cache-subtitle-gen,target=/root/.cache/pip \
+    pip install pysrt==1.1.2
 
 # Copy shared modules (changes occasionally)
 COPY shared/ /app/shared/

@@ -2,7 +2,9 @@
 # Provides CUDA-enabled PyTorch and common ML dependencies
 # For Linux/Windows GPU-accelerated execution
 
-FROM nvidia/cuda:12.1.0-cudnn8-runtime-ubuntu22.04
+# nvidia/cuda:12.1.0-cudnn8-runtime-ubuntu22.04 pinned by digest for reproducible builds
+# Tag reference: nvidia/cuda:12.1.0-cudnn8-runtime-ubuntu22.04 (2025-11-05)
+FROM nvidia/cuda@sha256:f3a7fb39fa3ffbe54da713dd2e93063885e5be2f4586a705c39031b8284d379a
 
 LABEL maintainer="rajiup"
 LABEL description="CUDA base image for cp-whisperx-app ML stages"
@@ -20,7 +22,10 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 # Install Python 3.11 and system dependencies (minimal set)
 # Removed: build-essential (stages can add if needed)
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# BuildKit cache mount for apt speeds up rebuilds
+RUN --mount=type=cache,id=apt-cache-base-cuda,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,id=apt-lib-base-cuda,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
     software-properties-common \
     && add-apt-repository ppa:deadsnakes/ppa \
     && apt-get update && apt-get install -y --no-install-recommends \
@@ -43,19 +48,24 @@ RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
     update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1
 
 # Manually install pip using get-pip.py (ensurepip not available in Ubuntu apt python3.11)
-RUN wget https://bootstrap.pypa.io/get-pip.py -O get-pip.py && \
+# BuildKit cache mount allows pip to cache downloads
+RUN --mount=type=cache,id=pip-cache-base-cuda,target=/root/.cache/pip \
+    wget https://bootstrap.pypa.io/get-pip.py -O get-pip.py && \
     python3 get-pip.py && \
     rm get-pip.py && \
-    python3 -m pip install --no-cache-dir --upgrade pip wheel setuptools
+    python3 -m pip install --upgrade pip wheel setuptools
 
 
 # Install common dependencies from shared requirements
+# BuildKit cache mount reuses downloads across builds
 COPY docker/requirements-common.txt /tmp/
-RUN pip install --no-cache-dir -r /tmp/requirements-common.txt && \
+RUN --mount=type=cache,id=pip-cache-base-cuda,target=/root/.cache/pip \
+    pip install -r /tmp/requirements-common.txt && \
     rm /tmp/requirements-common.txt
 
 # Install base utilities
-RUN pip install --no-cache-dir \
+RUN --mount=type=cache,id=pip-cache-base-cuda,target=/root/.cache/pip \
+    pip install \
     pydantic>=2.0.0 \
     pydantic-settings>=2.0.0 \
     requests>=2.31.0 \

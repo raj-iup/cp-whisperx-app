@@ -1,0 +1,177 @@
+# CP-WhisperX-App Docker Build Context Exclusions
+# Reduces build context size and prevents cache invalidation from irrelevant changes
+
+# Version Control
+.git
+.github
+.gitignore
+.gitattributes
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+.wheels/
+pip-wheel-metadata/
+.installed.cfg
+*.manifest
+*.spec
+
+# Virtual Environments
+venv/
+env/
+ENV/
+.venv
+native/venvs/
+
+# PyTorch & Model Caches
+*.pth
+*.ckpt
+*.bin
+*.safetensors
+.cache/
+shared-model-and-cache/
+models/
+checkpoints/
+wandb/
+
+# HuggingFace Cache
+.huggingface/
+transformers_cache/
+
+# Job Data & Outputs (exclude from build context)
+out/
+jobs/
+in/
+temp/
+logs/
+
+# Documentation (not needed in images)
+*.md
+!docker/*/README.md
+docs/
+arch/
+*.txt
+!requirements*.txt
+!docker/requirements*.txt
+!docker/*/requirements*.txt
+
+# IDE & Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# OS Files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+*.ipynb
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# Build Artifacts
+*.o
+*.a
+*.dylib
+*.dll
+*.exe
+*.out
+
+# Docker
+docker-compose.override.yml
+.dockerignore
+Dockerfile.bak
+*.dockerfile.bak
+
+# Scripts (not needed in images unless explicitly copied)
+scripts/tests/
+*.bat
+*.ps1
+*.sh
+!docker/*/entrypoint.sh
+!docker/*/*.sh
+
+# Backups & Temp Files
+*.bak
+*.tmp
+*.temp
+*.old
+*.orig
+*~
+.backup/
+
+# Large Media Files (should be in volumes, not images)
+*.mp4
+*.mkv
+*.avi
+*.mov
+*.flv
+*.wav
+*.mp3
+*.flac
+*.m4a
+
+# Archives
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.rar
+*.7z
+docker/base-cuda.zip
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+*.yml
+!docker-compose.yml
+
+# Environment & Secrets
+.env
+.env.*
+*.env
+!.env.template
+!.env.example
+config/secrets.json
+config/.env
+config/*.env
+
+# Status & Log Files
+build-status.txt
+push_all.log
+*.log
+
+# Git Records
+GIT_BACKUP_RECORD.md
+COMMIT_MESSAGE.txt
+GIT_PUSH_READY.txt
+
+# Native Execution Files
+native/
+
+# Shared Resources (use volumes)
+shared/
+
+# Build Output
+build/
+dist/
+wheelhouse/
