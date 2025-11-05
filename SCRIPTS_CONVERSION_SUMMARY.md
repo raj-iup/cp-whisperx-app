@@ -127,25 +127,30 @@ Write-LogSuccess "Process completed!"
 .\scripts\run-docker-stage.ps1 asr --movie-dir out\Movie_Name --try-gpu
 ```
 
-### 6. **build-images.ps1** - Build Pipeline Images
-**Purpose**: Builds all Docker images for the pipeline
+### 6. **build-all-images.ps1** - Build All Pipeline Images (Complete)
+**Purpose**: Builds all Docker images with proper :cpu and :cuda tagging
 
 **Parameters**: None
 
 **Features**:
-- Loads configuration from `config\.env`
-- Builds base image first
-- Builds all service images sequentially
-- Shows image sizes after build
-- Uses consistent logging
+- Follows proper tagging strategy (:cpu for CPU, :cuda for GPU)
+- Builds in phases:
+  1. Base images (base:cpu, base:cuda, base-ml:cuda)
+  2. CPU-only stages (6 images)
+  3. GPU CUDA stages (4-6 images)
+  4. GPU CPU fallback stages (4-6 images)
+- BuildKit enabled with cache mounts
+- Error tracking and summary report
+- Total: ~21 images built
 
-**Configuration**:
-- `DOCKER_REGISTRY` - Registry name (default: rajiup)
-- `DOCKER_TAG` - Image tag (default: latest)
+**Tagging Strategy**:
+- CPU-Only: demux:cpu, tmdb:cpu, pre-ner:cpu, post-ner:cpu, subtitle-gen:cpu, mux:cpu
+- GPU CUDA: silero-vad:cuda, pyannote-vad:cuda, diarization:cuda, asr:cuda
+- GPU Fallback: silero-vad:cpu, pyannote-vad:cpu, diarization:cpu, asr:cpu
 
 **Usage**:
 ```powershell
-.\scripts\build-images.ps1
+.\scripts\build-all-images.ps1
 ```
 
 ### 7. **push-images.ps1** - Push Images to Registry
