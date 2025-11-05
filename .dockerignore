@@ -101,11 +101,12 @@ docker-compose.override.yml
 Dockerfile.bak
 *.dockerfile.bak
 
-# Scripts (not needed in images unless explicitly copied)
+# Scripts - Keep Python modules but exclude shell scripts
+# Note: stages import Python modules from scripts/
 scripts/tests/
-*.bat
-*.ps1
-*.sh
+scripts/*.bat
+scripts/*.ps1
+scripts/*.sh
 !docker/*/entrypoint.sh
 !docker/*/*.sh
 
@@ -168,8 +169,9 @@ GIT_PUSH_READY.txt
 # Native Execution Files
 native/
 
-# Shared Resources (use volumes)
-shared/
+# Shared Resources - KEEP for Docker builds (stages need these modules)
+# Note: shared/ directory contains Python modules required by stage containers
+# shared/
 
 # Build Output
 build/
