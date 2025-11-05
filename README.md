@@ -48,371 +48,251 @@ Complete end-to-end subtitle creation with speaker labels.
 - **Native Mode**: Direct Python execution with GPU acceleration (fastest)
 - **Docker Mode**: Containerized execution for reproducibility and isolation
 
-### Intelligent Pipeline
-- **Job-based workflow**: Isolated jobs with unique IDs
-- **Manifest tracking**: Complete audit trail of all processing steps
-- **Resume capability**: Automatically resume from last successful stage
-- **Clip mode**: Test pipeline on short clips before full processing
-- **Auto device detection**: Automatically selects best compute device
-
-### Production Ready
-- **Comprehensive logging**: Sequential stage logs with configurable verbosity
-- **Error handling**: Graceful failure with detailed error reporting
-- **Validation**: Pre-flight checks for dependencies and GPU
-- **Monitoring**: Real-time progress tracking
-
-### Quality Enhancements
-- **NER-enhanced prompts**: Better transcription using entity hints
-- **Second pass translation**: Refined translation with context
-- **Lyrics detection**: Special handling for songs and music
-- **Speaker diarization**: Identify and label different speakers
-
----
-
-## 🏗️ Architecture
-
-### Pipeline Stages
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                     CP-WhisperX-App Pipeline                     │
-└─────────────────────────────────────────────────────────────────┘
-
-[Input Video]
-     │
-     ├─→ 01. DEMUX ────────────────→ Extract audio (WAV)
-     │
-     ├─→ 02. TMDB ─────────────────→ Fetch cast/crew metadata
-     │
-     ├─→ 03. PRE-NER ──────────────→ Extract entity names
-     │
-     ├─→ 04. SILERO VAD ───────────→ Voice activity detection
-     │
-     ├─→ 05. PYANNOTE VAD ─────────→ Refined VAD
-     │
-     ├─→ 06. DIARIZATION ──────────→ Speaker identification
-     │
-     ├─→ 07. ASR ──────────────────→ WhisperX transcription
-     │
-     ├─→ 07b. SECOND PASS ─────────→ Translation refinement
-     │
-     ├─→ 07c. LYRICS DETECTION ────→ Song/music handling
-     │
-     ├─→ 08. POST-NER ─────────────→ Entity name correction
-     │
-     ├─→ 09. SUBTITLE GEN ─────────→ Generate SRT subtitles
-     │
-     └─→ 10. MUX ──────────────────→ Embed subtitles in video
-          │
-[Output Video with Subtitles]
-```
-
-### Workflow Comparison
-
-| Stage                  | Transcribe | Subtitle-Gen | ML Model | Device    |
-|------------------------|:----------:|:------------:|:--------:|-----------|
-| 01. Demux              | ✅         | ✅           | ❌       | CPU       |
-| 02. TMDB               | ❌         | ✅           | ❌       | CPU       |
-| 03. Pre-NER            | ❌         | ✅           | ✅       | CPU       |
-| 04. Silero VAD         | ✅         | ✅           | ✅       | GPU/CPU   |
-| 05. PyAnnote VAD       | ✅         | ✅           | ✅       | GPU/CPU   |
-| 06. Diarization        | ❌         | ✅           | ✅       | GPU/CPU   |
-| 07. ASR                | ✅         | ✅           | ✅       | GPU/CPU   |
-| 07b. Second Pass       | ❌         | ✅           | ✅       | GPU/CPU   |
-| 07c. Lyrics Detection  | ❌         | ✅           | ✅       | GPU/CPU   |
-| 08. Post-NER           | ❌         | ✅           | ❌       | CPU       |
-| 09. Subtitle Gen       | ❌         | ✅           | ❌       | CPU       |
-| 10. Mux                | ❌         | ✅           | ❌       | CPU       |
-
----
-
-## 📁 Project Structure
-
-```
-cp-whisperx-app/
-├── pipeline.py                 # Main orchestrator
-├── preflight.py               # System validation & setup
-├── prepare-job.py             # Job preparation tool
-├── docker-compose.yml         # Docker orchestration
-│
-├── arch/                      # Architecture documentation
-│   ├── workflow-arch.txt
-│   └── transcribe-workflow.txt
-│
-├── config/                    # Configuration files
-│   ├── .env.example          # Example configuration
-│   ├── .env.template         # Configuration template
-│   └── secrets.example.json  # Secrets template
-│
-├── docker/                    # Docker containers
-│   ├── base/                 # Base image
-│   ├── demux/                # Stage 01: Audio extraction
-│   ├── tmdb/                 # Stage 02: Metadata
-│   ├── pre-ner/              # Stage 03: Pre-NER
-│   ├── silero-vad/           # Stage 04: Silero VAD
-│   ├── pyannote-vad/         # Stage 05: PyAnnote VAD
-│   ├── diarization/          # Stage 06: Speaker diarization
-│   ├── asr/                  # Stage 07: WhisperX ASR
-│   ├── second-pass-translation/  # Stage 07b: Translation
-│   ├── lyrics-detection/     # Stage 07c: Lyrics
-│   ├── post-ner/             # Stage 08: Post-NER
-│   ├── subtitle-gen/         # Stage 09: Subtitle generation
-│   └── mux/                  # Stage 10: Video muxing
-│
-├── native/                    # Native mode execution
-│   ├── scripts/              # Stage scripts (01-10)
-│   │   ├── 01_demux.py
-│   │   ├── 02_tmdb.py
-│   │   ├── 03_pre_ner.py
-│   │   ├── 04_silero_vad.py
-│   │   ├── 05_pyannote_vad.py
-│   │   ├── 06_diarization.py
-│   │   ├── 07_asr.py
-│   │   ├── 07b_second_pass_translation.py
-│   │   ├── 07c_lyrics_detection.py
-│   │   ├── 08_post_ner.py
-│   │   ├── 09_subtitle_gen.py
-│   │   └── 10_mux.py
-│   └── venvs/                # Virtual environments (created by preflight)
-│
-├── scripts/                   # Pipeline utilities
-│   ├── bootstrap.sh          # Environment setup
-│   ├── build-images.sh       # Docker image builder
-│   ├── common-logging.sh     # Logging utilities
-│   ├── config_loader.py      # Configuration loader
-│   ├── device_selector.py    # GPU detection
-│   ├── logger.py             # Logging framework
-│   └── pipeline-status.sh    # Status checker
-│
-├── shared/                    # Shared Python modules
-│   ├── config.py             # Configuration loader
-│   ├── logger.py             # Logging utilities
-│   ├── manifest.py           # Manifest builder
-│   └── utils.py              # Common utilities
-│
-├── in/                        # Input videos (staging)
-├── out/                       # Output artifacts (both native and Docker)
-│   └── YYYY/MM/DD/<user-id>/<job-id>/
-│       ├── job.json           # Job definition (replaces jobs/)
-│       ├── .<job-id>.env      # Job-specific configuration
-│       ├── logs/              # Job-specific logs
-│       ├── manifest.json      # Processing manifest
-│       ├── audio/             # Demux output
-│       ├── vad/               # VAD outputs
-│       ├── diarization/       # Diarization output
-│       └── ...                # Stage outputs
-│
-└── docs/                      # Documentation
-    ├── JOB_ORCHESTRATION.md
-    ├── LOGGING.md
-    ├── MANIFEST_TRACKING.md
-    ├── PIPELINE_BEST_PRACTICES.md
-    ├── SECRETS_MANAGER.md
-    ├── TMDB_API_SETUP.md
-    └── TEST_PLAN.md
-```
+### Production-Ready
+- **Resumable Pipeline**: Continue from any failed stage
+- **Comprehensive Logging**: Detailed logs for every stage
+- **Automatic Fallback**: Graceful degradation from GPU to CPU
+- **Manifest Tracking**: Complete job history and metadata
 
 ---
 
 ## 🚀 Quick Start
 
-### Step 1: Installation
-```bash
-# Clone repository
-git clone <repository-url>
-cd cp-whisperx-app
+### Prerequisites
+- Python 3.9+ (for native mode)
+- Docker Desktop (for Docker mode)
+- NVIDIA GPU with CUDA 11.8+ (recommended) or CPU fallback
+- 8GB+ RAM (16GB+ recommended)
 
-# Setup configuration
-cp config/.env.example config/.env
-# Edit config/.env with your API keys
+### Installation
 
-# Run preflight check
-python preflight.py
-```
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/yourusername/cp-whisperx-app.git
+   cd cp-whisperx-app
+   ```
 
-### Step 2: Run Pipeline
+2. **Choose your mode**
 
-**Transcribe Only:**
-```bash
-python prepare-job.py input.mp4 --transcribe --native
-python pipeline.py --job <job-id>
-```
+   **Native Mode** (fastest):
+   ```bash
+   # Windows
+   .\scripts\bootstrap.ps1
+   
+   # Linux/macOS
+   ./scripts/bootstrap.sh
+   ```
 
-**Subtitle Generation:**
-```bash
-python prepare-job.py input.mp4 --subtitle-gen --native
-python pipeline.py --job <job-id>
-```
+   **Docker Mode** (isolated):
+   ```bash
+   # Build all images
+   .\scripts\build-all-images.ps1   # Windows
+   ./scripts/build-all-images.sh    # Linux/macOS
+   ```
 
-See [QUICKSTART.md](QUICKSTART.md) for detailed instructions.
+3. **Run your first job**
+   ```bash
+   # Prepare job
+   python prepare-job.py
+   
+   # Run pipeline
+   python pipeline.py
+   ```
 
 ---
 
-## 📊 Performance
+## 📚 Documentation
 
-### Processing Times (2-hour movie)
+### 🎓 User Guides
+Start here if you're new to the project or want to learn how to use it effectively.
 
-| Workflow      | GPU (CUDA/MPS) | CPU     |
-|---------------|----------------|---------|
-| Transcribe    | 10-15 min      | 2-3 hrs |
-| Subtitle-Gen  | 30-45 min      | 5-8 hrs |
+- **[Quick Start Guide](docs/guides/user/quickstart.md)** - Get up and running in 5 minutes
+- **[Workflow Guide](docs/guides/user/workflow-guide.md)** - Understand the complete pipeline workflow
+- **[Docker Quick Start](docs/guides/user/docker-quickstart.md)** - Using Docker mode
+- **[Pipeline Resume Guide](docs/guides/user/pipeline-resume-guide.md)** - Recover from failures
 
-**Factors affecting speed:**
-- GPU model and VRAM
-- Video length and audio complexity
-- Number of speakers
-- Language (Hindi→English vs English-only)
+### 🖥️ Hardware & Acceleration Guides
+Configure your system for optimal performance.
 
-### Resource Requirements
+- **[CUDA Acceleration Guide](docs/guides/hardware/cuda-acceleration.md)** - NVIDIA GPU setup (Windows/Linux)
+- **[MPS Acceleration Guide](docs/guides/hardware/mps-acceleration.md)** - Apple Silicon setup (macOS)
+- **[GPU Fallback Guide](docs/guides/hardware/gpu-fallback.md)** - CPU fallback configuration
+- **[Device Selection Guide](docs/guides/hardware/device-selection.md)** - Choose the right device
+- **[Windows 11 Setup Guide](docs/guides/hardware/windows-11-setup.md)** - Complete Windows setup
 
-| Component     | Minimum | Recommended |
-|---------------|---------|-------------|
-| RAM           | 16 GB   | 32 GB       |
-| VRAM (GPU)    | 6 GB    | 12 GB       |
-| Storage       | 20 GB   | 50 GB       |
-| CPU Cores     | 4       | 8+          |
+### 👨‍💻 Developer Guides
+For contributors and advanced users who want to understand or modify the code.
+
+- **[Developer Guide](docs/guides/developer/developer-guide.md)** - Architecture and development workflow
+- **[Logging Locations](docs/guides/developer/logging-locations.md)** - Where to find logs
+- **[Windows Scripts Guide](docs/guides/developer/windows-scripts.md)** - PowerShell scripts reference
+- **[Debug Mode Guide](docs/guides/developer/debug-mode.md)** - Debugging native mode
+
+### 🏗️ Architecture Documentation
+Deep dives into system design and optimization decisions.
+
+- **[Docker Optimization](docs/architecture/docker-optimization.md)** - Docker build optimization strategy
+- **[Docker Optimization Feasibility](docs/architecture/docker-optimization-feasibility.md)** - Feasibility analysis
+- **[Docker Optimization Status](docs/architecture/docker-optimization-status.md)** - Current implementation status
+- **[Docker Build Optimization](docs/architecture/docker-build-optimization.md)** - Build-time optimizations
+
+### 🐳 Docker Documentation
+Everything about Docker images, builds, and scripts.
+
+- **[Docker README](docs/docker/README.md)** - Docker overview and quick reference
+- **[Build Documentation Index](docs/docker/build-documentation-index.md)** - Complete build docs
+- **[Build Status](docs/docker/build-status.md)** - Current build status
+- **[Build Summary](docs/docker/build-summary.md)** - Build process overview
+- **[Scripts Quick Reference](docs/docker/scripts-quick-ref.md)** - Docker scripts cheat sheet
+- **[Pull Scripts Summary](docs/docker/pull-scripts-summary.md)** - Image pulling documentation
+- **[Ready to Build](docs/docker/ready-to-build.md)** - Build readiness checklist
+
+### 📖 Technical Reference
+Detailed technical documentation for specific features and systems.
+
+- **[Build Fix Summary](docs/BUILD_FIX_SUMMARY.md)** - Docker build fixes applied
+- **[Docker Base Image Fix](docs/DOCKER_BASE_IMAGE_FIX.md)** - Base image issues and fixes
+- **[Docker Image Management](docs/DOCKER_IMAGE_MANAGEMENT.md)** - Image management strategies
+- **[Docker Optimization Implementation](docs/DOCKER_OPTIMIZATION_IMPLEMENTATION.md)** - Implementation details
+- **[Docker Optimization Quick Reference](docs/DOCKER_OPTIMIZATION_QUICK_REF.md)** - Quick optimization guide
+- **[Docker Optimization Recommendations](docs/DOCKER_OPTIMIZATION_RECOMMENDATIONS.md)** - Best practices
+- **[Hardware Optimization](docs/HARDWARE_OPTIMIZATION.md)** - Hardware-specific optimizations
+- **[Implementation Uniformity](docs/IMPLEMENTATION_UNIFORMITY.md)** - Code consistency guidelines
+- **[Job Orchestration](docs/JOB_ORCHESTRATION.md)** - Pipeline orchestration details
+- **[Logging Standard](docs/LOGGING_STANDARD.md)** - Logging conventions
+- **[Logging Documentation](docs/LOGGING.md)** - Logging system overview
+- **[Manifest System Guide](docs/MANIFEST_SYSTEM_GUIDE.md)** - Job manifest documentation
+- **[Manifest Tracking](docs/MANIFEST_TRACKING.md)** - Manifest tracking system
+- **[Pipeline Best Practices](docs/PIPELINE_BEST_PRACTICES.md)** - Pipeline optimization tips
+- **[Silero/PyAnnote VAD](docs/README-SILERO-PYANNOTE-VAD.md)** - VAD system documentation
+- **[Test Plan](docs/TEST_PLAN.md)** - Testing strategy and test cases
+- **[TMDB API Setup](docs/TMDB_API_SETUP.md)** - Setting up TMDB integration
+
+### 🗂️ Historical Documentation
+For reference: Previous implementations, migrations, and changes.
+
+- **[Docker Build Fixes](docs/history/docker-build-fixes.md)** - Historical build fixes
+- **[Docker Build Fix Summary](docs/history/docker-build-fix-summary.md)** - Fix summaries
+- **[Docker Build Fixes Applied](docs/history/docker-build-fixes-applied.md)** - Applied fixes log
+- **[Docker Build Fixes Summary](docs/history/docker-build-fixes-summary.md)** - Comprehensive summary
+- **[Docker Phase 1 Summary](docs/history/docker-phase1-summary.md)** - Phase 1 implementation
+- **[Docker Refactoring Summary](docs/history/docker-refactoring-summary.md)** - Refactoring changes
+- **[Script Migration Summary](docs/history/script-migration-summary.md)** - Script migration log
+- **[Scripts Conversion Summary](docs/history/scripts-conversion-summary.md)** - Conversion details
+- **[Git Backup Record](docs/history/git-backup-record.md)** - Backup history
+- **[Git Push Ready](docs/history/git-push-ready.md)** - Pre-push checklist
+- **[Commit Message](docs/history/commit-message.md)** - Standard commit format
+- **[Old Documentation Index](docs/history/documentation-index-old.md)** - Previous index
+
+### 🏛️ Architecture Reference
+Archived architecture documents and design notes.
+
+- **[Architecture Verified](docs/architecture/ARCHITECTURE_VERIFIED.md)** - Verified architecture notes
+- **[CUDA Environment Report](docs/architecture/cuda_env_report.md)** - CUDA environment analysis
+- **[HuggingFace Gated PyAnnote](docs/architecture/HF-gated-pynote.md)** - PyAnnote access notes
+- **[Transcribe Workflow](docs/architecture/transcribe-workflow.md)** - Workflow architecture
+- **[Master Prompt](docs/architecture/whisper-app-master-prompt.md)** - Project prompts
+- **[Workflow Architecture](docs/architecture/workflow-arch.md)** - Architecture diagrams
+
+---
+
+## 🎬 Usage Examples
+
+### Basic Transcription
+```bash
+# Prepare a video for transcription
+python prepare-job.py
+
+# Run transcription only
+python pipeline.py --workflow transcribe
+
+# Check logs
+Get-Content out/MyMovie/logs/07_asr_*.log -Tail 50
+```
+
+### Full Subtitle Generation
+```bash
+# Prepare with TMDB metadata
+python prepare-job.py --tmdb-id 550
+
+# Run full pipeline with speaker diarization
+python pipeline.py --workflow subtitle
+
+# Output: out/MyMovie/MyMovie.mkv (with embedded subtitles)
+```
+
+### Resume from Failure
+```bash
+# Pipeline failed at diarization stage?
+# Just run again - it will resume automatically
+python pipeline.py
+
+# Or use resume script
+.\resume-pipeline.ps1
+```
 
 ---
 
 ## 🔧 Configuration
 
 ### Environment Variables
-
-**Core Settings:**
 ```bash
-# Execution mode
-PIPELINE_MODE=native              # native or docker
-WORKFLOW=subtitle_gen             # transcribe or subtitle_gen
-
 # Device selection
-DEVICE=auto                       # auto, cuda, mps, or cpu
-DEVICE_OVERRIDE=false            # Force specific device
+DEVICE=cuda              # cuda, mps, or cpu
+COMPUTE_TYPE=float16     # float16, float32
 
-# Processing options
-CLIP_MODE=false                  # Process short clips
-CLIP_DURATION=300                # Clip length in seconds
+# TMDB API (for subtitle workflow)
+TMDB_API_KEY=your_key_here
+
+# Logging
+LOG_LEVEL=INFO           # DEBUG, INFO, WARN, ERROR
 ```
 
-**API Keys:**
-```bash
-# Required for diarization
-HF_TOKEN=hf_xxxxxxxxxxxx
-
-# Optional for metadata
-TMDB_API_KEY=xxxxxxxxxxxx
-```
-
-**Model Settings:**
-```bash
-# WhisperX
-WHISPER_MODEL=large-v3
-WHISPER_LANGUAGE=hi              # Source language
-WHISPER_TASK=translate           # or transcribe
-
-# Diarization
-DIARIZATION_MODEL=pyannote/speaker-diarization-3.1
-MIN_SPEAKERS=2
-MAX_SPEAKERS=10
-```
-
-See [config/.env.template](config/.env.template) for all options.
+### Config Files
+- `config/default.yaml` - Default pipeline configuration
+- `config/docker-compose.yml` - Docker service configuration
+- `.env` - Environment variables (create from `.env.example`)
 
 ---
 
-## 📖 Documentation
+## 📊 System Requirements
 
-### Quick References
-- **[QUICKSTART.md](QUICKSTART.md)** - Get started in minutes
-- **[WORKFLOW_GUIDE.md](WORKFLOW_GUIDE.md)** - Detailed workflow options
-- **[PIPELINE_RESUME_GUIDE.md](PIPELINE_RESUME_GUIDE.md)** - Resume failed jobs
+### Minimum
+- **CPU**: 4 cores
+- **RAM**: 8GB
+- **Storage**: 20GB free
+- **OS**: Windows 10+, Ubuntu 20.04+, macOS 11+
 
-### Platform Guides
-- **[WINDOWS_11_SETUP_GUIDE.md](WINDOWS_11_SETUP_GUIDE.md)** - Windows installation
-- **[CUDA_ACCELERATION_GUIDE.md](CUDA_ACCELERATION_GUIDE.md)** - NVIDIA GPU setup
-- **[MPS_ACCELERATION_GUIDE.md](MPS_ACCELERATION_GUIDE.md)** - Apple Silicon setup
-- **[DEVICE_SELECTION_GUIDE.md](DEVICE_SELECTION_GUIDE.md)** - GPU optimization
+### Recommended
+- **CPU**: 8+ cores
+- **RAM**: 16GB+
+- **GPU**: NVIDIA RTX 3060+ (6GB VRAM) or Apple M1+
+- **Storage**: 50GB+ SSD
 
-### Architecture & Development
-- **[docs/JOB_ORCHESTRATION.md](docs/JOB_ORCHESTRATION.md)** - Job system design
-- **[docs/MANIFEST_TRACKING.md](docs/MANIFEST_TRACKING.md)** - Manifest system
-- **[docs/LOGGING.md](docs/LOGGING.md)** - Logging architecture
-- **[docs/PIPELINE_BEST_PRACTICES.md](docs/PIPELINE_BEST_PRACTICES.md)** - Best practices
-- **[docs/TEST_PLAN.md](docs/TEST_PLAN.md)** - Testing & validation
-
-### API Setup
-- **[docs/TMDB_API_SETUP.md](docs/TMDB_API_SETUP.md)** - TMDB API configuration
-- **[docs/SECRETS_MANAGER.md](docs/SECRETS_MANAGER.md)** - Secrets management
-
----
-
-## 🧪 Testing
-
-### Validation Checklist
-
-```bash
-# 1. System validation
-python preflight.py
-
-# 2. GPU detection
-python preflight.py --check-device
-
-# 3. API access
-python native/scripts/test_tmdb.py
-python native/scripts/test_pyannote_vad.py
-
-# 4. Quick test (2-minute clip)
-python prepare-job.py test.mp4 --subtitle-gen --native --clip-duration 120
-python pipeline.py --job <job-id>
-
-# 5. Full workflow test
-python prepare-job.py sample.mp4 --subtitle-gen --native
-python pipeline.py --job <job-id>
-```
-
-See [docs/TEST_PLAN.md](docs/TEST_PLAN.md) for comprehensive testing.
-
----
-
-## 🔍 Troubleshooting
-
-### Common Issues
-
-**GPU Not Detected:**
-```bash
-python preflight.py --check-device
-python prepare-job.py input.mp4 --native --device cuda  # Force CUDA
-```
-
-**PyAnnote Diarization Fails:**
-```bash
-# Accept license at: https://huggingface.co/pyannote/speaker-diarization
-# Add HF_TOKEN to config/.env
-python native/scripts/test_pyannote_vad.py
-```
-
-**Out of Memory:**
-```bash
-# Use CPU or smaller clip
-python prepare-job.py input.mp4 --native --device cpu
-python prepare-job.py input.mp4 --native --clip-duration 300
-```
-
-**Resume Failed Job:**
-```bash
-./resume-pipeline.sh <job-id>          # Unix/Linux/macOS
-resume-pipeline.bat <job-id>           # Windows
-```
+### Performance Comparison
+| Mode | Hardware | Speed | Recommended For |
+|------|----------|-------|----------------|
+| **Native + CUDA** | RTX 4090 | ⚡⚡⚡⚡⚡ (fastest) | Production |
+| **Docker + CUDA** | RTX 4090 | ⚡⚡⚡⚡ (fast) | Development |
+| **Native + MPS** | M1 Max | ⚡⚡⚡ (good) | macOS users |
+| **Native + CPU** | i7-12700K | ⚡⚡ (slower) | Testing |
+| **Docker + CPU** | i7-12700K | ⚡ (slow) | CI/CD |
 
 ---
 
 ## 🤝 Contributing
 
-Contributions welcome! Please:
+We welcome contributions! Please see:
+- [Developer Guide](docs/guides/developer/developer-guide.md) - Development workflow
+- [Implementation Uniformity](docs/IMPLEMENTATION_UNIFORMITY.md) - Code standards
+- [Test Plan](docs/TEST_PLAN.md) - Testing requirements
+
+### Quick Contribution Guide
 1. Fork the repository
-2. Create feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open Pull Request
+2. Create a feature branch
+3. Make your changes
+4. Run tests: `python -m pytest`
+5. Submit a pull request
 
 ---
 
@@ -424,20 +304,32 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
+Built with amazing open-source projects:
 - **[WhisperX](https://github.com/m-bain/whisperX)** - Fast automatic speech recognition
 - **[PyAnnote](https://github.com/pyannote/pyannote-audio)** - Speaker diarization
-- **[Silero VAD](https://github.com/snakers4/silero-vad)** - Voice activity detection
 - **[spaCy](https://spacy.io/)** - Named entity recognition
 - **[FFmpeg](https://ffmpeg.org/)** - Audio/video processing
+- **[TMDB](https://www.themoviedb.org/)** - Movie metadata
 
 ---
 
 ## 📞 Support
 
-- **Documentation:** [docs/](docs/) directory
-- **Issues:** Check logs in `logs/` directory  
-- **Debugging:** Enable verbose logging in config/.env
+- **Documentation**: Check the [docs/](docs/) directory
+- **Issues**: [GitHub Issues](https://github.com/yourusername/cp-whisperx-app/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/yourusername/cp-whisperx-app/discussions)
 
 ---
 
-**Ready to start?** See [QUICKSTART.md](QUICKSTART.md) to begin!
+## 🗺️ Roadmap
+
+- [ ] Web UI for pipeline management
+- [ ] Multi-language subtitle support
+- [ ] Real-time transcription mode
+- [ ] Cloud deployment guides (AWS, GCP, Azure)
+- [ ] Automatic quality assessment
+- [ ] Batch processing improvements
+
+---
+
+**Made with ❤️ by the CP-WhisperX-App team**

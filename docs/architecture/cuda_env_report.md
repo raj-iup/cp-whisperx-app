@@ -1,0 +1,30 @@
+CUDA Environment Report
+================================================================================
+Generated:           2025-10-29 06:38:13
+Host OS:             Windows 11 Pro 25H2
+
+Detection
+--------------------------------------------------------------------------------
+Primary data source: nvidia-smi
+NVIDIA Driver:       560.94
+CUDA (host support): 12.6
+
+GPUs
+--------------------------------------------------------------------------------
+GPU 0: NVIDIA GeForce GTX 750 Ti | VRAM: 2.0 GiB | Compute Capability: 5.0
+
+Recommendation
+--------------------------------------------------------------------------------
+Recommended CUDA base image tag (compatible): 12.6
+Examples:
+  - nvidia/cuda:12.6-devel-ubuntu22.04
+  - nvidia/cuda:12.6-runtime-ubuntu22.04
+
+Rationale:
+  Use a container CUDA version ≤ host-supported CUDA (12.6) to ensure driver compatibility.
+
+Notes
+--------------------------------------------------------------------------------
+* NVIDIA drivers are backward-compatible with container CUDA runtimes (same major, lower/equal minor).
+* For performance-tuned builds, also match the compute capability (sm_XY) to your GPUs during compilation.
+* To run CUDA containers on Windows, install the NVIDIA Container Toolkit on the host.
