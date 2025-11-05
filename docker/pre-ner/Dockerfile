@@ -13,7 +13,7 @@ RUN --mount=type=cache,id=pip-cache-pre-ner,target=/root/.cache/pip \
     pip install spacy==3.8.7
 
 # Copy Pre-NER script (last - changes most frequently)
-COPY pre_ner.py /app/
+COPY docker/pre-ner/pre_ner.py /app/
 
 USER appuser
 
