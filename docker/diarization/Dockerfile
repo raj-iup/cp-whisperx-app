@@ -36,9 +36,7 @@ COPY docker/diarization/diarization.py /app/
 USER appuser
 WORKDIR /app
 
-# Set HuggingFace cache directory
-ENV HF_HOME=/app/.cache/huggingface
-ENV HF_DATASETS_CACHE=/app/.cache/huggingface/datasets
-ENV TRANSFORMERS_CACHE=/app/.cache/huggingface/transformers
+# HuggingFace cache now uses shared volume (set in docker-compose.yml)
+# Models downloaded at runtime to /shared-model-and-cache
 
 ENTRYPOINT ["python", "/app/diarization.py"]

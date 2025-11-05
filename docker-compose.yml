@@ -34,9 +34,11 @@ services:
       - ./config:/app/config:ro
       - ./scripts:/app/scripts:ro
       - ./shared:/app/shared:ro
+      - ./shared-model-and-cache:/shared-model-and-cache
     environment:
       - CONFIG_PATH=${CONFIG_PATH:-/app/config/.env}
       - PYTHONPATH=/app
+      - SPACY_DATA=/shared-model-and-cache/spacy
     depends_on:
       - tmdb
 
@@ -48,9 +50,11 @@ services:
       - ./config:/app/config:ro
       - ./scripts:/app/scripts:ro
       - ./shared:/app/shared:ro
+      - ./shared-model-and-cache:/shared-model-and-cache
     environment:
       - CONFIG_PATH=${CONFIG_PATH:-/app/config/.env}
       - PYTHONPATH=/app
+      - SPACY_DATA=/shared-model-and-cache/spacy
     depends_on:
       - asr
 
@@ -104,9 +108,12 @@ services:
       - ./LLM:/app/LLM
       - ./config:/app/config:ro
       - ./shared:/app/shared:ro
+      - ./shared-model-and-cache:/shared-model-and-cache
     environment:
       - CONFIG_PATH=${CONFIG_PATH:-/app/config/.env}
       - PYTHONPATH=/app
+      - HF_HOME=/shared-model-and-cache/huggingface
+      - TRANSFORMERS_CACHE=/shared-model-and-cache/transformers
     depends_on:
       - silero-vad
 
@@ -120,9 +127,13 @@ services:
       - ./config:/app/config:ro
       - ./scripts:/app/scripts:ro
       - ./shared:/app/shared:ro
+      - ./shared-model-and-cache:/shared-model-and-cache
     environment:
       - CONFIG_PATH=${CONFIG_PATH:-/app/config/.env}
       - PYTHONPATH=/app
+      - HF_HOME=/shared-model-and-cache/huggingface
+      - TRANSFORMERS_CACHE=/shared-model-and-cache/transformers
+      - PYANNOTE_CACHE=/shared-model-and-cache/pyannote
     depends_on:
       - pyannote-vad
 
@@ -136,9 +147,13 @@ services:
       - ./config:/app/config:ro
       - ./scripts:/app/scripts:ro
       - ./shared:/app/shared:ro
+      - ./shared-model-and-cache:/shared-model-and-cache
     environment:
       - CONFIG_PATH=${CONFIG_PATH:-/app/config/.env}
       - PYTHONPATH=/app
+      - HF_HOME=/shared-model-and-cache/huggingface
+      - TRANSFORMERS_CACHE=/shared-model-and-cache/transformers
+      - WHISPER_CACHE=/shared-model-and-cache/whisper
     mem_limit: 16g
     memswap_limit: 16g
     depends_on:

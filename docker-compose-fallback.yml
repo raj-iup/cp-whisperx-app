@@ -279,3 +279,4 @@ services:
 # - CPU-Only Stages: :cpu tag (demux, tmdb, pre-ner, post-ner, subtitle-gen, mux)
 # - GPU Stages: :cuda tag (silero-vad, pyannote-vad, diarization, asr)
 # - GPU Fallback: :cpu tag (same stages, CPU execution)
+

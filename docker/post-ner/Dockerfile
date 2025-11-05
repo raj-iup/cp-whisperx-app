@@ -14,9 +14,7 @@ RUN --mount=type=cache,id=pip-cache-post-ner,target=/root/.cache/pip \
     transformers==4.57.1 \
     rapidfuzz==3.0.0
 
-# Download spaCy transformer model
-RUN --mount=type=cache,id=pip-cache-post-ner,target=/root/.cache/pip \
-    python -m spacy download en_core_web_trf
+# spaCy transformer model download moved to runtime (shared cache volume)
 
 # Copy shared modules (changes occasionally)
 COPY shared/ /app/shared/
