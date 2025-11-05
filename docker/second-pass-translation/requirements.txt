@@ -1,4 +1,6 @@
-transformers>=4.35.0
-torch>=2.0.0
+# Second-pass translation requirements
+# torch and transformers already available from base-ml:cuda
+
+# Tokenization and serialization
 sentencepiece>=0.1.99
 protobuf>=3.20.0

@@ -1,9 +1,9 @@
 # Post-NER dependencies
 # Common deps (numpy, python-dotenv, pysubs2) are in requirements-common.txt
 
-numpy==1.24.3
+# NER and entity recognition
 spacy==3.8.7
 transformers==4.57.1
+
+# Fuzzy string matching
 rapidfuzz==3.0.0
-python-dotenv==1.2.1
-pysubs2==1.8.0
