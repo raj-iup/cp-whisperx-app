@@ -76,7 +76,7 @@ RUN --mount=type=cache,id=pip-cache-base-cuda,target=/root/.cache/pip \
 
 # Create directory structure
 WORKDIR /app
-RUN mkdir -p /app/in /app/out /app/logs /app/temp /app/config /app/shared /app/LLM
+RUN mkdir -p /app/in /app/out /app/logs /app/temp /app/config /app/shared
 
 # Set Python path
 ENV PYTHONPATH=/app:/app/shared

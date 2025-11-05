@@ -39,7 +39,6 @@ services:
     container_name: cp_whisperx_pre_ner
     volumes:
       - ./out:/app/out
-      - ./LLM:/app/LLM
       - ./config:/app/config:ro
       - ./scripts:/app/scripts:ro
       - ./shared:/app/shared:ro
@@ -138,7 +137,6 @@ services:
     volumes:
       - ./in:/app/in
       - ./out:/app/out
-      - ./LLM:/app/LLM
       - ./config:/app/config:ro
       - ./shared:/app/shared:ro
     environment:
@@ -162,7 +160,6 @@ services:
     volumes:
       - ./in:/app/in
       - ./out:/app/out
-      - ./LLM:/app/LLM
       - ./config:/app/config:ro
       - ./shared:/app/shared:ro
     environment:
@@ -179,7 +176,6 @@ services:
     volumes:
       - ./in:/app/in
       - ./out:/app/out
-      - ./LLM:/app/LLM
       - ./config:/app/config:ro
       - ./scripts:/app/scripts:ro
       - ./shared:/app/shared:ro
@@ -204,7 +200,6 @@ services:
     volumes:
       - ./in:/app/in
       - ./out:/app/out
-      - ./LLM:/app/LLM
       - ./config:/app/config:ro
       - ./scripts:/app/scripts:ro
       - ./shared:/app/shared:ro
@@ -222,7 +217,6 @@ services:
     volumes:
       - ./in:/app/in
       - ./out:/app/out
-      - ./LLM:/app/LLM
       - ./config:/app/config:ro
       - ./scripts:/app/scripts:ro
       - ./shared:/app/shared:ro
@@ -249,7 +243,6 @@ services:
     volumes:
       - ./in:/app/in
       - ./out:/app/out
-      - ./LLM:/app/LLM
       - ./config:/app/config:ro
       - ./scripts:/app/scripts:ro
       - ./shared:/app/shared:ro
