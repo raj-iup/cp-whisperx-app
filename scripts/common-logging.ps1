@@ -110,10 +110,8 @@ function Write-LogSection {
     }
 }
 
-# Export functions for use in other scripts
-Export-ModuleMember -Function Write-LogMessage, Write-LogDebug, Write-LogInfo, `
-                              Write-LogWarn, Write-LogError, Write-LogCritical, `
-                              Write-LogSuccess, Write-LogFailure, Write-LogSection
+# Functions are automatically available when dot-sourced
+# No need for Export-ModuleMember in a .ps1 file
 
 # Show usage if run directly
 if ($MyInvocation.InvocationName -eq "common-logging.ps1") {
