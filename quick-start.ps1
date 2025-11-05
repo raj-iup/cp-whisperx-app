@@ -9,64 +9,42 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-# Logging functions
-function Write-Log {
-    param([string]$Message, [string]$Level = "INFO")
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $logMessage = "[$timestamp] [quick-start] [$Level] $Message"
-    
-    switch ($Level) {
-        "ERROR" { Write-Host $logMessage -ForegroundColor Red }
-        "WARNING" { Write-Host $logMessage -ForegroundColor Yellow }
-        "SUCCESS" { Write-Host $logMessage -ForegroundColor Green }
-        default { Write-Host $logMessage }
-    }
-}
-
-function Write-Header {
-    param([string]$Title)
-    Write-Host ""
-    Write-Host ("=" * 60) -ForegroundColor Cyan
-    Write-Host $Title -ForegroundColor Cyan
-    Write-Host ("=" * 60) -ForegroundColor Cyan
-}
-
-function Write-Step {
-    param([string]$Title)
-    Write-Host ""
-    Write-Host $Title -ForegroundColor Yellow
-    Write-Host ("-" * 60) -ForegroundColor Yellow
-}
+# Load common logging
+. "$PSScriptRoot\scripts\common-logging.ps1"
 
 # Start
-Write-Header "CP-WHISPERX-APP QUICK START (WINDOWS)"
-Write-Log "Input: $InputVideo" "INFO"
+Write-LogSection "CP-WHISPERX-APP QUICK START (WINDOWS)"
+Write-LogInfo "Input: $InputVideo"
 Write-Host ""
 
 # Validate input
 if (-not (Test-Path $InputVideo)) {
-    Write-Log "Input video not found: $InputVideo" "ERROR"
+    Write-LogError "Input video not found: $InputVideo"
     exit 1
 }
 
 # Step 1: Preflight checks
-Write-Step "Step 1/3: Running preflight checks..."
-Write-Log "Validating system requirements..." "INFO"
+Write-Host ""
+Write-Host "Step 1/3: Running preflight checks..." -ForegroundColor Yellow
+Write-Host ("-" * 60) -ForegroundColor Yellow
+Write-LogInfo "Validating system requirements..."
 
 & python preflight.py
 if ($LASTEXITCODE -ne 0) {
-    Write-Log "Preflight checks failed! Please fix errors before continuing." "ERROR"
+    Write-LogError "Preflight checks failed! Please fix errors before continuing."
     exit 1
 }
-Write-Log "Preflight checks passed" "SUCCESS"
+Write-LogSuccess "Preflight checks passed"
 
 # Step 2: Prepare job
-Write-Step "Step 2/3: Preparing job..."
-Write-Log "Creating job structure and configuration..." "INFO"
+Write-Host ""
+Write-Host "Step 2/3: Preparing job..." -ForegroundColor Yellow
+Write-Host ("-" * 60) -ForegroundColor Yellow
+Write-LogInfo "Creating job structure and configuration..."
 
 & python prepare-job.py $InputVideo --subtitle-gen
 if ($LASTEXITCODE -ne 0) {
-    Write-Log "Job preparation failed!" "ERROR"
+    Write-LogError "Job preparation failed!"
     exit 1
 }
 
@@ -80,26 +58,28 @@ $jobDirs = Get-ChildItem -Path "out\$year\$month\$day" -Directory -ErrorAction S
     Sort-Object LastWriteTime -Descending
 
 if (-not $jobDirs) {
-    Write-Log "Could not find created job directory" "ERROR"
+    Write-LogError "Could not find created job directory"
     exit 1
 }
 
 $jobId = $jobDirs[0].Name
-Write-Log "Job ID: $jobId" "SUCCESS"
+Write-LogSuccess "Job ID: $jobId"
 
 # Step 3: Run pipeline
-Write-Step "Step 3/3: Running pipeline..."
-Write-Log "Executing full subtitle generation pipeline..." "INFO"
+Write-Host ""
+Write-Host "Step 3/3: Running pipeline..." -ForegroundColor Yellow
+Write-Host ("-" * 60) -ForegroundColor Yellow
+Write-LogInfo "Executing full subtitle generation pipeline..."
 
 & python pipeline.py --job $jobId
 if ($LASTEXITCODE -ne 0) {
-    Write-Log "Pipeline execution failed!" "ERROR"
+    Write-LogError "Pipeline execution failed!"
     exit 1
 }
 
 # Success
-Write-Header "QUICK START COMPLETE"
-Write-Log "Job completed successfully" "SUCCESS"
+Write-LogSection "QUICK START COMPLETE"
+Write-LogSuccess "Job completed successfully"
 Write-Host ""
 Write-Host "Check output directory: out\$year\$month\$day\*\$jobId"
 Write-Host ""

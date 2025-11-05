@@ -24,35 +24,16 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-# Logging functions
-function Write-Log {
-    param([string]$Message, [string]$Level = "INFO")
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $logMessage = "[$timestamp] [prepare-job] [$Level] $Message"
-    
-    switch ($Level) {
-        "ERROR" { Write-Host $logMessage -ForegroundColor Red }
-        "WARNING" { Write-Host $logMessage -ForegroundColor Yellow }
-        "SUCCESS" { Write-Host $logMessage -ForegroundColor Green }
-        default { Write-Host $logMessage }
-    }
-}
-
-function Write-Header {
-    param([string]$Title)
-    Write-Host ""
-    Write-Host ("=" * 60) -ForegroundColor Cyan
-    Write-Host $Title -ForegroundColor Cyan
-    Write-Host ("=" * 60) -ForegroundColor Cyan
-}
+# Load common logging
+. "$PSScriptRoot\scripts\common-logging.ps1"
 
 # Start
-Write-Header "CP-WHISPERX-APP JOB PREPARATION"
-Write-Log "Starting job preparation..."
+Write-LogSection "CP-WHISPERX-APP JOB PREPARATION"
+Write-LogInfo "Starting job preparation..."
 
 # Validate Python
 if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
-    Write-Log "Python not found. Please install Python 3.9+" "ERROR"
+    Write-LogError "Python not found. Please install Python 3.9+"
     exit 1
 }
 
@@ -69,34 +50,34 @@ if ($EndTime) {
 
 if ($Transcribe) {
     $pythonArgs += "--transcribe"
-    Write-Log "Workflow: TRANSCRIBE (simplified pipeline)" "INFO"
+    Write-LogInfo "Workflow: TRANSCRIBE (simplified pipeline)"
 } elseif ($SubtitleGen) {
     $pythonArgs += "--subtitle-gen"
-    Write-Log "Workflow: SUBTITLE-GEN (full pipeline)" "INFO"
+    Write-LogInfo "Workflow: SUBTITLE-GEN (full pipeline)"
 }
 
 if ($Native) {
     $pythonArgs += "--native"
-    Write-Log "Native mode: ENABLED" "INFO"
+    Write-LogInfo "Native mode: ENABLED"
 }
 
 # Execute Python script
-Write-Log "Executing: python $($pythonArgs -join ' ')" "INFO"
+Write-LogInfo "Executing: python $($pythonArgs -join ' ')"
 
 try {
     & python @pythonArgs
     
     if ($LASTEXITCODE -eq 0) {
-        Write-Log "Job preparation completed successfully" "SUCCESS"
-        Write-Header "NEXT STEPS"
+        Write-LogSuccess "Job preparation completed successfully"
+        Write-LogSection "NEXT STEPS"
         Write-Host "Run pipeline with: .\run_pipeline.ps1 -Job <job_id>"
         Write-Host ""
         exit 0
     } else {
-        Write-Log "Job preparation failed with exit code $LASTEXITCODE" "ERROR"
+        Write-LogError "Job preparation failed with exit code $LASTEXITCODE"
         exit $LASTEXITCODE
     }
 } catch {
-    Write-Log "Unexpected error: $_" "ERROR"
+    Write-LogError "Unexpected error: $_"
     exit 1
 }

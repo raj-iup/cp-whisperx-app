@@ -4,32 +4,9 @@
 
 set -e
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-CYAN='\033[0;36m'
-NC='\033[0m'
-
-# Logging functions
-log_message() {
-    local level=$1
-    shift
-    local message="$@"
-    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-    echo -e "[${timestamp}] [resume-pipeline] [${level}] ${message}"
-}
-
-log_info() { log_message "INFO" "$@"; }
-log_success() { echo -e "${GREEN}$(log_message "SUCCESS" "$@")${NC}"; }
-log_error() { echo -e "${RED}$(log_message "ERROR" "$@")${NC}"; }
-
-print_header() {
-    echo ""
-    echo -e "${CYAN}============================================================${NC}"
-    echo -e "${CYAN}$1${NC}"
-    echo -e "${CYAN}============================================================${NC}"
-}
+# Load common logging
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/scripts/common-logging.sh"
 
 # Check arguments
 if [ $# -lt 1 ]; then
@@ -41,7 +18,7 @@ fi
 
 JOB_ID=$1
 
-print_header "CP-WHISPERX-APP PIPELINE RESUME"
+log_section "CP-WHISPERX-APP PIPELINE RESUME"
 log_info "Resuming job: $JOB_ID"
 
 # Validate Python
@@ -57,12 +34,12 @@ echo ""
 python3 pipeline.py --job "$JOB_ID"
 
 if [ $? -eq 0 ]; then
-    print_header "PIPELINE RESUMED SUCCESSFULLY"
+    log_section "PIPELINE RESUMED SUCCESSFULLY"
     log_success "Job $JOB_ID completed"
     echo ""
     exit 0
 else
-    print_header "PIPELINE RESUME FAILED"
+    log_section "PIPELINE RESUME FAILED"
     log_error "Pipeline execution failed with exit code $?"
     echo ""
     exit 1

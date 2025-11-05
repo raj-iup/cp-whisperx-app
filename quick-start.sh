@@ -4,40 +4,9 @@
 
 set -e
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-CYAN='\033[0;36m'
-NC='\033[0m'
-
-# Logging functions
-log_message() {
-    local level=$1
-    shift
-    local message="$@"
-    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-    echo -e "[${timestamp}] [quick-start] [${level}] ${message}"
-}
-
-log_info() { log_message "INFO" "$@"; }
-log_success() { echo -e "${GREEN}$(log_message "SUCCESS" "$@")${NC}"; }
-log_warning() { echo -e "${YELLOW}$(log_message "WARNING" "$@")${NC}"; }
-log_error() { echo -e "${RED}$(log_message "ERROR" "$@")${NC}"; }
-
-print_header() {
-    echo ""
-    echo -e "${CYAN}============================================================${NC}"
-    echo -e "${CYAN}$1${NC}"
-    echo -e "${CYAN}============================================================${NC}"
-}
-
-print_step() {
-    echo ""
-    echo -e "${YELLOW}$1${NC}"
-    echo -e "${YELLOW}------------------------------------------------------------${NC}"
-}
+# Load common logging
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/scripts/common-logging.sh"
 
 # Check arguments
 if [ $# -lt 1 ]; then
@@ -49,7 +18,7 @@ fi
 
 INPUT_VIDEO="$1"
 
-print_header "CP-WHISPERX-APP QUICK START"
+log_section "CP-WHISPERX-APP QUICK START"
 log_info "Input: $INPUT_VIDEO"
 echo ""
 
@@ -60,7 +29,9 @@ if [ ! -f "$INPUT_VIDEO" ]; then
 fi
 
 # Step 1: Preflight checks
-print_step "Step 1/3: Running preflight checks..."
+echo ""
+echo "Step 1/3: Running preflight checks..."
+echo "------------------------------------------------------------"
 log_info "Validating system requirements..."
 
 if python3 preflight.py; then
@@ -71,7 +42,9 @@ else
 fi
 
 # Step 2: Prepare job
-print_step "Step 2/3: Preparing job..."
+echo ""
+echo "Step 2/3: Preparing job..."
+echo "------------------------------------------------------------"
 log_info "Creating job structure and configuration..."
 
 python3 prepare-job.py "$INPUT_VIDEO" --subtitle-gen
@@ -95,7 +68,9 @@ fi
 log_success "Job ID: $JOB_ID"
 
 # Step 3: Run pipeline
-print_step "Step 3/3: Running pipeline..."
+echo ""
+echo "Step 3/3: Running pipeline..."
+echo "------------------------------------------------------------"
 log_info "Executing full subtitle generation pipeline..."
 
 python3 pipeline.py --job "$JOB_ID"
@@ -105,7 +80,7 @@ if [ $? -ne 0 ]; then
 fi
 
 # Success
-print_header "QUICK START COMPLETE"
+log_section "QUICK START COMPLETE"
 log_success "Job completed successfully"
 echo ""
 echo "Check output directory: out/$YEAR/$MONTH/$DAY/*/$JOB_ID"

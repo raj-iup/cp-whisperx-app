@@ -147,8 +147,8 @@ function Write-LogSection {
 # Functions are automatically available when dot-sourced
 # No need for Export-ModuleMember in a .ps1 file
 
-# Show usage if run directly
-if ($MyInvocation.InvocationName -eq "common-logging.ps1") {
+# Show usage if run directly (check if script is being run, not dot-sourced)
+if ($MyInvocation.InvocationName -ne '.' -and $MyInvocation.InvocationName -notlike '*\*') {
     Write-Host ""
     Write-Host "Common Logging Functions for PowerShell Scripts" -ForegroundColor Cyan
     Write-Host ""

@@ -9,45 +9,26 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-# Logging functions
-function Write-Log {
-    param([string]$Message, [string]$Level = "INFO")
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $logMessage = "[$timestamp] [pull-images] [$Level] $Message"
-    
-    switch ($Level) {
-        "ERROR" { Write-Host $logMessage -ForegroundColor Red }
-        "WARNING" { Write-Host $logMessage -ForegroundColor Yellow }
-        "SUCCESS" { Write-Host $logMessage -ForegroundColor Green }
-        default { Write-Host $logMessage }
-    }
-}
-
-function Write-Header {
-    param([string]$Title)
-    Write-Host ""
-    Write-Host ("=" * 60) -ForegroundColor Cyan
-    Write-Host $Title -ForegroundColor Cyan
-    Write-Host ("=" * 60) -ForegroundColor Cyan
-}
+# Load common logging
+. "$PSScriptRoot\scripts\common-logging.ps1"
 
 # Start
-Write-Header "CP-WHISPERX-APP IMAGE PULL"
-Write-Log "Registry: $Registry" "INFO"
+Write-LogSection "CP-WHISPERX-APP IMAGE PULL"
+Write-LogInfo "Registry: $Registry"
 
-# Check if docker scripts exist
-if (Test-Path "scripts\pull-all-images.bat") {
-    Write-Log "Calling scripts\pull-all-images.bat..." "INFO"
-    & cmd /c "scripts\pull-all-images.bat"
+# Check if pull script exists in scripts directory
+if (Test-Path "scripts\pull-all-images.sh") {
+    Write-LogInfo "Calling scripts\pull-all-images.sh..."
+    & bash "scripts\pull-all-images.sh"
     
     if ($LASTEXITCODE -eq 0) {
-        Write-Log "All images pulled successfully" "SUCCESS"
+        Write-LogSuccess "All images pulled successfully"
         exit 0
     } else {
-        Write-Log "Image pull failed with exit code $LASTEXITCODE" "ERROR"
+        Write-LogError "Image pull failed with exit code $LASTEXITCODE"
         exit $LASTEXITCODE
     }
 } else {
-    Write-Log "Image pull script not found: scripts\pull-all-images.bat" "ERROR"
+    Write-LogError "Image pull script not found: scripts\pull-all-images.sh"
     exit 1
 }

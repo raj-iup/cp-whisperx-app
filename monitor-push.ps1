@@ -3,33 +3,14 @@
 
 $ErrorActionPreference = "Continue"
 
-# Logging functions
-function Write-Log {
-    param([string]$Message, [string]$Level = "INFO")
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $logMessage = "[$timestamp] [push-monitor] [$Level] $Message"
-    
-    switch ($Level) {
-        "ERROR" { Write-Host $logMessage -ForegroundColor Red }
-        "WARNING" { Write-Host $logMessage -ForegroundColor Yellow }
-        "SUCCESS" { Write-Host $logMessage -ForegroundColor Green }
-        default { Write-Host $logMessage }
-    }
-}
-
-function Write-Header {
-    param([string]$Title)
-    Write-Host ""
-    Write-Host ("=" * 60) -ForegroundColor Cyan
-    Write-Host $Title -ForegroundColor Cyan
-    Write-Host ("=" * 60) -ForegroundColor Cyan
-}
+# Load common logging
+. "$PSScriptRoot\scripts\common-logging.ps1"
 
 # Set window title
 $host.UI.RawUI.WindowTitle = "Docker Push Monitor"
 
-Write-Header "DOCKER PUSH MONITOR"
-Write-Log "Monitoring push_all.log for progress..." "INFO"
+Write-LogSection "DOCKER PUSH MONITOR"
+Write-LogInfo "Monitoring push_all.log for progress..."
 Write-Host ""
 Write-Host "Press Ctrl+C to exit monitor" -ForegroundColor Yellow
 Write-Host ""

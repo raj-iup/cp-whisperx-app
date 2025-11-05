@@ -2,16 +2,16 @@
 set -euo pipefail
 
 # Bootstrap script for cp-whisperx-app
-# - creates a Python venv at .bollyenv
-# - ensures pip/wheel are up-to-date
-# - writes a sensible requirements.txt if missing
-# - installs Python dependencies
-# - runs a quick MPS/CUDA availability check
+# Creates Python virtual environment and installs dependencies
+
+# Load common logging
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/common-logging.sh"
 
 VENV_DIR=".bollyenv"
 REQ_FILE="requirements.txt"
 
-echo "== cp-whisperx-app bootstrap =="
+log_section "CP-WHISPERX-APP BOOTSTRAP"
 
 PYTHON_BIN=""
 if command -v python3 >/dev/null 2>&1; then
@@ -19,13 +19,13 @@ if command -v python3 >/dev/null 2>&1; then
 elif command -v python >/dev/null 2>&1; then
   PYTHON_BIN=python
 else
-  echo "ERROR: Python not found. Please install Python 3.11+." >&2
+  log_error "Python not found. Please install Python 3.11+."
   exit 1
 fi
 
-echo "Using python: $(command -v $PYTHON_BIN)"
+log_info "Using python: $(command -v $PYTHON_BIN)"
 
-echo "Checking Python version (recommended: 3.11+)"
+log_info "Checking Python version (recommended: 3.11+)"
 $PYTHON_BIN - <<'PY'
 import sys
 v = sys.version_info
@@ -35,21 +35,21 @@ if v.major < 3 or (v.major == 3 and v.minor < 11):
 PY
 
 if [ -d "$VENV_DIR" ]; then
-  echo "Found existing virtualenv in $VENV_DIR"
+  log_info "Found existing virtualenv in $VENV_DIR"
 else
-  echo "Creating virtualenv in $VENV_DIR"
+  log_info "Creating virtualenv in $VENV_DIR"
   $PYTHON_BIN -m venv "$VENV_DIR"
 fi
 
-echo "Activating virtualenv"
+log_info "Activating virtualenv"
 # shellcheck source=/dev/null
 source "$VENV_DIR/bin/activate"
 
-echo "Upgrading pip and wheel"
+log_info "Upgrading pip and wheel"
 python -m pip install -U pip wheel
 
 if [ ! -f "$REQ_FILE" ]; then
-  echo "No $REQ_FILE found — writing recommended requirements.txt"
+  log_info "No $REQ_FILE found — writing recommended requirements.txt"
   cat > "$REQ_FILE" <<'EOF'
 torch>=2.3,<3.0
 torchaudio>=2.3,<3.0
@@ -69,13 +69,13 @@ pysubs2>=1.1.0
 spacy>=3.7.0
 transformers>=4.30.0
 EOF
-  echo "Wrote $REQ_FILE"
+  log_success "Wrote $REQ_FILE"
 fi
 
-echo "Installing Python packages from $REQ_FILE (this can take a while)"
+log_info "Installing Python packages from $REQ_FILE (this can take a while)"
 python -m pip install -r "$REQ_FILE"
 
-echo "Running quick torch/MPS/CUDA check"
+log_info "Running quick torch/MPS/CUDA check"
 python - <<'PY'
 try:
     import torch, sys
@@ -89,10 +89,12 @@ except Exception as e:
     sys.exit(0)
 PY
 
-echo "Bootstrap complete."
+log_section "BOOTSTRAP COMPLETE"
+echo ""
 echo "Next steps:"
 echo "  - Create ./config/.env and ./config/secrets.json (see README.md for format)."
 echo "  - Run ./scripts/preflight.sh to validate system deps and tokens."
 echo "  - Run the pipeline via: ./run_pipeline.py -h or ./scripts/run.sh (if provided)."
+echo ""
 
 exit 0

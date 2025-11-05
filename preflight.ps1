@@ -9,35 +9,16 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-# Logging functions
-function Write-Log {
-    param([string]$Message, [string]$Level = "INFO")
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $logMessage = "[$timestamp] [preflight] [$Level] $Message"
-    
-    switch ($Level) {
-        "ERROR" { Write-Host $logMessage -ForegroundColor Red }
-        "WARNING" { Write-Host $logMessage -ForegroundColor Yellow }
-        "SUCCESS" { Write-Host $logMessage -ForegroundColor Green }
-        default { Write-Host $logMessage }
-    }
-}
-
-function Write-Header {
-    param([string]$Title)
-    Write-Host ""
-    Write-Host ("=" * 60) -ForegroundColor Cyan
-    Write-Host $Title -ForegroundColor Cyan
-    Write-Host ("=" * 60) -ForegroundColor Cyan
-}
+# Load common logging
+. "$PSScriptRoot\scripts\common-logging.ps1"
 
 # Start
-Write-Header "CP-WHISPERX-APP PREFLIGHT CHECKS"
-Write-Log "Starting preflight validation..." "INFO"
+Write-LogSection "CP-WHISPERX-APP PREFLIGHT CHECKS"
+Write-LogInfo "Starting preflight validation..."
 
 # Validate Python
 if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
-    Write-Log "Python not found. Please install Python 3.9+" "ERROR"
+    Write-LogError "Python not found. Please install Python 3.9+"
     exit 1
 }
 
@@ -46,26 +27,26 @@ $pythonArgs = @("preflight.py")
 
 if ($Force) {
     $pythonArgs += "--force"
-    Write-Log "Force mode: ENABLED" "INFO"
+    Write-LogInfo "Force mode: ENABLED"
 }
 
 # Execute Python script
-Write-Log "Executing: python $($pythonArgs -join ' ')" "INFO"
+Write-LogInfo "Executing: python $($pythonArgs -join ' ')"
 Write-Host ""
 
 try {
     & python @pythonArgs
     
     if ($LASTEXITCODE -eq 0) {
-        Write-Log "Preflight checks passed" "SUCCESS"
+        Write-LogSuccess "Preflight checks passed"
         Write-Host ""
         exit 0
     } else {
-        Write-Log "Preflight checks failed with exit code $LASTEXITCODE" "ERROR"
+        Write-LogError "Preflight checks failed with exit code $LASTEXITCODE"
         Write-Host ""
         exit $LASTEXITCODE
     }
 } catch {
-    Write-Log "Unexpected error: $_" "ERROR"
+    Write-LogError "Unexpected error: $_"
     exit 1
 }
