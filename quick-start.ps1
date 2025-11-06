@@ -29,7 +29,7 @@ Write-Host "Step 1/3: Running preflight checks..." -ForegroundColor Yellow
 Write-Host ("-" * 60) -ForegroundColor Yellow
 Write-LogInfo "Validating system requirements..."
 
-& python preflight.py
+& python scripts\preflight.py
 if ($LASTEXITCODE -ne 0) {
     Write-LogError "Preflight checks failed! Please fix errors before continuing."
     exit 1
@@ -42,7 +42,7 @@ Write-Host "Step 2/3: Preparing job..." -ForegroundColor Yellow
 Write-Host ("-" * 60) -ForegroundColor Yellow
 Write-LogInfo "Creating job structure and configuration..."
 
-& python prepare-job.py $InputVideo --subtitle-gen
+& python scripts\prepare-job.py $InputVideo --subtitle-gen
 if ($LASTEXITCODE -ne 0) {
     Write-LogError "Job preparation failed!"
     exit 1
@@ -71,7 +71,7 @@ Write-Host "Step 3/3: Running pipeline..." -ForegroundColor Yellow
 Write-Host ("-" * 60) -ForegroundColor Yellow
 Write-LogInfo "Executing full subtitle generation pipeline..."
 
-& python pipeline.py --job $jobId
+& python scripts\pipeline.py --job $jobId
 if ($LASTEXITCODE -ne 0) {
     Write-LogError "Pipeline execution failed!"
     exit 1

@@ -16,7 +16,8 @@ from typing import List, Dict, Optional
 
 # Add paths for imports
 SCRIPT_DIR = Path(__file__).parent
-sys.path.insert(0, str(SCRIPT_DIR / 'shared'))
+PROJECT_ROOT = SCRIPT_DIR.parent
+sys.path.insert(0, str(PROJECT_ROOT / 'shared'))
 
 from shared.logger import PipelineLogger, get_stage_log_filename
 from shared.config import load_config
@@ -70,7 +71,7 @@ class JobOrchestrator:
             raise ValueError(f"Job not found: {job_id}")
         
         # Load job configuration
-        job_env_file = Path(self.job_info["job_env_file"])
+        job_env_file = Path(self.job_info["env_file"])
         if not job_env_file.exists():
             raise ValueError(f"Job environment file not found: {job_env_file}")
         

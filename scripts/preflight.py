@@ -12,9 +12,11 @@ from pathlib import Path
 from datetime import datetime, timedelta
 from typing import List, Tuple, Dict, Optional, Any
 
-# Add scripts to path for manifest integration
-sys.path.insert(0, str(Path(__file__).parent / 'scripts'))
-from manifest import ManifestBuilder
+# Add paths for imports
+SCRIPT_DIR = Path(__file__).parent
+PROJECT_ROOT = SCRIPT_DIR.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+from scripts.manifest import ManifestBuilder
 
 # Color codes for terminal output
 GREEN = '\033[92m'

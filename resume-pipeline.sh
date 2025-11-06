@@ -28,10 +28,10 @@ if ! command -v python3 &> /dev/null; then
 fi
 
 # Execute pipeline with resume enabled (default behavior)
-log_info "Executing: python3 pipeline.py --job $JOB_ID"
+log_info "Executing: python3 scripts/pipeline.py --job $JOB_ID"
 echo ""
 
-python3 pipeline.py --job "$JOB_ID"
+python3 scripts/pipeline.py --job "$JOB_ID"
 
 if [ $? -eq 0 ]; then
     log_section "PIPELINE RESUMED SUCCESSFULLY"

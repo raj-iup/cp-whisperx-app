@@ -46,7 +46,8 @@ from typing import Optional, Dict
 
 # Add paths for imports
 SCRIPT_DIR = Path(__file__).parent
-sys.path.insert(0, str(SCRIPT_DIR / 'shared'))
+PROJECT_ROOT = SCRIPT_DIR.parent
+sys.path.insert(0, str(PROJECT_ROOT / 'shared'))
 
 from shared.logger import PipelineLogger, get_stage_log_filename
 
@@ -768,6 +769,10 @@ DEVICE_NER=cpu
             'optimized_settings': settings
         }
         
+        # Update job info with env_file and status
+        job_info["env_file"] = str(job_env_file.absolute())
+        job_info["status"] = "ready"
+        
         # Save updated job.json
         job_json_file = job_dir / "job.json"
         with open(job_json_file, 'w') as f:
@@ -779,9 +784,6 @@ DEVICE_NER=cpu
             self.logger.info(f"Recommended model: {settings['whisper_model']}")
             self.logger.info(f"Batch size: {settings['batch_size']}")
             self.logger.info(f"Compute type: {settings['compute_type']}")
-        
-        job_info["env_file"] = str(job_env_file.absolute())
-        job_info["status"] = "ready"
 
 
 def main():
@@ -914,8 +916,8 @@ Examples:
     logger.info("="*60)
     logger.info(f"Job ID: {job_info['job_id']}")
     logger.info(f"Job Directory: {job_info['job_dir']}")
-    logger.info(f"Environment File: {job_info['job_env_file']}")
-    logger.info(f"Media File: {job_info['media_path']}")
+    logger.info(f"Environment File: {job_info['env_file']}")
+    logger.info(f"Media File: {media_path}")
     logger.info(f"Workflow Mode: {workflow_mode.upper()}")
     if args.native:
         logger.info(f"Native Execution: {job_info.get('device', 'cpu').upper()}")

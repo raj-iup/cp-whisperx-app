@@ -23,11 +23,11 @@ if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
 }
 
 # Execute pipeline with resume enabled (default behavior)
-Write-LogInfo "Executing: python pipeline.py --job $Job"
+Write-LogInfo "Executing: python scripts\pipeline.py --job $Job"
 Write-Host ""
 
 try {
-    & python pipeline.py --job $Job
+    & python scripts\pipeline.py --job $Job
     
     if ($LASTEXITCODE -eq 0) {
         Write-LogSection "PIPELINE RESUMED SUCCESSFULLY"

@@ -23,7 +23,7 @@ if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
 }
 
 # Build arguments
-$pythonArgs = @("preflight.py")
+$pythonArgs = @("scripts\preflight.py")
 
 if ($Force) {
     $pythonArgs += "--force"

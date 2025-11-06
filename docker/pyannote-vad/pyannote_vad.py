@@ -6,6 +6,8 @@ Uses local PyAnnote.audio for VAD processing with chunking support.
 
 Input: Silero VAD segments JSON + 16kHz mono audio
 Output: Refined speech segments JSON
+
+Phase 2 Enhancement: Native PyTorch execution support
 """
 import sys
 import json
@@ -15,6 +17,54 @@ import soundfile as sf
 import numpy as np
 import tempfile
 import os
+
+# ============================================================================
+# PHASE 2: Native Execution Mode Check
+# ============================================================================
+def verify_pytorch_availability():
+    """Verify PyTorch is available in native or Docker environment.
+    
+    Phase 2 Enhancement: Containers no longer include PyTorch in image.
+    PyTorch is provided by native .bollyenv environment for optimal performance.
+    """
+    execution_mode = os.getenv('EXECUTION_MODE', 'docker')
+    
+    try:
+        import torch
+        
+        # Verify CUDA availability if expected
+        cuda_available = torch.cuda.is_available()
+        device_name = torch.cuda.get_device_name(0) if cuda_available else "CPU"
+        
+        print(f"✓ PyTorch {torch.__version__} available")
+        print(f"✓ Execution mode: {execution_mode}")
+        print(f"✓ Device: {device_name}")
+        
+        return True
+        
+    except ImportError as e:
+        print("=" * 70)
+        print("ERROR: PyTorch not available")
+        print("=" * 70)
+        print(f"Execution mode: {execution_mode}")
+        print("")
+        
+        if execution_mode == 'native':
+            print("Native execution mode requires bootstrap:")
+            print("  1. Run: ./scripts/bootstrap.ps1")
+            print("  2. Ensure .bollyenv volume mounted in docker-compose.yml")
+            print("  3. Check PATH includes: /app/.bollyenv/bin")
+        else:
+            print("Docker execution mode requires PyTorch in image:")
+            print("  - This image is SLIM (no PyTorch)")
+            print("  - Use native mode or rebuild with full image")
+        
+        print("=" * 70)
+        sys.exit(1)
+
+# Verify PyTorch before proceeding
+verify_pytorch_availability()
+# ============================================================================
 
 sys.path.insert(0, '/app/shared')
 from config import load_config

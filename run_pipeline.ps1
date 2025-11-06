@@ -24,7 +24,7 @@ $ErrorActionPreference = "Stop"
 # Handle --list-stages
 if ($ListStages) {
     Write-LogInfo "Listing available pipeline stages..."
-    & python pipeline.py --list-stages
+    & python scripts\pipeline.py --list-stages
     exit $LASTEXITCODE
 }
 
@@ -47,7 +47,7 @@ if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
 }
 
 # Build arguments
-$pythonArgs = @("pipeline.py", "--job", $Job)
+$pythonArgs = @("scripts\pipeline.py", "--job", $Job)
 
 if ($Stages) {
     $pythonArgs += "--stages"

@@ -34,7 +34,7 @@ echo "Step 1/3: Running preflight checks..."
 echo "------------------------------------------------------------"
 log_info "Validating system requirements..."
 
-if python3 preflight.py; then
+if python3 scripts/preflight.py; then
     log_success "Preflight checks passed"
 else
     log_error "Preflight checks failed! Please fix errors before continuing."
@@ -47,7 +47,7 @@ echo "Step 2/3: Preparing job..."
 echo "------------------------------------------------------------"
 log_info "Creating job structure and configuration..."
 
-python3 prepare-job.py "$INPUT_VIDEO" --subtitle-gen
+python3 scripts/prepare-job.py "$INPUT_VIDEO" --subtitle-gen
 if [ $? -ne 0 ]; then
     log_error "Job preparation failed!"
     exit 1
@@ -73,7 +73,7 @@ echo "Step 3/3: Running pipeline..."
 echo "------------------------------------------------------------"
 log_info "Executing full subtitle generation pipeline..."
 
-python3 pipeline.py --job "$JOB_ID"
+python3 scripts/pipeline.py --job "$JOB_ID"
 if [ $? -ne 0 ]; then
     log_error "Pipeline execution failed!"
     exit 1

@@ -103,7 +103,7 @@ done
 # Handle --list-stages
 if [ "$LIST_STAGES" = true ]; then
     log_info "Listing available pipeline stages..."
-    python3 pipeline.py --list-stages
+    python3 scripts/pipeline.py --list-stages
     exit $?
 fi
 
@@ -125,7 +125,7 @@ if ! command -v python3 &> /dev/null; then
 fi
 
 # Build arguments
-PYTHON_ARGS=("pipeline.py" "--job" "$JOB_ID")
+PYTHON_ARGS=("scripts/pipeline.py" "--job" "$JOB_ID")
 
 if [ -n "$STAGES" ]; then
     PYTHON_ARGS+=("--stages" $STAGES)

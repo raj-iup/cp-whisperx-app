@@ -95,6 +95,15 @@ def setup_logger(
     
     # Console handler
     if log_to_console:
+        # Use UTF-8 encoding for console output to handle Unicode characters on Windows
+        import io
+        if sys.platform == 'win32':
+            # Reconfigure stdout to use UTF-8 encoding with error handling
+            try:
+                sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+            except (AttributeError, OSError):
+                # Fallback for older Python or if reconfigure fails
+                sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setFormatter(formatter)
         logger.addHandler(console_handler)
