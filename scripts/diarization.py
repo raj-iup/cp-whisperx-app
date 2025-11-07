@@ -49,9 +49,31 @@ class DiarizationProcessor:
 
     def load_model(self):
         """Load pyannote diarization model"""
+        import torch
+        
         self.logger.info("Loading pyannote diarization model...")
         self.logger.info(f"  Model: {self.model_name}")
-        self.logger.info(f"  Device: {self.device}")
+        self.logger.info(f"  Device requested: {self.device}")
+
+        # Auto-detect best available device if needed
+        original_device = self.device
+        if self.device.upper() == "MPS" and not torch.backends.mps.is_available():
+            self.logger.warning("  MPS not available on this system")
+            if torch.cuda.is_available():
+                self.device = "cuda"
+                self.logger.info(f"  Falling back to CUDA")
+            else:
+                self.device = "cpu"
+                self.logger.warning("  Falling back to CPU (will be slow!)")
+        elif self.device.upper() == "CUDA" and not torch.cuda.is_available():
+            self.logger.warning("  CUDA not available on this system")
+            self.device = "cpu"
+            self.logger.warning("  Falling back to CPU (will be slow!)")
+        
+        if self.device == "cpu":
+            self.logger.warning("  ⚠️  Running diarization on CPU is VERY SLOW")
+            self.logger.warning("  ⚠️  This may take hours for long audio files")
+            self.logger.warning("  ⚠️  Consider using GPU acceleration or Docker mode")
 
         try:
             # Use pyannote.audio Pipeline directly
@@ -62,10 +84,13 @@ class DiarizationProcessor:
             # Move to specified device
             if self.device != "cpu":
                 try:
-                    self.diarize_model.to(self.device)
+                    # Convert device string to torch.device object
+                    device_obj = torch.device(self.device.lower())
+                    self.diarize_model.to(device_obj)
+                    self.logger.info(f"  Model moved to {self.device}")
                 except Exception as e:
                     self.logger.warning(f"  Could not move to {self.device}: {e}")
-                    self.logger.warning("  Using CPU instead")
+                    self.logger.warning("  Using CPU instead (will be slow!)")
                     self.device = "cpu"
             self.logger.info("  Diarization model loaded successfully")
         except Exception as e:
