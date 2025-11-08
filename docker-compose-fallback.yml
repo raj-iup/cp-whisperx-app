@@ -31,8 +31,6 @@ services:
     environment:
       - CONFIG_PATH=${CONFIG_PATH:-/app/config/.env}
       - PYTHONPATH=/app
-    depends_on:
-      - demux
 
   pre-ner:
     image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-pre-ner:cpu"
@@ -45,8 +43,6 @@ services:
     environment:
       - CONFIG_PATH=${CONFIG_PATH:-/app/config/.env}
       - PYTHONPATH=/app
-    depends_on:
-      - tmdb
 
   post-ner:
     image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-post-ner:cpu"
@@ -59,8 +55,6 @@ services:
     environment:
       - CONFIG_PATH=${CONFIG_PATH:-/app/config/.env}
       - PYTHONPATH=/app
-    depends_on:
-      - asr
 
   subtitle-gen:
     image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-subtitle-gen:cpu"
@@ -72,8 +66,6 @@ services:
     environment:
       - CONFIG_PATH=${CONFIG_PATH:-/app/config/.env}
       - PYTHONPATH=/app
-    depends_on:
-      - post-ner
 
   mux:
     image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-mux:cpu"
@@ -86,8 +78,6 @@ services:
     environment:
       - CONFIG_PATH=${CONFIG_PATH:-/app/config/.env}
       - PYTHONPATH=/app
-    depends_on:
-      - subtitle-gen
 
   # GPU Stages - use :cuda tag with :cpu fallback
   # These services are defined twice: GPU version and CPU fallback
@@ -111,8 +101,6 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
-    depends_on:
-      - pre-ner
 
   # Silero VAD - CPU fallback
   silero-vad:
@@ -126,8 +114,6 @@ services:
     environment:
       - CONFIG_PATH=${CONFIG_PATH:-/app/config/.env}
       - PYTHONPATH=/app
-    depends_on:
-      - pre-ner
 
   # PyAnnote VAD - GPU version
   pyannote-vad-gpu:
@@ -149,8 +135,6 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
-    depends_on:
-      - silero-vad-gpu
 
   # PyAnnote VAD - CPU fallback
   pyannote-vad:
@@ -165,8 +149,6 @@ services:
     environment:
       - CONFIG_PATH=${CONFIG_PATH:-/app/config/.env}
       - PYTHONPATH=/app
-    depends_on:
-      - silero-vad
 
   # Diarization - GPU version
   diarization-gpu:
@@ -189,8 +171,6 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
-    depends_on:
-      - pyannote-vad-gpu
 
   # Diarization - CPU fallback
   diarization:
@@ -206,8 +186,6 @@ services:
     environment:
       - CONFIG_PATH=${CONFIG_PATH:-/app/config/.env}
       - PYTHONPATH=/app
-    depends_on:
-      - pyannote-vad
 
   # ASR - GPU version
   asr-gpu:
@@ -232,8 +210,6 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
-    depends_on:
-      - diarization-gpu
 
   # ASR - CPU fallback
   asr:
@@ -251,8 +227,6 @@ services:
       - PYTHONPATH=/app
     mem_limit: 16g
     memswap_limit: 16g
-    depends_on:
-      - diarization
 
 # Usage examples:
 #
@@ -272,4 +246,5 @@ services:
 # - CPU-Only Stages: :cpu tag (demux, tmdb, pre-ner, post-ner, subtitle-gen, mux)
 # - GPU Stages: :cuda tag (silero-vad, pyannote-vad, diarization, asr)
 # - GPU Fallback: :cpu tag (same stages, CPU execution)
+
 

@@ -61,6 +61,12 @@ class PipelineConfig(BaseSettings):
     tmdb_language: str = Field(default="en-US", env="TMDB_LANGUAGE")
     tmdb_infer_from_filename: bool = Field(default=True, env="TMDB_INFER_FROM_FILENAME")
     
+    # Pre-ASR NER
+    pre_ner_enabled: bool = Field(default=True, env="PRE_NER_ENABLED")
+    pre_ner_model: str = Field(default="en_core_web_trf", env="PRE_NER_MODEL")
+    pre_ner_confidence_threshold: float = Field(default=0.0, env="PRE_NER_CONFIDENCE")
+    pre_ner_entity_types: str = Field(default="PERSON,ORG,GPE,LOC,FAC", env="PRE_NER_ENTITY_TYPES")
+    
     # Whisper/WhisperX - Basic parameters
     whisper_model: str = Field(default="large-v3", env="WHISPER_MODEL")
     whisper_compute_type: str = Field(default="int8", env="WHISPER_COMPUTE_TYPE")

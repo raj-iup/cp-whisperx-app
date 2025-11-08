@@ -12,9 +12,17 @@ import os
 from pathlib import Path
 from typing import List, Dict
 
-# Setup paths
-sys.path.insert(0, '/app')
-sys.path.insert(0, '/app/shared')
+# Setup paths - handle both Docker and native execution
+execution_mode = os.getenv('EXECUTION_MODE', 'docker')
+if execution_mode == 'native':
+    # Native mode: add project root to path
+    project_root = Path(__file__).resolve().parents[2]  # docker/second-pass-translation -> root
+    sys.path.insert(0, str(project_root))
+    sys.path.insert(0, str(project_root / 'shared'))
+else:
+    # Docker mode: use /app paths
+    sys.path.insert(0, '/app')
+    sys.path.insert(0, '/app/shared')
 
 from logger import PipelineLogger
 
@@ -56,7 +64,7 @@ def translate_with_nllb(texts: List[str], src_lang: str, tgt_lang: str, device: 
     if device == 'cuda':
         model = model.cuda()
     
-    logger.info(f"✓ NLLB model loaded on {device}")
+    logger.info(f"[OK] NLLB model loaded on {device}")
     
     translated = []
     for i in range(0, len(texts), batch_size):
@@ -105,7 +113,7 @@ def translate_with_opus_mt(texts: List[str], src_lang: str, tgt_lang: str, devic
     if device == 'cuda':
         model = model.cuda()
     
-    logger.info(f"✓ Opus-MT model loaded on {device}")
+    logger.info(f"[OK] Opus-MT model loaded on {device}")
     
     translated = []
     for i in range(0, len(texts), batch_size):
@@ -141,7 +149,7 @@ def translate_with_mbart(texts: List[str], src_lang: str, tgt_lang: str, device:
     if device == 'cuda':
         model = model.cuda()
     
-    logger.info(f"✓ mBART model loaded on {device}")
+    logger.info(f"[OK] mBART model loaded on {device}")
     
     tokenizer.src_lang = src_lang_code
     translated = []
@@ -245,7 +253,7 @@ def main():
         with open(asr_file, 'w') as f:
             json.dump(asr_result, f, indent=2, ensure_ascii=False)
         
-        logger.info(f"✓ Enhanced {len(translated)} segments")
+        logger.info(f"[OK] Enhanced {len(translated)} segments")
         logger.info(f"Saved: {asr_file}")
         
     except Exception as e:

@@ -1,5 +1,6 @@
 ARG REGISTRY=rajiup
-FROM ${REGISTRY}/cp-whisperx-app-base-ml:cuda
+ARG BASE_TAG=cuda
+FROM ${REGISTRY}/cp-whisperx-app-base-ml:${BASE_TAG}
 
 LABEL description="WhisperX ASR - Automatic Speech Recognition with translation"
 

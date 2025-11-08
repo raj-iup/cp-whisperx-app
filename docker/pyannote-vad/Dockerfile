@@ -1,5 +1,6 @@
 ARG REGISTRY=rajiup
-FROM ${REGISTRY}/cp-whisperx-app-base-ml:cuda
+ARG BASE_TAG=cuda
+FROM ${REGISTRY}/cp-whisperx-app-base-ml:${BASE_TAG}
 
 LABEL description="PyAnnote VAD - Local voice activity detection with chunking"
 

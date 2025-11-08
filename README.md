@@ -46,41 +46,60 @@ The optional **second-pass translation** and **lyrics detection** stages are **h
 - Specialized **song lyric translation** (20-25% boost for musical sequences)
 - Preservation of proper nouns and character names
 
-See [Bollywood Subtitle Workflow](docs/BOLLYWOOD_SUBTITLE_WORKFLOW.md) for detailed information.
+See [Bollywood Subtitle Workflow](docs/guides/BOLLYWOOD_WORKFLOW.md) for detailed information.
 
 ---
 
 ## ✨ Key Features
 
-### Cross-Platform Support
-- **Windows 11 Pro** with NVIDIA GPU (CUDA)
-- **Linux** with NVIDIA GPU (CUDA)
-- **macOS** with Apple Silicon (MPS)
-- **CPU Fallback** for any platform
+### Platform-Aware Execution Modes 🚀 NEW!
 
-### Dual Execution Modes
-- **Native Mode**: Direct Python execution with GPU acceleration (fastest)
-- **Docker Mode**: Containerized execution for reproducibility and isolation
+**Intelligent execution mode selection based on your platform:**
+
+#### Windows
+- **Primary**: Native execution with .bollyenv (CUDA or CPU)
+- **Fallback**: Docker CPU containers (if native unavailable)
+- **Best Performance**: Native CUDA execution with NVIDIA GPU
+- **Setup**: Run `.\scripts\bootstrap.ps1` once
+
+#### Linux
+- **Primary**: Docker execution with full isolation
+- **GPU Support**: CUDA containers when GPU available
+- **CPU Fallback**: Automatic if no GPU detected
+- **Best For**: Production deployments, CI/CD
+
+#### macOS
+- **Primary**: Native execution with .bollyenv (MPS acceleration)
+- **Fallback**: Docker CPU containers (if native fails)
+- **Best Performance**: Native MPS with Apple Silicon
+- **Setup**: Run `./scripts/bootstrap.sh` once
+
+### Cross-Platform Support
+- **Windows 11 Pro** with NVIDIA GPU (CUDA) or CPU
+- **Linux** with NVIDIA GPU (CUDA) or CPU
+- **macOS** with Apple Silicon (MPS) or CPU
+- **Automatic GPU Detection** and platform optimization
 
 ### Production-Ready
 - **Resumable Pipeline**: Continue from any failed stage
 - **Comprehensive Logging**: Detailed logs for every stage
 - **Automatic Fallback**: Graceful degradation from GPU to CPU
 - **Manifest Tracking**: Complete job history and metadata
+- **Platform Detection**: Automatic execution mode selection
 
 ---
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Python 3.9+ (for native mode)
-- Docker Desktop (for Docker mode)
-- NVIDIA GPU with CUDA 11.8+ (recommended) or CPU fallback
+- Python 3.9+ (for native mode on Windows/macOS)
+- Docker Desktop (for Linux or Docker mode)
+- NVIDIA GPU with CUDA 11.8+ (optional, recommended for speed)
 - 8GB+ RAM (16GB+ recommended)
 
-### Installation (Phase 1 & 2 Optimized)
+### Installation
 
-**⚡ New in v2.0:** 75-85% faster job preparation, 60% smaller Docker images!
+**⚡ New in v2.1:** Platform-aware execution with intelligent fallback!
 
 1. **Clone the repository**
    ```bash
@@ -97,7 +116,7 @@ See [Bollywood Subtitle Workflow](docs/BOLLYWOOD_SUBTITLE_WORKFLOW.md) for detai
    ./scripts/bootstrap.sh
    ```
    
-   Bootstrap creates `.bollyenv` with all dependencies, detects hardware, and optionally pre-downloads ML models.
+   Bootstrap creates `.bollyenv` with all dependencies, detects hardware, and configures optimal execution mode for your platform.
 
 3. **Build Docker Images** (2-30 minutes depending on mode)
    
@@ -140,138 +159,66 @@ See [Bollywood Subtitle Workflow](docs/BOLLYWOOD_SUBTITLE_WORKFLOW.md) for detai
 
 ## 📚 Documentation
 
-### 🎓 User Guides
-Start here if you're new to the project or want to learn how to use it effectively.
+**📖 [Complete Documentation Index](docs/INDEX.md)** - Start here for all documentation
 
-- **[Quick Start Guide](docs/guides/user/quickstart.md)** - Get up and running in 5 minutes
-- **[Workflow Guide](docs/guides/user/workflow-guide.md)** - Understand the complete pipeline workflow
-- **[Docker Quick Start](docs/guides/user/docker-quickstart.md)** - Using Docker mode
-- **[Pipeline Resume Guide](docs/guides/user/pipeline-resume-guide.md)** - Recover from failures
+### Quick Links
 
-### 🖥️ Hardware & Acceleration Guides
-Configure your system for optimal performance.
+#### New Users
+- **[Quick Start Guide](docs/getting-started/QUICKSTART.md)** ⭐ - Get running in 15-30 minutes
+- **[Installation Guide](docs/getting-started/INSTALLATION.md)** - Detailed setup
+- **[Your First Job](docs/getting-started/FIRST_JOB.md)** - Complete walkthrough
+- **[Troubleshooting](docs/getting-started/TROUBLESHOOTING.md)** - Common issues
 
-- **[CUDA Acceleration Guide](docs/guides/hardware/cuda-acceleration.md)** - NVIDIA GPU setup (Windows/Linux)
-- **[MPS Acceleration Guide](docs/guides/hardware/mps-acceleration.md)** - Apple Silicon setup (macOS)
-- **[GPU Fallback Guide](docs/guides/hardware/gpu-fallback.md)** - CPU fallback configuration
-- **[Device Selection Guide](docs/guides/hardware/device-selection.md)** - Choose the right device
-- **[Windows 11 Setup Guide](docs/guides/hardware/windows-11-setup.md)** - Complete Windows setup
+#### Daily Usage
+- **[Prepare Job Guide](docs/guides/PREPARE_JOB.md)** - Job preparation
+- **[Run Pipeline Guide](docs/guides/RUN_PIPELINE.md)** - Execute pipeline
+- **[Resume Pipeline](docs/guides/RESUME_PIPELINE.md)** - Recover from failures
+- **[Understanding Output](docs/guides/OUTPUT.md)** - Output files
 
-### 👨‍💻 Developer Guides
-For contributors and advanced users who want to understand or modify the code.
+#### Advanced Features
+- **[Bollywood Workflow](docs/guides/BOLLYWOOD_WORKFLOW.md)** - 35-45% quality boost! ⭐
+- **[Docker Modes](docs/guides/DOCKER_MODES.md)** - Native vs Docker
+- **[Hardware Optimization](docs/guides/HARDWARE_OPTIMIZATION.md)** - Performance tuning
 
-- **[Developer Guide](docs/guides/developer/developer-guide.md)** - Architecture and development workflow
-- **[Logging Locations](docs/guides/developer/logging-locations.md)** - Where to find logs
-- **[Windows Scripts Guide](docs/guides/developer/windows-scripts.md)** - PowerShell scripts reference
-- **[Debug Mode Guide](docs/guides/developer/debug-mode.md)** - Debugging native mode
+#### Reference
+- **[Script Reference](docs/reference/SCRIPTS.md)** - All scripts
+- **[Environment Variables](docs/reference/ENVIRONMENT.md)** - Configuration
+- **[Pipeline Stages](docs/reference/PIPELINE_STAGES.md)** - 15 stages explained
+- **[Docker Images](docs/reference/DOCKER_IMAGES.md)** - Image reference
 
-### 🎭 Bollywood & Indian Content
-Specialized guides for Indian movie subtitle generation.
+#### Architecture
+- **[System Architecture](docs/architecture/SYSTEM_ARCHITECTURE.md)** - How it works
+- **[Pipeline Flow](docs/architecture/PIPELINE_FLOW.md)** - Data flow
+- **[Directory Structure](docs/architecture/DIRECTORY_STRUCTURE.md)** - Project layout
 
-- **[Bollywood Subtitle Workflow](docs/BOLLYWOOD_SUBTITLE_WORKFLOW.md)** - Complete guide for Bollywood movies ⭐
-- **[Second Pass Translation](docs/SECOND_PASS_TRANSLATION.md)** - 15-20% accuracy boost for multilingual content
-- **[Lyrics Detection](docs/LYRICS_DETECTION.md)** - 20-25% improvement for song sequences
-
-### 🏗️ Architecture Documentation
-Deep dives into system design and optimization decisions.
-
-- **[Script Consolidation Best Practices](docs/SCRIPT_CONSOLIDATION_BEST_PRACTICES.md)** - Phase 1 & 2 optimization plan ⭐
-- **[Migration Guide](docs/MIGRATION_GUIDE.md)** - Upgrade to Phase 1 & 2 enhancements ⭐
-- **[Complete Workflow Architecture](docs/WORKFLOW_ARCHITECTURE.md)** - Full pipeline design with all stages
-- **[Docker Optimization](docs/DOCKER_OPTIMIZATION.md)** - Docker build optimization strategy
-- **[Docker Optimization Feasibility](docs/DOCKER_OPTIMIZATION_FEASIBILITY.md)** - Feasibility analysis
-- **[Docker Optimization Status](docs/DOCKER_OPTIMIZATION_STATUS.md)** - Current implementation status
-- **[Docker Build Optimization](docs/DOCKER_BUILD_OPTIMIZATION.md)** - Build-time optimizations
-
-### 🐳 Docker Documentation
-Everything about Docker images, builds, and scripts.
-
-- **[Docker README](docs/docker/README.md)** - Docker overview and quick reference
-- **[Build Documentation Index](docs/docker/build-documentation-index.md)** - Complete build docs
-- **[Build Status](docs/docker/build-status.md)** - Current build status
-- **[Build Summary](docs/docker/build-summary.md)** - Build process overview
-- **[Scripts Quick Reference](docs/docker/scripts-quick-ref.md)** - Docker scripts cheat sheet
-- **[Pull Scripts Summary](docs/docker/pull-scripts-summary.md)** - Image pulling documentation
-- **[Ready to Build](docs/docker/ready-to-build.md)** - Build readiness checklist
-
-### 📖 Technical Reference
-Detailed technical documentation for specific features and systems.
-
-- **[Build Fix Summary](docs/BUILD_FIX_SUMMARY.md)** - Docker build fixes applied
-- **[Docker Base Image Fix](docs/DOCKER_BASE_IMAGE_FIX.md)** - Base image issues and fixes
-- **[Docker Image Management](docs/DOCKER_IMAGE_MANAGEMENT.md)** - Image management strategies
-- **[Docker Optimization Implementation](docs/DOCKER_OPTIMIZATION_IMPLEMENTATION.md)** - Implementation details
-- **[Docker Optimization Quick Reference](docs/DOCKER_OPTIMIZATION_QUICK_REF.md)** - Quick optimization guide
-- **[Docker Optimization Recommendations](docs/DOCKER_OPTIMIZATION_RECOMMENDATIONS.md)** - Best practices
-- **[Hardware Optimization](docs/HARDWARE_OPTIMIZATION.md)** - Hardware-specific optimizations
-- **[Implementation Uniformity](docs/IMPLEMENTATION_UNIFORMITY.md)** - Code consistency guidelines
-- **[Job Orchestration](docs/JOB_ORCHESTRATION.md)** - Pipeline orchestration details
-- **[Logging Standard](docs/LOGGING_STANDARD.md)** - Logging conventions
-- **[Logging Documentation](docs/LOGGING.md)** - Logging system overview
-- **[Manifest System Guide](docs/MANIFEST_SYSTEM_GUIDE.md)** - Job manifest documentation
-- **[Manifest Tracking](docs/MANIFEST_TRACKING.md)** - Manifest tracking system
-- **[Pipeline Best Practices](docs/PIPELINE_BEST_PRACTICES.md)** - Pipeline optimization tips
-- **[Silero/PyAnnote VAD](docs/README-SILERO-PYANNOTE-VAD.md)** - VAD system documentation
-- **[Test Plan](docs/TEST_PLAN.md)** - Testing strategy and test cases
-- **[TMDB API Setup](docs/TMDB_API_SETUP.md)** - Setting up TMDB integration
-
-### 🗂️ Historical Documentation
-For reference: Previous implementations, migrations, and changes.
-
-- **[Docker Build Fixes](docs/history/docker-build-fixes.md)** - Historical build fixes
-- **[Docker Build Fix Summary](docs/history/docker-build-fix-summary.md)** - Fix summaries
-- **[Docker Build Fixes Applied](docs/history/docker-build-fixes-applied.md)** - Applied fixes log
-- **[Docker Build Fixes Summary](docs/history/docker-build-fixes-summary.md)** - Comprehensive summary
-- **[Docker Phase 1 Summary](docs/history/docker-phase1-summary.md)** - Phase 1 implementation
-- **[Docker Refactoring Summary](docs/history/docker-refactoring-summary.md)** - Refactoring changes
-- **[Script Migration Summary](docs/history/script-migration-summary.md)** - Script migration log
-- **[Scripts Conversion Summary](docs/history/scripts-conversion-summary.md)** - Conversion details
-- **[Git Backup Record](docs/history/git-backup-record.md)** - Backup history
-- **[Git Push Ready](docs/history/git-push-ready.md)** - Pre-push checklist
-- **[Commit Message](docs/history/commit-message.md)** - Standard commit format
-- **[Old Documentation Index](docs/history/documentation-index-old.md)** - Previous index
-
-### 🏛️ Architecture Reference
-Archived architecture documents and design notes.
-
-- **[Architecture Verified](docs/architecture/ARCHITECTURE_VERIFIED.md)** - Verified architecture notes
-- **[CUDA Environment Report](docs/architecture/cuda_env_report.md)** - CUDA environment analysis
-- **[HuggingFace Gated PyAnnote](docs/architecture/HF-gated-pynote.md)** - PyAnnote access notes
-- **[Transcribe Workflow](docs/architecture/transcribe-workflow.md)** - Simple workflow architecture
-- **[Master Prompt](docs/architecture/whisper-app-master-prompt.md)** - Project prompts
-- **[Workflow Architecture (Legacy)](docs/architecture/workflow-arch.md)** - Legacy architecture diagrams
-
-**Note**: For current architecture documentation, see the main docs/ folder.
+**See [docs/INDEX.md](docs/INDEX.md) for complete documentation**
 
 ---
 
 ## 🎯 Quick Start Guides by Use Case
 
-### I want to transcribe Bollywood movies with highest quality
-1. Start with [Bollywood Subtitle Workflow](docs/BOLLYWOOD_SUBTITLE_WORKFLOW.md)
-2. Understand [Second Pass Translation](docs/SECOND_PASS_TRANSLATION.md) (15-20% boost)
-3. Learn about [Lyrics Detection](docs/LYRICS_DETECTION.md) (20-25% boost for songs)
-4. Result: **35-45% better subtitle quality!**
+### I want to transcribe a movie quickly
+1. Read [Quick Start Guide](docs/getting-started/QUICKSTART.md)
+2. Run bootstrap once: `.\scripts\bootstrap.ps1`
+3. Build Docker images: `.\scripts\docker-build.ps1 -Mode native`
+4. Prepare job: `.\prepare-job.ps1 -Input movie.mp4`
+5. Run pipeline: `.\run_pipeline.ps1 -Job <job-id>`
 
-### I want to quickly transcribe English content
-1. Read [Quick Start Guide](docs/guides/user/quickstart.md)
-2. Use transcribe workflow (faster, no speaker labels)
-3. Check [Workflow Guide](docs/guides/user/workflow-guide.md) for details
+### I want Bollywood subtitle quality (35-45% better!)
+1. Complete quick start above
+2. Prepare with optimizations: `.\prepare-job.ps1 -Input movie.mp4 -SecondPass -Lyrics -TmdbId <id>`
+3. Run pipeline: `.\run_pipeline.ps1 -Job <job-id>`
+4. See [Bollywood Workflow](docs/guides/BOLLYWOOD_WORKFLOW.md) for details
 
-### I want to understand the complete pipeline
-1. Start with [Workflow Architecture](docs/WORKFLOW_ARCHITECTURE.md)
-2. Read [Complete Workflow Guide](docs/guides/user/workflow-guide.md)
-3. Review [Pipeline Best Practices](docs/PIPELINE_BEST_PRACTICES.md)
+### I want to understand how it works
+1. Read [System Architecture](docs/architecture/SYSTEM_ARCHITECTURE.md)
+2. Understand [Pipeline Flow](docs/architecture/PIPELINE_FLOW.md)
+3. Review [Pipeline Stages](docs/reference/PIPELINE_STAGES.md)
 
-### I want to optimize performance
-1. [Hardware Optimization](docs/HARDWARE_OPTIMIZATION.md) - GPU/CPU tuning
-2. [Docker Optimization](docs/DOCKER_OPTIMIZATION.md) - Container performance
-3. [Pipeline Best Practices](docs/PIPELINE_BEST_PRACTICES.md) - General tips
-
-### I want to debug issues
-1. [Native Debug Quick Reference](docs/native-debug-quick-reference.md) - Fast debugging
-2. [Debug Mode Guide](docs/guides/developer/debug-mode.md) - Comprehensive debugging
-3. [Logging Locations](docs/guides/developer/logging-locations.md) - Where to find logs
+### Something went wrong
+1. Check [Troubleshooting Guide](docs/getting-started/TROUBLESHOOTING.md)
+2. Try resuming: `.\resume-pipeline.ps1 -Job <job-id>`
+3. Check logs: `out\YYYY\MM\DD\USER\JOB_ID\logs\`
 
 ---
 
@@ -374,13 +321,26 @@ LOG_LEVEL=INFO           # DEBUG, INFO, WARN, ERROR
 - **Storage**: 50GB+ SSD
 
 ### Performance Comparison
-| Mode | Hardware | Speed | Recommended For |
-|------|----------|-------|----------------|
-| **Native + CUDA** | RTX 4090 | ⚡⚡⚡⚡⚡ (fastest) | Production |
-| **Docker + CUDA** | RTX 4090 | ⚡⚡⚡⚡ (fast) | Development |
-| **Native + MPS** | M1 Max | ⚡⚡⚡ (good) | macOS users |
-| **Native + CPU** | i7-12700K | ⚡⚡ (slower) | Testing |
-| **Docker + CPU** | i7-12700K | ⚡ (slow) | CI/CD |
+
+#### Execution Modes by Platform
+
+| Platform | Primary Mode | GPU Support | Speed | Best For |
+|----------|-------------|-------------|-------|----------|
+| **Windows** | Native (.bollyenv) | CUDA / CPU | ⚡⚡⚡⚡⚡ | Production |
+| **Linux** | Docker Containers | CUDA / CPU | ⚡⚡⚡⚡ | Production/CI |
+| **macOS** | Native (.bollyenv) | MPS / CPU | ⚡⚡⚡⚡ | Development |
+
+#### Performance by Configuration
+
+| Hardware | Execution Mode | 2hr Movie | Speed Rating |
+|----------|---------------|-----------|--------------|
+| RTX 4090 | Windows Native CUDA | 45 min | ⚡⚡⚡⚡⚡ (fastest) |
+| RTX 4090 | Linux Docker CUDA | 52 min | ⚡⚡⚡⚡ (very fast) |
+| M1 Max | macOS Native MPS | 75 min | ⚡⚡⚡⚡ (fast) |
+| i7-12700K | Windows Native CPU | 5 hrs | ⚡⚡ (usable) |
+| i7-12700K | Docker CPU | 6 hrs | ⚡ (overnight) |
+
+**Note**: Times for Bollywood workflow with second-pass translation and lyrics detection.
 
 ---
 

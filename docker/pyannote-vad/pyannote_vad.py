@@ -10,6 +10,11 @@ Output: Refined speech segments JSON
 Phase 2 Enhancement: Native PyTorch execution support
 """
 import sys
+import warnings
+
+# Suppress known deprecation warnings from dependencies
+warnings.filterwarnings('ignore', message='.*speechbrain.pretrained.*deprecated.*')
+warnings.filterwarnings('ignore', message='.*pytorch_lightning.*ModelCheckpoint.*')
 import json
 from pathlib import Path
 import time
@@ -32,13 +37,19 @@ def verify_pytorch_availability():
     try:
         import torch
         
+        # Set UTF-8 encoding for Windows console output
+        if sys.platform == 'win32':
+            import io
+            sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+            sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+        
         # Verify CUDA availability if expected
         cuda_available = torch.cuda.is_available()
         device_name = torch.cuda.get_device_name(0) if cuda_available else "CPU"
         
-        print(f"✓ PyTorch {torch.__version__} available")
-        print(f"✓ Execution mode: {execution_mode}")
-        print(f"✓ Device: {device_name}")
+        print(f"[OK] PyTorch {torch.__version__} available")
+        print(f"[OK] Execution mode: {execution_mode}")
+        print(f"[OK] Device: {device_name}")
         
         return True
         
@@ -289,6 +300,9 @@ def main():
         logger.info("PYANNOTE VAD STAGE (Local Processing)")
         logger.info("=" * 60)
         
+        # Initialize device (will be set based on config or fallback to CPU)
+        device = config.get('pyannote_device', config.get('device', 'cpu'))
+        
         # Load PyAnnote VAD pipeline
         logger.info("Loading PyAnnote VAD pipeline...")
         try:
@@ -348,7 +362,6 @@ def main():
                 logger.info("Using default hyperparameters")
             
             # Try to move to GPU if available
-            device = config.get('pyannote_device', config.get('device', 'cpu'))
             if device and device.lower() != 'cpu':
                 try:
                     vad_pipeline.to(device)

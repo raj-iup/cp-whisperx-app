@@ -31,7 +31,7 @@ if ($ListStages) {
 # Validate job parameter
 if (-not $Job) {
     Write-LogError "Job ID is required"
-    Write-Host "Usage: .\run_pipeline.ps1 -Job <job_id> [-Stages <stage1>,<stage2>] [-NoResume]"
+    Write-Host "Usage: .\run_pipeline.ps1 -Job <job-number> [-Stages <stage1>,<stage2>] [-NoResume]"
     Write-Host "       .\run_pipeline.ps1 -ListStages"
     exit 1
 }

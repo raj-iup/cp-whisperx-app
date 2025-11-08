@@ -88,8 +88,8 @@ if [[ "$MODE" == "native" ]]; then
     
     IMAGES=(
         "base:cpu:docker/base/Dockerfile:."
-        "demux:latest:docker/demux/Dockerfile:.:REGISTRY=$REGISTRY"
-        "mux:latest:docker/mux/Dockerfile:.:REGISTRY=$REGISTRY"
+        "demux:cpu:docker/demux/Dockerfile:.:REGISTRY=$REGISTRY"
+        "mux:cpu:docker/mux/Dockerfile:.:REGISTRY=$REGISTRY"
     )
     
     log_info "Images to build: 3 (base, demux, mux)"
@@ -105,16 +105,16 @@ elif [[ "$MODE" == "docker-cpu" ]]; then
     # CPU mode builds all stages but without CUDA
     IMAGES=(
         "base:cpu:docker/base/Dockerfile:."
-        "base-ml:cpu:docker/base-ml/Dockerfile:.:REGISTRY=$REGISTRY"
-        "demux:latest:docker/demux/Dockerfile:.:REGISTRY=$REGISTRY"
-        "mux:latest:docker/mux/Dockerfile:.:REGISTRY=$REGISTRY"
-        "asr:cpu:docker/asr/Dockerfile:.:REGISTRY=$REGISTRY"
-        "diarization:cpu:docker/diarization/Dockerfile:.:REGISTRY=$REGISTRY"
-        "pyannote-vad:cpu:docker/pyannote-vad/Dockerfile:.:REGISTRY=$REGISTRY"
-        "subtitle-gen:latest:docker/subtitle-gen/Dockerfile:.:REGISTRY=$REGISTRY"
-        "tmdb:latest:docker/tmdb/Dockerfile:.:REGISTRY=$REGISTRY"
-        "pre-ner:latest:docker/pre-ner/Dockerfile:.:REGISTRY=$REGISTRY"
-        "post-ner:latest:docker/post-ner/Dockerfile:.:REGISTRY=$REGISTRY"
+        "base-ml:cpu:docker/base-ml/Dockerfile:.:REGISTRY=$REGISTRY BASE_TAG=cpu"
+        "demux:cpu:docker/demux/Dockerfile:.:REGISTRY=$REGISTRY"
+        "mux:cpu:docker/mux/Dockerfile:.:REGISTRY=$REGISTRY"
+        "asr:cpu:docker/asr/Dockerfile:.:REGISTRY=$REGISTRY BASE_TAG=cpu"
+        "diarization:cpu:docker/diarization/Dockerfile:.:REGISTRY=$REGISTRY BASE_TAG=cpu"
+        "pyannote-vad:cpu:docker/pyannote-vad/Dockerfile:.:REGISTRY=$REGISTRY BASE_TAG=cpu"
+        "subtitle-gen:cpu:docker/subtitle-gen/Dockerfile:.:REGISTRY=$REGISTRY"
+        "tmdb:cpu:docker/tmdb/Dockerfile:.:REGISTRY=$REGISTRY"
+        "pre-ner:cpu:docker/pre-ner/Dockerfile:.:REGISTRY=$REGISTRY"
+        "post-ner:cpu:docker/post-ner/Dockerfile:.:REGISTRY=$REGISTRY"
     )
     
     log_info "Images to build: 11 (all stages, CPU-only)"
@@ -131,19 +131,19 @@ elif [[ "$MODE" == "docker-gpu" ]]; then
     IMAGES=(
         "base:cpu:docker/base/Dockerfile:."
         "base:cuda:docker/base-cuda/Dockerfile:."
-        "base-ml:cuda:docker/base-ml/Dockerfile:.:REGISTRY=$REGISTRY"
-        "demux:latest:docker/demux/Dockerfile:.:REGISTRY=$REGISTRY"
-        "mux:latest:docker/mux/Dockerfile:.:REGISTRY=$REGISTRY"
-        "asr:cuda:docker/asr/Dockerfile:.:REGISTRY=$REGISTRY"
-        "diarization:cuda:docker/diarization/Dockerfile:.:REGISTRY=$REGISTRY"
-        "pyannote-vad:cuda:docker/pyannote-vad/Dockerfile:.:REGISTRY=$REGISTRY"
-        "silero-vad:cuda:docker/silero-vad/Dockerfile:.:REGISTRY=$REGISTRY"
-        "lyrics-detection:cuda:docker/lyrics-detection/Dockerfile:.:REGISTRY=$REGISTRY"
-        "subtitle-gen:latest:docker/subtitle-gen/Dockerfile:.:REGISTRY=$REGISTRY"
-        "tmdb:latest:docker/tmdb/Dockerfile:.:REGISTRY=$REGISTRY"
-        "pre-ner:latest:docker/pre-ner/Dockerfile:.:REGISTRY=$REGISTRY"
-        "post-ner:latest:docker/post-ner/Dockerfile:.:REGISTRY=$REGISTRY"
-        "second-pass-translation:cuda:docker/second-pass-translation/Dockerfile:.:REGISTRY=$REGISTRY"
+        "base-ml:cuda:docker/base-ml/Dockerfile:.:REGISTRY=$REGISTRY BASE_TAG=cuda"
+        "demux:cuda:docker/demux/Dockerfile:.:REGISTRY=$REGISTRY"
+        "mux:cuda:docker/mux/Dockerfile:.:REGISTRY=$REGISTRY"
+        "asr:cuda:docker/asr/Dockerfile:.:REGISTRY=$REGISTRY BASE_TAG=cuda"
+        "diarization:cuda:docker/diarization/Dockerfile:.:REGISTRY=$REGISTRY BASE_TAG=cuda"
+        "pyannote-vad:cuda:docker/pyannote-vad/Dockerfile:.:REGISTRY=$REGISTRY BASE_TAG=cuda"
+        "silero-vad:cuda:docker/silero-vad/Dockerfile:.:REGISTRY=$REGISTRY BASE_TAG=cuda"
+        "lyrics-detection:cuda:docker/lyrics-detection/Dockerfile:.:REGISTRY=$REGISTRY BASE_TAG=cuda"
+        "subtitle-gen:cuda:docker/subtitle-gen/Dockerfile:.:REGISTRY=$REGISTRY"
+        "tmdb:cuda:docker/tmdb/Dockerfile:.:REGISTRY=$REGISTRY"
+        "pre-ner:cuda:docker/pre-ner/Dockerfile:.:REGISTRY=$REGISTRY"
+        "post-ner:cuda:docker/post-ner/Dockerfile:.:REGISTRY=$REGISTRY"
+        "second-pass-translation:cuda:docker/second-pass-translation/Dockerfile:.:REGISTRY=$REGISTRY BASE_TAG=cuda"
     )
     
     log_info "Images to build: 15 (all stages, CUDA-enabled)"

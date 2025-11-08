@@ -7,24 +7,44 @@ Trims long silences and non-speech segments with minimal compute (CPU-friendly).
 Input: 16kHz mono audio from demux stage
 Output: speech timestamps JSON for PyAnnote refinement
 
-Phase 2 Enhancement: Native PyTorch execution support
+Execution Modes:
+- Docker: PyTorch in container image
+- Native: PyTorch from host .bollyenv
 """
 import sys
 import json
+import os
 from pathlib import Path
 
 # ============================================================================
-# PHASE 2: Native Execution Mode Check
+# EXECUTION MODE DETECTION
+# ============================================================================
+def get_execution_mode():
+    """Detect execution mode: docker, native, or auto."""
+    mode = os.getenv('EXECUTION_MODE', 'auto')
+    
+    # Auto-detect based on environment
+    if mode == 'auto':
+        # If running in Docker container
+        if os.path.exists('/.dockerenv') or os.path.exists('/run/.containerenv'):
+            mode = 'docker'
+        else:
+            mode = 'native'
+    
+    return mode
+
+execution_mode = get_execution_mode()
+
+# ============================================================================
+# PYTORCH VERIFICATION
 # ============================================================================
 def verify_pytorch_availability():
-    """Verify PyTorch is available in native or Docker environment.
+    """Verify PyTorch is available.
     
-    Phase 2 Enhancement: Containers no longer include PyTorch in image.
-    PyTorch is provided by native .bollyenv environment for optimal performance.
+    Execution modes:
+    - docker: PyTorch in container image (check and fail if missing)
+    - native: PyTorch from .bollyenv (assume available, let import fail naturally)
     """
-    import os
-    execution_mode = os.getenv('EXECUTION_MODE', 'docker')
-    
     try:
         import torch
         
@@ -32,34 +52,33 @@ def verify_pytorch_availability():
         cuda_available = torch.cuda.is_available()
         device_name = torch.cuda.get_device_name(0) if cuda_available else "CPU"
         
-        print(f"✓ PyTorch {torch.__version__} available")
-        print(f"✓ Execution mode: {execution_mode}")
-        print(f"✓ Device: {device_name}")
+        print(f"[OK] PyTorch {torch.__version__} available")
+        print(f"[OK] Execution mode: {execution_mode}")
+        print(f"[OK] Device: {device_name}")
         
         return True
         
     except ImportError as e:
-        print("=" * 70)
-        print("ERROR: PyTorch not available")
-        print("=" * 70)
-        print(f"Execution mode: {execution_mode}")
-        print("")
-        
-        if execution_mode == 'native':
-            print("Native execution mode requires bootstrap:")
-            print("  1. Run: ./scripts/bootstrap.ps1")
-            print("  2. Ensure .bollyenv volume mounted in docker-compose.yml")
-            print("  3. Check PATH includes: /app/.bollyenv/bin")
+        if execution_mode == 'docker':
+            # Docker mode requires PyTorch in image
+            print("=" * 70)
+            print("ERROR: PyTorch not available in Docker image")
+            print("=" * 70)
+            print(f"Execution mode: {execution_mode}")
+            print("")
+            print("This image requires PyTorch:")
+            print("  - Build with docker-cpu or docker-gpu mode")
+            print("  - Or use native execution mode")
+            print("=" * 70)
+            sys.exit(1)
         else:
-            print("Docker execution mode requires PyTorch in image:")
-            print("  - This image is SLIM (no PyTorch)")
-            print("  - Use native mode or rebuild with full image")
-        
-        print("=" * 70)
-        sys.exit(1)
+            # Native mode - let Python's natural import error show
+            # (PyTorch should be in .bollyenv)
+            raise
 
 # Verify PyTorch before proceeding
-verify_pytorch_availability()
+if execution_mode == 'docker':
+    verify_pytorch_availability()
 # ============================================================================
 
 import torch
@@ -74,9 +93,20 @@ from utils import save_json, get_movie_dir, load_json
 
 def load_silero_model():
     """Load Silero VAD model from torch.hub"""
-    # Set cache directory
     import os
-    os.environ['TORCH_HOME'] = '/app/LLM/torch'
+    
+    # Set cache directory based on execution mode
+    execution_mode = get_execution_mode()
+    if execution_mode == 'docker':
+        # Docker: use /app/LLM/torch
+        cache_dir = '/app/LLM/torch'
+    else:
+        # Native: use project root cache
+        project_root = Path(__file__).resolve().parents[2]
+        cache_dir = str(project_root / 'shared' / 'model-cache' / 'torch')
+        os.makedirs(cache_dir, exist_ok=True)
+    
+    os.environ['TORCH_HOME'] = cache_dir
     
     model, utils = torch.hub.load(
         repo_or_dir='snakers4/silero-vad',

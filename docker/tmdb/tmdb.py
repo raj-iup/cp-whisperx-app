@@ -231,10 +231,27 @@ def main():
         # Must have been validated earlier - use output_root
         # Always use output_root directly when it's set (should be job-specific)
         movie_dir = Path(config.output_root)
-        # Parse from config - this path shouldn't normally be reached
+        logger.info(f"Using output_root as movie directory: {movie_dir}")
+        
+        # Try to extract title from manifest.json
         title = "Unknown"
         year = None
-        logger.info(f"Using output_root as movie directory: {movie_dir}")
+        manifest_path = movie_dir / "manifest.json"
+        if manifest_path.exists():
+            try:
+                with open(manifest_path, 'r', encoding='utf-8') as f:
+                    manifest = json.load(f)
+                    input_file = manifest.get('input', {}).get('file')
+                    if input_file:
+                        # Parse filename to extract title and year
+                        file_info = parse_filename(input_file)
+                        title = file_info.get('title', 'Unknown')
+                        year = file_info.get('year')
+                        logger.info(f"Extracted title from manifest: {title}")
+                        if year:
+                            logger.info(f"Extracted year from manifest: {year}")
+            except Exception as e:
+                logger.warning(f"Could not parse title from manifest: {e}")
     
     logger.info(f"Movie: {title}")
     if year:

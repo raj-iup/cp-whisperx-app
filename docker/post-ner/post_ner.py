@@ -13,9 +13,17 @@ from pathlib import Path
 from typing import List, Dict, Optional
 from rapidfuzz import fuzz, process
 
-# Setup paths
-sys.path.insert(0, '/app')
-sys.path.insert(0, '/app/shared')
+# Setup paths - handle both Docker and native execution
+execution_mode = os.getenv('EXECUTION_MODE', 'docker')
+if execution_mode == 'native':
+    # Native mode: add project root to path
+    project_root = Path(__file__).resolve().parents[2]  # docker/post-ner -> root
+    sys.path.insert(0, str(project_root))
+    sys.path.insert(0, str(project_root / 'shared'))
+else:
+    # Docker mode: use /app paths
+    sys.path.insert(0, '/app')
+    sys.path.insert(0, '/app/shared')
 
 from scripts.ner_extraction import NERProcessor
 from logger import PipelineLogger
@@ -295,7 +303,7 @@ def main():
         with open(output_file, "w", encoding="utf-8") as f:
             json.dump(output_data, f, indent=2, ensure_ascii=False)
         
-        logger.info(f"✓ Post-ASR NER complete: {output_file}")
+        logger.info(f"[OK] Post-ASR NER complete: {output_file}")
         
         # Also save as text
         txt_file = output_dir / f"{movie_dir.name}.corrected.txt"
@@ -306,7 +314,7 @@ def main():
                 if text:
                     f.write(f"[{speaker}] {text}\n")
         
-        logger.info(f"✓ Saved text version: {txt_file}")
+        logger.info(f"[OK] Saved text version: {txt_file}")
         sys.exit(0)
         
     except Exception as e:

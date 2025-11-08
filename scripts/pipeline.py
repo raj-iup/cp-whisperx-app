@@ -17,7 +17,7 @@ from typing import List, Dict, Optional
 # Add paths for imports
 SCRIPT_DIR = Path(__file__).parent
 PROJECT_ROOT = SCRIPT_DIR.parent
-sys.path.insert(0, str(PROJECT_ROOT / 'shared'))
+sys.path.insert(0, str(PROJECT_ROOT))
 
 from shared.logger import PipelineLogger, get_stage_log_filename
 from shared.config import load_config
@@ -43,13 +43,31 @@ STAGE_DEFINITIONS = [
 ]
 
 # ML stages that can run natively with MPS/CUDA
+# Maps stage_name -> script filename in docker/{stage}/ directory
 ML_STAGES = {
-    "silero_vad": "04_silero_vad.py",
-    "pyannote_vad": "05_pyannote_vad.py",
-    "diarization": "06_diarization.py",
-    "asr": "07_asr.py",
-    "second_pass_translation": "07b_second_pass_translation.py",
-    "lyrics_detection": "07c_lyrics_detection.py"
+    "silero_vad": "silero_vad.py",
+    "pyannote_vad": "pyannote_vad.py",
+    "diarization": "diarization.py",
+    "asr": "whisperx_asr.py",
+    "second_pass_translation": "second_pass_translation.py",
+    "lyrics_detection": "lyrics_detection.py"
+}
+
+# All stage scripts (for native execution)
+# Maps stage_name -> script filename in docker/{stage}/ directory
+STAGE_SCRIPTS = {
+    "demux": "demux.py",
+    "tmdb": "tmdb.py",
+    "pre_ner": "pre_ner.py",
+    "silero_vad": "silero_vad.py",
+    "pyannote_vad": "pyannote_vad.py",
+    "diarization": "diarization.py",
+    "asr": "whisperx_asr.py",
+    "second_pass_translation": "second_pass_translation.py",
+    "lyrics_detection": "lyrics_detection.py",
+    "post_ner": "post_ner.py",
+    "subtitle_gen": "subtitle_gen.py",
+    "mux": "mux.py"
 }
 
 
@@ -134,22 +152,48 @@ class JobOrchestrator:
         
         # Platform-aware execution mode info
         system = platform.system()
-        ml_stage_names = [s[0] for s in self.stages if s[0] in ML_STAGES]
+        all_stage_names = [s[0] for s in self.stages]
         
-        if ml_stage_names:
+        if all_stage_names:
+            # Check if native mode is available
+            native_available = Path(".bollyenv/Scripts/python.exe").exists() if system == 'Windows' else Path(".bollyenv/bin/python").exists()
+            
             if system == 'Darwin' and self.device_type == 'mps':
-                self.logger.info("✓ ML stages will run natively with MPS GPU acceleration")
-            elif system in ['Linux', 'Windows'] and self.device_type == 'cuda':
-                self.logger.info("✓ ML stages will run in Docker with CUDA GPU support")
-                self.logger.info(f"  Affected stages: {', '.join(ml_stage_names)}")
-            elif self.device_type == 'cpu':
-                self.logger.warning("⚠️  CPU mode detected - ML stages will run in Docker without GPU")
-                self.logger.warning(f"   Affected stages: {', '.join(ml_stage_names)}")
-                self.logger.warning("   For better performance, enable GPU acceleration:")
-                if system == 'Darwin':
-                    self.logger.warning("   - Apple Silicon: Set DEVICE=mps")
+                if native_available:
+                    self.logger.info("✓ Execution mode: Native MPS (macOS)")
+                    self.logger.info(f"  All stages will run with Apple Silicon GPU acceleration")
                 else:
-                    self.logger.warning("   - NVIDIA GPU: Set DEVICE=cuda")
+                    self.logger.warning("⚠️  Native mode unavailable - falling back to Docker CPU")
+                    self.logger.warning("   Run bootstrap: ./scripts/bootstrap.sh")
+            elif system == 'Windows':
+                if native_available:
+                    if self.device_type == 'cuda':
+                        self.logger.info("✓ Execution mode: Native CUDA (Windows)")
+                        self.logger.info(f"  All stages will run with NVIDIA GPU acceleration")
+                    else:
+                        self.logger.info("✓ Execution mode: Native CPU (Windows)")
+                        self.logger.info(f"  All stages will run on CPU")
+                else:
+                    self.logger.warning("⚠️  Native mode unavailable - would fallback to Docker")
+                    self.logger.warning("   Run bootstrap: .\\scripts\\bootstrap.ps1")
+            elif system == 'Linux':
+                if self.device_type == 'cuda':
+                    self.logger.info("✓ Execution mode: Docker CUDA (Linux)")
+                    self.logger.info(f"  ML stages will run in CUDA containers")
+                else:
+                    self.logger.info("✓ Execution mode: Docker CPU (Linux)")
+                    self.logger.info(f"  All stages will run in CPU containers")
+            
+            self.logger.info(f"  Stages: {', '.join(all_stage_names)}")
+            
+            # Performance recommendations
+            if self.device_type == 'cpu' and system != 'Linux':
+                self.logger.warning("")
+                self.logger.warning("⚠️  Performance Notice:")
+                if system == 'Darwin':
+                    self.logger.warning("   For faster processing: Set DEVICE=mps (Apple Silicon)")
+                else:
+                    self.logger.warning("   For faster processing: Set DEVICE=cuda (NVIDIA GPU)")
         
         # Log workflow mode
         workflow_mode = getattr(self.config, 'workflow_mode', 'subtitle-gen')
@@ -230,34 +274,92 @@ class JobOrchestrator:
     def _should_run_native(self, stage_name: str) -> bool:
         """Check if stage should run natively (not in Docker).
         
-        Native execution is ONLY used on macOS with MPS.
-        Windows/Linux with CUDA use CUDA-enabled Docker containers.
+        Platform-specific native execution strategy:
+        - Windows: Native CUDA/CPU with .bollyenv (ALL stages - preferred)
+        - macOS: Native MPS with .bollyenv (ALL stages - preferred)
+        - Linux: Docker mode (CUDA/CPU containers)
         
         Args:
             stage_name: Stage name
         
         Returns:
-            True if stage should run natively (macOS MPS only),
-            False if should run in Docker (CUDA containers or CPU fallback)
+            True if stage should run natively,
+            False if should run in Docker
         """
-        # Only ML stages can potentially run natively
-        if stage_name not in ML_STAGES:
-            return False
-        
         # Check platform
         system = platform.system()
         
-        # macOS with MPS: Run natively for GPU acceleration
-        if system == 'Darwin' and self.device_type == 'mps':
-            return True
+        # macOS: Native execution (all stages)
+        if system == 'Darwin':
+            native_venv_available = self._check_native_venv_available(stage_name)
+            if native_venv_available:
+                self.logger.debug(f"Native execution available for {stage_name}")
+                return True
+            else:
+                self.logger.debug(f"Native venv not available, falling back to Docker")
+                return False
         
-        # Windows/Linux with CUDA: Use CUDA Docker containers (not native)
-        # Windows/Linux with CPU: Use regular Docker containers
-        # This ensures CUDA containers are used on Windows/Linux regardless
+        # Windows: Native execution (all stages - preferred)
+        # Check if native environment is available
+        if system == 'Windows':
+            # Check for native venv setup
+            native_venv_available = self._check_native_venv_available(stage_name)
+            if native_venv_available:
+                self.logger.debug(f"Native execution available for {stage_name}")
+                return True
+            else:
+                self.logger.debug(f"Native venv not available, falling back to Docker")
+                return False
+        
+        # Linux: Always use Docker (CUDA or CPU containers)
         return False
+    
+    def _check_native_venv_available(self, stage_name: str) -> bool:
+        """Check if native virtual environment is available for a stage.
+        
+        Args:
+            stage_name: Stage name
+            
+        Returns:
+            True if native venv exists and has Python
+        """
+        # Check for unified .bollyenv (Windows/macOS unified environment)
+        system = platform.system()
+        if system == 'Windows':
+            # Windows uses .bollyenv/Scripts/python.exe
+            python_bin = Path(".bollyenv") / "Scripts" / "python.exe"
+        elif system == 'Darwin':
+            # macOS uses .bollyenv/bin/python
+            python_bin = Path(".bollyenv") / "bin" / "python"
+        else:
+            # Linux uses per-stage venvs (fallback)
+            venv_map = {
+                "silero_vad": "vad",
+                "pyannote_vad": "vad",
+                "diarization": "diarization",
+                "asr": "asr",
+                "second_pass_translation": "asr",
+                "lyrics_detection": "asr"
+            }
+            venv_name = venv_map.get(stage_name, "base")
+            venv_dir = Path("native/venvs") / venv_name
+            python_bin = venv_dir / "bin" / "python"
+        
+        exists = python_bin.exists()
+        if exists:
+            self.logger.debug(f"Native Python found: {python_bin}")
+        else:
+            self.logger.debug(f"Native Python not found: {python_bin}")
+        
+        return exists
     
     def run_native_step(self, stage_name: str, script_name: str, args: List[str] = None, timeout: int = 3600) -> bool:
         """Run a pipeline stage natively (outside Docker).
+        
+        Supports:
+        - Windows: .bollyenv/Scripts/python.exe with scripts from docker/{stage}/
+        - macOS: .bollyenv/bin/python with scripts from docker/{stage}/
+        - Linux: native/venvs/{venv}/bin/python with scripts from native/scripts/
         
         Args:
             stage_name: Stage name
@@ -268,34 +370,54 @@ class JobOrchestrator:
         Returns:
             True if successful, False otherwise
         """
-        # Find appropriate venv
-        venv_map = {
-            "silero_vad": "vad",
-            "pyannote_vad": "vad",
-            "diarization": "diarization",
-            "asr": "asr"
-        }
-        venv_name = venv_map.get(stage_name, "base")
+        system = platform.system()
         
-        # Build paths
-        venv_dir = Path("native/venvs") / venv_name
-        python_bin = venv_dir / "bin" / "python"
-        script_path = Path("native/scripts") / script_name
+        # Determine Python binary path
+        if system == 'Windows':
+            python_bin = Path(".bollyenv") / "Scripts" / "python.exe"
+            # Use Docker scripts (they work for native mode too)
+            script_path = Path("docker") / stage_name.replace('_', '-') / script_name
+        elif system == 'Darwin':
+            python_bin = Path(".bollyenv") / "bin" / "python"
+            # Use Docker scripts (they work for native mode too)
+            script_path = Path("docker") / stage_name.replace('_', '-') / script_name
+        else:
+            # Linux: Use per-stage venvs (if native mode setup exists)
+            venv_map = {
+                "silero_vad": "vad",
+                "pyannote_vad": "vad",
+                "diarization": "diarization",
+                "asr": "asr",
+                "second_pass_translation": "asr",
+                "lyrics_detection": "asr"
+            }
+            venv_name = venv_map.get(stage_name, "base")
+            venv_dir = Path("native/venvs") / venv_name
+            python_bin = venv_dir / "bin" / "python"
+            script_path = Path("native/scripts") / script_name
         
         if not python_bin.exists():
-            self.logger.error(f"Python venv not found: {python_bin}")
-            self.logger.error("Run: ./native/setup_venvs.sh")
+            self.logger.error(f"Python not found: {python_bin}")
+            self.logger.error("Run bootstrap: .\\scripts\\bootstrap.ps1 (Windows) or ./scripts/bootstrap.sh (Unix)")
             return False
         
         if not script_path.exists():
-            self.logger.error(f"Native script not found: {script_path}")
+            self.logger.error(f"Script not found: {script_path}")
             return False
         
         # Set up environment
         env = os.environ.copy()
-        env['CONFIG_PATH'] = str(Path(self.job_info['job_env_file']).absolute())
+        env['CONFIG_PATH'] = str(Path(self.job_info['env_file']).absolute())
         env['OUTPUT_DIR'] = str(self.output_dir.absolute())
         env['LOG_ROOT'] = str(self.log_dir.absolute())
+        env['EXECUTION_MODE'] = 'native'  # Tell script it's running natively
+        
+        # Add shared directory to PYTHONPATH for imports
+        shared_dir = str(Path("shared").absolute())
+        if 'PYTHONPATH' in env:
+            env['PYTHONPATH'] = f"{shared_dir}{os.pathsep}{env['PYTHONPATH']}"
+        else:
+            env['PYTHONPATH'] = shared_dir
         
         # Build command
         cmd = [str(python_bin), str(script_path)]
@@ -384,7 +506,7 @@ class JobOrchestrator:
         """
         # Set up environment
         env = os.environ.copy()
-        env['CONFIG_PATH'] = self._to_container_path(Path(self.job_info['job_env_file']))
+        env['CONFIG_PATH'] = self._to_container_path(Path(self.job_info['env_file']))
         env['OUTPUT_DIR'] = str(self.output_dir)
         env['LOG_ROOT'] = str(self.log_dir)
         
@@ -496,11 +618,11 @@ class JobOrchestrator:
         self.logger.info("CP-WHISPERX-APP PIPELINE STARTED")
         self.logger.info("="*60)
         self.logger.info(f"Job ID: {self.job_id}")
-        self.logger.info(f"Media: {self.job_info['media_path']}")
+        self.logger.info(f"Media: {self.job_info['source_media']}")
         self.logger.info(f"Resume: {'enabled' if resume else 'disabled'}")
         
         # Get input media path
-        input_path = Path(self.job_info["media_path"])
+        input_path = Path(self.job_info["source_media"])
         if not input_path.exists():
             self.logger.error(f"Media file not found: {input_path}")
             return False
@@ -525,7 +647,7 @@ class JobOrchestrator:
             manifest_file,
             job_id=self.job_id,
             user_id=self.config.user_id if hasattr(self.config, 'user_id') else 1,
-            job_env_file=Path(self.job_info["job_env_file"])
+            job_env_file=Path(self.job_info["env_file"])
         )
         self.manifest.set_input(str(input_path), title, year, self.job_id)
         self.manifest.set_output_dir(str(self.output_dir))
@@ -569,20 +691,25 @@ class JobOrchestrator:
             use_cuda = False
             
             if run_native:
-                # Native execution (macOS MPS only)
-                self.logger.info(f"🚀 Running natively with {self.device_type.upper()} GPU acceleration")
+                # Native execution
+                if system == 'Windows':
+                    self.logger.info(f"🚀 Running natively on Windows with {self.device_type.upper()}")
+                elif system == 'Darwin':
+                    self.logger.info(f"🚀 Running natively on macOS with {self.device_type.upper()} acceleration")
+                else:
+                    self.logger.info(f"🚀 Running natively with {self.device_type.upper()}")
             else:
                 # Docker execution
                 if stage_name in ML_STAGES:
-                    if self.device_type == 'cuda' and system in ['Linux', 'Windows']:
-                        # CUDA containers on Linux/Windows
+                    if self.device_type == 'cuda' and system == 'Linux':
+                        # CUDA containers on Linux
                         use_cuda = True
                         self.logger.info(f"🐳 Running in Docker with CUDA GPU support")
                     elif self.device_type == 'cpu':
-                        self.logger.info(f"🐳 Running in Docker (CPU fallback - no GPU available)")
+                        self.logger.info(f"🐳 Running in Docker (CPU mode)")
                     else:
-                        # MPS but can't run native (shouldn't happen)
-                        self.logger.info(f"🐳 Running in Docker (non-native ML stage)")
+                        # MPS but can't run native (fallback to Docker CPU)
+                        self.logger.info(f"🐳 Running in Docker (CPU fallback - native mode unavailable)")
                 else:
                     self.logger.info(f"🐳 Running in Docker container")
             
@@ -604,8 +731,11 @@ class JobOrchestrator:
                         self.logger.info(f"Timeout: {timeout}s")
                     
                     if run_native:
-                        # Run natively (macOS MPS)
-                        script_name = ML_STAGES[stage_name]
+                        # Run natively (Windows/macOS)
+                        script_name = STAGE_SCRIPTS.get(stage_name)
+                        if not script_name:
+                            self.logger.error(f"No script mapping for stage: {stage_name}")
+                            raise Exception(f"Unknown stage: {stage_name}")
                         success = self.run_native_step(stage_name, script_name, args, timeout=timeout)
                     else:
                         # Run in Docker (CUDA containers on Linux/Windows, or CPU fallback)
@@ -700,8 +830,8 @@ class JobOrchestrator:
         Returns:
             Path inside container (relative to /app)
         """
-        # Get project root (where pipeline.py is)
-        project_root = Path(__file__).parent.absolute()
+        # Get project root (parent of scripts directory)
+        project_root = PROJECT_ROOT
         
         # Convert to absolute path if needed
         abs_path = path.absolute() if not path.is_absolute() else path
@@ -709,10 +839,10 @@ class JobOrchestrator:
         # Make path relative to project root
         try:
             rel_path = abs_path.relative_to(project_root)
-            return f"/app/{rel_path}"
+            return f"/app/{rel_path}".replace('\\', '/')  # Ensure forward slashes for container
         except ValueError:
             # Path is outside project root, use as-is (shouldn't happen)
-            return str(abs_path)
+            return str(abs_path).replace('\\', '/')
     
     def _get_stage_args(self, stage_name: str, input_path: Path, file_info: dict, use_container_paths: bool = True) -> List[str]:
         """Get arguments for a stage.

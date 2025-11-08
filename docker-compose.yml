@@ -45,8 +45,6 @@ services:
     environment:
       - CONFIG_PATH=${CONFIG_PATH:-/app/config/.env}
       - PYTHONPATH=/app
-    depends_on:
-      - demux
 
   pre-ner:
     image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-pre-ner:cpu"
@@ -61,8 +59,6 @@ services:
       - CONFIG_PATH=${CONFIG_PATH:-/app/config/.env}
       - PYTHONPATH=/app
       - SPACY_DATA=/shared-model-and-cache/spacy
-    depends_on:
-      - tmdb
 
   post-ner:
     image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-post-ner:cpu"
@@ -77,8 +73,6 @@ services:
       - CONFIG_PATH=${CONFIG_PATH:-/app/config/.env}
       - PYTHONPATH=/app
       - SPACY_DATA=/shared-model-and-cache/spacy
-    depends_on:
-      - asr
 
   subtitle-gen:
     image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-subtitle-gen:cpu"
@@ -90,8 +84,6 @@ services:
     environment:
       - CONFIG_PATH=${CONFIG_PATH:-/app/config/.env}
       - PYTHONPATH=/app
-    depends_on:
-      - post-ner
 
   mux:
     image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-mux:cpu"
@@ -104,52 +96,32 @@ services:
     environment:
       - CONFIG_PATH=${CONFIG_PATH:-/app/config/.env}
       - PYTHONPATH=/app
-    depends_on:
-      - subtitle-gen
 
-  # GPU Stages - use :cuda tag
-  # Phase 2: GPU stages now support native PyTorch execution via .bollyenv
-  silero-vad:
-    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-silero-vad:cuda"
-    container_name: cp_whisperx_silero_vad
-    volumes:
-      - ./.bollyenv:/app/.bollyenv:ro  # Phase 2: Native PyTorch environment
-      - ./out:/app/out
-      - ./config:/app/config:ro
-      - ./shared:/app/shared:ro
-    environment:
-      - EXECUTION_MODE=native  # Phase 2: Enable native execution
-      - CONFIG_PATH=${CONFIG_PATH:-/app/config/.env}
-      - PYTHONPATH=/app
-      - PATH=/app/.bollyenv/bin:/usr/local/bin:/usr/bin:/bin  # Phase 2: Add .bollyenv to PATH
-    depends_on:
-      - pre-ner
+  # GPU Stages - using CPU images with PyTorch included
+  # Note: silero-vad:cpu not available, using pyannote-vad directly
+  # silero-vad:
+  #   image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-silero-vad:cpu"
+  #   (Stage skipped - using pyannote-vad for VAD)
 
   pyannote-vad:
-    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-pyannote-vad:cuda"
+    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-pyannote-vad:cpu"
     container_name: cp_whisperx_pyannote_vad
     volumes:
-      - ./.bollyenv:/app/.bollyenv:ro  # Phase 2: Native PyTorch environment
       - ./in:/app/in
       - ./out:/app/out
       - ./config:/app/config:ro
       - ./shared:/app/shared:ro
       - ./shared-model-and-cache:/shared-model-and-cache
     environment:
-      - EXECUTION_MODE=native  # Phase 2: Enable native execution
       - CONFIG_PATH=${CONFIG_PATH:-/app/config/.env}
       - PYTHONPATH=/app
-      - PATH=/app/.bollyenv/bin:/usr/local/bin:/usr/bin:/bin  # Phase 2: Add .bollyenv to PATH
       - HF_HOME=/shared-model-and-cache/huggingface
       - TRANSFORMERS_CACHE=/shared-model-and-cache/transformers
-    depends_on:
-      - silero-vad
 
   diarization:
-    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-diarization:cuda"
+    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-diarization:cpu"
     container_name: cp_whisperx_diarization
     volumes:
-      - ./.bollyenv:/app/.bollyenv:ro  # Phase 2: Native PyTorch environment
       - ./in:/app/in
       - ./out:/app/out
       - ./config:/app/config:ro
@@ -157,21 +129,16 @@ services:
       - ./shared:/app/shared:ro
       - ./shared-model-and-cache:/shared-model-and-cache
     environment:
-      - EXECUTION_MODE=native  # Phase 2: Enable native execution
       - CONFIG_PATH=${CONFIG_PATH:-/app/config/.env}
       - PYTHONPATH=/app
-      - PATH=/app/.bollyenv/bin:/usr/local/bin:/usr/bin:/bin  # Phase 2: Add .bollyenv to PATH
       - HF_HOME=/shared-model-and-cache/huggingface
       - TRANSFORMERS_CACHE=/shared-model-and-cache/transformers
       - PYANNOTE_CACHE=/shared-model-and-cache/pyannote
-    depends_on:
-      - pyannote-vad
 
   asr:
-    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-asr:cuda"
+    image: "${DOCKERHUB_USER:-rajiup}/cp-whisperx-app-asr:cpu"
     container_name: cp_whisperx_asr
     volumes:
-      - ./.bollyenv:/app/.bollyenv:ro  # Phase 2: Native PyTorch environment
       - ./in:/app/in
       - ./out:/app/out
       - ./config:/app/config:ro
@@ -179,21 +146,13 @@ services:
       - ./shared:/app/shared:ro
       - ./shared-model-and-cache:/shared-model-and-cache
     environment:
-      - EXECUTION_MODE=native  # Phase 2: Enable native execution
       - CONFIG_PATH=${CONFIG_PATH:-/app/config/.env}
       - PYTHONPATH=/app
-      - PATH=/app/.bollyenv/bin:/usr/local/bin:/usr/bin:/bin  # Phase 2: Add .bollyenv to PATH
       - HF_HOME=/shared-model-and-cache/huggingface
-      - TRANSFORMERS_CACHE=/shared-model-and-cache/transformers
-      - WHISPER_CACHE=/shared-model-and-cache/whisper
-    depends_on:
-      - diarization
       - TRANSFORMERS_CACHE=/shared-model-and-cache/transformers
       - WHISPER_CACHE=/shared-model-and-cache/whisper
     mem_limit: 16g
     memswap_limit: 16g
-    depends_on:
-      - diarization
 
 # Usage notes:
 # 1) Build all images:

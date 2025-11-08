@@ -12,9 +12,17 @@ import os
 from pathlib import Path
 from typing import List, Dict, Tuple
 
-# Setup paths
-sys.path.insert(0, '/app')
-sys.path.insert(0, '/app/shared')
+# Setup paths - handle both Docker and native execution
+execution_mode = os.getenv('EXECUTION_MODE', 'docker')
+if execution_mode == 'native':
+    # Native mode: add project root to path
+    project_root = Path(__file__).resolve().parents[2]  # docker/lyrics-detection -> root
+    sys.path.insert(0, str(project_root))
+    sys.path.insert(0, str(project_root / 'shared'))
+else:
+    # Docker mode: use /app paths
+    sys.path.insert(0, '/app')
+    sys.path.insert(0, '/app/shared')
 
 from logger import PipelineLogger
 
@@ -91,7 +99,7 @@ def detect_lyrics_heuristic(segments: List[Dict], logger: PipelineLogger) -> Lis
         merged.append((current_start, current_end, current_score))
         song_sequences = merged
     
-    logger.info(f"✓ Detected {len(song_sequences)} song sequences")
+    logger.info(f"[OK] Detected {len(song_sequences)} song sequences")
     return song_sequences
 
 
@@ -159,7 +167,7 @@ def detect_lyrics_ml(audio_file: Path, segments: List[Dict], device: str, logger
             merged.append((current_start, current_end, current_score))
             song_sequences = merged
         
-        logger.info(f"✓ Detected {len(song_sequences)} song sequences (ML)")
+        logger.info(f"[OK] Detected {len(song_sequences)} song sequences (ML)")
         return song_sequences
         
     except ImportError:
@@ -190,7 +198,7 @@ def mark_lyrics_in_segments(segments: List[Dict], song_sequences: List[Tuple[flo
                 marked_count += 1
                 break
     
-    logger.info(f"✓ Marked {marked_count}/{len(segments)} segments as lyrics")
+    logger.info(f"[OK] Marked {marked_count}/{len(segments)} segments as lyrics")
     return segments
 
 
@@ -253,7 +261,7 @@ def main():
         
         # Filter by minimum duration
         song_sequences = [(s, e, c) for s, e, c in song_sequences if (e - s) >= min_duration]
-        logger.info(f"✓ Found {len(song_sequences)} song sequences (min {min_duration}s)")
+        logger.info(f"[OK] Found {len(song_sequences)} song sequences (min {min_duration}s)")
         
         # Mark segments
         segments = mark_lyrics_in_segments(segments, song_sequences, logger)
@@ -285,7 +293,7 @@ def main():
             json.dump(lyrics_summary, f, indent=2)
         
         logger.info(f"Saved lyrics summary: {lyrics_summary_file}")
-        logger.info(f"✓ Detected {len(song_sequences)} song sequences")
+        logger.info(f"[OK] Detected {len(song_sequences)} song sequences")
         
     except Exception as e:
         logger.error(f"Lyrics detection failed: {e}")

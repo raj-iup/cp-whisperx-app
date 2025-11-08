@@ -11,6 +11,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory=$true, Position=0)]
+    [Alias("i", "Input")]
     [string]$InputMedia,
     
     [Parameter(Mandatory=$false)]
@@ -23,7 +24,13 @@ param(
     [switch]$Transcribe,
     
     [Parameter(Mandatory=$false)]
-    [switch]$SubtitleGen
+    [Alias("SubtitleGen")]
+    [switch]$Subtitle,
+    
+    [Parameter(Mandatory=$false)]
+    [Alias("Workflow")]
+    [ValidateSet("subtitle", "transcribe")]
+    [string]$Mode
 )
 
 $ErrorActionPreference = "Stop"
@@ -88,16 +95,16 @@ if ($EndTime) {
 }
 
 # Add workflow mode
-if ($Transcribe) {
+if ($Mode -eq "transcribe" -or $Transcribe) {
     $pythonArgs += "--transcribe"
-    Write-LogInfo "Workflow: TRANSCRIBE"
-} elseif ($SubtitleGen) {
+    Write-LogInfo "Workflow: TRANSCRIBE (demux → vad → asr only)"
+} elseif ($Mode -eq "subtitle" -or $Subtitle) {
     $pythonArgs += "--subtitle-gen"
-    Write-LogInfo "Workflow: SUBTITLE-GEN"
+    Write-LogInfo "Workflow: SUBTITLE-GEN (all 13 stages)"
 } else {
     # Default to subtitle-gen
     $pythonArgs += "--subtitle-gen"
-    Write-LogInfo "Workflow: SUBTITLE-GEN (default)"
+    Write-LogInfo "Workflow: SUBTITLE-GEN (all 13 stages, default)"
 }
 
 # Always enable native mode (using .bollyenv)
@@ -118,14 +125,49 @@ Write-LogInfo "Executing: python $($pythonArgs -join ' ')"
 Write-Host ""
 
 try {
-    & python @pythonArgs
+    $output = & python @pythonArgs 2>&1
+    $output | ForEach-Object { Write-Host $_ }
+    
+    # Extract job ID from output
+    $jobId = $null
+    foreach ($line in $output) {
+        if ($line -match "Job created: (.+)$") {
+            $jobId = $matches[1].Trim()
+            break
+        }
+    }
     
     if ($LASTEXITCODE -eq 0) {
         Write-Host ""
         Write-LogSuccess "Job preparation completed successfully"
         Write-Host ""
+        Write-LogInfo "Pipeline will execute these stages automatically:"
+        if ($Mode -eq "transcribe" -or $Transcribe) {
+            Write-LogInfo "  1. Demux (audio extraction)"
+            Write-LogInfo "  2. Silero VAD (voice detection)"
+            Write-LogInfo "  3. ASR (transcription)"
+        } else {
+            Write-LogInfo "  1. Demux (audio extraction)"
+            Write-LogInfo "  2. TMDB (metadata fetch)"
+            Write-LogInfo "  3. Pre-NER (entity extraction)"
+            Write-LogInfo "  4. Silero VAD (voice detection)"
+            Write-LogInfo "  5. PyAnnote VAD (voice refinement)"
+            Write-LogInfo "  6. Diarization (speaker identification)"
+            Write-LogInfo "  7. ASR (transcription)"
+            Write-LogInfo "  8. Second Pass Translation (refinement)"
+            Write-LogInfo "  9. Lyrics Detection (song identification)"
+            Write-LogInfo "  10. Lyrics Translation (song translation)"
+            Write-LogInfo "  11. Post-NER (name correction)"
+            Write-LogInfo "  12. Subtitle Generation (SRT creation)"
+            Write-LogInfo "  13. Mux (video embedding)"
+        }
+        Write-Host ""
         Write-LogInfo "Next step: Run the pipeline with the generated job ID"
-        Write-LogInfo "  .\run_pipeline.ps1 -Job <job-id>"
+        if ($jobId) {
+            Write-LogInfo "  .\run_pipeline.ps1 -Job $jobId"
+        } else {
+            Write-LogInfo "  .\run_pipeline.ps1 -Job <job-id>"
+        }
         Write-Host ""
     } else {
         Write-LogError "Job preparation failed with exit code $LASTEXITCODE"

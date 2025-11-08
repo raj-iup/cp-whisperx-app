@@ -12,9 +12,17 @@ import os
 from pathlib import Path
 from typing import List, Dict
 
-# Setup paths
-sys.path.insert(0, '/app')
-sys.path.insert(0, '/app/shared')
+# Setup paths - handle both Docker and native execution
+execution_mode = os.getenv('EXECUTION_MODE', 'docker')
+if execution_mode == 'native':
+    # Native mode: add project root to path
+    project_root = Path(__file__).resolve().parents[2]  # docker/subtitle-gen -> root
+    sys.path.insert(0, str(project_root))
+    sys.path.insert(0, str(project_root / 'shared'))
+else:
+    # Docker mode: use /app paths
+    sys.path.insert(0, '/app')
+    sys.path.insert(0, '/app/shared')
 
 from logger import PipelineLogger
 
@@ -223,7 +231,7 @@ def generate_srt(
             f.write("\n")
     
     if logger:
-        logger.info(f"✓ SRT file generated: {output_file}")
+        logger.info(f"[OK] SRT file generated: {output_file}")
         if lyric_count > 0:
             logger.info(f"  {lyric_count} lyric subtitles with special formatting")
 
@@ -337,7 +345,7 @@ def main():
             logger.error("Only 'srt' format is currently supported")
             sys.exit(1)
         
-        logger.info(f"✓ Subtitle generation complete")
+        logger.info(f"[OK] Subtitle generation complete")
         logger.info(f"Output: {output_file}")
         sys.exit(0)
         

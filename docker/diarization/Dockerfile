@@ -1,6 +1,7 @@
 # Diarization container - Speaker labeling using PyAnnote
 ARG REGISTRY=rajiup
-FROM ${REGISTRY}/cp-whisperx-app-base-ml:cuda
+ARG BASE_TAG=cuda
+FROM ${REGISTRY}/cp-whisperx-app-base-ml:${BASE_TAG}
 
 LABEL description="PyAnnote Diarization - Speaker labeling (MANDATORY per workflow-arch.txt)"
 

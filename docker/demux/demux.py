@@ -157,7 +157,7 @@ def main():
             manifest.add_metadata("codec", config.audio_codec)
             manifest.add_metadata("file_size_mb", output_file.stat().st_size / (1024*1024))
             
-            logger.info("✓ Demux step completed successfully")
+            logger.info("[OK] Demux step completed successfully")
             # Context manager will save manifest with success status
     
     except KeyboardInterrupt:

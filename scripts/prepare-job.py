@@ -47,7 +47,7 @@ from typing import Optional, Dict
 # Add paths for imports
 SCRIPT_DIR = Path(__file__).parent
 PROJECT_ROOT = SCRIPT_DIR.parent
-sys.path.insert(0, str(PROJECT_ROOT / 'shared'))
+sys.path.insert(0, str(PROJECT_ROOT))
 
 from shared.logger import PipelineLogger, get_stage_log_filename
 
@@ -68,7 +68,30 @@ def detect_hardware_capabilities():
             }
     """
     import psutil
+    import json
+    from pathlib import Path
     
+    # First, try to load from hardware_cache.json
+    cache_file = Path("out/hardware_cache.json")
+    if cache_file.exists():
+        try:
+            with open(cache_file, 'r') as f:
+                cached_info = json.load(f)
+            # Return cached hardware info with recommended settings
+            return {
+                'cpu_cores': cached_info.get('cpu_cores', psutil.cpu_count(logical=False) or 1),
+                'cpu_threads': cached_info.get('cpu_threads', psutil.cpu_count(logical=True) or 1),
+                'memory_gb': cached_info.get('memory_gb', round(psutil.virtual_memory().total / (1024**3), 2)),
+                'gpu_available': cached_info.get('gpu_available', False),
+                'gpu_type': cached_info.get('gpu_type', 'cpu'),
+                'gpu_memory_gb': cached_info.get('gpu_memory_gb'),
+                'gpu_name': cached_info.get('gpu_name'),
+                'recommended_settings': cached_info.get('recommended_settings', {})
+            }
+        except Exception:
+            pass  # Fall through to detection
+    
+    # If cache doesn't exist or failed to load, detect hardware
     hw_info = {
         'cpu_cores': psutil.cpu_count(logical=False) or 1,
         'cpu_threads': psutil.cpu_count(logical=True) or 1,
@@ -551,14 +574,30 @@ DEVICE_NER=cpu
         workflow_mode = job_info.get("workflow_mode", "subtitle-gen")
         native_mode = job_info.get("native_mode", False)
         
-        # Detect device if native mode enabled
-        device = 'cpu'
+        # Determine device based on performance_profile from hardware_cache
+        device = 'CPU'  # Default to CPU (uppercase)
+        performance_profile = settings.get('performance_profile', '')
+        
+        if performance_profile:
+            # Map performance profile to device type
+            if 'cuda' in performance_profile.lower() or 'gpu' in performance_profile.lower():
+                device = 'CUDA'
+            elif 'mps' in performance_profile.lower():
+                device = 'MPS'
+            elif 'cpu' in performance_profile.lower():
+                device = 'CPU'
+        
+        # Override with detected device if native mode enabled
         if native_mode:
-            device = detect_device_capability()
+            detected = detect_device_capability()
+            device = detected.upper()  # Ensure uppercase
             if self.logger:
-                self.logger.info(f"Native mode enabled - detected device: {device.upper()}")
-                if device == 'cpu':
+                self.logger.info(f"Native mode enabled - detected device: {device}")
+                if device == 'CPU':
                     self.logger.warning("No GPU acceleration available, falling back to CPU")
+        else:
+            if self.logger:
+                self.logger.info(f"Device set from performance profile: {device}")
         
         # Configure workflow-specific settings
         workflow_config = {}
@@ -662,11 +701,11 @@ DEVICE_NER=cpu
                 ])
             
             # Compute type optimization
-            elif line.startswith('COMPUTE_TYPE='):
+            elif line.startswith('WHISPER_COMPUTE_TYPE=') or line.startswith('COMPUTE_TYPE='):
                 config_lines.extend([
                     f"# Compute type optimized for device",
                     f"# {settings['compute_type_reason']}",
-                    f"COMPUTE_TYPE={settings['compute_type']}"
+                    f"WHISPER_COMPUTE_TYPE={settings['compute_type']}"
                 ])
             
             # Chunk length optimization
@@ -678,24 +717,24 @@ DEVICE_NER=cpu
                 ])
             
             # Max speakers optimization
-            elif line.startswith('MAX_SPEAKERS='):
+            elif line.startswith('DIARIZATION_MAX_SPEAKERS=') or line.startswith('MAX_SPEAKERS='):
                 config_lines.extend([
                     f"# Max speakers based on resource availability",
                     f"# {settings['max_speakers_reason']}",
-                    f"MAX_SPEAKERS={settings['max_speakers']}"
+                    f"DIARIZATION_MAX_SPEAKERS={settings['max_speakers']}"
                 ])
             
-            # Device configuration (native mode)
-            elif native_mode and line.startswith('DEVICE_WHISPERX='):
+            # Device configuration (always set based on performance profile or native mode)
+            elif line.startswith('DEVICE_WHISPERX='):
                 config_lines.extend([
-                    f"# Device set to: {device.upper()}",
+                    f"# Device set to: {device} (from {'native detection' if native_mode else 'performance profile'})",
                     f"DEVICE_WHISPERX={device}"
                 ])
-            elif native_mode and line.startswith('DEVICE_DIARIZATION='):
+            elif line.startswith('DEVICE_DIARIZATION='):
                 config_lines.append(f'DEVICE_DIARIZATION={device}')
-            elif native_mode and line.startswith('DEVICE_VAD='):
+            elif line.startswith('DEVICE_VAD='):
                 config_lines.append(f'DEVICE_VAD={device}')
-            elif native_mode and line.startswith('DEVICE_NER='):
+            elif line.startswith('DEVICE_NER='):
                 config_lines.append(f'DEVICE_NER={device}')
             
             # Docker-specific settings
@@ -766,7 +805,8 @@ DEVICE_NER=cpu
             'memory_gb': hw_info['memory_gb'],
             'gpu_type': hw_info['gpu_type'],
             'gpu_name': hw_info['gpu_name'],
-            'optimized_settings': settings
+            'optimized_settings': settings,
+            'device': device  # Store the device value used
         }
         
         # Update job info with env_file and status
@@ -919,25 +959,27 @@ Examples:
     logger.info(f"Environment File: {job_info['env_file']}")
     logger.info(f"Media File: {media_path}")
     logger.info(f"Workflow Mode: {workflow_mode.upper()}")
-    if args.native:
-        logger.info(f"Native Execution: {job_info.get('device', 'cpu').upper()}")
+    # Always show device configuration
+    device_value = job_info.get('hardware', {}).get('device', 'CPU')
+    logger.info(f"Device Configuration: {device_value}")
     
     if job_info.get("is_clip"):
         logger.info(f"Clip Duration: {args.start_time} → {args.end_time}")
     
     logger.info("")
     logger.info("Next step:")
-    logger.info(f"  python pipeline.py --job {job_info['job_id']}")
+    logger.info(f"  python scripts/pipeline.py --job {job_info['job_id']}")
     
     # Also print to console for user
     print(f"\n✓ Job created: {job_info['job_id']}")
     print(f"  Directory: {job_info['job_dir']}")
     print(f"  Workflow: {workflow_mode.upper()}")
-    if args.native:
-        print(f"  Native mode: {job_info.get('device', 'cpu').upper()}")
+    # Always show device configuration
+    device_value = job_info.get('hardware', {}).get('device', 'CPU')
+    print(f"  Device: {device_value}")
     print(f"  Log: {log_file}")
     print(f"\nNext step:")
-    print(f"  python pipeline.py --job {job_info['job_id']}")
+    print(f"  python scripts/pipeline.py --job {job_info['job_id']}")
     print()
 
 

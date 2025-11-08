@@ -28,13 +28,19 @@ def verify_pytorch_availability():
     try:
         import torch
         
+        # Set UTF-8 encoding for Windows console output
+        if sys.platform == 'win32':
+            import io
+            sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+            sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+        
         # Verify CUDA availability if expected
         cuda_available = torch.cuda.is_available()
         device_name = torch.cuda.get_device_name(0) if cuda_available else "CPU"
         
-        print(f"✓ PyTorch {torch.__version__} available")
-        print(f"✓ Execution mode: {execution_mode}")
-        print(f"✓ Device: {device_name}")
+        print(f"[OK] PyTorch {torch.__version__} available")
+        print(f"[OK] Execution mode: {execution_mode}")
+        print(f"[OK] Device: {device_name}")
         
         return True
         
@@ -62,9 +68,17 @@ def verify_pytorch_availability():
 verify_pytorch_availability()
 # ============================================================================
 
-# Setup paths
-sys.path.insert(0, '/app')
-sys.path.insert(0, '/app/shared')
+# Setup paths - handle both Docker and native execution
+execution_mode = os.getenv('EXECUTION_MODE', 'docker')
+if execution_mode == 'native':
+    # Native mode: add project root to path
+    project_root = Path(__file__).resolve().parents[2]  # docker/asr -> root
+    sys.path.insert(0, str(project_root))
+    sys.path.insert(0, str(project_root / 'shared'))
+else:
+    # Docker mode: use /app paths
+    sys.path.insert(0, '/app')
+    sys.path.insert(0, '/app/shared')
 
 from scripts.whisperx_integration import WhisperXProcessor
 from logger import PipelineLogger
@@ -244,8 +258,8 @@ def main():
         with open(diar_file) as f:
             diar_data = json.load(f)
         speaker_segments = diar_data.get("speaker_segments", [])
-        logger.info(f"✓ Loaded {len(speaker_segments)} speaker segments")
-        logger.info(f"✓ {diar_data.get('num_speakers', 0)} unique speakers identified")
+        logger.info(f"[OK] Loaded {len(speaker_segments)} speaker segments")
+        logger.info(f"[OK] {diar_data.get('num_speakers', 0)} unique speakers identified")
     else:
         logger.warning("No diarization segments found - ASR will run without speaker info")
     
@@ -262,7 +276,7 @@ def main():
         )
         
         segments = result.get("segments", [])
-        logger.info(f"✓ Transcription complete: {len(segments)} segments")
+        logger.info(f"[OK] Transcription complete: {len(segments)} segments")
         
         # Align words
         if processor.align_model:
@@ -276,7 +290,7 @@ def main():
                 device=device,
                 return_char_alignments=False
             )
-            logger.info("✓ Word alignment complete")
+            logger.info("[OK] Word alignment complete")
         
         # Assign speakers to segments if diarization available
         if speaker_segments:
@@ -294,7 +308,7 @@ def main():
                         break
             
             speakers_assigned = sum(1 for seg in segments if "speaker" in seg)
-            logger.info(f"✓ Assigned speakers to {speakers_assigned}/{len(segments)} segments")
+            logger.info(f"[OK] Assigned speakers to {speakers_assigned}/{len(segments)} segments")
             result["segments"] = segments
         
         # Save results
@@ -305,7 +319,7 @@ def main():
         with open(output_file, "w", encoding="utf-8") as f:
             json.dump(result, f, indent=2, ensure_ascii=False)
         
-        logger.info(f"✓ ASR output saved: {output_file}")
+        logger.info(f"[OK] ASR output saved: {output_file}")
         
         # Also save as text
         txt_file = output_dir / f"{movie_dir.name}.asr.txt"
@@ -315,7 +329,7 @@ def main():
                 if text:
                     f.write(f"{text}\n")
         
-        logger.info(f"✓ Text transcript saved: {txt_file}")
+        logger.info(f"[OK] Text transcript saved: {txt_file}")
         
         # Save metadata with transcription parameters
         metadata = {
@@ -345,8 +359,8 @@ def main():
         with open(meta_file, "w") as f:
             json.dump(metadata, f, indent=2)
         
-        logger.info(f"✓ Metadata saved: {meta_file}")
-        logger.info("✓ WhisperX ASR complete")
+        logger.info(f"[OK] Metadata saved: {meta_file}")
+        logger.info("[OK] WhisperX ASR complete")
         sys.exit(0)
         
     except Exception as e:

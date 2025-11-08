@@ -1,5 +1,5 @@
 # ML Base Image - SLIM VERSION (Phase 2 Optimization)
-# This image inherits from base-cuda and adds common ML packages
+# This image inherits from base and adds common ML packages
 # PyTorch is PROVIDED BY NATIVE ENVIRONMENT (.bollyenv) for optimal performance
 # All GPU stages (asr, diarization, VAD, etc.) should inherit from this image
 #
@@ -10,7 +10,8 @@
 # - Requires bootstrap to create .bollyenv with PyTorch
 
 ARG REGISTRY=rajiup
-FROM ${REGISTRY}/cp-whisperx-app-base:cuda
+ARG BASE_TAG=cuda
+FROM ${REGISTRY}/cp-whisperx-app-base:${BASE_TAG}
 
 LABEL description="ML base with common ML dependencies (PyTorch via native env)"
 LABEL version="2.0-slim"

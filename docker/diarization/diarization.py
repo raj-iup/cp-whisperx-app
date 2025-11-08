@@ -12,6 +12,11 @@ NOTE: Per workflow-arch.txt, diarization runs BEFORE ASR to provide
 Phase 2 Enhancement: Native PyTorch execution support
 """
 import sys
+import warnings
+
+# Suppress known deprecation warnings from dependencies
+warnings.filterwarnings('ignore', message='.*speechbrain.pretrained.*deprecated.*')
+warnings.filterwarnings('ignore', message='.*pytorch_lightning.*ModelCheckpoint.*')
 import json
 import os
 from pathlib import Path
@@ -30,13 +35,19 @@ def verify_pytorch_availability():
     try:
         import torch
         
+        # Set UTF-8 encoding for Windows console output
+        if sys.platform == 'win32':
+            import io
+            sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+            sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+        
         # Verify CUDA availability if expected
         cuda_available = torch.cuda.is_available()
         device_name = torch.cuda.get_device_name(0) if cuda_available else "CPU"
         
-        print(f"✓ PyTorch {torch.__version__} available")
-        print(f"✓ Execution mode: {execution_mode}")
-        print(f"✓ Device: {device_name}")
+        print(f"[OK] PyTorch {torch.__version__} available")
+        print(f"[OK] Execution mode: {execution_mode}")
+        print(f"[OK] Device: {device_name}")
         
         return True
         
@@ -64,12 +75,31 @@ def verify_pytorch_availability():
 verify_pytorch_availability()
 # ============================================================================
 
-# Setup paths
-sys.path.insert(0, '/app')
-sys.path.insert(0, '/app/shared')
+# Setup paths - handle both Docker and native execution
+execution_mode = os.getenv('EXECUTION_MODE', 'docker')
+project_root = Path(__file__).resolve().parents[2]  # docker/diarization -> root
 
-from scripts.diarization import DiarizationProcessor
-from logger import PipelineLogger
+if execution_mode == 'native':
+    # Native mode: add project root to path
+    sys.path.insert(0, str(project_root))
+    sys.path.insert(0, str(project_root / 'scripts'))
+    sys.path.insert(0, str(project_root / 'shared'))
+else:
+    # Docker mode: use /app paths
+    sys.path.insert(0, '/app')
+    sys.path.insert(0, '/app/scripts')
+    sys.path.insert(0, '/app/shared')
+
+# Try importing from scripts (works for both native and docker)
+try:
+    from scripts.diarization import DiarizationProcessor
+except ImportError:
+    from diarization import DiarizationProcessor
+
+try:
+    from shared.logger import PipelineLogger
+except ImportError:
+    from logger import PipelineLogger
 
 
 def main():

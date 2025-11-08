@@ -129,7 +129,7 @@ def setup_logger(
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             log_file = log_path / get_stage_log_filename(name, timestamp)
         
-        file_handler = logging.FileHandler(log_file, mode='a')  # Append mode
+        file_handler = logging.FileHandler(log_file, mode='a', encoding='utf-8')  # Append mode with UTF-8
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
     
