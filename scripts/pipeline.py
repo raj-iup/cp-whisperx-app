@@ -430,11 +430,20 @@ class JobOrchestrator:
         self.logger.debug(f"Device: {self.device_type}")
         self.logger.debug(f"Timeout: {timeout}s")
         
+        # Warn about CPU for ML stages
+        if stage_name in ML_STAGES and self.device_type == "cpu":
+            self.logger.warning(f"⚠️  Running {stage_name} on CPU - this will be VERY SLOW")
+            self.logger.warning(f"⚠️  Expected time: 2-4 hours for 2-hour movie")
+            self.logger.warning(f"⚠️  Recommendation: Enable GPU (CUDA) or skip stage")
+            self.logger.warning(f"⚠️  To skip: Set STEP_{stage_name.upper()}=false in config/.env.pipeline")
+        
         try:
             result = subprocess.run(
                 cmd,
                 capture_output=True,
                 text=True,
+                encoding='utf-8',
+                errors='replace',  # Replace decode errors with �
                 timeout=timeout,
                 check=False,
                 env=env,
@@ -517,6 +526,8 @@ class JobOrchestrator:
                 ["docker", "rm", "-f", container_prefix],
                 capture_output=True,
                 text=True,
+                encoding='utf-8',
+                errors='replace',
                 check=False
             )
         except:
@@ -556,6 +567,8 @@ class JobOrchestrator:
                 cmd,
                 capture_output=True,
                 text=True,
+                encoding='utf-8',
+                errors='replace',
                 timeout=timeout,
                 check=False,  # Don't raise on non-zero exit
                 env=env
