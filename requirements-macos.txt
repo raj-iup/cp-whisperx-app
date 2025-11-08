@@ -1,13 +1,15 @@
-# Core dependencies for CP-WhisperX-App
-# Installation order matters for version compatibility
+# macOS Apple Silicon (M1/M2/M3) specific requirements
+# For use with ./scripts/bootstrap.sh
 
-# 1. NumPy (must be <2.0 for torchaudio 2.8.x compatibility)
+# 1. NumPy (must be <2.0 for torchaudio compatibility)
 numpy>=1.24.0,<2.0
 
-# 2. PyTorch ecosystem (flexible range, bootstrap will auto-downgrade to 2.8.x if needed)
-# Allows latest stable versions with platform-specific optimizations (CUDA/MPS)
+# 2. PyTorch with MPS support (Apple Silicon optimized)
+# Use latest stable with MPS support
 torch>=2.3.0,<3.0
 torchaudio>=2.3.0,<3.0
+
+# Note: Bootstrap script will auto-downgrade to 2.8.x if needed for PyAnnote compatibility
 
 # 3. Whisper ecosystem
 openai-whisper>=20231117
@@ -15,10 +17,10 @@ faster-whisper>=1.0.0
 whisper-ctranslate2>=0.4.0
 ctranslate2>=4.2.0
 
-# 4. PyAnnote ecosystem (install BEFORE whisperx to control version)
+# 4. PyAnnote ecosystem
 pyannote.audio>=3.3.2,<4.0.0
 
-# 5. WhisperX (compatible with pyannote.audio>=3.3.2)
+# 5. WhisperX
 whisperx>=3.7.0
 
 # 6. HuggingFace ecosystem

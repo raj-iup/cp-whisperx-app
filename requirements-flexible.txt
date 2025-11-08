@@ -4,8 +4,8 @@
 # 1. NumPy (must be <2.0 for torchaudio 2.8.x compatibility)
 numpy>=1.24.0,<2.0
 
-# 2. PyTorch ecosystem (flexible range, bootstrap will auto-downgrade to 2.8.x if needed)
-# Allows latest stable versions with platform-specific optimizations (CUDA/MPS)
+# 2. PyTorch ecosystem (flexible for cross-platform compatibility)
+# Bootstrap script will auto-downgrade if needed
 torch>=2.3.0,<3.0
 torchaudio>=2.3.0,<3.0
 
