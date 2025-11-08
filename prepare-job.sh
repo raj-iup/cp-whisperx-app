@@ -120,10 +120,10 @@ fi
 # Add workflow mode
 if [ "$WORKFLOW" = "transcribe" ]; then
     PYTHON_ARGS+=("--transcribe")
-    log_info "Workflow: TRANSCRIBE"
+    log_info "Workflow: TRANSCRIBE (demux → vad → asr only)"
 else
     PYTHON_ARGS+=("--subtitle-gen")
-    log_info "Workflow: SUBTITLE-GEN"
+    log_info "Workflow: SUBTITLE-GEN (all 13 stages, default)"
 fi
 
 # Always enable native mode (using .bollyenv)
@@ -143,16 +143,60 @@ echo ""
 log_info "Executing: python ${PYTHON_ARGS[*]}"
 echo ""
 
-if python "${PYTHON_ARGS[@]}"; then
+# Capture output for job ID extraction
+output=$(python "${PYTHON_ARGS[@]}" 2>&1)
+exit_code=$?
+
+# Display output
+echo "$output"
+
+if [ $exit_code -eq 0 ]; then
+    # Extract job ID from output
+    job_id=""
+    while IFS= read -r line; do
+        if [[ "$line" =~ Job\ created:\ (.+)$ ]]; then
+            job_id="${BASH_REMATCH[1]}"
+            job_id=$(echo "$job_id" | xargs)  # trim whitespace
+            break
+        fi
+    done <<< "$output"
+    
     echo ""
     log_success "Job preparation completed successfully"
     echo ""
+    log_info "Pipeline will execute these stages automatically:"
+    
+    if [ "$WORKFLOW" = "transcribe" ]; then
+        log_info "  1. Demux (audio extraction)"
+        log_info "  2. Silero VAD (voice detection)"
+        log_info "  3. ASR (transcription)"
+    else
+        log_info "  1. Demux (audio extraction)"
+        log_info "  2. TMDB (metadata fetch)"
+        log_info "  3. Pre-NER (entity extraction)"
+        log_info "  4. Silero VAD (voice detection)"
+        log_info "  5. PyAnnote VAD (voice refinement)"
+        log_info "  6. Diarization (speaker identification)"
+        log_info "  7. ASR (transcription)"
+        log_info "  8. Second Pass Translation (refinement)"
+        log_info "  9. Lyrics Detection (song identification)"
+        log_info "  10. Lyrics Translation (song translation)"
+        log_info "  11. Post-NER (name correction)"
+        log_info "  12. Subtitle Generation (SRT creation)"
+        log_info "  13. Mux (video embedding)"
+    fi
+    
+    echo ""
     log_info "Next step: Run the pipeline with the generated job ID"
-    log_info "  ./run_pipeline.sh -j <job-id>"
+    if [ -n "$job_id" ]; then
+        log_info "  ./run_pipeline.sh -j $job_id"
+    else
+        log_info "  ./run_pipeline.sh -j <job-id>"
+    fi
     echo ""
     exit 0
 else
-    exit_code=$?
+    echo ""
     log_error "Job preparation failed with exit code $exit_code"
     exit $exit_code
 fi
