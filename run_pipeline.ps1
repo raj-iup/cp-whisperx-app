@@ -49,10 +49,12 @@ if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
 # Build arguments
 $pythonArgs = @("scripts\pipeline.py", "--job", $Job)
 
-if ($Stages) {
+if ($Stages -and $Stages.Count -gt 0) {
     $pythonArgs += "--stages"
     $pythonArgs += $Stages
     Write-LogInfo "Running specific stages: $($Stages -join ', ')"
+} else {
+    Write-LogInfo "Running all stages"
 }
 
 if ($NoResume) {
