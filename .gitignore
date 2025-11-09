@@ -202,4 +202,4 @@ core.*
 config/.env.local
 config/.env.development
 config/.env.production
-config/.env.test
+config/.env.testshared/model-cache/
