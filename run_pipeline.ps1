@@ -40,6 +40,23 @@ if (-not $Job) {
 Write-LogSection "CP-WHISPERX-APP PIPELINE ORCHESTRATOR"
 Write-LogInfo "Job ID: $Job"
 
+# Set up environment
+$scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
+$projectRoot = $scriptPath
+
+# Activate virtual environment if it exists
+$venvActivate = Join-Path $projectRoot ".bollyenv\Scripts\Activate.ps1"
+if (Test-Path $venvActivate) {
+    & $venvActivate
+    Write-LogInfo "Activated virtual environment: .bollyenv"
+} else {
+    Write-LogWarning "Virtual environment not found. Run .\scripts\bootstrap.ps1 first"
+}
+
+# Set cache directories (consistent with bootstrap)
+$env:TORCH_HOME = Join-Path $projectRoot ".cache\torch"
+$env:HF_HOME = Join-Path $projectRoot ".cache\huggingface"
+
 # Validate Python
 if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
     Write-LogError "Python not found. Please install Python 3.9+"

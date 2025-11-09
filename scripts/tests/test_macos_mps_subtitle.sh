@@ -61,8 +61,11 @@ else
     ((CHECKS_FAILED++))
 fi
 
-if [ -f "$OUTPUT_DIR/subtitles/subtitles.srt" ]; then
+if [ -f "$OUTPUT_DIR/en_merged/"*".merged.srt" ]; then
     echo "✓ Subtitles created"
+    ((CHECKS_PASSED++))
+elif [ -f "$OUTPUT_DIR/subtitles/subtitles.srt" ]; then
+    echo "✓ Subtitles created (old location)"
     ((CHECKS_PASSED++))
 else
     echo "✗ Subtitles missing"

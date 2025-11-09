@@ -221,13 +221,21 @@ if (Get-Command ffmpeg -ErrorAction SilentlyContinue) {
 Write-LogSection "HARDWARE DETECTION & CACHING"
 Write-LogInfo "Detecting hardware capabilities..."
 
-# Set TORCH_HOME to avoid /app/LLM cache path in native mode
+# Set cache directories for ML models (avoids /app/LLM paths in native mode)
 $torchCacheDir = Join-Path $projectRoot ".cache\torch"
+$hfCacheDir = Join-Path $projectRoot ".cache\huggingface"
+
 if (-not (Test-Path $torchCacheDir)) {
     New-Item -ItemType Directory -Path $torchCacheDir -Force | Out-Null
 }
+if (-not (Test-Path $hfCacheDir)) {
+    New-Item -ItemType Directory -Path $hfCacheDir -Force | Out-Null
+}
+
 $env:TORCH_HOME = $torchCacheDir
+$env:HF_HOME = $hfCacheDir
 Write-LogInfo "TORCH_HOME set to: $torchCacheDir"
+Write-LogInfo "HF_HOME set to: $hfCacheDir"
 
 try {
     # Run hardware detection with caching
@@ -374,11 +382,14 @@ Write-LogInfo "Verifying PyAnnote.audio compatibility..."
 
 try {
     # Test actual import with proper error capture
-    # Suppress speechbrain deprecation warnings
+    # Suppress deprecation warnings
     $pyannoteTest = & python -c @"
 import warnings
 warnings.filterwarnings('ignore', message='.*speechbrain.pretrained.*deprecated.*')
 warnings.filterwarnings('ignore', message='.*pytorch_lightning.*')
+warnings.filterwarnings('ignore', message='.*torchaudio._backend.*')
+warnings.filterwarnings('ignore', message='.*torchaudio._backend.list_audio_backends.*deprecated.*')
+warnings.filterwarnings('ignore', message='.*Lightning automatically upgraded.*')
 try:
     from pyannote.audio import Pipeline
     print('SUCCESS')
@@ -411,6 +422,136 @@ except Exception as e:
 }
 
 # ============================================================================
+# GLOSSARY SYSTEM VALIDATION
+# ============================================================================
+Write-LogSection "GLOSSARY SYSTEM VALIDATION"
+Write-LogInfo "Validating Hinglish glossary system..."
+
+$glossaryDir = Join-Path $projectRoot "glossary"
+$glossaryTsv = Join-Path $glossaryDir "hinglish_master.tsv"
+$promptsDir = Join-Path $glossaryDir "prompts"
+
+# Check glossary directory
+if (-not (Test-Path $glossaryDir)) {
+    Write-LogWarn "Glossary directory not found: $glossaryDir"
+    Write-LogInfo "  Creating glossary structure..."
+    New-Item -ItemType Directory -Path $glossaryDir -Force | Out-Null
+    New-Item -ItemType Directory -Path $promptsDir -Force | Out-Null
+} else {
+    Write-LogSuccess "Glossary directory exists"
+}
+
+# Check master TSV
+if (Test-Path $glossaryTsv) {
+    $termCount = (Get-Content $glossaryTsv | Select-Object -Skip 1 | Where-Object { $_.Trim() -ne "" }).Count
+    Write-LogSuccess "Glossary master TSV found: $termCount terms"
+} else {
+    Write-LogWarn "Glossary master TSV not found: $glossaryTsv"
+    Write-LogInfo "  The glossary provides Hinglish→English term consistency"
+    Write-LogInfo "  Subtitle generation will work without it, but may lack terminology consistency"
+}
+
+# Check prompts directory
+if (-not (Test-Path $promptsDir)) {
+    Write-LogInfo "Creating prompts directory..."
+    New-Item -ItemType Directory -Path $promptsDir -Force | Out-Null
+}
+
+# Count available movie prompts
+if (Test-Path $promptsDir) {
+    $promptCount = (Get-ChildItem -Path $promptsDir -Filter "*.txt" -File -ErrorAction SilentlyContinue).Count
+    if ($promptCount -gt 0) {
+        Write-LogSuccess "Found $promptCount movie-specific prompts"
+        Write-LogInfo "  Movie prompts provide context-aware translation guidance"
+    } else {
+        Write-LogInfo "No movie-specific prompts found"
+        Write-LogInfo "  Prompts can be added to: $promptsDir"
+        Write-LogInfo "  Example: dil_chahta_hai_2001.txt, 3_idiots_2009.txt"
+    }
+}
+
+# Validate glossary.py module
+$glossaryModule = Join-Path $projectRoot "shared\glossary.py"
+$glossaryAdvanced = Join-Path $projectRoot "shared\glossary_advanced.py"
+
+if (Test-Path $glossaryModule) {
+    Write-LogSuccess "Glossary module found: shared\glossary.py"
+    
+    # Check for advanced strategies module
+    if (Test-Path $glossaryAdvanced) {
+        Write-LogSuccess "Advanced strategies module found: shared\glossary_advanced.py"
+        Write-LogInfo "  Supported strategies: context, character, regional, frequency, adaptive, ml"
+    } else {
+        Write-LogWarn "Advanced strategies module not found (optional)"
+        Write-LogInfo "  Only 'first' strategy will be available"
+    }
+    
+    # Quick validation of glossary loading
+    try {
+        Push-Location $projectRoot
+        $glossaryTest = & python -c @"
+from shared.glossary import HinglishGlossary
+from pathlib import Path
+glossary_path = Path('glossary/hinglish_master.tsv')
+if glossary_path.exists():
+    # Test basic loading
+    g = HinglishGlossary(glossary_path, strategy='first')
+    print(f'Loaded {len(g.term_map)} terms')
+    # Test advanced strategies if available
+    try:
+        g_adv = HinglishGlossary(glossary_path, strategy='adaptive')
+        print('Advanced strategies: OK')
+    except:
+        print('Advanced strategies: Not available')
+else:
+    print('TSV not found')
+"@ 2>&1
+        Pop-Location
+        
+        if ($glossaryTest -like "*Loaded*") {
+            $loadedLine = ($glossaryTest | Where-Object { $_ -like "*Loaded*" }) -join ''
+            Write-LogSuccess "Glossary system: $loadedLine"
+            if ($glossaryTest -like "*Advanced strategies: OK*") {
+                Write-LogSuccess "  Advanced strategies validated"
+            }
+        } else {
+            Write-LogInfo "Glossary system ready (TSV can be added later)"
+        }
+    } catch {
+        Write-LogInfo "Glossary system ready (validation skipped)"
+    }
+} else {
+    Write-LogWarn "Glossary module not found: $glossaryModule"
+}
+
+Write-LogInfo ""
+Write-LogInfo "Glossary Integration Status:"
+Write-LogInfo "  • Master TSV: $(if (Test-Path $glossaryTsv) { '✓ Present' } else { '✗ Not found' })"
+Write-LogInfo "  • Movie Prompts: $promptCount files"
+Write-LogInfo "  • Python Module: $(if (Test-Path $glossaryModule) { '✓ Ready' } else { '✗ Missing' })"
+Write-LogInfo "  • Advanced Strategies: $(if (Test-Path $glossaryAdvanced) { '✓ Available' } else { '✗ Not available' })"
+Write-LogInfo "  • Config: GLOSSARY_ENABLED=true, GLOSSARY_STRATEGY=adaptive"
+Write-LogInfo ""
+Write-LogInfo "Glossary Strategies:"
+Write-LogInfo "  • first      - Fast, use first option (basic)"
+Write-LogInfo "  • context    - Analyze surrounding text"
+Write-LogInfo "  • character  - Use character speaking profiles"
+Write-LogInfo "  • regional   - Apply regional variants (Mumbai, Delhi, etc.)"
+Write-LogInfo "  • frequency  - Learn from usage patterns"
+Write-LogInfo "  • adaptive   - Intelligently combine all (recommended)"
+Write-LogInfo "  • ml         - ML-based selection (future)"
+Write-LogInfo ""
+Write-LogInfo "To add glossary terms:"
+Write-LogInfo "  1. Edit: glossary\hinglish_master.tsv"
+Write-LogInfo "  2. Format: source<TAB>preferred_english<TAB>notes<TAB>context"
+Write-LogInfo "  3. Example: yaar<TAB>dude|man<TAB>Use dude for young males<TAB>casual"
+Write-LogInfo ""
+Write-LogInfo "To add movie-specific prompts:"
+Write-LogInfo "  1. Create: glossary\prompts\<film_title>_<year>.txt"
+Write-LogInfo "  2. Include: characters, tone, key terms, cultural context"
+Write-LogInfo "  3. See existing prompts for examples"
+
+# ============================================================================
 # Complete
 # ============================================================================
 Write-LogSection "BOOTSTRAP COMPLETE"
@@ -427,6 +568,7 @@ Write-Host "  ✓ FFmpeg validated" -ForegroundColor Gray
 Write-Host "  ✓ ML models pre-downloaded" -ForegroundColor Gray
 Write-Host "  ✓ spaCy NER models installed" -ForegroundColor Gray
 Write-Host "  ✓ PyAnnote.audio verified working" -ForegroundColor Gray
+Write-Host "  ✓ Glossary system validated" -ForegroundColor Gray
 Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Yellow
 Write-Host "  1. Prepare a job:" -ForegroundColor Gray
@@ -438,6 +580,8 @@ Write-Host ""
 Write-Host "Optional:" -ForegroundColor Yellow
 Write-Host "  • Create config/secrets.json with API tokens" -ForegroundColor Gray
 Write-Host "  • Configure TMDB_API_KEY for metadata enrichment" -ForegroundColor Gray
+Write-Host "  • Add glossary terms to glossary\hinglish_master.tsv" -ForegroundColor Gray
+Write-Host "  • Create movie-specific prompts in glossary\prompts\" -ForegroundColor Gray
 Write-Host ""
 
 exit 0

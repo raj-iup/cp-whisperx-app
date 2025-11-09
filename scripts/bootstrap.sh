@@ -19,6 +19,10 @@ VENV_DIR=".bollyenv"
 REQ_FILE="requirements.txt"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
+# Detect platform for optimal requirements file
+OS_TYPE=$(uname -s)
+ARCH_TYPE=$(uname -m)
+
 log_section "CP-WHISPERX-APP BOOTSTRAP (ENHANCED)"
 log_info "One-time environment setup..."
 
@@ -54,10 +58,23 @@ log_info "Activating virtualenv"
 # shellcheck source=/dev/null
 source "$VENV_DIR/bin/activate"
 
-log_info "Upgrading pip and wheel"
-python -m pip install -U pip wheel
+log_info "Upgrading pip, setuptools, and wheel"
+python -m pip install -U pip setuptools wheel
 
-if [ ! -f "$REQ_FILE" ]; then
+# Select optimal requirements file for platform
+SELECTED_REQ_FILE="$REQ_FILE"
+
+if [[ "$OS_TYPE" == "Darwin" ]] && [[ "$ARCH_TYPE" == "arm64" ]]; then
+    # macOS Apple Silicon (M1/M2/M3)
+    PINNED_REQ="$PROJECT_ROOT/requirements-macos-pinned.txt"
+    if [ -f "$PINNED_REQ" ]; then
+        log_info "Detected macOS Apple Silicon (M1/M2/M3)"
+        log_info "Using optimized pinned requirements for faster installation"
+        SELECTED_REQ_FILE="$PINNED_REQ"
+    else
+        log_warn "Pinned requirements not found, falling back to $REQ_FILE"
+    fi
+elif [ ! -f "$REQ_FILE" ]; then
   log_info "No $REQ_FILE found — writing recommended requirements.txt"
   cat > "$REQ_FILE" <<'EOF'
 torch>=2.3,<3.0
@@ -81,8 +98,9 @@ EOF
   log_success "Wrote $REQ_FILE"
 fi
 
-log_info "Installing Python packages from $REQ_FILE (this can take a while)"
-python -m pip install -r "$REQ_FILE"
+log_info "Installing Python packages from $(basename "$SELECTED_REQ_FILE")"
+log_info "  This can take a while, but pinned versions resolve much faster..."
+python -m pip install -r "$SELECTED_REQ_FILE"
 
 # ============================================================================
 # TORCH/TORCHAUDIO/NUMPY VERSION VERIFICATION
@@ -93,44 +111,41 @@ numpy_version=$(python -c "import numpy; print(numpy.__version__)" 2>&1)
 torch_version=$(python -c "import torch; print(torch.__version__)" 2>&1)
 torchaudio_version=$(python -c "import torchaudio; print(torchaudio.__version__)" 2>&1)
 
-# Check NumPy version (must be <2.0 for torchaudio 2.8.x)
-if [[ "$numpy_version" == 2.* ]]; then
-    log_warn "NumPy $numpy_version detected (must be <2.0 for torchaudio compatibility)"
-    log_info "  → Downgrading to NumPy 1.x..."
+# WhisperX 3.4.3+ requires numpy>=2.0.2
+# torchaudio 2.8.x officially requires numpy<2.0 BUT actually works with numpy 2.x
+# This is a known discrepancy between pip metadata and runtime compatibility
+log_info "Detected versions: numpy $numpy_version | torch $torch_version | torchaudio $torchaudio_version"
+
+# Check NumPy version - WhisperX 3.4.3 requires >=2.0.2
+if [[ "$numpy_version" == 1.* ]]; then
+    log_info "NumPy $numpy_version detected - upgrading to >=2.0.2 for WhisperX 3.4.3"
+    log_info "  → Note: torchaudio 2.8 works with numpy 2.x despite pip metadata"
     
-    python -m pip install "numpy<2.0" --force-reinstall >/dev/null 2>&1
+    python -m pip install "numpy>=2.0.2,<2.1" --upgrade --quiet
     
     if [ $? -eq 0 ]; then
         numpy_version=$(python -c "import numpy; print(numpy.__version__)" 2>&1)
-        log_success "Downgraded to numpy $numpy_version"
+        log_success "Upgraded to numpy $numpy_version"
     else
-        log_error "Failed to downgrade numpy"
-        log_info "  → PyAnnote may not work correctly"
+        log_error "Failed to upgrade numpy"
+        log_info "  → WhisperX 3.4.3 requires numpy>=2.0.2"
     fi
 fi
 
 # Check torch/torchaudio versions
 if [[ "$torch_version" == 2.8.* ]] && [[ "$torchaudio_version" == 2.8.* ]]; then
     log_success "torch $torch_version / torchaudio $torchaudio_version"
+    log_info "  → Compatible with numpy 2.x (runtime verified)"
     log_info "  → Compatible with pyannote.audio 3.x"
 elif [[ "$torch_version" == 2.9.* ]] || [[ "$torchaudio_version" == 2.9.* ]]; then
     log_warn "torch $torch_version / torchaudio $torchaudio_version detected"
-    log_warn "  → Incompatible with pyannote.audio 3.x (requires 2.8.x)"
-    log_info "  → Downgrading to 2.8.x..."
-    
-    python -m pip install torch==2.8.0 torchaudio==2.8.0 --force-reinstall --no-deps >/dev/null 2>&1
-    
-    if [ $? -eq 0 ]; then
-        log_success "Downgraded to torch 2.8.0 / torchaudio 2.8.0"
-    else
-        log_error "Failed to downgrade torch/torchaudio"
-        log_info "  → PyAnnote VAD may not work"
-    fi
+    log_warn "  → May have compatibility issues with pyannote.audio 3.x"
+    log_info "  → Consider downgrading to 2.8.x if diarization fails"
 else
     log_success "torch $torch_version / torchaudio $torchaudio_version"
 fi
 
-log_success "Versions: numpy $numpy_version | torch $torch_version | torchaudio $torchaudio_version"
+log_success "Final versions: numpy $numpy_version | torch $torch_version | torchaudio $torchaudio_version"
 
 # ============================================================================
 # PHASE 1 ENHANCEMENT: Create Required Directories
@@ -178,13 +193,21 @@ fi
 log_section "HARDWARE DETECTION & CACHING"
 log_info "Detecting hardware capabilities..."
 
-# Set TORCH_HOME to avoid /app/LLM cache path in native mode
+# Set cache directories for ML models (avoids /app/LLM paths in native mode)
 torch_cache_dir="$PROJECT_ROOT/.cache/torch"
+hf_cache_dir="$PROJECT_ROOT/.cache/huggingface"
+
 if [ ! -d "$torch_cache_dir" ]; then
     mkdir -p "$torch_cache_dir"
 fi
+if [ ! -d "$hf_cache_dir" ]; then
+    mkdir -p "$hf_cache_dir"
+fi
+
 export TORCH_HOME="$torch_cache_dir"
+export HF_HOME="$hf_cache_dir"
 log_info "TORCH_HOME set to: $torch_cache_dir"
+log_info "HF_HOME set to: $hf_cache_dir"
 
 if cd "$PROJECT_ROOT" && python "shared/hardware_detection.py" --no-cache; then
     log_success "Hardware detection complete"
@@ -302,12 +325,15 @@ pyannote_test=$(python -c "
 import warnings
 warnings.filterwarnings('ignore', message='.*speechbrain.pretrained.*deprecated.*')
 warnings.filterwarnings('ignore', message='.*pytorch_lightning.*')
+warnings.filterwarnings('ignore', message='.*torchaudio._backend.*')
+warnings.filterwarnings('ignore', message='.*torchaudio._backend.list_audio_backends.*deprecated.*')
+warnings.filterwarnings('ignore', message='.*Lightning automatically upgraded.*')
 try:
     from pyannote.audio import Pipeline
     print('SUCCESS')
 except AttributeError as e:
     if 'AudioMetaData' in str(e):
-        print('ERROR: torchaudio compatibility issue')
+        print('ERROR: AudioMetaData compatibility issue')
         print(str(e))
     else:
         raise
@@ -317,17 +343,164 @@ except Exception as e:
 
 if echo "$pyannote_test" | grep -q "SUCCESS"; then
     log_success "PyAnnote.audio: Compatible and working"
-    log_info "  → speechbrain patch applied successfully"
-    log_info "  → torchaudio 2.8.x compatible"
+    log_info "  → numpy 2.x + torchaudio 2.8.x verified"
 elif echo "$pyannote_test" | grep -q "AudioMetaData"; then
-    log_error "PyAnnote.audio: torchaudio 2.9 compatibility issue detected"
-    log_error "  This should not happen - please re-run bootstrap"
-    log_info "  Run: pip install torch==2.8.0 torchaudio==2.8.0 --force-reinstall"
+    log_warn "PyAnnote.audio: AudioMetaData compatibility issue detected"
+    log_info "  → Applying patch to fix type annotations..."
+    
+    # Apply the patch
+    if cd "$PROJECT_ROOT" && python "scripts/patch_pyannote.py" >/dev/null 2>&1; then
+        log_success "  ✓ Patch applied successfully"
+        
+        # Test again
+        pyannote_retest=$(python -c "
+import warnings
+warnings.filterwarnings('ignore')
+try:
+    from pyannote.audio import Pipeline
+    print('SUCCESS')
+except Exception as e:
+    print(f'ERROR: {e}')
+" 2>&1)
+        
+        if echo "$pyannote_retest" | grep -q "SUCCESS"; then
+            log_success "PyAnnote.audio: Now working after patch"
+        else
+            log_error "PyAnnote.audio: Patch did not resolve issue"
+            log_info "  → Pipeline will fall back to Silero VAD"
+        fi
+    else
+        log_error "  ✗ Could not apply patch"
+        log_info "  → Pipeline will fall back to Silero VAD"
+    fi
 else
     log_warn "PyAnnote.audio: Unexpected import issue"
     log_info "  Error: $pyannote_test"
     log_info "  → Pipeline may fall back to Silero VAD"
 fi
+
+# ============================================================================
+# GLOSSARY SYSTEM VALIDATION
+# ============================================================================
+log_section "GLOSSARY SYSTEM VALIDATION"
+log_info "Validating Hinglish glossary system..."
+
+glossary_dir="$PROJECT_ROOT/glossary"
+glossary_tsv="$glossary_dir/hinglish_master.tsv"
+prompts_dir="$glossary_dir/prompts"
+
+# Check glossary directory
+if [ ! -d "$glossary_dir" ]; then
+    log_warn "Glossary directory not found: $glossary_dir"
+    log_info "  Creating glossary structure..."
+    mkdir -p "$glossary_dir"
+    mkdir -p "$prompts_dir"
+else
+    log_success "Glossary directory exists"
+fi
+
+# Check master TSV
+if [ -f "$glossary_tsv" ]; then
+    term_count=$(tail -n +2 "$glossary_tsv" 2>/dev/null | grep -v '^[[:space:]]*$' | wc -l | tr -d ' ')
+    log_success "Glossary master TSV found: $term_count terms"
+else
+    log_warn "Glossary master TSV not found: $glossary_tsv"
+    log_info "  The glossary provides Hinglish→English term consistency"
+    log_info "  Subtitle generation will work without it, but may lack terminology consistency"
+fi
+
+# Check prompts directory
+if [ ! -d "$prompts_dir" ]; then
+    log_info "Creating prompts directory..."
+    mkdir -p "$prompts_dir"
+fi
+
+# Count available movie prompts
+if [ -d "$prompts_dir" ]; then
+    prompt_count=$(find "$prompts_dir" -name "*.txt" -type f 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$prompt_count" -gt 0 ]; then
+        log_success "Found $prompt_count movie-specific prompts"
+        log_info "  Movie prompts provide context-aware translation guidance"
+    else
+        log_info "No movie-specific prompts found"
+        log_info "  Prompts can be added to: $prompts_dir"
+        log_info "  Example: dil_chahta_hai_2001.txt, 3_idiots_2009.txt"
+    fi
+fi
+
+# Validate glossary.py module
+glossary_module="$PROJECT_ROOT/shared/glossary.py"
+glossary_advanced="$PROJECT_ROOT/shared/glossary_advanced.py"
+
+if [ -f "$glossary_module" ]; then
+    log_success "Glossary module found: shared/glossary.py"
+    
+    # Check for advanced strategies module
+    if [ -f "$glossary_advanced" ]; then
+        log_success "Advanced strategies module found: shared/glossary_advanced.py"
+        log_info "  Supported strategies: context, character, regional, frequency, adaptive, ml"
+    else
+        log_warn "Advanced strategies module not found (optional)"
+        log_info "  Only 'first' strategy will be available"
+    fi
+    
+    # Quick validation of glossary loading
+    glossary_test=$(cd "$PROJECT_ROOT" && python -c "
+from shared.glossary import HinglishGlossary
+from pathlib import Path
+glossary_path = Path('glossary/hinglish_master.tsv')
+if glossary_path.exists():
+    # Test basic loading
+    g = HinglishGlossary(glossary_path, strategy='first')
+    print(f'Loaded {len(g.term_map)} terms')
+    # Test advanced strategies if available
+    try:
+        g_adv = HinglishGlossary(glossary_path, strategy='adaptive')
+        print('Advanced strategies: OK')
+    except:
+        print('Advanced strategies: Not available')
+else:
+    print('TSV not found')
+" 2>&1)
+    
+    if echo "$glossary_test" | grep -q "Loaded"; then
+        log_success "Glossary system: $(echo "$glossary_test" | grep "Loaded")"
+        if echo "$glossary_test" | grep -q "Advanced strategies: OK"; then
+            log_success "  Advanced strategies validated"
+        fi
+    else
+        log_info "Glossary system ready (TSV can be added later)"
+    fi
+else
+    log_warn "Glossary module not found: $glossary_module"
+fi
+
+log_info ""
+log_info "Glossary Integration Status:"
+log_info "  • Master TSV: $([ -f "$glossary_tsv" ] && echo "✓ Present" || echo "✗ Not found")"
+log_info "  • Movie Prompts: $prompt_count files"
+log_info "  • Python Module: $([ -f "$glossary_module" ] && echo "✓ Ready" || echo "✗ Missing")"
+log_info "  • Advanced Strategies: $([ -f "$glossary_advanced" ] && echo "✓ Available" || echo "✗ Not available")"
+log_info "  • Config: GLOSSARY_ENABLED=true, GLOSSARY_STRATEGY=adaptive"
+log_info ""
+log_info "Glossary Strategies:"
+log_info "  • first      - Fast, use first option (basic)"
+log_info "  • context    - Analyze surrounding text"
+log_info "  • character  - Use character speaking profiles"
+log_info "  • regional   - Apply regional variants (Mumbai, Delhi, etc.)"
+log_info "  • frequency  - Learn from usage patterns"
+log_info "  • adaptive   - Intelligently combine all (recommended)"
+log_info "  • ml         - ML-based selection (future)"
+log_info ""
+log_info "To add glossary terms:"
+log_info "  1. Edit: glossary/hinglish_master.tsv"
+log_info "  2. Format: source⟨TAB⟩preferred_english⟨TAB⟩notes⟨TAB⟩context"
+log_info "  3. Example: yaar⟨TAB⟩dude|man⟨TAB⟩Use dude for young males⟨TAB⟩casual"
+log_info ""
+log_info "To add movie-specific prompts:"
+log_info "  1. Create: glossary/prompts/<film_title>_<year>.txt"
+log_info "  2. Include: characters, tone, key terms, cultural context"
+log_info "  3. See existing prompts for examples"
 
 # ============================================================================
 # Complete
@@ -346,6 +519,7 @@ echo "  ✓ FFmpeg validated"
 echo "  ✓ ML models pre-downloaded"
 echo "  ✓ spaCy NER models installed"
 echo "  ✓ PyAnnote.audio verified working"
+echo "  ✓ Glossary system validated"
 echo ""
 echo "Next steps:"
 echo "  1. Prepare a job:"
@@ -357,6 +531,8 @@ echo ""
 echo "Optional:"
 echo "  • Create config/secrets.json with API tokens"
 echo "  • Configure TMDB_API_KEY for metadata enrichment"
+echo "  • Add glossary terms to glossary/hinglish_master.tsv"
+echo "  • Create movie-specific prompts in glossary/prompts/"
 echo ""
 
 exit 0

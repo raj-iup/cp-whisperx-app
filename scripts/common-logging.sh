@@ -6,7 +6,7 @@
 # Auto-initialize logging for the calling script
 _initialize_logging() {
     # Get the calling script name
-    local calling_script="${BASH_SOURCE[-1]}"
+    local calling_script="${BASH_SOURCE[${#BASH_SOURCE[@]}-1]}"
     local script_name=$(basename "$calling_script" | sed 's/\.[^.]*$//')
     
     # Create logs directory if it doesn't exist
@@ -43,7 +43,7 @@ fi
 LOG_LEVEL=${LOG_LEVEL:-INFO}
 
 # Auto-create log file if not explicitly set
-if [ -z "$LOG_FILE" ]; then
+if [ -z "${LOG_FILE:-}" ]; then
     LOG_FILE=$(_initialize_logging)
 fi
 

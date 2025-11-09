@@ -21,6 +21,21 @@ JOB_ID=$1
 log_section "CP-WHISPERX-APP PIPELINE RESUME"
 log_info "Resuming job: $JOB_ID"
 
+# Set up environment
+PROJECT_ROOT="$SCRIPT_DIR"
+
+# Activate virtual environment if it exists
+if [ -f "$PROJECT_ROOT/.bollyenv/bin/activate" ]; then
+    source "$PROJECT_ROOT/.bollyenv/bin/activate"
+    log_info "Activated virtual environment: .bollyenv"
+else
+    log_warning "Virtual environment not found. Run ./scripts/bootstrap.sh first"
+fi
+
+# Set cache directories (consistent with bootstrap)
+export TORCH_HOME="$PROJECT_ROOT/.cache/torch"
+export HF_HOME="$PROJECT_ROOT/.cache/huggingface"
+
 # Validate Python
 if ! command -v python3 &> /dev/null; then
     log_error "Python 3 not found. Please install Python 3.9+"

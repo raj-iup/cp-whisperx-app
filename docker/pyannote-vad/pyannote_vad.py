@@ -308,10 +308,15 @@ def main():
         try:
             from pyannote.audio import Pipeline
             
-            # Set cache directory for HuggingFace models
+            # Use HF_HOME and TORCH_HOME from environment (set by bootstrap)
+            # This allows bootstrap to control cache location
             import os
-            os.environ['HF_HOME'] = '/app/LLM/huggingface'
-            os.environ['TORCH_HOME'] = '/app/LLM/torch'
+            # Environment variables are already set by bootstrap scripts
+            # Just log what we're using
+            hf_home = os.environ.get('HF_HOME', str(Path.home() / '.cache' / 'huggingface'))
+            torch_home = os.environ.get('TORCH_HOME', str(Path.home() / '.cache' / 'torch'))
+            logger.info(f"Using HF_HOME: {hf_home}")
+            logger.info(f"Using TORCH_HOME: {torch_home}")
             
             # Get HuggingFace token from config secrets
             hf_token = None
@@ -329,20 +334,20 @@ def main():
                     vad_pipeline = Pipeline.from_pretrained(
                         "pyannote/voice-activity-detection",
                         token=hf_token,
-                        cache_dir="/app/LLM/huggingface"
+                        cache_dir=hf_home
                     )
                 except TypeError:
                     # Fallback for older versions that still use use_auth_token
                     vad_pipeline = Pipeline.from_pretrained(
                         "pyannote/voice-activity-detection",
                         use_auth_token=hf_token,
-                        cache_dir="/app/LLM/huggingface"
+                        cache_dir=hf_home
                     )
             else:
                 # Try without token (may fail for gated models)
                 vad_pipeline = Pipeline.from_pretrained(
                     "pyannote/voice-activity-detection",
-                    cache_dir="/app/LLM/huggingface"
+                    cache_dir=hf_home
                 )
             
             # Configure pipeline with hyperparameters

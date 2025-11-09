@@ -1,80 +1,191 @@
 #!/bin/bash
-# Pipeline Quick Reference
-# Run this to see pipeline status and available commands
+# Pipeline Status & Quick Reference
+# Usage: ./scripts/pipeline-status.sh [job_id]
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+# Check if job ID provided
+JOB_ID="$1"
 
 echo "======================================================"
-echo "   CP-WhisperX Pipeline - Quick Reference"
+echo "   CP-WhisperX Pipeline - Status & Reference"
 echo "======================================================"
 echo ""
 
-echo "📊 PIPELINE STAGES (Sequential)"
+# If job ID provided, show job-specific status
+if [ -n "$JOB_ID" ]; then
+    echo "📋 JOB STATUS: $JOB_ID"
+    echo "────────────────────────────────────────────────────"
+    
+    # Find job directory
+    YEAR="${JOB_ID:0:4}"
+    MONTH="${JOB_ID:4:2}"
+    DAY="${JOB_ID:6:2}"
+    
+    JOB_DIR="$PROJECT_ROOT/out/$YEAR/$MONTH/$DAY"
+    JOB_PATH=""
+    
+    if [ -d "$JOB_DIR" ]; then
+        for user_dir in "$JOB_DIR"/*; do
+            if [ -d "$user_dir/$JOB_ID" ]; then
+                JOB_PATH="$user_dir/$JOB_ID"
+                break
+            fi
+        done
+    fi
+    
+    if [ -z "$JOB_PATH" ]; then
+        echo "  ❌ Job not found: $JOB_ID"
+        echo ""
+        exit 1
+    fi
+    
+    echo "  📁 Location: $JOB_PATH"
+    
+    # Check manifest for stage status
+    MANIFEST="$JOB_PATH/manifest.json"
+    if [ -f "$MANIFEST" ]; then
+        echo "  📊 Stage Progress:"
+        echo ""
+        
+        # Define all stages
+        STAGES=("demux" "tmdb" "pre_ner" "silero_vad" "pyannote_vad" "diarization" "asr" "second_pass_translation" "lyrics_detection" "post_ner" "subtitle_gen" "mux")
+        
+        for stage in "${STAGES[@]}"; do
+            if command -v jq >/dev/null 2>&1; then
+                STATUS=$(jq -r ".stages.\"$stage\".status // \"pending\"" "$MANIFEST" 2>/dev/null)
+                COMPLETED=$(jq -r ".stages.\"$stage\".completed // false" "$MANIFEST" 2>/dev/null)
+                
+                # Check if stage is completed (either status="success" or completed=true)
+                if [ "$STATUS" = "success" ] || [ "$COMPLETED" = "true" ]; then
+                    printf "    ✓ %-25s [COMPLETED]\n" "$stage"
+                elif [ "$STATUS" = "completed" ]; then
+                    printf "    ✓ %-25s [COMPLETED]\n" "$stage"
+                elif [ "$STATUS" = "failed" ] || [ "$STATUS" = "error" ]; then
+                    printf "    ✗ %-25s [FAILED]\n" "$stage"
+                elif [ "$STATUS" = "running" ] || [ "$STATUS" = "in_progress" ]; then
+                    printf "    ⏳ %-25s [RUNNING]\n" "$stage"
+                else
+                    printf "    ○ %-25s [PENDING]\n" "$stage"
+                fi
+            else
+                printf "    ? %-25s [UNKNOWN - jq not installed]\n" "$stage"
+            fi
+        done
+    else
+        echo "  ⚠️  Manifest not found (job not initialized)"
+    fi
+    echo ""
+    echo "────────────────────────────────────────────────────"
+    echo ""
+fi
+
+echo "📊 PIPELINE STAGES (12 Total - Sequential)"
 echo "────────────────────────────────────────────────────"
-echo "  1. demux          → Extract 16kHz mono audio"
-echo "  2. tmdb           → Fetch movie metadata"
-echo "  3. pre-ner        → Extract entities for prompt"
-echo "  4. silero-vad     → Coarse speech segmentation"
-echo "  5. pyannote-vad   → Refined VAD boundaries"
-echo "  6. diarization    → Speaker labeling"
-echo "  7. asr            → WhisperX transcription"
-echo "  8. post-ner       → Entity correction"
-echo "  9. subtitle-gen   → Generate .srt subtitles"
-echo " 10. mux            → Embed subtitles in MP4"
+echo "  1. demux                   → Extract 16kHz mono audio"
+echo "  2. tmdb                    → Fetch movie metadata"
+echo "  3. pre_ner                 → Extract entities for prompt"
+echo "  4. silero_vad              → Coarse speech segmentation (ML)"
+echo "  5. pyannote_vad            → Refined VAD boundaries (ML)"
+echo "  6. diarization             → Speaker labeling (ML)"
+echo "  7. asr                     → WhisperX transcription (ML)"
+echo "  8. second_pass_translation → Improve translation quality (ML)"
+echo "  9. lyrics_detection        → Detect & mark song sequences (ML)"
+echo " 10. post_ner                → Entity correction"
+echo " 11. subtitle_gen            → Generate .srt subtitles"
+echo " 12. mux                     → Embed subtitles in MP4"
+echo ""
+echo "  Note: (ML) stages use GPU acceleration when available (MPS/CUDA)"
 echo ""
 
 echo "🚀 COMMON COMMANDS"
 echo "────────────────────────────────────────────────────"
-echo "  Preflight check:       python preflight.py"
-echo "  Build all images:      docker compose build"
-echo "  Run complete pipeline: python pipeline.py in/movie.mp4"
-echo "  Run single stage:      docker compose run --rm <stage> <args>"
+echo "  Setup environment:     ./scripts/bootstrap.sh"
+echo "  Prepare job:           ./prepare-job.sh in/movie.mp4"
+echo "  Run pipeline:          ./run_pipeline.sh --job <job_id>"
+echo "  Resume pipeline:       ./resume-pipeline.sh <job_id>"
+echo "  Check job status:      ./scripts/pipeline-status.sh <job_id>"
 echo ""
 
-echo "🏗️  DOCKER IMAGES STATUS"
+echo "🔧 EXECUTION MODES"
 echo "────────────────────────────────────────────────────"
-docker images | grep "cp-whisperx-app" | awk '{printf "  %-30s %10s  %10s\n", $1, $4" "$5, $7}'
+echo "  macOS:   Native mode with MPS acceleration (.bollyenv)"
+echo "  Windows: Native mode with CUDA/CPU (.bollyenv)"
+echo "  Linux:   Docker mode with CUDA/CPU containers"
 echo ""
 
-echo "📁 OUTPUT STRUCTURE"
+echo "📁 OUTPUT STRUCTURE (Job-Based)"
 echo "────────────────────────────────────────────────────"
-echo "  out/{Movie_Title}/"
-echo "  ├── audio/audio.wav"
-echo "  ├── metadata/tmdb_data.json"
-echo "  ├── entities/pre_ner.json"
-echo "  ├── vad/silero_segments.json"
-echo "  ├── vad/pyannote_segments.json"
-echo "  ├── diarization/speaker_segments.json"
-echo "  ├── transcription/transcript.json"
-echo "  ├── entities/post_ner.json"
-echo "  ├── subtitles/subtitles.srt"
-echo "  ├── final_output.mp4"
-echo "  └── manifest.json"
+echo "  out/YYYY/MM/DD/USER_ID/JOB_ID/"
+echo "  ├── .JOB_ID.env              # Job configuration"
+echo "  ├── job.json                 # Job metadata"
+echo "  ├── manifest.json            # Stage tracking"
+echo "  ├── audio/                   # Extracted audio"
+echo "  │   └── audio.wav"
+echo "  ├── metadata/                # TMDB data"
+echo "  │   └── tmdb_data.json"
+echo "  ├── prompts/                 # NER-enhanced prompts"
+echo "  │   └── ner_enhanced_prompt.txt"
+echo "  ├── entities/                # Entity extraction"
+echo "  │   ├── pre_ner.json"
+echo "  │   └── post_ner.json"
+echo "  ├── vad/                     # Voice activity detection"
+echo "  │   ├── silero_segments.json"
+echo "  │   └── pyannote_segments.json"
+echo "  ├── diarization/             # Speaker diarization"
+echo "  │   └── speaker_segments.json"
+echo "  ├── asr/                     # Transcription results"
+echo "  │   └── transcript.json"
+echo "  ├── translation/             # Second-pass translation"
+echo "  │   └── refined_transcript.json"
+echo "  ├── lyrics/                  # Lyrics detection"
+echo "  │   └── lyrics_segments.json"
+echo "  ├── subtitles/               # Generated subtitles"
+echo "  │   └── subtitles.srt"
+echo "  ├── logs/                    # Stage logs"
+echo "  │   └── *.log"
+echo "  └── final_output.mp4         # Muxed video (optional)"
 echo ""
 
 echo "⏱️  STAGE TIMEOUTS"
 echo "────────────────────────────────────────────────────"
-echo "  demux:        10 min   |  pre-ner:      5 min"
-echo "  tmdb:          2 min   |  silero-vad:  30 min"
-echo "  pyannote-vad: 60 min   |  diarization: 30 min"
-echo "  asr:          60 min   |  post-ner:    10 min"
-echo "  subtitle-gen:  5 min   |  mux:         10 min"
+echo "  demux:         10 min   |  pre_ner:                  5 min"
+echo "  tmdb:           2 min   |  silero_vad:              30 min"
+echo "  pyannote_vad:  60 min   |  diarization:            120 min"
+echo "  asr:          240 min   |  second_pass_translation:120 min"
+echo "  lyrics:        30 min   |  post_ner:                20 min"
+echo "  subtitle_gen:  10 min   |  mux:                     10 min"
 echo ""
 
-echo "🔧 INDIVIDUAL STAGE EXAMPLES"
+echo "💻 NATIVE EXECUTION EXAMPLES"
 echo "────────────────────────────────────────────────────"
-echo "  docker compose run --rm demux in/movie.mp4"
-echo "  docker compose run --rm tmdb \"Movie Title\" 2024"
-echo "  docker compose run --rm pre-ner out/Movie_Title"
-echo "  docker compose run --rm asr out/Movie_Title"
-echo "  docker compose run --rm mux in/movie.mp4 out/Movie_Title/subtitles/subtitles.srt out/Movie_Title/final.mp4"
+echo "  Run complete pipeline:"
+echo "    ./run_pipeline.sh --job 20251108-0002"
+echo ""
+echo "  Resume from checkpoint:"
+echo "    ./resume-pipeline.sh 20251108-0002"
+echo ""
+echo "  Run specific stages:"
+echo "    ./run_pipeline.sh --job 20251108-0002 --stages \"asr subtitle_gen mux\""
+echo ""
+echo "  Fresh run (ignore resume):"
+echo "    ./run_pipeline.sh --job 20251108-0002 --no-resume"
 echo ""
 
 echo "📖 DOCUMENTATION"
 echo "────────────────────────────────────────────────────"
-echo "  Full guide:     docs/PIPELINE_REBUILD.md"
-echo "  Architecture:   arch/workflow-arch.txt"
-echo "  Logs:           logs/"
+echo "  Quick Start:          README.md"
+echo "  Setup Guide:          docs/BOOTSTRAP.md"
+echo "  Architecture:         docs/ARCHITECTURE.md"
+echo "  Workflow Details:     docs/WORKFLOW.md"
+echo "  Recent Fixes:         DEVICE_AND_CACHE_FIX.md"
 echo ""
 
-echo "✅ Ready to run pipeline!"
-echo "   Next: python pipeline.py in/your-movie.mp4"
+echo "✅ Pipeline Ready!"
+if [ -n "$JOB_ID" ]; then
+    echo "   Resume: ./resume-pipeline.sh $JOB_ID"
+else
+    echo "   Next: ./prepare-job.sh in/your-movie.mp4"
+fi
 echo ""

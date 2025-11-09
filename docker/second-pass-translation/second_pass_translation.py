@@ -187,10 +187,15 @@ def main():
     logger = PipelineLogger("second_pass_translation", log_level=log_level)
     logger.info(f"Starting second-pass translation for: {movie_dir}")
     
+    # Log config source
+    config_path = os.getenv('CONFIG_PATH', '/app/config/.env')
+    logger.info(f"Using config: {config_path}")
+    
     # Check if enabled
     enabled = config.get('second_pass_enabled', False)
     if not enabled:
         logger.info("Second pass translation disabled in config")
+        logger.info("To enable: set SECOND_PASS_ENABLED=true in job config")
         sys.exit(0)
     
     # Check task type
@@ -199,16 +204,19 @@ def main():
         logger.info(f"Task is '{task}', second pass only works with 'translate'")
         sys.exit(0)
     
-    # Get config
+    # Get config with detailed logging
     backend = config.get('second_pass_backend', 'nllb')
     src_lang = config.get('whisper_language', 'hi')
     tgt_lang = config.get('target_language', 'en')
     device = config.get('device', 'cpu')
     batch_size = config.get('whisper_batch_size', 16)
     
-    logger.info(f"Backend: {backend}")
-    logger.info(f"Languages: {src_lang} -> {tgt_lang}")
-    logger.info(f"Device: {device}")
+    logger.info(f"Configuration:")
+    logger.info(f"  Backend: {backend} (from SECOND_PASS_BACKEND)")
+    logger.info(f"  Source language: {src_lang} (from WHISPER_LANGUAGE)")
+    logger.info(f"  Target language: {tgt_lang} (from TARGET_LANGUAGE)")
+    logger.info(f"  Device: {device}")
+    logger.info(f"  Batch size: {batch_size}")
     
     try:
         # Load ASR result

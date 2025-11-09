@@ -207,12 +207,16 @@ def main():
         # Convert diarization result to serializable format
         speaker_segments = []
         if hasattr(diarize_result, 'itertracks'):
+            # PyAnnote annotation object
             for turn, _, speaker in diarize_result.itertracks(yield_label=True):
                 speaker_segments.append({
                     "start": turn.start,
                     "end": turn.end,
                     "speaker": speaker
                 })
+        elif isinstance(diarize_result, dict) and 'segments' in diarize_result:
+            # Dictionary format from DiarizationProcessor
+            speaker_segments = diarize_result['segments']
         
         # Load TMDB character names for auto-mapping if enabled
         character_names = None

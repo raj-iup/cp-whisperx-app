@@ -421,6 +421,7 @@ WHISPER_LANGUAGE=hi
 WHISPER_TASK=translate
 
 # Devices
+DEVICE=cpu
 DEVICE_WHISPERX=cpu
 DEVICE_DIARIZATION=cpu
 DEVICE_VAD=cpu
@@ -725,6 +726,11 @@ DEVICE_NER=cpu
                 ])
             
             # Device configuration (always set based on performance profile or native mode)
+            elif line.startswith('DEVICE='):
+                config_lines.extend([
+                    f"# Global device set to: {device} (from {'native detection' if native_mode else 'performance profile'})",
+                    f"DEVICE={device}"
+                ])
             elif line.startswith('DEVICE_WHISPERX='):
                 config_lines.extend([
                     f"# Device set to: {device} (from {'native detection' if native_mode else 'performance profile'})",
@@ -736,6 +742,56 @@ DEVICE_NER=cpu
                 config_lines.append(f'DEVICE_VAD={device}')
             elif line.startswith('DEVICE_NER='):
                 config_lines.append(f'DEVICE_NER={device}')
+            
+            # Glossary configuration (Advanced strategies)
+            elif line.startswith('GLOSSARY_ENABLED='):
+                config_lines.extend([
+                    f"# Hinglish→English glossary with advanced strategies",
+                    f"# Provides context-aware, character-aware, regional term substitution",
+                    f"GLOSSARY_ENABLED=true"
+                ])
+            elif line.startswith('GLOSSARY_PATH='):
+                config_lines.append(f'GLOSSARY_PATH=glossary/hinglish_master.tsv')
+            elif line.startswith('GLOSSARY_STRATEGY='):
+                # Default to adaptive for best quality
+                config_lines.extend([
+                    f"# Strategy: adaptive (intelligently combines all methods)",
+                    f"# Options: first|context|character|regional|frequency|adaptive|ml",
+                    f"GLOSSARY_STRATEGY=adaptive"
+                ])
+            elif line.startswith('FREQUENCY_DATA_PATH='):
+                # Path for learned frequency data
+                job_freq_path = f"{output_root}/glossary_learned/term_frequency.json"
+                config_lines.extend([
+                    f"# Frequency learning data (improves over time)",
+                    f"FREQUENCY_DATA_PATH={job_freq_path}"
+                ])
+            elif line.startswith('FILM_PROMPT_PATH='):
+                # Try to auto-detect movie-specific prompt based on input filename
+                prompt_file = ""
+                media_name = media_path.stem.lower().replace(' ', '_').replace('-', '_')
+                # Check if a matching prompt exists
+                prompts_dir = Path('glossary/prompts')
+                if prompts_dir.exists():
+                    # Look for prompts matching the media filename
+                    for prompt in prompts_dir.glob('*.txt'):
+                        prompt_key = prompt.stem.lower().replace(' ', '_').replace('-', '_')
+                        if prompt_key in media_name or media_name in prompt_key:
+                            prompt_file = f'glossary/prompts/{prompt.name}'
+                            break
+                
+                if prompt_file:
+                    config_lines.extend([
+                        f"# Auto-detected movie-specific prompt (character & regional data)",
+                        f"FILM_PROMPT_PATH={prompt_file}"
+                    ])
+                else:
+                    config_lines.extend([
+                        f"# Movie-specific prompt not found - using generic glossary",
+                        f"# Available prompts in: glossary/prompts/",
+                        f"# Create: glossary/prompts/{media_path.stem.lower().replace(' ', '_')}.txt",
+                        f"FILM_PROMPT_PATH="
+                    ])
             
             # Docker-specific settings
             elif line.startswith('USE_GPU_FALLBACK='):
@@ -824,6 +880,32 @@ DEVICE_NER=cpu
             self.logger.info(f"Recommended model: {settings['whisper_model']}")
             self.logger.info(f"Batch size: {settings['batch_size']}")
             self.logger.info(f"Compute type: {settings['compute_type']}")
+            
+            # Log glossary configuration
+            self.logger.info("")
+            self.logger.info("Glossary Configuration:")
+            glossary_tsv = Path("glossary/hinglish_master.tsv")
+            if glossary_tsv.exists():
+                self.logger.info(f"  ✓ Master glossary: {glossary_tsv}")
+            else:
+                self.logger.info(f"  ✗ Master glossary not found (will use defaults)")
+            
+            # Check for movie-specific prompt
+            prompts_dir = Path('glossary/prompts')
+            media_name = media_path.stem.lower()
+            prompt_found = False
+            if prompts_dir.exists():
+                for prompt in prompts_dir.glob('*.txt'):
+                    prompt_key = prompt.stem.lower()
+                    if prompt_key in media_name or media_name in prompt_key:
+                        self.logger.info(f"  ✓ Movie prompt: {prompt.name}")
+                        prompt_found = True
+                        break
+            
+            if not prompt_found:
+                self.logger.info(f"  • No movie-specific prompt found")
+                self.logger.info(f"    Create: glossary/prompts/{media_path.stem.lower().replace(' ', '_')}.txt")
+
 
 
 def main():

@@ -39,6 +39,7 @@ pysubs2>=1.1.0
 # 9. NER and NLP
 spacy>=3.7.0
 transformers>=4.30.0
+rapidfuzz>=3.10.0
 
 # 10. UI and utilities
 rich>=13.7.0

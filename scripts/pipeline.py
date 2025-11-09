@@ -39,7 +39,8 @@ STAGE_DEFINITIONS = [
     ("lyrics_detection", "post_ner", "lyrics-detection", 1800, False, True),  # ML: Audio analysis
     ("post_ner", "subtitle_gen", "post-ner", 1200, False, False),
     ("subtitle_gen", "mux", "subtitle-gen", 600, True, False),
-    ("mux", None, "mux", 600, True, False),
+    ("mux", "finalize", "mux", 600, True, False),
+    ("finalize", None, "finalize", 60, False, False),  # New: organize output
 ]
 
 # ML stages that can run natively with MPS/CUDA
@@ -698,6 +699,35 @@ class JobOrchestrator:
                     self.logger.info(f"⏭️  Skipping - disabled in config (LYRIC_DETECT_ENABLED=false)")
                     continue
             
+            # Special handling for finalize stage (output organization)
+            if stage_name == "finalize":
+                self.logger.info("📁 Organizing final output...")
+                try:
+                    finalize_script = PROJECT_ROOT / "scripts" / "finalize_output.py"
+                    result = subprocess.run(
+                        [sys.executable, str(finalize_script), str(self.job_dir)],
+                        capture_output=True,
+                        text=True,
+                        timeout=60
+                    )
+                    
+                    if result.returncode == 0:
+                        self.logger.info("✓ Output organized successfully")
+                        # Log output
+                        for line in result.stdout.strip().split('\n'):
+                            if line:
+                                self.logger.info(line)
+                    else:
+                        self.logger.warning("Output organization failed (non-critical)")
+                        if result.stderr:
+                            self.logger.warning(result.stderr)
+                
+                except Exception as e:
+                    self.logger.warning(f"Output organization failed (non-critical): {e}")
+                
+                # Always continue (finalize is non-critical)
+                continue
+            
             # Determine execution mode
             run_native = self._should_run_native(stage_name)
             system = platform.system()
@@ -891,7 +921,17 @@ class JobOrchestrator:
             else:
                 input_container = str(input_path.absolute())
             output_file = f"{output_dir_path}/final_output.mp4"
-            subtitle_file = f"{output_dir_path}/subtitles/subtitles.srt"
+            
+            # Find subtitle file - subtitle-gen creates it at en_merged/{job_id}.merged.srt
+            output_dir = Path(output_dir_path)
+            job_id = output_dir.name
+            subtitle_file = output_dir / "en_merged" / f"{job_id}.merged.srt"
+            
+            # Fallback to old location if new location doesn't exist
+            if not subtitle_file.exists():
+                subtitle_file = output_dir / "subtitles" / "subtitles.srt"
+            
+            subtitle_file = str(subtitle_file)
             return [input_container, subtitle_file, output_file]
         else:
             return [output_dir_path]

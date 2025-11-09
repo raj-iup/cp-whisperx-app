@@ -11,8 +11,15 @@ Phase 2 Enhancement: Native PyTorch execution support
 import sys
 import json
 import os
+import warnings
 from pathlib import Path
 from typing import List, Dict, Optional
+
+# Suppress version mismatch warnings from PyAnnote and Torch
+# These are compatibility warnings but don't affect functionality
+warnings.filterwarnings('ignore', message='Model was trained with pyannote')
+warnings.filterwarnings('ignore', message='Model was trained with torch')
+warnings.filterwarnings('ignore', category=UserWarning, module='pyannote')
 
 # ============================================================================
 # PHASE 2: Native Execution Mode Check
@@ -215,13 +222,14 @@ def main():
     logger.info(f"  Model: {model_name}")
     logger.info(f"  Device: {device}")
     logger.info(f"  Compute type: {compute_type}")
-    logger.info(f"  Source language: {source_lang}")
-    logger.info(f"  Target language: {target_lang}")
+    logger.info(f"  Source language: {source_lang} (from WHISPER_LANGUAGE)")
+    logger.info(f"  Target language: {target_lang} (from TARGET_LANGUAGE)")
     logger.info(f"  Batch size: {batch_size}")
-    logger.info(f"  Temperature: {temperature}")
     logger.info(f"  Beam size: {beam_size}")
     if initial_prompt:
         logger.info(f"  Initial prompt: {len(initial_prompt)} chars")
+        if len(initial_prompt) > 50:
+            logger.debug(f"  Prompt preview: {initial_prompt[:100]}...")
     
     # Initialize WhisperX processor with all parameters
     processor = WhisperXProcessor(
@@ -252,14 +260,32 @@ def main():
     
     # Load diarization speaker segments (from Stage 6)
     speaker_segments = None
+    character_names = []
+    num_speakers = 0
+    
     diar_file = movie_dir / "diarization" / f"{movie_dir.name}.speaker_segments.json"
     if diar_file.exists():
-        logger.info(f"Loading speaker segments from Stage 6...")
+        logger.info(f"Loading speaker segments from Stage 6 (diarization)...")
         with open(diar_file) as f:
             diar_data = json.load(f)
         speaker_segments = diar_data.get("speaker_segments", [])
+        num_speakers = diar_data.get("num_speakers", 0)
+        character_names = diar_data.get("character_names", [])
+        
         logger.info(f"[OK] Loaded {len(speaker_segments)} speaker segments")
-        logger.info(f"[OK] {diar_data.get('num_speakers', 0)} unique speakers identified")
+        logger.info(f"[OK] {num_speakers} unique speakers detected by diarization")
+        
+        if character_names:
+            logger.info(f"[OK] Character names from pre_ner/TMDB:")
+            for i, name in enumerate(character_names[:10], 1):  # Show first 10
+                logger.info(f"      {i}. {name}")
+            if len(character_names) > 10:
+                logger.info(f"      ... and {len(character_names) - 10} more")
+        
+        # Log diarization config
+        diar_config = diar_data.get("config", {})
+        if diar_config:
+            logger.debug(f"Diarization config: min_speakers={diar_config.get('min_speakers')}, max_speakers={diar_config.get('max_speakers')}")
     else:
         logger.warning("No diarization segments found - ASR will run without speaker info")
     
@@ -287,7 +313,7 @@ def main():
                 processor.align_model,
                 processor.align_metadata,
                 audio,
-                device=device,
+                device=processor.device,  # Use actual device (may be different from config if fallback occurred)
                 return_char_alignments=False
             )
             logger.info("[OK] Word alignment complete")

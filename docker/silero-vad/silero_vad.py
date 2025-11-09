@@ -95,18 +95,9 @@ def load_silero_model():
     """Load Silero VAD model from torch.hub"""
     import os
     
-    # Set cache directory based on execution mode
-    execution_mode = get_execution_mode()
-    if execution_mode == 'docker':
-        # Docker: use /app/LLM/torch
-        cache_dir = '/app/LLM/torch'
-    else:
-        # Native: use project root cache
-        project_root = Path(__file__).resolve().parents[2]
-        cache_dir = str(project_root / 'shared' / 'model-cache' / 'torch')
-        os.makedirs(cache_dir, exist_ok=True)
-    
-    os.environ['TORCH_HOME'] = cache_dir
+    # Use TORCH_HOME from environment (set by bootstrap)
+    # This allows bootstrap to control cache location
+    torch_home = os.environ.get('TORCH_HOME', str(Path.home() / '.cache' / 'torch'))
     
     model, utils = torch.hub.load(
         repo_or_dir='snakers4/silero-vad',

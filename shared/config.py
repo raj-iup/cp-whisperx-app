@@ -120,7 +120,7 @@ class PipelineConfig(BaseSettings):
     diarization_method: str = Field(default="pyannote", env="DIARIZATION_METHOD")
     speaker_map: str = Field(default="", env="SPEAKER_MAP")
     
-    # Subtitle
+    # Subtitle generation
     subtitle_format: str = Field(default="srt", env="SUBTITLE_FORMAT")
     subtitle_max_line_length: int = Field(default=42, env="SUBTITLE_MAX_LINE_LENGTH")
     subtitle_max_lines: int = Field(default=2, env="SUBTITLE_MAX_LINES")
@@ -128,7 +128,28 @@ class PipelineConfig(BaseSettings):
     subtitle_speaker_format: str = Field(default="[{speaker}]", env="SUBTITLE_SPEAKER_FORMAT")
     subtitle_word_level_timestamps: bool = Field(default=False, env="SUBTITLE_WORD_LEVEL_TIMESTAMPS")
     subtitle_max_duration: float = Field(default=7.0, env="SUBTITLE_MAX_DURATION")
+    subtitle_min_duration: float = Field(default=1.0, env="SUBTITLE_MIN_DURATION")
     subtitle_merge_short: bool = Field(default=True, env="SUBTITLE_MERGE_SHORT")
+    
+    # Glossary system (Advanced strategies)
+    glossary_enabled: bool = Field(default=True, env="GLOSSARY_ENABLED")
+    glossary_path: str = Field(default="glossary/hinglish_master.tsv", env="GLOSSARY_PATH")
+    glossary_strategy: str = Field(default="adaptive", env="GLOSSARY_STRATEGY")
+    film_prompt_path: str = Field(default="", env="FILM_PROMPT_PATH")
+    frequency_data_path: str = Field(default="glossary/learned/term_frequency.json", env="FREQUENCY_DATA_PATH")
+    
+    # CPS (Characters Per Second) enforcement
+    cps_target: float = Field(default=15.0, env="CPS_TARGET")
+    cps_hard_cap: float = Field(default=17.0, env="CPS_HARD_CAP")
+    cps_enforcement: bool = Field(default=True, env="CPS_ENFORCEMENT")
+    
+    # Bollywood Enhancements
+    second_pass_enabled: bool = Field(default=True, env="SECOND_PASS_ENABLED")
+    second_pass_backend: str = Field(default="nllb", env="SECOND_PASS_BACKEND")
+    lyric_detect_enabled: bool = Field(default=True, env="LYRIC_DETECT_ENABLED")
+    lyric_threshold: float = Field(default=0.5, env="LYRIC_THRESHOLD")
+    lyric_style: str = Field(default="lyric", env="LYRIC_STYLE")
+    lyric_min_duration: float = Field(default=30.0, env="LYRIC_MIN_DURATION")
     
     # Post-ASR NER
     post_ner_model: str = Field(default="en_core_web_trf", env="POST_NER_MODEL")
@@ -146,6 +167,7 @@ class PipelineConfig(BaseSettings):
     mux_container_format: str = Field(default="mp4", env="MUX_CONTAINER_FORMAT")
     
     # Devices
+    device: str = Field(default="cpu", env="DEVICE")  # Global device setting
     device_whisperx: str = Field(default="cpu", env="DEVICE_WHISPERX")
     device_diarization: str = Field(default="cpu", env="DEVICE_DIARIZATION")
     device_vad: str = Field(default="cpu", env="DEVICE_VAD")

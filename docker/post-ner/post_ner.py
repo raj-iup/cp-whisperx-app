@@ -200,22 +200,28 @@ def main():
     logger = PipelineLogger("post-ner", log_level=log_level)
     logger.info(f"Starting Post-ASR NER for: {movie_dir}")
     
-    # Get configuration parameters
+    # Log config source
+    config_path = os.getenv('CONFIG_PATH', '/app/config/.env')
+    logger.info(f"Using config: {config_path}")
+    
+    # Get configuration parameters with detailed logging
     model_name = config.get('post_ner_model', 'en_core_web_trf')
     device = config.get('post_ner_device', 'cpu')
     entity_correction = config.get('post_ner_entity_correction', True)
     tmdb_matching = config.get('post_ner_tmdb_matching', True)
     confidence_threshold = config.get('post_ner_confidence_threshold', 0.8)
+    max_corrections = config.get('post_ner_max_corrections', 1000)
     
     # Convert threshold to 0-100 scale for rapidfuzz
     threshold = confidence_threshold * 100
     
     logger.info(f"Configuration:")
-    logger.info(f"  Model: {model_name}")
+    logger.info(f"  Model: {model_name} (from POST_NER_MODEL)")
     logger.info(f"  Device: {device}")
     logger.info(f"  Entity correction: {entity_correction}")
     logger.info(f"  TMDB matching: {tmdb_matching}")
     logger.info(f"  Confidence threshold: {confidence_threshold} ({threshold:.0f}%)")
+    logger.info(f"  Max corrections: {max_corrections}")
     
     # Find ASR transcript with speaker labels (from Stage 7)
     asr_files = list(movie_dir.glob("asr/*.asr.json"))
@@ -258,6 +264,14 @@ def main():
     # Combine and deduplicate
     reference_entities = list(set(reference_entities))
     logger.info(f"Total reference entities: {len(reference_entities)}")
+    
+    # Log entity breakdown
+    if reference_entities:
+        logger.info(f"Reference entity sample (first 10):")
+        for i, entity in enumerate(reference_entities[:10], 1):
+            logger.info(f"      {i}. {entity}")
+        if len(reference_entities) > 10:
+            logger.info(f"      ... and {len(reference_entities) - 10} more")
     
     # Check if entity correction is enabled
     if not entity_correction:

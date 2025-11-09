@@ -10,10 +10,16 @@ Handles:
 """
 
 import json
+import warnings
 from pathlib import Path
 from typing import List, Dict, Optional, Any
 import whisperx
 from tqdm import tqdm
+
+# Suppress version mismatch warnings
+warnings.filterwarnings('ignore', message='Model was trained with pyannote')
+warnings.filterwarnings('ignore', message='Model was trained with torch')
+warnings.filterwarnings('ignore', category=UserWarning, module='pyannote')
 
 from .device_selector import select_whisperx_device
 from .bias_injection import BiasWindow, get_window_for_time
@@ -67,7 +73,15 @@ class WhisperXProcessor:
         self.hf_token = hf_token
         self.logger = logger or self._create_default_logger()
         
-        # Transcription parameters
+        # NOTE: WhisperX only supports limited transcription parameters:
+        # - language, task, batch_size, chunk_size, num_workers
+        # The following Whisper parameters are stored for reference but NOT used:
+        # - temperature (not supported by CTranslate2 beam search)
+        # - beam_size, best_of, patience, length_penalty (use model defaults)
+        # - no_speech_threshold, logprob_threshold, compression_ratio_threshold
+        # - condition_on_previous_text, initial_prompt
+        # WhisperX handles these internally via FasterWhisperPipeline
+        
         self.temperature = self._parse_temperature(temperature)
         self.beam_size = beam_size
         self.best_of = best_of
@@ -102,29 +116,45 @@ class WhisperXProcessor:
         self.logger.info(f"  Device: {self.device}")
         self.logger.info(f"  Compute type: {self.compute_type}")
         
-        # Use LLM directory for model cache
-        cache_dir = Path("/app/LLM/whisperx")
-        cache_dir.mkdir(parents=True, exist_ok=True)
+        # Use TORCH_HOME from environment (set by bootstrap)
+        # This allows bootstrap to control cache location
+        import os
+        cache_dir = os.environ.get('TORCH_HOME', str(Path.home() / '.cache' / 'torch'))
         self.logger.info(f"  Cache directory: {cache_dir}")
+        
+        # WhisperX/faster-whisper uses CTranslate2 which only supports CPU and CUDA
+        # MPS is not supported, so we need to map it appropriately
+        device_to_use = self.device
+        compute_type_to_use = self.compute_type
+        
+        if self.device.lower() == "mps":
+            self.logger.warning("  MPS device not supported by CTranslate2 (faster-whisper backend)")
+            self.logger.warning("  Falling back to CPU with int8 compute type for best performance")
+            device_to_use = "cpu"
+            compute_type_to_use = "int8"
 
         try:
             self.model = whisperx.load_model(
                 self.model_name,
-                device=self.device,
-                compute_type=self.compute_type,
-                download_root=str(cache_dir)
+                device=device_to_use,
+                compute_type=compute_type_to_use,
+                download_root=cache_dir
             )
-            self.logger.info("  Model loaded successfully")
+            self.logger.info(f"  Model loaded successfully on {device_to_use}")
+            # Update instance variables to reflect actual device used
+            self.device = device_to_use
+            self.compute_type = compute_type_to_use
         except Exception as e:
-            if self.device != "cpu":
-                self.logger.warning(f"  Failed to load on {self.device}: {e}")
-                self.logger.warning("  Retrying with CPU...")
+            if device_to_use != "cpu":
+                self.logger.warning(f"  Failed to load on {device_to_use}: {e}")
+                self.logger.warning("  Retrying with CPU and int8 compute type...")
                 self.device = "cpu"
+                self.compute_type = "int8"
                 self.model = whisperx.load_model(
                     self.model_name,
-                    device=self.device,
-                    compute_type=self.compute_type,
-                    download_root=str(cache_dir)
+                    device="cpu",
+                    compute_type="int8",
+                    download_root=cache_dir
                 )
                 self.logger.info("  Model loaded successfully on CPU")
             else:
@@ -184,7 +214,7 @@ class WhisperXProcessor:
 
         # Transcribe with translation
         self.logger.info("Transcribing and translating...")
-        self.logger.debug(f"  Temperature: {self.temperature}")
+        # Note: CTranslate2 uses beam search (deterministic), not temperature sampling
         self.logger.debug(f"  Beam size: {self.beam_size}")
         self.logger.debug(f"  Best of: {self.best_of}")
 
@@ -193,25 +223,33 @@ class WhisperXProcessor:
             self.logger.info(f"  Bias windows available: {len(bias_windows)}")
 
         # Build transcription options
+        # Note: FasterWhisperPipeline (CTranslate2 backend) uses beam search
+        # which is deterministic. Temperature parameter is not supported.
+        # WhisperX only supports a limited set of parameters
+        # See: https://github.com/m-bain/whisperX
         transcribe_options = {
             "language": source_lang if source_lang else None,
             "task": "translate" if source_lang != target_lang else "transcribe",
             "batch_size": batch_size,
-            "temperature": self.temperature,
-            "beam_size": self.beam_size,
-            "best_of": self.best_of,
-            "patience": self.patience,
-            "length_penalty": self.length_penalty,
-            "no_speech_threshold": self.no_speech_threshold,
-            "logprob_threshold": self.logprob_threshold,
-            "compression_ratio_threshold": self.compression_ratio_threshold,
-            "condition_on_previous_text": self.condition_on_previous_text,
         }
         
-        # Add initial prompt if provided and not empty
+        # Log parameters being used
+        self.logger.info(f"  Transcription options:")
+        self.logger.info(f"    Language: {transcribe_options['language']}")
+        self.logger.info(f"    Task: {transcribe_options['task']}")
+        self.logger.info(f"    Batch size: {transcribe_options['batch_size']}")
+        
+        # Note: WhisperX doesn't support these Whisper parameters:
+        # - beam_size, best_of, patience, length_penalty (use model defaults)
+        # - temperature (not supported by CTranslate2 beam search)
+        # - no_speech_threshold, logprob_threshold, compression_ratio_threshold
+        # - condition_on_previous_text, initial_prompt
+        # These are handled internally by WhisperX's FasterWhisperPipeline
+        
         if self.initial_prompt:
-            transcribe_options["initial_prompt"] = self.initial_prompt
-            self.logger.info(f"  Using initial prompt: {self.initial_prompt[:50]}...")
+            self.logger.warning(f"  Note: initial_prompt not directly supported by WhisperX")
+            self.logger.warning(f"        (prompt was: {self.initial_prompt[:50]}...)")
+            self.logger.warning(f"        WhisperX uses its own internal prompt handling")
 
         try:
             result = self.model.transcribe(audio, **transcribe_options)

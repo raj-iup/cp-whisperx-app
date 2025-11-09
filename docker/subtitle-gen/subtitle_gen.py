@@ -25,6 +25,7 @@ else:
     sys.path.insert(0, '/app/shared')
 
 from logger import PipelineLogger
+from glossary import HinglishGlossary, load_film_prompt
 
 
 def format_srt_time(seconds: float) -> str:
@@ -105,6 +106,119 @@ def format_speaker_label(speaker: str, speaker_format: str) -> str:
         return ""
     
     return speaker_format.replace("{speaker}", speaker)
+
+
+def calculate_cps(text: str, duration: float) -> float:
+    """
+    Calculate characters per second (CPS)
+    
+    Args:
+        text: Subtitle text
+        duration: Duration in seconds
+    
+    Returns:
+        CPS value
+    """
+    char_count = len(text.replace('\n', '').replace('\r', ''))
+    return char_count / max(duration, 0.001)
+
+
+def check_cps_compliance(
+    segments: List[Dict],
+    cps_target: float = 15.0,
+    cps_hard_cap: float = 17.0,
+    include_speaker: bool = True,
+    speaker_format: str = "[{speaker}]",
+    logger=None
+) -> Dict:
+    """
+    Check CPS (Characters Per Second) compliance for all segments
+    
+    Args:
+        segments: List of subtitle segments
+        cps_target: Target CPS (warning threshold)
+        cps_hard_cap: Hard cap CPS (violation threshold)
+        include_speaker: Whether speaker labels are included
+        speaker_format: Format for speaker labels
+        logger: Logger instance
+    
+    Returns:
+        Dict with violations, warnings, and statistics
+    """
+    violations = []
+    warnings = []
+    cps_values = []
+    
+    for i, seg in enumerate(segments, 1):
+        duration = seg.get('end', 0) - seg.get('start', 0)
+        if duration <= 0:
+            continue
+        
+        # Build final text as it will appear
+        text = seg.get('text', '').strip()
+        if not text:
+            continue
+        
+        if seg.get('is_lyric'):
+            text = f"♪ {text} ♪"
+        elif include_speaker and seg.get('speaker'):
+            speaker_label = format_speaker_label(seg['speaker'], speaker_format)
+            text = f"{speaker_label} {text}"
+        
+        cps = calculate_cps(text, duration)
+        cps_values.append(cps)
+        
+        if cps > cps_hard_cap:
+            violations.append({
+                'index': i,
+                'cps': round(cps, 2),
+                'duration': round(duration, 2),
+                'chars': len(text.replace('\n', '')),
+                'text_preview': text[:60] + '...' if len(text) > 60 else text
+            })
+        elif cps > cps_target:
+            warnings.append({
+                'index': i,
+                'cps': round(cps, 2),
+                'duration': round(duration, 2),
+                'chars': len(text.replace('\n', ''))
+            })
+    
+    # Calculate statistics
+    avg_cps = sum(cps_values) / len(cps_values) if cps_values else 0
+    max_cps = max(cps_values) if cps_values else 0
+    min_cps = min(cps_values) if cps_values else 0
+    
+    # Log results
+    if logger:
+        total = len([s for s in segments if s.get('text')])
+        logger.info(f"CPS Analysis:")
+        logger.info(f"  Average CPS: {avg_cps:.2f}")
+        logger.info(f"  Range: {min_cps:.2f} - {max_cps:.2f}")
+        logger.info(f"  Target: {cps_target}, Hard cap: {cps_hard_cap}")
+        
+        if violations:
+            logger.warning(f"⚠ CPS violations (>{cps_hard_cap}): {len(violations)}/{total}")
+            for v in violations[:5]:
+                logger.warning(f"  #{v['index']}: {v['cps']} CPS ({v['chars']} chars / {v['duration']}s)")
+                logger.warning(f"    \"{v['text_preview']}\"")
+            if len(violations) > 5:
+                logger.warning(f"  ... and {len(violations) - 5} more violations")
+        
+        if warnings:
+            logger.info(f"ℹ CPS warnings (>{cps_target}): {len(warnings)}/{total}")
+        
+        if not violations and not warnings:
+            logger.info(f"✓ All subtitles within CPS limits")
+    
+    return {
+        'violations': violations,
+        'warnings': warnings,
+        'total': len([s for s in segments if s.get('text')]),
+        'avg_cps': round(avg_cps, 2),
+        'max_cps': round(max_cps, 2),
+        'min_cps': round(min_cps, 2)
+    }
 
 
 def merge_short_subtitles(
@@ -255,14 +369,27 @@ def main():
     logger = PipelineLogger("subtitle-gen", log_level=log_level)
     logger.info(f"Starting subtitle generation for: {movie_dir}")
     
+    # Log config source
+    config_path = os.getenv('CONFIG_PATH', '/app/config/.env')
+    logger.info(f"Using config: {config_path}")
+    
     # Find corrected transcript (Post-NER output - preferred)
     corrected_files = list(movie_dir.glob("post_ner/*.corrected.json"))
     
     # Fallback to ASR if post-ner not available
     # (ASR already has speaker labels from diarization per workflow-arch.txt)
     if not corrected_files:
-        logger.warning("No post-ner output found, using ASR transcript with speaker labels")
+        # Check if post-ner stage exists (might be running or not yet run)
+        post_ner_dir = movie_dir / "post_ner"
+        if post_ner_dir.exists():
+            logger.info("Post-NER directory exists but no corrected output found - stage may have failed or be in progress")
+            logger.info("Checking for ASR transcript as fallback...")
+        else:
+            logger.info("Post-NER stage not yet run, using ASR transcript")
+        
         corrected_files = list(movie_dir.glob("asr/*.asr.json"))
+        if corrected_files:
+            logger.info(f"Using ASR transcript: {corrected_files[0].name}")
     
     if not corrected_files:
         logger.error("No transcript found")
@@ -286,7 +413,112 @@ def main():
     
     logger.info(f"Loaded {len(segments)} segments")
     
-    # Get configuration parameters
+    # Count segments with speaker labels and lyrics
+    segments_with_speaker = sum(1 for seg in segments if seg.get('speaker'))
+    segments_with_lyrics = sum(1 for seg in segments if seg.get('is_lyric'))
+    
+    logger.info(f"  Segments with speaker labels: {segments_with_speaker}")
+    logger.info(f"  Segments marked as lyrics: {segments_with_lyrics}")
+    
+    # Apply glossary if enabled
+    glossary_enabled = config.get('glossary_enabled', True)
+    if glossary_enabled:
+        glossary_path = Path(config.get('glossary_path', 'glossary/hinglish_master.tsv'))
+        glossary_strategy = config.get('glossary_strategy', 'adaptive')
+        film_prompt_path_str = config.get('film_prompt_path', '')
+        frequency_data_path_str = config.get('frequency_data_path', 'glossary/learned/term_frequency.json')
+        
+        # Handle both Docker and native paths
+        if not glossary_path.is_absolute():
+            if execution_mode == 'native':
+                glossary_path = project_root / glossary_path
+            else:
+                glossary_path = Path('/app') / glossary_path
+        
+        # Resolve prompt path
+        film_prompt_path = None
+        if film_prompt_path_str:
+            film_prompt_path = Path(film_prompt_path_str)
+            if not film_prompt_path.is_absolute():
+                if execution_mode == 'native':
+                    film_prompt_path = project_root / film_prompt_path
+                else:
+                    film_prompt_path = Path('/app') / film_prompt_path
+        
+        # Resolve frequency data path
+        frequency_data_path = None
+        if frequency_data_path_str:
+            frequency_data_path = Path(frequency_data_path_str)
+            if not frequency_data_path.is_absolute():
+                if execution_mode == 'native':
+                    frequency_data_path = project_root / frequency_data_path
+                else:
+                    frequency_data_path = Path('/app') / frequency_data_path
+        
+        if glossary_path.exists():
+            logger.info(f"Loading glossary from: {glossary_path}")
+            logger.info(f"  Strategy: {glossary_strategy}")
+            if film_prompt_path and film_prompt_path.exists():
+                logger.info(f"  Movie prompt: {film_prompt_path.name}")
+            
+            # Initialize glossary with advanced strategies
+            glossary = HinglishGlossary(
+                glossary_path, 
+                logger=logger,
+                strategy=glossary_strategy,
+                prompt_path=film_prompt_path,
+                frequency_data_path=frequency_data_path
+            )
+            
+            # Build context window for each segment
+            window_size = 2  # segments before and after
+            
+            # Apply glossary to all segment texts
+            for i, seg in enumerate(segments):
+                if 'text' in seg and seg['text']:
+                    # Build context window
+                    window_texts = []
+                    for j in range(max(0, i - window_size), min(len(segments), i + window_size + 1)):
+                        if j != i and 'text' in segments[j]:
+                            window_texts.append(segments[j]['text'])
+                    
+                    context = {
+                        'window': ' '.join(window_texts),
+                        'speaker': seg.get('speaker', ''),
+                        'segment_index': i
+                    }
+                    
+                    original_text = seg['text']
+                    seg['text'] = glossary.apply(original_text, context=context)
+            
+            # Log stats
+            stats = glossary.get_stats()
+            logger.info(f"Glossary applied: {stats['terms_applied']} substitutions")
+            logger.info(f"  Total terms in glossary: {stats['total_terms']}")
+            logger.info(f"  Strategy used: {stats['strategy']}")
+            
+            if 'advanced_stats' in stats:
+                adv = stats['advanced_stats']
+                if adv.get('character_profiles'):
+                    logger.info(f"  Character profiles loaded: {adv['character_profiles']}")
+                if adv.get('regional_variant'):
+                    logger.info(f"  Regional variant: {adv['regional_variant']}")
+                if adv.get('frequency_stats'):
+                    freq = adv['frequency_stats']
+                    logger.info(f"  Frequency learning: {freq.get('total_selections', 0)} selections")
+            
+            # Save learned data
+            if glossary_strategy in ['frequency', 'adaptive', 'ml']:
+                learned_dir = movie_dir / "glossary_learned"
+                glossary.save_learned_data(learned_dir)
+                logger.info(f"  Saved learned data to: {learned_dir}")
+        else:
+            logger.warning(f"Glossary file not found: {glossary_path}")
+            logger.info("Continuing without glossary")
+    else:
+        logger.info("Glossary disabled (GLOSSARY_ENABLED=false)")
+    
+    # Get configuration parameters with detailed logging
     subtitle_format = config.get('subtitle_format', 'srt')
     max_line_length = config.get('subtitle_max_line_length', 42)
     max_lines = config.get('subtitle_max_lines', 2)
@@ -294,19 +526,21 @@ def main():
     speaker_format = config.get('subtitle_speaker_format', '[{speaker}]')
     word_level = config.get('subtitle_word_level_timestamps', False)
     max_duration = config.get('subtitle_max_duration', 7.0)
+    min_duration = config.get('subtitle_min_duration', 1.0)
     merge_subtitles = config.get('subtitle_merge_short', True)
     
     # Calculate max chars (max_line_length * max_lines)
     max_chars = max_line_length * max_lines
     
     logger.info(f"Configuration:")
-    logger.info(f"  Format: {subtitle_format}")
-    logger.info(f"  Max line length: {max_line_length}")
-    logger.info(f"  Max lines: {max_lines}")
+    logger.info(f"  Format: {subtitle_format} (from SUBTITLE_FORMAT)")
+    logger.info(f"  Max line length: {max_line_length} chars (from SUBTITLE_MAX_LINE_LENGTH)")
+    logger.info(f"  Max lines: {max_lines} (from SUBTITLE_MAX_LINES)")
+    logger.info(f"  Max chars total: {max_chars}")
     logger.info(f"  Include speaker: {include_speaker}")
     logger.info(f"  Speaker format: {speaker_format}")
     logger.info(f"  Word-level timestamps: {word_level}")
-    logger.info(f"  Max duration: {max_duration}s")
+    logger.info(f"  Duration limits: {min_duration}s - {max_duration}s")
     logger.info(f"  Merge short subtitles: {merge_subtitles}")
     
     if word_level:
@@ -327,6 +561,22 @@ def main():
     output_dir.mkdir(exist_ok=True, parents=True)
     
     output_file = output_dir / f"{movie_dir.name}.merged.{subtitle_format}"
+    
+    # Check CPS compliance before generation
+    cps_enforcement = config.get('cps_enforcement', True)
+    cps_target = config.get('cps_target', 15.0)
+    cps_hard_cap = config.get('cps_hard_cap', 17.0)
+    
+    if cps_enforcement:
+        logger.info(f"Checking CPS compliance (target: {cps_target}, cap: {cps_hard_cap})...")
+        cps_stats = check_cps_compliance(
+            segments,
+            cps_target=cps_target,
+            cps_hard_cap=cps_hard_cap,
+            include_speaker=include_speaker,
+            speaker_format=speaker_format,
+            logger=logger
+        )
     
     # Generate subtitle file
     try:

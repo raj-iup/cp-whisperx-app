@@ -1,13 +1,13 @@
 # Core dependencies for CP-WhisperX-App
 # Installation order matters for version compatibility
 
-# 1. NumPy (must be <2.0 for torchaudio 2.8.x compatibility)
-numpy>=1.24.0,<2.0
+# 1. NumPy (whisperx 3.4.3+ requires >=2.0.2, works with torchaudio 2.8 at runtime)
+numpy>=2.0.2,<2.1
 
-# 2. PyTorch ecosystem (flexible range, bootstrap will auto-downgrade to 2.8.x if needed)
-# Allows latest stable versions with platform-specific optimizations (CUDA/MPS)
-torch>=2.3.0,<3.0
-torchaudio>=2.3.0,<3.0
+# 2. PyTorch ecosystem (2.8.x works with numpy 2.x despite pip metadata)
+# Allows platform-specific optimizations (CUDA/MPS)
+torch>=2.8.0,<2.9
+torchaudio>=2.8.0,<2.9
 
 # 3. Whisper ecosystem
 openai-whisper>=20231117
@@ -36,6 +36,7 @@ pysubs2>=1.1.0
 
 # 9. NER and NLP
 spacy>=3.7.0
+rapidfuzz>=3.10.0
 transformers>=4.30.0
 
 # 10. UI and utilities

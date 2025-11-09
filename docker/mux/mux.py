@@ -36,12 +36,17 @@ def mux_subtitles(video_file: Path, subtitle_file: Path, output_file: Path, conf
         log_dir=config.log_root
     )
     
-    logger.info(f"Starting mux")
+    logger.info(f"Starting video muxing with subtitles")
     logger.info(f"Video: {video_file.name}")
     logger.info(f"Subtitles: {subtitle_file.name}")
     logger.info(f"Output: {output_file}")
     
-    # Get configuration parameters
+    # Log config source
+    import os
+    config_path = os.getenv('CONFIG_PATH', '/app/config/.env')
+    logger.info(f"Using config: {config_path}")
+    
+    # Get configuration parameters with detailed logging
     subtitle_codec = config.get("mux_subtitle_codec", "mov_text")
     subtitle_language = config.get("mux_subtitle_language", "eng")
     subtitle_title = config.get("mux_subtitle_title", "English")
@@ -50,11 +55,11 @@ def mux_subtitles(video_file: Path, subtitle_file: Path, output_file: Path, conf
     container_format = config.get("mux_container_format", "mp4")
     
     logger.info(f"Configuration:")
-    logger.info(f"  Subtitle codec: {subtitle_codec}")
-    logger.info(f"  Subtitle language: {subtitle_language}")
+    logger.info(f"  Subtitle codec: {subtitle_codec} (from MUX_SUBTITLE_CODEC)")
+    logger.info(f"  Subtitle language: {subtitle_language} (from MUX_SUBTITLE_LANGUAGE)")
     logger.info(f"  Subtitle title: {subtitle_title}")
-    logger.info(f"  Copy video: {copy_video}")
-    logger.info(f"  Copy audio: {copy_audio}")
+    logger.info(f"  Copy video: {copy_video} (faster, no re-encoding)")
+    logger.info(f"  Copy audio: {copy_audio} (faster, no re-encoding)")
     logger.info(f"  Container format: {container_format}")
     
     # Determine video codec
@@ -100,8 +105,12 @@ def mux_subtitles(video_file: Path, subtitle_file: Path, output_file: Path, conf
             check=True
         )
         
-        logger.info(f"Mux completed successfully")
-        logger.info(f"Output size: {output_file.stat().st_size / (1024*1024):.2f} MB")
+        logger.info(f"[OK] Mux completed successfully")
+        output_size = output_file.stat().st_size / (1024*1024)
+        input_size = video_file.stat().st_size / (1024*1024)
+        logger.info(f"[OK] Output size: {output_size:.2f} MB")
+        logger.info(f"[OK] Input size: {input_size:.2f} MB")
+        logger.info(f"[OK] Size difference: {output_size - input_size:+.2f} MB")
         
         # Save metadata
         metadata = {

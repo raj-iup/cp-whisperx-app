@@ -216,19 +216,28 @@ def main():
     logger = PipelineLogger("lyrics_detection", log_level=log_level)
     logger.info(f"Starting lyrics detection for: {movie_dir}")
     
+    # Log config source
+    config_path = os.getenv('CONFIG_PATH', '/app/config/.env')
+    logger.info(f"Using config: {config_path}")
+    
     # Check if enabled
     enabled = config.get('lyric_detect_enabled', False)
     if not enabled:
         logger.info("Lyrics detection disabled in config")
+        logger.info("To enable: set LYRIC_DETECT_ENABLED=true in job config")
         sys.exit(0)
     
-    # Get config
+    # Get config with detailed logging
     threshold = config.get('lyric_threshold', 0.5)
     min_duration = config.get('lyric_min_duration', 30.0)
     device = config.get('device', 'cpu')
+    use_ml = config.get('lyric_use_ml', False)
     
-    logger.info(f"Threshold: {threshold}")
-    logger.info(f"Min duration: {min_duration}s")
+    logger.info(f"Configuration:")
+    logger.info(f"  Detection threshold: {threshold} (from LYRIC_THRESHOLD)")
+    logger.info(f"  Minimum duration: {min_duration}s (from LYRIC_MIN_DURATION)")
+    logger.info(f"  Device: {device}")
+    logger.info(f"  Use ML detection: {use_ml}")
     
     try:
         # Load ASR result
