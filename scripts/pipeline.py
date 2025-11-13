@@ -32,9 +32,10 @@ STAGE_DEFINITIONS = [
     ("tmdb", "pre_ner", "tmdb", 120, False, False),
     ("pre_ner", "silero_vad", "pre-ner", 300, False, False),
     ("silero_vad", "pyannote_vad", "silero-vad", 1800, True, True),  # ML: PyTorch
-    ("pyannote_vad", "diarization", "pyannote-vad", 3600, True, True),  # ML: PyTorch
-    ("diarization", "asr", "diarization", 7200, True, True),  # ML: PyTorch
-    ("asr", "second_pass_translation", "asr", 14400, True, True),  # ML: PyTorch (Whisper)
+    ("pyannote_vad", "asr", "pyannote-vad", 3600, True, True),  # ML: PyTorch
+    ("asr", "diarization", "asr", 14400, True, True),  # ML: PyTorch (Whisper)
+    ("diarization", "glossary_builder", "diarization", 7200, True, True),  # ML: PyTorch
+    ("glossary_builder", "second_pass_translation", "glossary-builder", 300, False, False),  # Build glossary after ASR
     ("second_pass_translation", "lyrics_detection", "second-pass-translation", 7200, False, True),  # ML: Translation models
     ("lyrics_detection", "post_ner", "lyrics-detection", 1800, False, True),  # ML: Audio analysis
     ("post_ner", "subtitle_gen", "post-ner", 1200, False, False),
@@ -44,7 +45,7 @@ STAGE_DEFINITIONS = [
 ]
 
 # ML stages that can run natively with MPS/CUDA
-# Maps stage_name -> script filename in docker/{stage}/ directory
+# Maps stage_name -> script filename in scripts/ directory
 ML_STAGES = {
     "silero_vad": "silero_vad.py",
     "pyannote_vad": "pyannote_vad.py",
@@ -55,7 +56,7 @@ ML_STAGES = {
 }
 
 # All stage scripts (for native execution)
-# Maps stage_name -> script filename in docker/{stage}/ directory
+# Maps stage_name -> script filename in scripts/ directory
 STAGE_SCRIPTS = {
     "demux": "demux.py",
     "tmdb": "tmdb.py",
@@ -64,11 +65,13 @@ STAGE_SCRIPTS = {
     "pyannote_vad": "pyannote_vad.py",
     "diarization": "diarization.py",
     "asr": "whisperx_asr.py",
+    "glossary_builder": "glossary_builder.py",
     "second_pass_translation": "second_pass_translation.py",
     "lyrics_detection": "lyrics_detection.py",
     "post_ner": "post_ner.py",
     "subtitle_gen": "subtitle_gen.py",
-    "mux": "mux.py"
+    "mux": "mux.py",
+    "finalize": "finalize.py"
 }
 
 
@@ -118,7 +121,31 @@ class JobOrchestrator:
                 ]
             else:
                 # Full subtitle-gen workflow
-                self.stages = STAGE_DEFINITIONS
+                self.stages = STAGE_DEFINITIONS.copy()
+                
+                # Apply stage control flags from config
+                # Check for STEP_VAD_SILERO, STEP_VAD_PYANNOTE, STEP_DIARIZATION flags
+                silero_enabled = getattr(self.config, 'step_vad_silero', True)
+                pyannote_enabled = getattr(self.config, 'step_vad_pyannote', True)
+                diarization_enabled = getattr(self.config, 'step_diarization', True)
+                
+                # Filter out disabled stages and fix stage transitions
+                enabled_stages = []
+                for stage in self.stages:
+                    stage_name = stage[0]
+                    
+                    # Skip disabled stages
+                    if stage_name == 'silero_vad' and not silero_enabled:
+                        continue
+                    elif stage_name == 'pyannote_vad' and not pyannote_enabled:
+                        continue
+                    elif stage_name == 'diarization' and not diarization_enabled:
+                        continue
+                    
+                    enabled_stages.append(stage)
+                
+                # Fix stage transitions based on what's enabled
+                self.stages = self._fix_stage_transitions(enabled_stages, silero_enabled, pyannote_enabled, diarization_enabled)
         
         # Setup output directory (from config or calculate from job)
         if hasattr(self.config, 'output_root') and self.config.output_root and not self.config.output_root.startswith('./'):
@@ -227,13 +254,13 @@ class JobOrchestrator:
                 if user_dir.is_dir():
                     job_file = user_dir / job_id / "job.json"
                     if job_file.exists():
-                        with open(job_file) as f:
+                        with open(job_file, 'r', encoding='utf-8', errors='replace') as f:
                             return json.load(f)
         
         # Fallback: Try old jobs/ structure for backwards compatibility
         tracking_file = Path("jobs") / year / month / day / "jobs.json"
         if tracking_file.exists():
-            with open(tracking_file) as f:
+            with open(tracking_file, 'r', encoding='utf-8', errors='replace') as f:
                 tracking_data = json.load(f)
             for job in tracking_data.get("jobs", []):
                 if job["job_id"] == job_id:
@@ -248,6 +275,69 @@ class JobOrchestrator:
         day = self.job_id[6:8]
         user_id = self.config.user_id if hasattr(self.config, 'user_id') else 1
         return Path("out") / year / month / day / str(user_id) / self.job_id
+    
+    def _fix_stage_transitions(self, stages: List, silero_enabled: bool, 
+                               pyannote_enabled: bool, diarization_enabled: bool) -> List:
+        """Fix stage transitions when stages are disabled.
+        
+        Args:
+            stages: List of enabled stage tuples
+            silero_enabled: Whether Silero VAD is enabled
+            pyannote_enabled: Whether PyAnnote VAD is enabled
+            diarization_enabled: Whether Diarization is enabled
+        
+        Returns:
+            List of stage tuples with corrected transitions
+        """
+        if not stages:
+            return stages
+        
+        # Build mapping of stage names to indices
+        stage_names = [s[0] for s in stages]
+        
+        # Fix transitions
+        fixed_stages = []
+        for i, stage in enumerate(stages):
+            stage_name, next_stage, service, timeout, critical, uses_ml = stage
+            
+            # Determine correct next stage
+            if next_stage and next_stage not in stage_names:
+                # Next stage is disabled, find the next enabled stage
+                if stage_name == 'pre_ner':
+                    # pre_ner -> silero_vad (if enabled) -> pyannote_vad (if enabled) -> asr
+                    if silero_enabled:
+                        new_next = 'silero_vad'
+                    elif pyannote_enabled:
+                        new_next = 'pyannote_vad'
+                    else:
+                        new_next = 'asr'
+                elif stage_name == 'silero_vad':
+                    # silero_vad -> pyannote_vad (if enabled) -> asr
+                    if pyannote_enabled:
+                        new_next = 'pyannote_vad'
+                    else:
+                        new_next = 'asr'
+                elif stage_name == 'pyannote_vad':
+                    # pyannote_vad -> asr
+                    new_next = 'asr'
+                elif stage_name == 'asr':
+                    # asr -> diarization (if enabled) -> glossary_builder
+                    if diarization_enabled:
+                        new_next = 'diarization'
+                    else:
+                        new_next = 'glossary_builder'
+                else:
+                    # For other stages, find next available
+                    new_next = None
+                    for j in range(i + 1, len(stages)):
+                        new_next = stages[j][0]
+                        break
+                
+                fixed_stages.append((stage_name, new_next, service, timeout, critical, uses_ml))
+            else:
+                fixed_stages.append(stage)
+        
+        return fixed_stages
     
     def _detect_device_type(self) -> str:
         """Detect device type from job configuration.
@@ -354,48 +444,36 @@ class JobOrchestrator:
         
         return exists
     
-    def run_native_step(self, stage_name: str, script_name: str, args: List[str] = None, timeout: int = 3600) -> bool:
+    def run_native_step(self, stage_name: str, script_name: str, args: List[str] = None, timeout: int = 3600, force_device: str = None) -> bool:
         """Run a pipeline stage natively (outside Docker).
         
         Supports:
-        - Windows: .bollyenv/Scripts/python.exe with scripts from docker/{stage}/
-        - macOS: .bollyenv/bin/python with scripts from docker/{stage}/
-        - Linux: native/venvs/{venv}/bin/python with scripts from native/scripts/
+        - Windows: .bollyenv/Scripts/python.exe with scripts from scripts/
+        - macOS: .bollyenv/bin/python with scripts from scripts/
+        - Linux: .bollyenv/bin/python with scripts from scripts/
         
         Args:
             stage_name: Stage name
             script_name: Native script filename
             args: Arguments to pass to script
             timeout: Maximum execution time in seconds
+            force_device: Override device (for CPU fallback)
         
         Returns:
             True if successful, False otherwise
         """
         system = platform.system()
         
-        # Determine Python binary path
+        # Determine Python binary path and script path
+        # All platforms now use unified .bollyenv and scripts/ directory
         if system == 'Windows':
             python_bin = Path(".bollyenv") / "Scripts" / "python.exe"
-            # Use Docker scripts (they work for native mode too)
-            script_path = Path("docker") / stage_name.replace('_', '-') / script_name
-        elif system == 'Darwin':
-            python_bin = Path(".bollyenv") / "bin" / "python"
-            # Use Docker scripts (they work for native mode too)
-            script_path = Path("docker") / stage_name.replace('_', '-') / script_name
         else:
-            # Linux: Use per-stage venvs (if native mode setup exists)
-            venv_map = {
-                "silero_vad": "vad",
-                "pyannote_vad": "vad",
-                "diarization": "diarization",
-                "asr": "asr",
-                "second_pass_translation": "asr",
-                "lyrics_detection": "asr"
-            }
-            venv_name = venv_map.get(stage_name, "base")
-            venv_dir = Path("native/venvs") / venv_name
-            python_bin = venv_dir / "bin" / "python"
-            script_path = Path("native/scripts") / script_name
+            # macOS and Linux use .bollyenv/bin/python
+            python_bin = Path(".bollyenv") / "bin" / "python"
+        
+        # All scripts are now in scripts/ directory
+        script_path = Path("scripts") / script_name
         
         if not python_bin.exists():
             self.logger.error(f"Python not found: {python_bin}")
@@ -406,12 +484,23 @@ class JobOrchestrator:
             self.logger.error(f"Script not found: {script_path}")
             return False
         
+        # Determine device for this run
+        device_for_run = force_device if force_device else self.device_type
+        
         # Set up environment
         env = os.environ.copy()
         env['CONFIG_PATH'] = str(Path(self.job_info['env_file']).absolute())
         env['OUTPUT_DIR'] = str(self.output_dir.absolute())
         env['LOG_ROOT'] = str(self.log_dir.absolute())
         env['EXECUTION_MODE'] = 'native'  # Tell script it's running natively
+        
+        # Add HF_TOKEN for models that require authentication (PyAnnote, etc.)
+        if hasattr(self.config, 'hf_token') and self.config.hf_token:
+            env['HF_TOKEN'] = self.config.hf_token
+        
+        # Override device if CPU fallback is requested
+        if force_device:
+            env['DEVICE_OVERRIDE'] = force_device.upper()
         
         # Add shared directory to PYTHONPATH for imports
         shared_dir = str(Path("shared").absolute())
@@ -428,15 +517,18 @@ class JobOrchestrator:
         self.logger.debug(f"Command: {' '.join(cmd)}")
         self.logger.debug(f"Config: {env['CONFIG_PATH']}")
         self.logger.debug(f"Output: {env['OUTPUT_DIR']}")
-        self.logger.debug(f"Device: {self.device_type}")
+        self.logger.debug(f"Device: {device_for_run}")
         self.logger.debug(f"Timeout: {timeout}s")
         
         # Warn about CPU for ML stages
-        if stage_name in ML_STAGES and self.device_type == "cpu":
-            self.logger.warning(f"⚠️  Running {stage_name} on CPU - this will be VERY SLOW")
-            self.logger.warning(f"⚠️  Expected time: 2-4 hours for 2-hour movie")
-            self.logger.warning(f"⚠️  Recommendation: Enable GPU (CUDA) or skip stage")
-            self.logger.warning(f"⚠️  To skip: Set STEP_{stage_name.upper()}=false in config/.env.pipeline")
+        if stage_name in ML_STAGES and device_for_run == "cpu":
+            if force_device:
+                self.logger.info(f"Running {stage_name} on CPU (fallback from {self.device_type.upper()})")
+            else:
+                self.logger.warning(f"⚠️  Running {stage_name} on CPU - this will be VERY SLOW")
+                self.logger.warning(f"⚠️  Expected time: 2-4 hours for 2-hour movie")
+                self.logger.warning(f"⚠️  Recommendation: Enable GPU (CUDA) or skip stage")
+                self.logger.warning(f"⚠️  To skip: Set STEP_{stage_name.upper()}=false in config/.env.pipeline")
         
         try:
             result = subprocess.run(
@@ -474,7 +566,18 @@ class JobOrchestrator:
             
             # Check exit code
             if result.returncode != 0:
-                self.logger.error(f"Native script exited with code {result.returncode}")
+                # Handle specific error codes
+                if result.returncode == -11:
+                    self.logger.error(f"Native script crashed with SIGSEGV (segmentation fault)")
+                    if stage_name in ML_STAGES and self.device_type == 'mps':
+                        self.logger.error(f"  This is likely a PyTorch MPS memory issue")
+                        self.logger.error(f"  The stage will retry on CPU")
+                elif result.returncode == -9:
+                    self.logger.error(f"Native script was killed (possibly out of memory)")
+                elif result.returncode < 0:
+                    self.logger.error(f"Native script terminated by signal {-result.returncode}")
+                else:
+                    self.logger.error(f"Native script exited with code {result.returncode}")
                 return False
             
             return True
@@ -689,6 +792,11 @@ class JobOrchestrator:
                 continue
             
             # Check if stage is conditionally enabled
+            if stage_name == "glossary_builder":
+                if not getattr(self.config, 'glossary_enable', True):
+                    self.logger.info(f"⏭️  Skipping - disabled in config (GLOSSARY_ENABLE=false)")
+                    continue
+            
             if stage_name == "second_pass_translation":
                 if not getattr(self.config, 'second_pass_enabled', False):
                     self.logger.info(f"⏭️  Skipping - disabled in config (SECOND_PASS_ENABLED=false)")
@@ -705,7 +813,7 @@ class JobOrchestrator:
                 try:
                     finalize_script = PROJECT_ROOT / "scripts" / "finalize_output.py"
                     result = subprocess.run(
-                        [sys.executable, str(finalize_script), str(self.job_dir)],
+                        [sys.executable, str(finalize_script), str(self.output_dir)],
                         capture_output=True,
                         text=True,
                         timeout=60
@@ -760,6 +868,10 @@ class JobOrchestrator:
             start_time = time.time()
             max_retries = 2 if stage_name == "asr" else 1  # Allow retries for ASR
             retry_count = 0
+            attempted_cpu_fallback = False
+            
+            # ASR ALWAYS runs on CPU only (no GPU, no fallback)
+            force_cpu_only = (stage_name == "asr")
             
             try:
                 while retry_count < max_retries:
@@ -773,13 +885,27 @@ class JobOrchestrator:
                     else:
                         self.logger.info(f"Timeout: {timeout}s")
                     
+                    # Determine if we should force CPU for this attempt
+                    force_cpu = False
+                    if force_cpu_only:
+                        # ASR always runs on CPU
+                        force_cpu = True
+                        if retry_count == 0:
+                            self.logger.info(f"ℹ️  ASR stage configured for CPU-only execution (no GPU)")
+                    elif run_native and stage_name in ML_STAGES and self.device_type in ['mps', 'cuda'] and attempted_cpu_fallback:
+                        force_cpu = True
+                    
                     if run_native:
                         # Run natively (Windows/macOS)
                         script_name = STAGE_SCRIPTS.get(stage_name)
                         if not script_name:
                             self.logger.error(f"No script mapping for stage: {stage_name}")
                             raise Exception(f"Unknown stage: {stage_name}")
-                        success = self.run_native_step(stage_name, script_name, args, timeout=timeout)
+                        
+                        if force_cpu:
+                            success = self.run_native_step(stage_name, script_name, args, timeout=timeout, force_device='cpu')
+                        else:
+                            success = self.run_native_step(stage_name, script_name, args, timeout=timeout)
                     else:
                         # Run in Docker (CUDA containers on Linux/Windows, or CPU fallback)
                         success = self.run_docker_step(service, args, timeout=timeout, use_cuda=use_cuda)
@@ -787,6 +913,20 @@ class JobOrchestrator:
                     duration = time.time() - start_time
                     
                     if not success:
+                        # Check if this is an ML stage that can fallback to CPU
+                        # ASR stage is excluded from CPU fallback since it always runs on CPU
+                        if not force_cpu_only and stage_name in ML_STAGES and self.device_type in ['mps', 'cuda'] and not attempted_cpu_fallback:
+                            self.logger.warning(f"⚠️  Stage failed on {self.device_type.upper()}")
+                            self.logger.warning(f"⚠️  Attempting CPU fallback...")
+                            attempted_cpu_fallback = True
+                            retry_count += 1
+                            if retry_count < max_retries:
+                                time.sleep(5)  # Brief pause before retry
+                                continue
+                            else:
+                                raise Exception("Stage execution failed after retries")
+                        
+                        # Regular retry logic (not CPU fallback)
                         retry_count += 1
                         if retry_count < max_retries:
                             self.logger.warning(f"Stage failed, retrying... ({retry_count}/{max_retries-1})")
@@ -794,17 +934,22 @@ class JobOrchestrator:
                             continue
                         raise Exception("Stage execution failed after retries")
                     
-                    # Record success
+                    # Record success with device info
+                    device_used = 'cpu' if force_cpu else self.device_type
                     self.manifest.set_pipeline_step(
                         stage_name,
                         True,
                         completed=True,
                         next_stage=next_stage,
                         status="success",
-                        duration=duration
+                        duration=duration,
+                        device=device_used.upper() if stage_name in ML_STAGES else 'CPU'
                     )
                     
-                    self.logger.info(f"✓ Stage completed in {duration:.1f}s")
+                    if attempted_cpu_fallback and force_cpu:
+                        self.logger.info(f"✓ Stage completed in {duration:.1f}s (on CPU after {self.device_type.upper()} failure)")
+                    else:
+                        self.logger.info(f"✓ Stage completed in {duration:.1f}s{' on ' + device_used.upper() if stage_name in ML_STAGES else ''}")
                     self.logger.info(f"Progress: {idx}/{total_stages} stages complete")
                     break  # Success, exit retry loop
                 
@@ -915,6 +1060,57 @@ class JobOrchestrator:
             if file_info.get('year'):
                 args.append(str(file_info['year']))
             return args
+        elif stage_name in ["silero_vad", "pyannote_vad"]:
+            # VAD stages expect: audio_file --out-json output.json --device cpu/mps/cuda
+            if use_container_paths:
+                audio_file = f"{output_dir_path}/audio.wav"
+                output_json = f"{output_dir_path}/vad_segments.json"
+            else:
+                audio_file = str(Path(output_dir_path) / "audio.wav")
+                output_json = str(Path(output_dir_path) / "vad_segments.json")
+            
+            # Get device setting - pass through MPS for PyAnnote VAD
+            device = getattr(self.config, 'device', 'cpu').lower()
+            
+            return [audio_file, "--out-json", output_json, "--device", device]
+        elif stage_name == "glossary_builder":
+            # Build glossary from ASR and metadata
+            args = ["--job-dir", output_dir_path]
+            
+            title = file_info.get('title', input_path.stem)
+            args.extend(["--title", title])
+            
+            if file_info.get('year'):
+                args.extend(["--year", str(file_info['year'])])
+            
+            # Add TMDB ID if available from tmdb stage
+            tmdb_file = self.output_dir / "02_tmdb" / "metadata.json"
+            if not tmdb_file.exists():
+                tmdb_file = self.output_dir / "tmdb" / "metadata.json"
+            
+            if tmdb_file.exists():
+                try:
+                    import json
+                    with open(tmdb_file, 'r', encoding='utf-8', errors='replace') as f:
+                        tmdb_data = json.load(f)
+                    if 'id' in tmdb_data:
+                        args.extend(["--tmdb-id", str(tmdb_data['id'])])
+                except Exception:
+                    pass
+            
+            # Master glossary and prompts paths
+            if use_container_paths:
+                args.extend(["--master", "/app/glossary/hinglish_master.tsv"])
+                args.extend(["--prompts", "/app/prompts"])
+            else:
+                args.extend(["--master", "glossary/hinglish_master.tsv"])
+                args.extend(["--prompts", "prompts"])
+            
+            # Add min confidence if configured
+            min_conf = getattr(self.config, 'glossary_min_conf', 0.55)
+            args.extend(["--min-confidence", str(min_conf)])
+            
+            return args
         elif stage_name == "mux":
             if use_container_paths:
                 input_container = self._to_container_path(input_path)
@@ -968,7 +1164,8 @@ Examples:
         nargs="+",
         help="Specific stages to run",
         choices=["demux", "tmdb", "pre_ner", "silero_vad", "pyannote_vad",
-                 "diarization", "asr", "post_ner", "subtitle_gen", "mux"]
+                 "diarization", "asr", "glossary_builder", "second_pass_translation", 
+                 "lyrics_detection", "post_ner", "subtitle_gen", "mux", "finalize"]
     )
     
     parser.add_argument(
