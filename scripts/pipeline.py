@@ -191,8 +191,9 @@ class JobOrchestrator:
                     self.logger.info("✓ Execution mode: Native MPS (macOS)")
                     self.logger.info(f"  All stages will run with Apple Silicon GPU acceleration")
                 else:
-                    self.logger.warning("⚠️  Native mode unavailable - falling back to Docker CPU")
-                    self.logger.warning("   Run bootstrap: ./scripts/bootstrap.sh")
+                    self.logger.error("✗ Native mode unavailable")
+                    self.logger.error("  Please run bootstrap: ./scripts/bootstrap.sh")
+                    return False
             elif system == 'Windows':
                 if native_available:
                     if self.device_type == 'cuda':
@@ -202,15 +203,21 @@ class JobOrchestrator:
                         self.logger.info("✓ Execution mode: Native CPU (Windows)")
                         self.logger.info(f"  All stages will run on CPU")
                 else:
-                    self.logger.warning("⚠️  Native mode unavailable - would fallback to Docker")
-                    self.logger.warning("   Run bootstrap: .\\scripts\\bootstrap.ps1")
+                    self.logger.error("✗ Native mode unavailable")
+                    self.logger.error("  Please run bootstrap: .\\scripts\\bootstrap.ps1")
+                    return False
             elif system == 'Linux':
-                if self.device_type == 'cuda':
-                    self.logger.info("✓ Execution mode: Docker CUDA (Linux)")
-                    self.logger.info(f"  ML stages will run in CUDA containers")
+                if native_available:
+                    if self.device_type == 'cuda':
+                        self.logger.info("✓ Execution mode: Native CUDA (Linux)")
+                        self.logger.info(f"  ML stages will run with CUDA GPU acceleration")
+                    else:
+                        self.logger.info("✓ Execution mode: Native CPU (Linux)")
+                        self.logger.info(f"  All stages will run on CPU")
                 else:
-                    self.logger.info("✓ Execution mode: Docker CPU (Linux)")
-                    self.logger.info(f"  All stages will run in CPU containers")
+                    self.logger.error("✗ Native mode unavailable")
+                    self.logger.error("  Please run bootstrap: ./scripts/bootstrap.sh")
+                    return False
             
             self.logger.info(f"  Stages: {', '.join(all_stage_names)}")
             
@@ -363,47 +370,18 @@ class JobOrchestrator:
         return 'cpu'
     
     def _should_run_native(self, stage_name: str) -> bool:
-        """Check if stage should run natively (not in Docker).
+        """Check if native execution environment is available.
         
-        Platform-specific native execution strategy:
-        - Windows: Native CUDA/CPU with .bollyenv (ALL stages - preferred)
-        - macOS: Native MPS with .bollyenv (ALL stages - preferred)
-        - Linux: Docker mode (CUDA/CPU containers)
+        All stages run natively with the .bollyenv virtual environment.
+        Docker mode has been removed.
         
         Args:
             stage_name: Stage name
         
         Returns:
-            True if stage should run natively,
-            False if should run in Docker
+            True if native venv is available, False otherwise
         """
-        # Check platform
-        system = platform.system()
-        
-        # macOS: Native execution (all stages)
-        if system == 'Darwin':
-            native_venv_available = self._check_native_venv_available(stage_name)
-            if native_venv_available:
-                self.logger.debug(f"Native execution available for {stage_name}")
-                return True
-            else:
-                self.logger.debug(f"Native venv not available, falling back to Docker")
-                return False
-        
-        # Windows: Native execution (all stages - preferred)
-        # Check if native environment is available
-        if system == 'Windows':
-            # Check for native venv setup
-            native_venv_available = self._check_native_venv_available(stage_name)
-            if native_venv_available:
-                self.logger.debug(f"Native execution available for {stage_name}")
-                return True
-            else:
-                self.logger.debug(f"Native venv not available, falling back to Docker")
-                return False
-        
-        # Linux: Always use Docker (CUDA or CPU containers)
-        return False
+        return self._check_native_venv_available(stage_name)
     
     def _check_native_venv_available(self, stage_name: str) -> bool:
         """Check if native virtual environment is available for a stage.
@@ -445,7 +423,7 @@ class JobOrchestrator:
         return exists
     
     def run_native_step(self, stage_name: str, script_name: str, args: List[str] = None, timeout: int = 3600, force_device: str = None) -> bool:
-        """Run a pipeline stage natively (outside Docker).
+        """Run a pipeline stage natively.
         
         Supports:
         - Windows: .bollyenv/Scripts/python.exe with scripts from scripts/
@@ -605,122 +583,6 @@ class JobOrchestrator:
         completed = self.manifest.data["pipeline"].get("completed_stages", [])
         return stage_name in completed
     
-    def run_docker_step(self, service_name: str, args: List[str] = None, timeout: int = 3600, use_cuda: bool = False) -> bool:
-        """Run a pipeline stage in Docker container.
-        
-        Args:
-            service_name: Docker Compose service name
-            args: Arguments to pass to container
-            timeout: Maximum execution time in seconds
-            use_cuda: Enable CUDA GPU support (Linux/Windows)
-        
-        Returns:
-            True if successful, False otherwise
-        """
-        # Set up environment
-        env = os.environ.copy()
-        env['CONFIG_PATH'] = self._to_container_path(Path(self.job_info['env_file']))
-        env['OUTPUT_DIR'] = str(self.output_dir)
-        env['LOG_ROOT'] = str(self.log_dir)
-        
-        # Clean up old containers
-        container_prefix = f"cp_whisperx_{service_name.replace('-', '_')}"
-        try:
-            subprocess.run(
-                ["docker", "rm", "-f", container_prefix],
-                capture_output=True,
-                text=True,
-                encoding='utf-8',
-                errors='replace',
-                check=False
-            )
-        except:
-            pass
-        
-        # Build command
-        cmd = [
-            "docker", "compose", "-f", "docker-compose.yml",
-            "run", "--rm"
-        ]
-        
-        # Add CUDA GPU support for Linux/Windows
-        if use_cuda:
-            cmd.extend(["--gpus", "all"])
-        
-        # Add environment variables
-        cmd.extend([
-            "-e", f"CONFIG_PATH={env['CONFIG_PATH']}",
-            "-e", f"OUTPUT_DIR={env['OUTPUT_DIR']}",
-            "-e", f"LOG_ROOT={env['LOG_ROOT']}",
-        ])
-        
-        # Add service name
-        cmd.append(service_name)
-        
-        if args:
-            cmd.extend(args)
-        
-        self.logger.debug(f"Command: {' '.join(cmd)}")
-        self.logger.debug(f"Config: {env['CONFIG_PATH']}")
-        self.logger.debug(f"Output: {env['OUTPUT_DIR']}")
-        self.logger.debug(f"Log Dir: {env['LOG_ROOT']}")
-        self.logger.debug(f"Timeout: {timeout}s")
-        
-        try:
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                encoding='utf-8',
-                errors='replace',
-                timeout=timeout,
-                check=False,  # Don't raise on non-zero exit
-                env=env
-            )
-            
-            # Log stdout
-            if result.stdout:
-                for line in result.stdout.strip().split('\n'):
-                    if line.strip():
-                        self.logger.debug(f"  {line}")
-            
-            # Filter and log stderr - ignore progress bars
-            if result.stderr:
-                for line in result.stderr.strip().split('\n'):
-                    line = line.strip()
-                    if not line:
-                        continue
-                    # Skip progress bar lines (contain %, █, or download progress indicators)
-                    if any(x in line for x in ['%|', '█', 'MB/s', 'Downloading:', 'model.safetensors']):
-                        continue
-                    # Log actual errors
-                    if any(x in line.lower() for x in ['error', 'exception', 'failed', 'traceback']):
-                        self.logger.error(f"  {line}")
-                    else:
-                        self.logger.warning(f"  {line}")
-            
-            # Check exit code
-            if result.returncode != 0:
-                self.logger.error(f"Container exited with code {result.returncode}")
-                return False
-            
-            return True
-            
-        except subprocess.TimeoutExpired as e:
-            self.logger.error(f"Stage timed out after {timeout}s")
-            # Log any partial output
-            if hasattr(e, 'stdout') and e.stdout:
-                self.logger.error("Partial stdout before timeout:")
-                for line in e.stdout.strip().split('\n')[-20:]:  # Last 20 lines
-                    if line.strip():
-                        self.logger.error(f"  {line}")
-            return False
-        
-        except Exception as e:
-            self.logger.error(f"Unexpected error: {e}")
-            import traceback
-            self.logger.error(traceback.format_exc())
-            return False
     
     def run_pipeline(self, resume: bool = True) -> bool:
         """Run the pipeline for this job.
@@ -836,33 +698,25 @@ class JobOrchestrator:
                 # Always continue (finalize is non-critical)
                 continue
             
-            # Determine execution mode
+            # Check if native execution is available
             run_native = self._should_run_native(stage_name)
-            system = platform.system()
-            use_cuda = False
             
-            if run_native:
-                # Native execution
-                if system == 'Windows':
-                    self.logger.info(f"🚀 Running natively on Windows with {self.device_type.upper()}")
-                elif system == 'Darwin':
-                    self.logger.info(f"🚀 Running natively on macOS with {self.device_type.upper()} acceleration")
-                else:
-                    self.logger.info(f"🚀 Running natively with {self.device_type.upper()}")
+            if not run_native:
+                self.logger.error(f"Native environment not available for {stage_name}")
+                self.logger.error(f"Please run ./scripts/bootstrap.sh to set up the environment")
+                self.manifest.set_pipeline_step(stage_name, False, error="Native environment not available")
+                if critical:
+                    return False
+                continue
+            
+            # Native execution
+            system = platform.system()
+            if system == 'Windows':
+                self.logger.info(f"🚀 Running natively on Windows with {self.device_type.upper()}")
+            elif system == 'Darwin':
+                self.logger.info(f"🚀 Running natively on macOS with {self.device_type.upper()} acceleration")
             else:
-                # Docker execution
-                if stage_name in ML_STAGES:
-                    if self.device_type == 'cuda' and system == 'Linux':
-                        # CUDA containers on Linux
-                        use_cuda = True
-                        self.logger.info(f"🐳 Running in Docker with CUDA GPU support")
-                    elif self.device_type == 'cpu':
-                        self.logger.info(f"🐳 Running in Docker (CPU mode)")
-                    else:
-                        # MPS but can't run native (fallback to Docker CPU)
-                        self.logger.info(f"🐳 Running in Docker (CPU fallback - native mode unavailable)")
-                else:
-                    self.logger.info(f"🐳 Running in Docker container")
+                self.logger.info(f"🚀 Running natively with {self.device_type.upper()}")
             
             # Run stage
             start_time = time.time()
@@ -875,9 +729,8 @@ class JobOrchestrator:
             
             try:
                 while retry_count < max_retries:
-                    # Prepare arguments (use container paths for Docker, absolute paths for native)
-                    use_container_paths = not run_native
-                    args = self._get_stage_args(stage_name, input_path, file_info, use_container_paths)
+                    # Prepare arguments with absolute paths (native execution)
+                    args = self._get_stage_args(stage_name, input_path, file_info, use_container_paths=False)
                     
                     # Run stage based on execution mode
                     if retry_count > 0:
@@ -892,23 +745,19 @@ class JobOrchestrator:
                         force_cpu = True
                         if retry_count == 0:
                             self.logger.info(f"ℹ️  ASR stage configured for CPU-only execution (no GPU)")
-                    elif run_native and stage_name in ML_STAGES and self.device_type in ['mps', 'cuda'] and attempted_cpu_fallback:
+                    elif stage_name in ML_STAGES and self.device_type in ['mps', 'cuda'] and attempted_cpu_fallback:
                         force_cpu = True
                     
-                    if run_native:
-                        # Run natively (Windows/macOS)
-                        script_name = STAGE_SCRIPTS.get(stage_name)
-                        if not script_name:
-                            self.logger.error(f"No script mapping for stage: {stage_name}")
-                            raise Exception(f"Unknown stage: {stage_name}")
-                        
-                        if force_cpu:
-                            success = self.run_native_step(stage_name, script_name, args, timeout=timeout, force_device='cpu')
-                        else:
-                            success = self.run_native_step(stage_name, script_name, args, timeout=timeout)
+                    # Run natively
+                    script_name = STAGE_SCRIPTS.get(stage_name)
+                    if not script_name:
+                        self.logger.error(f"No script mapping for stage: {stage_name}")
+                        raise Exception(f"Unknown stage: {stage_name}")
+                    
+                    if force_cpu:
+                        success = self.run_native_step(stage_name, script_name, args, timeout=timeout, force_device='cpu')
                     else:
-                        # Run in Docker (CUDA containers on Linux/Windows, or CPU fallback)
-                        success = self.run_docker_step(service, args, timeout=timeout, use_cuda=use_cuda)
+                        success = self.run_native_step(stage_name, script_name, args, timeout=timeout)
                     
                     duration = time.time() - start_time
                     
@@ -1039,7 +888,7 @@ class JobOrchestrator:
             stage_name: Stage name
             input_path: Input media path
             file_info: Parsed filename info
-            use_container_paths: Whether to convert to container paths (True for Docker, False for native)
+            use_container_paths: Whether to convert to container paths (False for native)
         
         Returns:
             List of arguments for the stage
