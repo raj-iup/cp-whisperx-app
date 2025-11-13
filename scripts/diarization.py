@@ -27,6 +27,7 @@ from typing import List, Dict, Optional, Any
 import whisperx
 from pyannote.audio import Pipeline
 from shared.logger import PipelineLogger
+from mps_utils import cleanup_mps_memory, log_mps_memory, optimize_batch_size_for_mps
 
 
 class DiarizationProcessor:
@@ -97,6 +98,10 @@ class DiarizationProcessor:
             self.logger.warning("  ⚠️  This may take hours for long audio files")
             self.logger.warning("  ⚠️  Consider using GPU acceleration")
 
+        # MPS memory optimization - log before loading
+        if self.device.lower() == 'mps':
+            log_mps_memory(self.logger, "  Before model load - ")
+
         try:
             # Use pyannote.audio Pipeline directly
             self.diarize_model = Pipeline.from_pretrained(
@@ -112,6 +117,7 @@ class DiarizationProcessor:
                     self.logger.info(f"  ✓ Diarization model moved to {self.device.upper()}")
                     if self.device.lower() == 'mps':
                         self.logger.info("    → Using Metal Performance Shaders (Apple Silicon)")
+                        log_mps_memory(self.logger, "  After model load - ")
                     elif self.device.lower() == 'cuda':
                         self.logger.info("    → Using NVIDIA CUDA acceleration")
                 except Exception as e:
@@ -165,6 +171,10 @@ class DiarizationProcessor:
         if max_speakers is not None:
             self.logger.info(f"  Max speakers: {max_speakers}")
 
+        # MPS memory optimization - log before diarization
+        if self.device.lower() == 'mps':
+            log_mps_memory(self.logger, "  Before diarization - ")
+
         try:
             # Run pyannote diarization
             diarization = self.diarize_model(
@@ -189,6 +199,11 @@ class DiarizationProcessor:
         except Exception as e:
             self.logger.error(f"  Diarization failed: {e}")
             raise
+        finally:
+            # Cleanup MPS memory after diarization
+            if self.device.lower() == 'mps':
+                cleanup_mps_memory(self.logger)
+                log_mps_memory(self.logger, "  After diarization - ")
 
     def assign_speakers_to_segments(
         self,
