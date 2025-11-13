@@ -203,3 +203,20 @@ config/.env.local
 config/.env.development
 config/.env.production
 config/.env.testshared/model-cache/
+
+# Additional cleanup - Phase 7
+# Added 2025-11-13: Cleanup regenerable caches and user data
+
+# Model caches (regenerable)
+shared/model-cache/
+
+# Test outputs
+test_output.log
+*test.log
+
+# Logs directory (user-generated)
+logs/
+*.log
+
+# Pipeline-generated config
+config/.env.pipeline
