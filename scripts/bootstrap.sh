@@ -245,6 +245,45 @@ if cd "$PROJECT_ROOT" && python "shared/hardware_detection.py" --no-cache; then
     cache_file="$PROJECT_ROOT/out/hardware_cache.json"
     if [ -f "$cache_file" ]; then
         log_info "Hardware cache saved (valid for 1 hour)"
+        
+        # Extract and apply recommended settings from hardware cache
+        if command -v python3 >/dev/null 2>&1; then
+            # Get recommended device
+            detected_device=$(python3 -c "
+import json
+try:
+    with open('$cache_file') as f:
+        hw = json.load(f)
+    print(hw.get('gpu_type', 'cpu'))
+except:
+    print('cpu')
+" 2>/dev/null)
+            
+            # Get recommended batch size
+            recommended_batch=$(python3 -c "
+import json
+try:
+    with open('$cache_file') as f:
+        hw = json.load(f)
+    settings = hw.get('recommended_settings', {})
+    print(settings.get('batch_size', 16))
+except:
+    print(16)
+" 2>/dev/null)
+            
+            if [ -n "$detected_device" ]; then
+                export DEVICE_OVERRIDE="$detected_device"
+                log_info "  → Auto-detected device: $detected_device"
+                log_info "  → DEVICE_OVERRIDE=$detected_device"
+            fi
+            
+            if [ -n "$recommended_batch" ]; then
+                log_info "  → Recommended batch size: $recommended_batch"
+                log_info "  → Set ASR_BATCH_SIZE=$recommended_batch in config/.env.pipeline if needed"
+            fi
+            
+            log_info "  → Override any auto-detected setting in config/.env.pipeline"
+        fi
     fi
 else
     log_warn "Hardware detection failed, but continuing..."
