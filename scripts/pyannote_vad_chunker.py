@@ -51,6 +51,25 @@ try:
 except Exception:
     HAS_CONFIG = False
 
+try:
+    from mps_utils import cleanup_mps_memory, log_mps_memory
+    HAS_MPS_UTILS = True
+except Exception:
+    HAS_MPS_UTILS = False
+    # Fallback no-op functions
+    def cleanup_mps_memory(logger=None):
+        pass
+    def log_mps_memory(logger, prefix=""):
+        pass
+
+def _get_mps_memory() -> float:
+    """Get MPS memory in GB"""
+    try:
+        from mps_utils import get_mps_memory_allocated
+        return get_mps_memory_allocated()
+    except:
+        return 0.0
+
 def load_audio_mono(path: str, target_sr: int = 16000):
     data, sr = sf.read(path)
     if data.ndim > 1:
@@ -161,6 +180,9 @@ def run_vad_local(chunk_path: str, device: str = "cpu"):
                 if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
                     run_vad_local._pipe.to(torch.device("mps"))
                     print(f"[info] Pipeline moved to device: mps", file=sys.stderr)
+                    # Log memory after model load
+                    if HAS_MPS_UTILS:
+                        print(f"[info] MPS memory after load: {_get_mps_memory():.2f} GB", file=sys.stderr)
                 else:
                     print(f"[warn] MPS not available, using CPU", file=sys.stderr)
                     run_vad_local._pipe.to(torch.device("cpu"))
@@ -173,11 +195,22 @@ def run_vad_local(chunk_path: str, device: str = "cpu"):
             print(f"[warn] Will attempt to run on CPU", file=sys.stderr)
             run_vad_local._pipe.to(torch.device("cpu"))
     
+    # Log memory before VAD processing
+    if device.lower() == "mps" and HAS_MPS_UTILS:
+        print(f"[info] MPS memory before VAD: {_get_mps_memory():.2f} GB", file=sys.stderr)
+    
     try:
         if run_vad_local._pipe is None:
             raise RuntimeError("Pipeline is None - this should not happen")
         tl = run_vad_local._pipe(chunk_path)
-        return [(float(seg.start), float(seg.end)) for seg in tl.itersegments()]
+        result = [(float(seg.start), float(seg.end)) for seg in tl.itersegments()]
+        
+        # Cleanup MPS memory after processing
+        if device.lower() == "mps" and HAS_MPS_UTILS:
+            cleanup_mps_memory()
+            print(f"[info] MPS memory after VAD: {_get_mps_memory():.2f} GB", file=sys.stderr)
+        
+        return result
     except Exception as e:
         print(f"[error] VAD processing failed: {e}", file=sys.stderr)
         raise
