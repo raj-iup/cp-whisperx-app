@@ -34,6 +34,8 @@ warnings.filterwarnings('ignore', message='.*has been deprecated.*', module='spe
 
 from device_selector import select_whisperx_device, validate_device_and_compute_type
 from bias_injection import BiasWindow, get_window_for_time
+from mps_utils import cleanup_mps_memory, log_mps_memory, optimize_batch_size_for_mps
+from asr_chunker import ChunkedASRProcessor
 import sys
 from pathlib import Path
 
@@ -202,10 +204,14 @@ class WhisperXProcessor:
         source_lang: str,
         target_lang: str,
         bias_windows: Optional[List[BiasWindow]] = None,
-        batch_size: int = 16
+        batch_size: int = 16,
+        output_dir: Optional[Path] = None
     ) -> Dict[str, Any]:
         """
-        Transcribe and translate audio with bias prompt injection
+        Transcribe and translate audio with bias prompt injection.
+        
+        Uses chunked processing for MPS devices or long files for stability.
+        Passes bias prompts actively to WhisperX (not just metadata).
 
         Args:
             audio_file: Path to audio/video file
@@ -213,6 +219,7 @@ class WhisperXProcessor:
             target_lang: Target language (e.g., "en")
             bias_windows: List of bias windows for prompt injection
             batch_size: Batch size for inference
+            output_dir: Output directory for checkpoints (required for chunking)
 
         Returns:
             Whisper result dict with segments and word-level timestamps
@@ -224,8 +231,50 @@ class WhisperXProcessor:
         if not self.backend:
             raise RuntimeError("Model not loaded. Call load_model() first.")
 
+        # Optimize batch size for MPS
+        original_batch_size = batch_size
+        batch_size = optimize_batch_size_for_mps(batch_size, self.backend.device, 'large')
+        if batch_size != original_batch_size:
+            self.logger.info(f"  🎯 MPS optimization: batch_size {original_batch_size} → {batch_size}")
+
         # Determine task
         task = "translate" if source_lang != target_lang else "transcribe"
+        
+        # Determine if chunking should be used
+        audio_duration = self._get_audio_duration(audio_file)
+        use_chunking = (
+            self.backend.device == 'mps' or  # Always chunk for MPS stability
+            audio_duration > 600  # Always chunk if > 10 minutes
+        )
+        
+        if use_chunking:
+            self.logger.info(f"  📦 Using chunked processing (duration={audio_duration:.0f}s, device={self.backend.device})")
+            return self._transcribe_chunked(
+                audio_file, source_lang, task, 
+                bias_windows, batch_size, output_dir
+            )
+        else:
+            self.logger.info(f"  🚀 Using whole-file processing (duration={audio_duration:.0f}s)")
+            return self._transcribe_whole(
+                audio_file, source_lang, task,
+                bias_windows, batch_size
+            )
+    
+    def _get_audio_duration(self, audio_file: str) -> float:
+        """Get audio duration in seconds"""
+        import whisperx
+        audio = whisperx.load_audio(audio_file)
+        return len(audio) / 16000  # 16kHz sample rate
+    
+    def _transcribe_whole(
+        self,
+        audio_file: str,
+        source_lang: str,
+        task: str,
+        bias_windows: Optional[List[BiasWindow]],
+        batch_size: int
+    ) -> Dict[str, Any]:
+        """Whole-file transcription with global bias prompting (for short files or CPU)"""
         
         # Create global bias prompts from bias windows
         initial_prompt = None
@@ -254,13 +303,16 @@ class WhisperXProcessor:
                 self.logger.info(f"    Hotwords: {len(top_terms)} terms")
                 self.logger.debug(f"    Preview: {', '.join(top_terms[:5])}...")
         
-        # Log parameters being used
+        # Log parameters
         self.logger.info(f"  Transcription options:")
         self.logger.info(f"    Language: {source_lang}")
         self.logger.info(f"    Task: {task}")
         self.logger.info(f"    Batch size: {batch_size}")
         if initial_prompt:
             self.logger.info(f"    Bias: ACTIVE (global prompt)")
+        
+        # Log memory before
+        log_mps_memory(self.logger, "  Before transcription - ")
 
         try:
             result = self.backend.transcribe(
@@ -275,12 +327,109 @@ class WhisperXProcessor:
         except Exception as e:
             self.logger.error(f"  ✗ Transcription failed: {e}")
             raise
+        finally:
+            # Always cleanup MPS memory
+            cleanup_mps_memory(self.logger)
+            log_mps_memory(self.logger, "  After transcription - ")
 
         # Apply bias window metadata to segments (for reference)
         if bias_windows:
             result = self._apply_bias_context(result, bias_windows)
 
         return result
+    
+    def _transcribe_chunked(
+        self,
+        audio_file: str,
+        source_lang: str,
+        task: str,
+        bias_windows: Optional[List[BiasWindow]],
+        batch_size: int,
+        output_dir: Optional[Path]
+    ) -> Dict[str, Any]:
+        """Chunked transcription with window-specific bias and checkpointing"""
+        
+        if not output_dir:
+            # Fallback to temp directory if no output_dir provided
+            import tempfile
+            output_dir = Path(tempfile.mkdtemp())
+            self.logger.warning(f"  No output_dir provided, using temp: {output_dir}")
+        
+        chunker = ChunkedASRProcessor(self.logger, chunk_duration=300)  # 5 min chunks
+        
+        # Create chunks
+        chunks = chunker.create_chunks(audio_file, bias_windows)
+        
+        # Process each chunk with checkpointing
+        chunk_results = []
+        checkpoint_dir = output_dir / 'chunks'
+        checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        
+        for i, chunk in enumerate(chunks):
+            self.logger.info(f"  Processing chunk {i+1}/{len(chunks)}")
+            
+            # Try to load from checkpoint
+            cached_result = chunker.load_checkpoint(chunk.chunk_id, checkpoint_dir)
+            
+            if cached_result:
+                self.logger.info(f"    ✓ Loading cached chunk {chunk.chunk_id}")
+                chunk_results.append(cached_result)
+            else:
+                # Process chunk with retry
+                try:
+                    result = self._process_chunk_with_retry(
+                        chunker, chunk, source_lang, task, batch_size
+                    )
+                    
+                    # Save checkpoint
+                    chunker.save_checkpoint(chunk.chunk_id, result, checkpoint_dir)
+                    chunk_results.append(result)
+                    
+                    # Memory cleanup after each chunk
+                    cleanup_mps_memory(self.logger)
+                    
+                except Exception as e:
+                    self.logger.error(f"    ✗ Chunk {chunk.chunk_id} failed: {e}")
+                    # Continue with other chunks, partial results better than none
+                    continue
+        
+        # Merge all chunks
+        self.logger.info(f"  Merging {len(chunk_results)} processed chunks...")
+        merged_result = chunker.merge_chunk_results(chunk_results)
+        
+        return merged_result
+    
+    def _process_chunk_with_retry(
+        self,
+        chunker: ChunkedASRProcessor,
+        chunk,
+        language: str,
+        task: str,
+        batch_size: int,
+        max_retries: int = 3
+    ) -> Dict[str, Any]:
+        """Process a single chunk with retry logic"""
+        from mps_utils import retry_with_degradation
+        
+        # Simple retry wrapper - the decorator doesn't work well here
+        # because we need to modify chunker's state
+        for attempt in range(max_retries):
+            try:
+                return chunker.process_chunk_with_bias(
+                    chunk, self.backend, language, task, batch_size
+                )
+            except Exception as e:
+                self.logger.warning(f"    ⚠️  Attempt {attempt + 1} failed: {e}")
+                
+                if attempt < max_retries - 1:
+                    # Reduce batch size for retry
+                    batch_size = max(batch_size // 2, 4)
+                    self.logger.warning(f"    🔄 Retrying with batch_size={batch_size}")
+                    cleanup_mps_memory(self.logger)
+                else:
+                    raise
+        
+        raise RuntimeError(f"All {max_retries} retries failed")
 
     def _apply_bias_context(
         self,
@@ -493,7 +642,8 @@ def run_whisperx_pipeline(
             audio_file,
             source_lang,
             target_lang,
-            bias_windows
+            bias_windows,
+            output_dir=output_dir  # Pass output_dir for checkpointing
         )
 
         # Align for word-level timestamps

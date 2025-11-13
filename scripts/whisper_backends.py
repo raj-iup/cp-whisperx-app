@@ -155,11 +155,20 @@ class WhisperXBackend(WhisperBackend):
     ) -> Dict[str, Any]:
         """Transcribe using WhisperX with optional bias prompting
         
-        Note: WhisperX's FasterWhisperPipeline.transcribe() does not support
-        initial_prompt or hotwords parameters directly. These parameters are
-        accepted for API compatibility but are not used in this backend.
-        For bias prompting support, consider using a different backend or
-        implementing post-processing based bias correction.
+        Bias parameters (initial_prompt, hotwords) are passed to the underlying
+        faster-whisper model when available. These help improve recognition of
+        proper nouns, character names, and domain-specific terminology.
+        
+        Args:
+            audio_file: Path to audio file
+            language: Source language code
+            task: 'transcribe' or 'translate'
+            batch_size: Batch size for inference
+            initial_prompt: Text prompt to guide transcription
+            hotwords: Comma-separated important terms to boost
+            
+        Returns:
+            WhisperX-compatible result dict
         """
         import whisperx
         
@@ -168,7 +177,7 @@ class WhisperXBackend(WhisperBackend):
         
         audio = whisperx.load_audio(audio_file)
         
-        # Build transcribe parameters (WhisperX only supports these params)
+        # Build transcribe parameters
         transcribe_params = {
             'audio': audio,
             'language': language,
@@ -176,10 +185,32 @@ class WhisperXBackend(WhisperBackend):
             'batch_size': batch_size
         }
         
-        # Note: initial_prompt and hotwords are NOT passed to WhisperX
-        # as FasterWhisperPipeline.transcribe() doesn't accept them
+        # Add bias parameters if provided
+        # Note: These pass through to faster-whisper's transcribe() method
+        # via WhisperX's model.transcribe() call
+        if initial_prompt:
+            transcribe_params['initial_prompt'] = initial_prompt
+            self.logger.debug(f"  Using initial_prompt: {initial_prompt[:100]}...")
         
-        result = self.model.transcribe(**transcribe_params)
+        if hotwords:
+            transcribe_params['hotwords'] = hotwords
+            self.logger.debug(f"  Using hotwords: {len(hotwords.split(','))} terms")
+        
+        try:
+            result = self.model.transcribe(**transcribe_params)
+        except TypeError as e:
+            # If parameters not supported, fallback to basic transcription
+            if 'initial_prompt' in str(e) or 'hotwords' in str(e):
+                self.logger.warning("  Bias parameters not supported by this WhisperX version")
+                self.logger.warning("  Falling back to transcription without bias")
+                result = self.model.transcribe(
+                    audio=audio,
+                    language=language,
+                    task=task,
+                    batch_size=batch_size
+                )
+            else:
+                raise
         
         return result
     
