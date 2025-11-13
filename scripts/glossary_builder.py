@@ -14,6 +14,13 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from shared.stage_utils import StageIO, get_stage_logger
 
+# Try to import MPS utils for future-proofing
+try:
+    from mps_utils import cleanup_mps_memory
+    HAS_MPS_UTILS = True
+except:
+    HAS_MPS_UTILS = False
+
 def main():
     # Initialize StageIO and logging
     stage_io = StageIO("glossary_builder")
@@ -92,6 +99,10 @@ def main():
     logger.info("=" * 60)
     logger.info("GLOSSARY BUILDER STAGE COMPLETED")
     logger.info("=" * 60)
+    
+    # Cleanup memory (future-proofing for if ML models are added)
+    if HAS_MPS_UTILS:
+        cleanup_mps_memory()
     
     return 0
 
