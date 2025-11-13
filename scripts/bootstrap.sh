@@ -251,6 +251,28 @@ else
 fi
 
 # ============================================================================
+# MPS OPTIMIZATION: Configure Environment Variables for Apple Silicon
+# ============================================================================
+if [[ "$OS_TYPE" == "Darwin" ]]; then
+    log_section "MPS OPTIMIZATION"
+    log_info "Configuring MPS environment variables for Apple Silicon..."
+    
+    # Prevent memory fragmentation
+    export PYTORCH_MPS_HIGH_WATERMARK_RATIO=0.0
+    log_info "  ✓ PYTORCH_MPS_HIGH_WATERMARK_RATIO=0.0 (prevents fragmentation)"
+    
+    # Disable MPS fallback (fail fast instead of silent CPU fallback)
+    export PYTORCH_ENABLE_MPS_FALLBACK=0
+    log_info "  ✓ PYTORCH_ENABLE_MPS_FALLBACK=0 (fail fast on errors)"
+    
+    # Set memory allocator max size (4GB)
+    export MPS_ALLOC_MAX_SIZE_MB=4096
+    log_info "  ✓ MPS_ALLOC_MAX_SIZE_MB=4096 (4GB max allocation)"
+    
+    log_success "MPS environment optimized for stability"
+fi
+
+# ============================================================================
 # PHASE 3 ENHANCEMENT: Parallel ML Model Pre-download
 # ============================================================================
 log_section "ML MODEL PRE-DOWNLOAD (PARALLEL)"
