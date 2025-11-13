@@ -1,0 +1,115 @@
+term	script	rom	hi	type	english	do_not_translate	capitalize	example_hi	example_en	aliases	source	confidence
+Are	rom	Are		candidate		false	true	Are you a fairy from the sky?			asr:frequency	1.0
+Beat	rom	Beat		candidate		false	true	Beat him!			asr:frequency	1.0
+Bigger	rom	Bigger		candidate		false	true	Bigger than that?			asr:frequency	0.6
+But	rom	But		candidate		false	true	But there is no roof.			asr:frequency	1.0
+Bye	rom	Bye		candidate		false	true	Bye-bye.			asr:frequency	1.0
+Come	rom	Come		candidate		false	true	Come on, Ravi.			asr:frequency	1.0
+Did	rom	Did		candidate		false	true	Did you say something?			asr:frequency	0.7
+Do	rom	Do		candidate		false	true	Do you want an answer?			asr:frequency	1.0
+Don	rom	Don		candidate		false	true	Don't worry.			asr:frequency	1.0
+Fire	rom	Fire		candidate		false	true	Fire!			asr:frequency	0.6
+Forgive	rom	Forgive		candidate		false	true	Forgive me, Som.			asr:frequency	0.6
+Get	rom	Get		candidate		false	true	Get up!			asr:frequency	1.0
+Got	rom	Got		candidate		false	true	Got it?			asr:frequency	0.8
+Greetings	rom	Greetings		candidate		false	true	Greetings, brother-in-law.			asr:frequency	0.6
+He	rom	He		candidate		false	true	He doesn't go to fight with a sword.			asr:frequency	1.0
+Hello	rom	Hello		candidate		false	true	Hello!			asr:frequency	0.9
+Hey	rom	Hey		candidate		false	true	Hey, is that white wild horse?			asr:frequency	1.0
+How	rom	How		candidate		false	true	How dare you play with a man's life?			asr:frequency	1.0
+If	rom	If		candidate		false	true	If they are happy, they kill them.			asr:frequency	1.0
+Is	rom	Is		candidate		false	true	Is it?			asr:frequency	0.9
+It	rom	It		candidate		false	true	It's the duty of the sons to obey their father.			asr:frequency	1.0
+Just	rom	Just		candidate		false	true	Just a horse.			asr:frequency	0.6
+Kill	rom	Kill		candidate		false	true	Kill him!			asr:frequency	1.0
+Let	rom	Let		candidate		false	true	Let it be.			asr:frequency	1.0
+Listen	rom	Listen		candidate		false	true	Listen, brothers.			asr:frequency	0.9
+Look	rom	Look		candidate		false	true	Look, I am going to count to three.			asr:frequency	1.0
+Mr	rom	Mr		candidate		false	true	Come, Mr. Ravi.			asr:frequency	0.9
+My	rom	My		candidate		false	true	My brother is crying like a girl.			asr:frequency	1.0
+Nothing	rom	Nothing		candidate		false	true	Nothing.			asr:frequency	0.7
+Okay	rom	Okay		candidate		false	true	Okay, mother.			asr:frequency	1.0
+One	rom	One		candidate		false	true	One!			asr:frequency	0.9
+Press	rom	Press		candidate		false	true	Press my stomach!			asr:frequency	1.0
+Puggy	rom	Puggy		candidate		false	true	Puggy!			asr:frequency	1.0
+She	rom	She		candidate		false	true	She has come.			asr:frequency	1.0
+Sheela	rom	Sheela		candidate		false	true	Whenever I used to meet him, he used to say.. ..Sheela is my life.			asr:frequency	0.7
+Shekhar	rom	Shekhar		candidate		false	true	Shekhar, you?			asr:frequency	0.8
+Shut	rom	Shut		candidate		false	true	Shut up!			asr:frequency	0.7
+Sir	rom	Sir		candidate		false	true	Sir, what do you think of Suraj?			asr:frequency	1.0
+Sister	rom	Sister		candidate		false	true	Sister.			asr:frequency	1.0
+Take	rom	Take		candidate		false	true	Take it.			asr:frequency	0.7
+Tell	rom	Tell		candidate		false	true	Tell me.			asr:frequency	1.0
+That	rom	That		candidate		false	true	That's why animals are seen in their lives too.			asr:frequency	1.0
+The	rom	The		candidate		false	true	The grass grows there.			asr:frequency	1.0
+Then	rom	Then		candidate		false	true	Then I will take out your kachumar.			asr:frequency	1.0
+There	rom	There		candidate		false	true	There are seven brothers in this house far from the city and the humans.			asr:frequency	1.0
+They	rom	They		candidate		false	true	They are raw.			asr:frequency	1.0
+This	rom	This		candidate		false	true	This is your injustice.			asr:frequency	1.0
+Today	rom	Today		candidate		false	true	Today..			asr:frequency	0.9
+Wait	rom	Wait		candidate		false	true	Wait.			asr:frequency	0.7
+We	rom	We		candidate		false	true	We get food in the hotel.			asr:frequency	1.0
+What	rom	What		candidate		false	true	What's the use of farming?			asr:frequency	1.0
+Where	rom	Where		candidate		false	true	Where was I?			asr:frequency	0.9
+Whether	rom	Whether		candidate		false	true	''Whether you are sad or not, the truth is endless.''			asr:frequency	0.7
+Who	rom	Who		candidate		false	true	Who'll touch the water in the morning?			asr:frequency	1.0
+Whom	rom	Whom		candidate		false	true	Whom did I ask?			asr:frequency	0.6
+Why	rom	Why		candidate		false	true	Why do you make me clean?			asr:frequency	1.0
+Wow	rom	Wow		candidate		false	true	Wow!			asr:frequency	0.7
+Yes	rom	Yes		candidate		false	true	Yes, ghost.			asr:frequency	1.0
+You	rom	You		candidate		false	true	You sleep for 48 hours in 24 hours.			asr:frequency	1.0
+Your	rom	Your		candidate		false	true	Your friend who has just left.. ..what is her room?			asr:frequency	1.0
+abey	rom	abey		slang	hey you	false	false			hey you|dude	manual:master	1.0
+acha	rom	acha		idiom	well	false	false			well|okay|I see	manual:master	1.0
+apun	rom	apun		idiom	I	false	false			I|me|we	manual:master	1.0
+arey	rom	arey		idiom	hey	false	false			hey|hey there|oh	manual:master	1.0
+arre	rom	arre		idiom	hey	false	false			hey|wait	manual:master	1.0
+arre yaar	rom	arre yaar		slang	oh dude	false	false			oh dude|hey man|oh man	manual:master	1.0
+arrey	rom	arrey		idiom	hey	false	false			hey|oh|wait	manual:master	1.0
+aunty	rom	aunty		idiom	aunt	false	false			aunt|ma'am	manual:master	1.0
+bakwas	rom	bakwas		slang	nonsense	false	false			nonsense|rubbish|bullshit	manual:master	1.0
+bas	rom	bas		idiom	just	false	false			just|enough|that's it	manual:master	1.0
+beta	rom	beta		idiom	son	false	false			son|child|dear	manual:master	1.0
+bete	rom	bete		idiom	son	false	false				manual:master	1.0
+beti	rom	beti		idiom	daughter	false	false			daughter|dear	manual:master	1.0
+bhai	rom	bhai		idiom	bro	false	false			bro|brother	manual:master	1.0
+bhaiya	rom	bhaiya		idiom	brother	false	false			brother|sir	manual:master	1.0
+bhidu	rom	bhidu		idiom	friend	false	false			friend|buddy|dude	manual:master	1.0
+bilkul	rom	bilkul		idiom	absolutely	false	false			absolutely|exactly|completely	manual:master	1.0
+bindaas	rom	bindaas		slang	carefree	false	false			carefree|cool|confident	manual:master	1.0
+chal	rom	chal		idiom	go	false	false			go|come on|okay	manual:master	1.0
+chalo	rom	chalo		idiom	let's go	false	false			let's go|come on|alright	manual:master	1.0
+dekho	rom	dekho		idiom	look	false	false			look|see	manual:master	1.0
+didi	rom	didi		idiom	sister	false	false			sister|ma'am	manual:master	1.0
+drama	rom	drama		slang	drama	false	false			drama|fuss|scene	manual:master	1.0
+ekdum	rom	ekdum		idiom	totally	false	false			totally|completely|very	manual:master	1.0
+full	rom	full		idiom	totally	false	false			totally|completely|very	manual:master	1.0
+fundoo	rom	fundoo		slang	smart	false	false			smart|clever|genius	manual:master	1.0
+haan	rom	haan		idiom	yes	false	false			yes|yeah|yup	manual:master	1.0
+ji	rom	ji		honorific	sir	false	false			sir|ma'am|	manual:master	1.0
+jugaad	rom	jugaad		slang	makeshift fix	false	false			makeshift fix|workaround|hack	manual:master	1.0
+koi baat nahi	rom	koi baat nahi		idiom	no problem	false	false			no problem|no worries|it's okay	manual:master	1.0
+kya	rom	kya		idiom	what	false	false			what|really	manual:master	1.0
+kya scene hai	rom	kya scene hai		slang	what's up	false	false			what's up|what's going on|what's the deal	manual:master	1.0
+mast	rom	mast		slang	cool	false	false			cool|awesome|great	manual:master	1.0
+matlab	rom	matlab		idiom	I mean	false	false			I mean|meaning	manual:master	1.0
+nahi	rom	nahi		idiom	no	false	false			no|nope|nah	manual:master	1.0
+nahin	rom	nahin		idiom	no	false	false			no|not	manual:master	1.0
+oho	rom	oho		idiom	oh	false	false			oh|oops|uh-oh	manual:master	1.0
+pagal	rom	pagal		slang	crazy	false	false			crazy|mad|insane	manual:master	1.0
+paisa	rom	paisa		slang	money	false	false			money|cash|bucks	manual:master	1.0
+pakka	rom	pakka		idiom	sure	false	false			sure|certain|definitely	manual:master	1.0
+pucca	rom	pucca		idiom	solid	false	false			solid|genuine|proper	manual:master	1.0
+sahi	rom	sahi		idiom	right	false	false			right|correct|true	manual:master	1.0
+scene	rom	scene		slang	situation	false	false			situation|thing|matter	manual:master	1.0
+shabash	rom	shabash		idiom	well done	false	false			well done|bravo|good job	manual:master	1.0
+suno	rom	suno		idiom	listen	false	false			listen|hey	manual:master	1.0
+tapori	rom	tapori		idiom	street-smart guy	false	false			street-smart guy|hustler|local	manual:master	1.0
+tension	rom	tension		slang	stress	false	false			stress|worry|problem	manual:master	1.0
+theek hai	rom	theek hai		idiom	okay	false	false			okay|fine|alright	manual:master	1.0
+timepass	rom	timepass		slang	killing time	false	false			killing time|pastime|hanging out	manual:master	1.0
+uncle	rom	uncle		idiom	uncle	false	false			uncle|sir	manual:master	1.0
+waah	rom	waah		idiom	wow	false	false			wow|amazing|bravo	manual:master	1.0
+woh	rom	woh		idiom	that	false	false			that|he|she	manual:master	1.0
+yaar	rom	yaar		slang	dude	false	false			dude|man|buddy	manual:master	1.0
+yeh	rom	yeh		idiom	this	false	false			this|that	manual:master	1.0

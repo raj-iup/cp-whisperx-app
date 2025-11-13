@@ -1,580 +1,517 @@
-# Architecture Overview
+# Architecture Blueprint
 
-**System design and component organization for CP-WhisperX-App**
-
----
-
-## System Design
-
-CP-WhisperX-App is a **job-based pipeline system** for generating context-aware subtitles from Bollywood movies with mixed Hindi-English dialogue.
-
-### Design Principles
-
-1. **Job-Based Processing**: Each movie is a separate job with unique ID and configuration
-2. **Resume Capability**: Jobs can be resumed from any completed stage
-3. **Platform-Aware**: Automatically uses best execution mode for each platform
-4. **Modular Stages**: 12 independent stages connected via manifest
-5. **ML-Optimized**: Leverages GPU acceleration where available
+**CP-WhisperX-App System Architecture**
 
 ---
 
-## Execution Modes
+## Overview
 
-### Native Mode (macOS & Windows)
+CP-WhisperX-App is a modular subtitle generation pipeline designed for scalability from single-user CLI to multi-user web service.
 
-**When**: GPU available (MPS or CUDA)
-
-**How it works**:
-```
-User
-  ↓
-run_pipeline.sh/ps1
-  ↓
-Activates .bollyenv
-Exports TORCH_HOME, HF_HOME
-  ↓
-scripts/pipeline.py (orchestrator)
-  ↓
-Python scripts in docker/* (native execution)
-  ↓
-Output files
-```
-
-**Advantages**:
-- ✅ Direct GPU access (MPS/CUDA)
-- ✅ Faster model loading
-- ✅ Lower memory overhead
-- ✅ Easier debugging
-- ✅ Native file system access
-
-**Platforms**:
-- macOS with Apple Silicon (M1/M2/M3) - MPS
-- Windows with NVIDIA GPU - CUDA
-- Windows/macOS without GPU - CPU (fallback)
-
-### Docker Mode (Linux)
-
-**When**: Linux systems (preferred for consistency)
-
-**How it works**:
-```
-User
-  ↓
-run_pipeline.sh
-  ↓
-scripts/pipeline.py (orchestrator)
-  ↓
-docker compose run <stage>
-  ↓
-Container with Python + dependencies
-  ↓
-Output files (via bind mount)
-```
-
-**Advantages**:
-- ✅ Consistent environment
-- ✅ Isolation from system
-- ✅ GPU pass-through (nvidia-docker)
-- ✅ Easy deployment
-
-**Platforms**:
-- Linux (Ubuntu, Debian, etc.)
-- Can work on macOS/Windows (slower)
-
----
-
-## Component Overview
-
-### 1. Bootstrap Layer
-
-**Files**: `scripts/bootstrap.sh`, `scripts/bootstrap.ps1`
-
-**Purpose**: One-time environment setup
-
-**Functions**:
-- Create virtual environment (`.bollyenv`)
-- Install dependencies (PyTorch, WhisperX, etc.)
-- Detect hardware capabilities
-- Create cache directories (`.cache/torch`, `.cache/huggingface`)
-- Pre-download models (optional)
-
-**Output**: `out/hardware_cache.json`
-
-### 2. Job Preparation Layer
-
-**Files**: `prepare-job.sh`, `scripts/prepare-job.py`
-
-**Purpose**: Create and configure job from input media
-
-**Functions**:
-- Parse filename (title, year)
-- Generate unique job ID (YYYYMMDD-NNNN)
-- Fetch TMDB metadata (optional)
-- Read hardware capabilities from cache
-- Generate job configuration (`.JOB_ID.env`)
-- Create job directory structure
-- Initialize manifest
-
-**Output**: Job directory in `out/YYYY/MM/DD/USER_ID/JOB_ID/`
-
-### 3. Pipeline Orchestration Layer
-
-**Files**: `run_pipeline.sh`, `resume-pipeline.sh`, `scripts/pipeline.py`
-
-**Purpose**: Execute pipeline stages in sequence
-
-**Functions**:
-- Load job configuration
-- Check manifest for resume capability
-- Execute stages (native or Docker)
-- Update manifest with progress
-- Handle failures and retries
-- Log all operations
-
-**Output**: Updated manifest, stage artifacts, logs
-
-### 4. Stage Execution Layer
-
-**Files**: `docker/*/stage.py`, `scripts/*_integration.py`
-
-**Purpose**: Process media through ML/utility stages
-
-**Stages**:
-1. **demux** - Extract audio with FFmpeg
-2. **tmdb** - Fetch movie metadata
-3. **pre_ner** - Extract entities from metadata
-4. **silero_vad** - Fast voice activity detection
-5. **pyannote_vad** - Refined VAD boundaries
-6. **diarization** - Speaker identification
-7. **asr** - WhisperX transcription + translation
-8. **second_pass_translation** - Improve translation quality
-9. **lyrics_detection** - Detect song sequences
-10. **post_ner** - Correct entities in transcript
-11. **subtitle_gen** - Generate .srt files
-12. **mux** - Embed subtitles in video
-
-**Output**: Stage-specific artifacts in job directory
-
-### 5. Shared Utilities Layer
-
-**Files**: `shared/*.py`
-
-**Components**:
-- `config.py` - Configuration loading (Pydantic)
-- `logger.py` - Structured logging
-- `manifest.py` - Job manifest management
-- `hardware_detection.py` - GPU/CPU detection
-- `utils.py` - Common utilities
-
----
-
-## Data Flow
-
-### Job Creation Flow
+### Current Architecture (v1.0)
 
 ```
-Input Media (in/movie.mp4)
-    ↓
-prepare-job.sh
-    ↓
-Parse filename → "Movie Title (2001)"
-    ↓
-Fetch TMDB metadata (optional)
-    ↓
-Read hardware_cache.json
-    ↓
-Generate job configuration
-    ├── Job ID: 20251108-0001
-    ├── Device: mps
-    ├── Model: large-v3
-    └── Settings: optimized for GPU
-    ↓
-Create directory structure
-    ├── out/2025/11/08/1/20251108-0001/
-    ├── .20251108-0001.env
-    ├── job.json
-    └── manifest.json (initialized)
-    ↓
-✓ Job ready for pipeline
+CLI Job Submission → Native Python Pipeline → File-based Output
 ```
 
-### Pipeline Execution Flow
+### Target Architecture (v2.0+)
 
 ```
-run_pipeline.sh --job 20251108-0001
-    ↓
-Load job configuration (.env file)
-    ↓
-Check manifest for resume point
-    ↓
-Execute stages sequentially:
-    │
-    ├─ Stage 1: demux
-    │   ├── Input: in/movie.mp4
-    │   ├── Process: FFmpeg audio extraction
-    │   ├── Output: audio/audio.wav
-    │   └── Manifest: mark completed
-    │
-    ├─ Stage 2: tmdb
-    │   ├── Input: job metadata
-    │   ├── Process: TMDB API fetch
-    │   ├── Output: metadata/tmdb_data.json
-    │   └── Manifest: mark completed
-    │
-    ├─ Stage 3: pre_ner
-    │   ├── Input: metadata/tmdb_data.json
-    │   ├── Process: spaCy NER extraction
-    │   ├── Output: entities/pre_ner.json, prompts/
-    │   └── Manifest: mark completed
-    │
-    ├─ Stage 4-6: VAD + Diarization
-    │   ├── Input: audio.wav
-    │   ├── Process: ML models (PyTorch)
-    │   ├── Output: vad/, diarization/
-    │   └── Manifest: mark completed
-    │
-    ├─ Stage 7: asr (WhisperX)
-    │   ├── Input: audio.wav, vad, prompts
-    │   ├── Process: Whisper large-v3 (MPS/CUDA)
-    │   ├── Output: asr/transcript.json
-    │   └── Manifest: mark completed
-    │
-    ├─ Stage 8-9: Translation + Lyrics
-    │   ├── Input: asr/transcript.json
-    │   ├── Process: ML models
-    │   ├── Output: translation/, lyrics/
-    │   └── Manifest: mark completed
-    │
-    └─ Stage 10-12: Post-processing
-        ├── Input: transcript, entities
-        ├── Process: Entity correction, SRT gen, mux
-        ├── Output: subtitles/subtitles.srt, final_output.mp4
-        └── Manifest: mark completed
-    ↓
-✓ Pipeline complete
-```
-
-### Resume Flow
-
-```
-resume-pipeline.sh 20251108-0001
-    ↓
-Load manifest.json
-    ↓
-Find last completed stage
-    │
-    ├─ Example:
-    │   ✓ demux (completed)
-    │   ✓ tmdb (completed)
-    │   ✓ pre_ner (completed)
-    │   ✓ silero_vad (completed)
-    │   ✓ pyannote_vad (completed)
-    │   ✓ diarization (completed)
-    │   ✗ asr (failed) ← Resume from here
-    │   ○ second_pass_translation (pending)
-    │   ○ lyrics_detection (pending)
-    │   ...
-    ↓
-Skip completed stages
-    ↓
-Start from first failed/pending stage
-    ↓
-Continue pipeline execution
+Web UI / API → Job Queue → Distributed Workers → Database → Admin Dashboard
 ```
 
 ---
 
-## Directory Structure
+## Current Architecture (v1.0)
 
-### Project Root
-
-```
-cp-whisperx-app/
-├── in/                          # Input media files
-├── out/                         # Job outputs (organized by date)
-│   ├── hardware_cache.json      # Hardware detection cache
-│   └── YYYY/MM/DD/USER_ID/JOB_ID/
-├── scripts/                     # Python scripts
-│   ├── bootstrap.sh/ps1         # Environment setup
-│   ├── pipeline.py              # Orchestrator
-│   ├── prepare-job.py           # Job creator
-│   └── *_integration.py         # ML integrations
-├── docker/                      # Stage implementations
-│   ├── demux/
-│   ├── tmdb/
-│   ├── asr/
-│   └── ...
-├── shared/                      # Shared utilities
-│   ├── config.py                # Configuration loader
-│   ├── logger.py                # Logging
-│   ├── manifest.py              # Manifest management
-│   └── hardware_detection.py   # Hardware detection
-├── config/                      # Configuration files
-│   └── secrets.json             # API keys (user-created)
-├── .cache/                      # Model cache
-│   ├── torch/                   # PyTorch models
-│   └── huggingface/             # HuggingFace models
-├── .bollyenv/                   # Virtual environment
-├── docs/                        # Documentation
-├── README.md                    # Project overview
-└── *.sh, *.ps1                  # Entry point scripts
-```
-
-### Job Directory
+### System Diagram
 
 ```
-out/2025/11/08/1/20251108-0001/
-├── .20251108-0001.env           # Job configuration
-├── job.json                     # Job metadata
-├── manifest.json                # Stage tracking
-├── audio/                       # Stage 1 output
-│   └── audio.wav
-├── metadata/                    # Stage 2 output
-│   └── tmdb_data.json
-├── prompts/                     # Stage 3 output
-│   └── ner_enhanced_prompt.txt
-├── entities/                    # Stage 3 & 10 output
-│   ├── pre_ner.json
-│   └── post_ner.json
-├── vad/                         # Stage 4-5 output
-│   ├── silero_segments.json
-│   └── pyannote_segments.json
-├── diarization/                 # Stage 6 output
-│   └── speaker_segments.json
-├── asr/                         # Stage 7 output
-│   └── transcript.json
-├── translation/                 # Stage 8 output
-│   └── refined_transcript.json
-├── lyrics/                      # Stage 9 output
-│   └── lyrics_segments.json
-├── subtitles/                   # Stage 11 output
-│   └── subtitles.srt
-├── logs/                        # All stage logs
-│   ├── 00_orchestrator_*.log
-│   ├── 01_demux_*.log
-│   ├── 02_tmdb_*.log
-│   └── ...
-└── final_output.mp4             # Stage 12 output (optional)
+┌────────────────────────────────────────────────────────────────┐
+│                       User Interface Layer                      │
+├────────────────────────────────────────────────────────────────┤
+│  CLI Tools:                                                     │
+│  • prepare-job.sh      - Create job from video file           │
+│  • run_pipeline.sh     - Execute pipeline                      │
+│  • resume-pipeline.sh  - Resume interrupted jobs               │
+│  • test-pipeline-status.sh - Check job status                  │
+└──────────────────┬─────────────────────────────────────────────┘
+                   │
+                   ▼
+┌────────────────────────────────────────────────────────────────┐
+│                      Job Management Layer                       │
+├────────────────────────────────────────────────────────────────┤
+│  scripts/prepare_job.py                                         │
+│  • Parses video filename → metadata                            │
+│  • Creates job directory structure                             │
+│  • Generates job-specific .env file                            │
+│  • Assigns unique job ID (YYYYMMDD-NNNN)                       │
+└──────────────────┬─────────────────────────────────────────────┘
+                   │
+                   ▼
+┌────────────────────────────────────────────────────────────────┐
+│                   Pipeline Orchestrator                         │
+├────────────────────────────────────────────────────────────────┤
+│  scripts/pipeline.py (JobOrchestrator class)                    │
+│  • Loads job configuration                                     │
+│  • Manages stage execution sequence                            │
+│  • Tracks progress in manifest (job.json)                      │
+│  • Handles device selection (CPU/MPS/CUDA)                     │
+│  • Implements resume capability                                │
+│  • Executes stages natively (no Docker)                        │
+└──────────────────┬─────────────────────────────────────────────┘
+                   │
+                   ▼
+┌────────────────────────────────────────────────────────────────┐
+│                      Processing Stages                          │
+├────────────────────────────────────────────────────────────────┤
+│  Stage Pipeline (14 stages):                                   │
+│                                                                 │
+│  1. Demux (demux.py)                                           │
+│     └─ Extract audio/video streams using ffmpeg               │
+│                                                                 │
+│  2. TMDB (tmdb.py)                                             │
+│     └─ Fetch movie metadata (cast, crew, characters)          │
+│                                                                 │
+│  3. Pre-NER (pre_ner.py)                                       │
+│     └─ Extract named entities from metadata                    │
+│                                                                 │
+│  4. Silero VAD (silero_vad.py)                                 │
+│     └─ Voice Activity Detection (PyTorch)                      │
+│                                                                 │
+│  5. PyAnnote VAD (pyannote_vad.py)                             │
+│     └─ Enhanced VAD (PyTorch)                                  │
+│                                                                 │
+│  6. Diarization (diarization.py)                               │
+│     └─ Speaker identification (PyTorch, WhisperX)              │
+│                                                                 │
+│  7. ASR (whisperx_integration.py)                              │
+│     ├─ Load bias terms from TMDB + Pre-NER                    │
+│     ├─ Create bias windows (45s, 15s stride)                  │
+│     ├─ Generate global bias prompts                           │
+│     └─ Transcribe with active bias (faster-whisper)           │
+│                                                                 │
+│  8. Glossary Builder (glossary_builder.py)                     │
+│     └─ Build film-specific glossary from transcript            │
+│                                                                 │
+│  9. Second Pass Translation (translation_refine.py)             │
+│     └─ Refine translation using glossary                       │
+│                                                                 │
+│ 10. Lyrics Detection (lyrics_detection.py)                     │
+│     └─ Detect and format song sequences                        │
+│                                                                 │
+│ 11. Post-NER (post_ner.py)                                     │
+│     └─ Entity resolution and linking                           │
+│                                                                 │
+│ 12. Subtitle Generation (subtitle_gen.py)                      │
+│     └─ Generate SRT/VTT with CPS optimization                  │
+│                                                                 │
+│ 13. Mux (mux.py)                                               │
+│     └─ Embed subtitles in video using ffmpeg                   │
+│                                                                 │
+│ 14. Finalize (finalize.py)                                     │
+│     └─ Organize output files                                   │
+└──────────────────┬─────────────────────────────────────────────┘
+                   │
+                   ▼
+┌────────────────────────────────────────────────────────────────┐
+│                      Storage Layer                              │
+├────────────────────────────────────────────────────────────────┤
+│  File-based Storage:                                            │
+│  • Jobs: out/YYYY/MM/DD/USER_ID/JOB_ID/                        │
+│  • Logs: out/YYYY/MM/DD/USER_ID/JOB_ID/logs/                   │
+│  • Config: out/YYYY/MM/DD/USER_ID/JOB_ID/.JOB_ID.env           │
+│  • Manifest: out/YYYY/MM/DD/USER_ID/JOB_ID/job.json            │
+│  • Glossaries: glossary/cache/                                 │
+└────────────────────────────────────────────────────────────────┘
 ```
+
+### Key Components
+
+#### 1. Job Manager
+- **Location**: `scripts/prepare_job.py`
+- **Responsibilities**:
+  - Parse video metadata from filename
+  - Create job directory structure
+  - Generate unique job IDs
+  - Initialize job configuration
+
+#### 2. Pipeline Orchestrator
+- **Location**: `scripts/pipeline.py`
+- **Responsibilities**:
+  - Load and validate job configuration
+  - Manage stage execution sequence
+  - Track progress in manifest
+  - Handle stage dependencies
+  - Implement resume capability
+  - Device selection and optimization
+
+#### 3. Stage Processors
+- **Location**: `scripts/*.py`
+- **Responsibilities**:
+  - Execute specific processing tasks
+  - Read input from previous stages
+  - Write output for next stages
+  - Log progress and errors
+
+#### 4. Shared Utilities
+- **Location**: `shared/*.py`
+- **Responsibilities**:
+  - Common logging framework
+  - Configuration management
+  - Device selection utilities
+  - Manifest tracking
 
 ---
 
-## Configuration System
+## Future Architecture (v2.0+)
 
-### Configuration Hierarchy
-
-```
-1. Bootstrap Detection
-   ↓ hardware_cache.json
-   
-2. Job Preparation
-   ↓ .JOB_ID.env (from hardware cache + user input)
-   
-3. Pipeline Execution
-   ↓ Python config (from .env file)
-   
-4. Stage Execution
-   ↓ Stage-specific parameters (from config)
-```
-
-### Configuration Files
-
-**hardware_cache.json**
-- CPU/GPU detection results
-- Recommended settings
-- Valid for 1 hour
-- Generated by bootstrap
-
-**.JOB_ID.env**
-- Job-specific settings
-- Device configuration (DEVICE=mps)
-- Model selection (WHISPER_MODEL=large-v3)
-- All stage parameters
-- Generated by prepare-job
-
-**secrets.json**
-- API keys (TMDB, HuggingFace)
-- User-created
-- Not committed to git
-
----
-
-## Manifest System
-
-### Manifest Structure
-
-```json
-{
-  "job_id": "20251108-0001",
-  "created_at": "2025-11-08T15:43:28Z",
-  "stages": {
-    "demux": {
-      "status": "completed",
-      "started_at": "2025-11-08T15:45:00Z",
-      "completed_at": "2025-11-08T15:55:00Z",
-      "duration_seconds": 600
-    },
-    "asr": {
-      "status": "failed",
-      "started_at": "2025-11-08T17:00:00Z",
-      "failed_at": "2025-11-08T17:05:00Z",
-      "error": "OSError: [Errno 30] Read-only file system"
-    }
-  }
-}
-```
-
-### Status Values
-
-- `pending` - Not started yet
-- `running` - Currently executing
-- `completed` - Finished successfully
-- `failed` - Encountered error
-- `skipped` - Skipped (optional stage)
-
-### Resume Logic
-
-1. Load manifest
-2. Find stages with `completed` status
-3. Find first `failed` or `pending` stage
-4. Start execution from that stage
-5. Update manifest as stages complete
-
----
-
-## ML Model Architecture
-
-### Model Loading
+### Vision: Multi-User Web Service
 
 ```
-Bootstrap
-    ↓
-Download models to .cache/
-    ├── .cache/torch/
-    │   ├── whisper/large-v3/
-    │   └── silero-vad/
-    └── .cache/huggingface/
-        ├── pyannote/
-        └── spacy/
-    ↓
-Pipeline Execution
-    ↓
-Set environment variables
-    ├── TORCH_HOME=.cache/torch
-    └── HF_HOME=.cache/huggingface
-    ↓
-Stage loads model
-    ├── Check cache first
-    ├── Download if missing
-    └── Load to GPU/CPU
+┌─────────────────────────────────────────────────────────────────┐
+│                        Presentation Layer                        │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌─────────────────┐  ┌──────────────────┐  ┌────────────────┐ │
+│  │   Web UI        │  │  Admin Dashboard │  │   Mobile App   │ │
+│  │   (React/Vue)   │  │   (Admin Panel)  │  │   (Future)     │ │
+│  └────────┬────────┘  └────────┬─────────┘  └────────┬───────┘ │
+│           │                    │                      │         │
+│           └────────────────────┴──────────────────────┘         │
+│                                │                                 │
+└────────────────────────────────┼─────────────────────────────────┘
+                                 │
+                                 ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                         API Layer                                │
+├─────────────────────────────────────────────────────────────────┤
+│  RESTful API (FastAPI / Django REST Framework)                  │
+│  • POST /api/jobs          - Submit new job                     │
+│  • GET  /api/jobs/{id}     - Get job status                     │
+│  • GET  /api/jobs          - List user jobs                     │
+│  • WS   /ws/jobs/{id}      - Real-time updates                  │
+│  • POST /api/glossary      - Manage glossaries                  │
+│  • GET  /api/analytics     - Usage analytics                    │
+└────────────────┬────────────────────────────────────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      Business Logic Layer                        │
+├─────────────────────────────────────────────────────────────────┤
+│  Job Management Service                                          │
+│  • Job creation and validation                                  │
+│  • File upload handling                                         │
+│  • Job queue management                                         │
+│  • Priority scheduling                                          │
+│  • User quota management                                        │
+│                                                                  │
+│  Pipeline Orchestration Service                                 │
+│  • Stage execution coordination                                 │
+│  • Worker assignment                                            │
+│  • Progress tracking                                            │
+│  • Error handling and retries                                   │
+│  • Resource optimization                                        │
+└────────────────┬────────────────────────────────────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                       Message Queue Layer                        │
+├─────────────────────────────────────────────────────────────────┤
+│  RabbitMQ / Redis / Celery                                      │
+│  • Job queue (priority-based)                                   │
+│  • Stage task queue                                             │
+│  • Real-time notifications                                      │
+│  • Worker coordination                                          │
+└────────────────┬────────────────────────────────────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                       Worker Pool Layer                          │
+├─────────────────────────────────────────────────────────────────┤
+│  Distributed Workers (Kubernetes / Docker Swarm)                │
+│  • CPU Workers    - General processing                          │
+│  • GPU Workers    - ASR, VAD, Diarization (MPS/CUDA)           │
+│  • FFmpeg Workers - Video processing (Demux, Mux)              │
+│  • ML Workers     - Glossary ML, Lyrics Detection              │
+│  • Auto-scaling based on queue depth                           │
+└────────────────┬────────────────────────────────────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                        Database Layer                            │
+├─────────────────────────────────────────────────────────────────┤
+│  PostgreSQL / MySQL                                              │
+│  • users          - User accounts and profiles                  │
+│  • jobs           - Job metadata and status                     │
+│  • stages         - Stage execution history                     │
+│  • glossaries     - Film-specific glossaries                    │
+│  • analytics      - Usage metrics                               │
+│  • preferences    - User preferences                            │
+│                                                                  │
+│  Redis Cache                                                     │
+│  • Job status cache                                             │
+│  • TMDB metadata cache                                          │
+│  • Session management                                           │
+└────────────────┬────────────────────────────────────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                        Storage Layer                             │
+├─────────────────────────────────────────────────────────────────┤
+│  Object Storage (S3 / MinIO / Azure Blob)                       │
+│  • Input videos                                                 │
+│  • Processing artifacts                                         │
+│  • Output subtitles                                             │
+│  • Final videos with embedded subs                              │
+│                                                                  │
+│  File System (NFS / GlusterFS)                                  │
+│  • Shared glossary database                                     │
+│  • ML model cache                                               │
+│  • Logs and diagnostics                                         │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-### Model Selection
+### Database Schema (v2.0)
 
-**Whisper Models** (ASR):
-- `large-v3` - Best quality, needs 10GB VRAM
-- `large-v2` - Good quality, needs 8GB VRAM
-- `medium` - Balanced, needs 5GB VRAM
-- `small` - Fast, needs 2GB VRAM
-- `base` - Fastest, CPU-friendly
+```sql
+-- Users
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(255) UNIQUE NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    tier VARCHAR(50) DEFAULT 'free',  -- free, premium, enterprise
+    created_at TIMESTAMP DEFAULT NOW(),
+    last_login TIMESTAMP
+);
 
-**PyAnnote Models** (VAD/Diarization):
-- `voice-activity-detection` - Required
-- `speaker-diarization-3.1` - Required
-- Both need ~2GB VRAM each
+-- Jobs
+CREATE TABLE jobs (
+    id SERIAL PRIMARY KEY,
+    job_id VARCHAR(50) UNIQUE NOT NULL,  -- YYYYMMDD-NNNN
+    user_id INTEGER REFERENCES users(id),
+    filename VARCHAR(500) NOT NULL,
+    title VARCHAR(500),
+    year INTEGER,
+    status VARCHAR(50) NOT NULL,  -- pending, processing, completed, failed
+    current_stage VARCHAR(100),
+    progress INTEGER DEFAULT 0,  -- 0-100
+    device VARCHAR(20),  -- cpu, mps, cuda
+    created_at TIMESTAMP DEFAULT NOW(),
+    started_at TIMESTAMP,
+    completed_at TIMESTAMP,
+    error_message TEXT,
+    config JSONB  -- Job configuration
+);
 
-**spaCy Models** (NER):
-- `en_core_web_trf` - Transformer-based, best quality
-- `en_core_web_lg` - Large, good quality
-- `en_core_web_sm` - Small, fastest
+-- Stages
+CREATE TABLE stages (
+    id SERIAL PRIMARY KEY,
+    job_id VARCHAR(50) REFERENCES jobs(job_id),
+    stage_name VARCHAR(100) NOT NULL,
+    status VARCHAR(50) NOT NULL,  -- pending, running, completed, failed
+    started_at TIMESTAMP,
+    completed_at TIMESTAMP,
+    duration_seconds INTEGER,
+    device VARCHAR(20),
+    error_message TEXT,
+    output JSONB  -- Stage-specific output data
+);
+
+-- Glossaries
+CREATE TABLE glossaries (
+    id SERIAL PRIMARY KEY,
+    film_title VARCHAR(500),
+    tmdb_id INTEGER,
+    terms JSONB NOT NULL,  -- Glossary terms
+    source VARCHAR(50),  -- auto, manual, hybrid
+    confidence FLOAT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP,
+    usage_count INTEGER DEFAULT 0
+);
+
+-- User Preferences
+CREATE TABLE user_preferences (
+    user_id INTEGER PRIMARY KEY REFERENCES users(id),
+    default_glossary_strategy VARCHAR(50) DEFAULT 'adaptive',
+    default_device VARCHAR(20) DEFAULT 'auto',
+    notify_on_completion BOOLEAN DEFAULT TRUE,
+    preferences JSONB  -- Other preferences
+);
+
+-- Analytics
+CREATE TABLE analytics (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id),
+    job_id VARCHAR(50) REFERENCES jobs(job_id),
+    event_type VARCHAR(100) NOT NULL,  -- job_created, stage_completed, etc.
+    event_data JSONB,
+    timestamp TIMESTAMP DEFAULT NOW()
+);
+```
+
+### API Endpoints (v2.0)
+
+```yaml
+# Job Management
+POST   /api/jobs                    # Submit new job
+GET    /api/jobs                    # List user jobs
+GET    /api/jobs/{job_id}           # Get job details
+DELETE /api/jobs/{job_id}           # Cancel/delete job
+WS     /ws/jobs/{job_id}            # Real-time job updates
+
+# Job Actions
+POST   /api/jobs/{job_id}/resume    # Resume interrupted job
+POST   /api/jobs/{job_id}/retry     # Retry failed job
+GET    /api/jobs/{job_id}/logs      # Get job logs
+GET    /api/jobs/{job_id}/download  # Download output
+
+# Glossary Management
+GET    /api/glossaries              # List glossaries
+GET    /api/glossaries/{id}         # Get glossary
+POST   /api/glossaries              # Create glossary
+PUT    /api/glossaries/{id}         # Update glossary
+DELETE /api/glossaries/{id}         # Delete glossary
+
+# Analytics
+GET    /api/analytics/usage         # User usage stats
+GET    /api/analytics/performance   # System performance
+GET    /api/analytics/jobs          # Job statistics
+
+# Admin
+GET    /api/admin/workers           # Worker status
+GET    /api/admin/queue             # Queue status
+GET    /api/admin/users             # User management
+POST   /api/admin/workers/{id}/restart  # Restart worker
+```
+
+### Web UI Features (v2.0)
+
+#### User Dashboard
+- Drag-and-drop video upload
+- Job list with status
+- Real-time progress tracking
+- Download manager
+- Usage statistics
+
+#### Job Configuration
+- Visual configuration builder
+- Preset templates (speed, quality, balanced)
+- Advanced options (collapsible)
+- Live validation
+
+#### Results Viewer
+- Embedded video player with subtitles
+- Side-by-side comparison
+- Subtitle editor (inline corrections)
+- Export options (SRT, VTT, embedded)
+
+#### Admin Dashboard
+- System health monitoring
+- Worker pool management
+- Job queue visualization
+- User management
+- Performance analytics
+- Cost tracking
 
 ---
 
-## Performance Characteristics
+## Migration Path (v1.0 → v2.0)
 
-### Processing Time (2.5-hour movie)
+### Phase 1: Database Integration (Q1 2025)
+- [ ] Set up PostgreSQL database
+- [ ] Create database schema
+- [ ] Migrate job tracking to database
+- [ ] Implement job history API
+- [ ] Add analytics tracking
 
-| Hardware | Mode | Total Time | Speedup |
-|----------|------|------------|---------|
-| M1 Pro (10GB) | Native MPS | ~10 hours | 15x |
-| RTX 3090 (24GB) | Native CUDA | ~6 hours | 25x |
-| RTX 3060 (12GB) | Native CUDA | ~12 hours | 12x |
-| CPU (16-core) | Native CPU | ~150 hours | 1x |
+### Phase 2: API Layer (Q2 2025)
+- [ ] Develop RESTful API (FastAPI)
+- [ ] Implement authentication (JWT)
+- [ ] Create WebSocket for real-time updates
+- [ ] Build API documentation (Swagger)
+- [ ] Add rate limiting and quotas
 
-### Memory Requirements
+### Phase 3: Worker Pool (Q3 2025)
+- [ ] Containerize pipeline stages
+- [ ] Set up message queue (RabbitMQ)
+- [ ] Implement distributed workers
+- [ ] Add auto-scaling
+- [ ] Optimize resource allocation
 
-| Stage | RAM | VRAM (GPU) |
-|-------|-----|------------|
-| demux | 2GB | - |
-| VAD | 4GB | 2GB |
-| diarization | 8GB | 4GB |
-| asr (large-v3) | 16GB | 10GB |
-| translation | 8GB | 4GB |
-| Other stages | <4GB | - |
+### Phase 4: Web UI (Q4 2025)
+- [ ] Design UI/UX
+- [ ] Implement frontend (React)
+- [ ] Integrate with API
+- [ ] Add admin dashboard
+- [ ] User testing and refinement
 
-### Disk Requirements
-
-| Component | Size |
-|-----------|------|
-| Dependencies | 5-8 GB |
-| Models (cached) | 5-10 GB |
-| Job output | 1-3 GB per job |
-| **Total** | **15-20 GB + jobs** |
-
----
-
-## Security Considerations
-
-### API Keys
-- Stored in `config/secrets.json`
-- Not committed to git
-- Read-only by pipeline
-- Never logged or exposed
-
-### File Permissions
-- Cache directories: 755
-- Output directories: 755
-- Config files: 644
-- Secrets: 600 (recommended)
-
-### Network Access
-- TMDB API (movie metadata)
-- HuggingFace Hub (model downloads)
-- PyPI (package installation)
-- No outbound data transmission
+### Phase 5: Production Deployment (Q1 2026)
+- [ ] Set up Kubernetes cluster
+- [ ] Configure load balancing
+- [ ] Implement monitoring (Prometheus/Grafana)
+- [ ] Set up backups and disaster recovery
+- [ ] Launch beta program
 
 ---
 
-## Error Handling
+## Technology Stack
 
-### Stage Failure
-1. Log error details
-2. Update manifest (status=failed)
-3. Retry once (configurable)
-4. Exit pipeline if retry fails
-5. User can resume after fixing issue
+### Current (v1.0)
+- **Language**: Python 3.11+
+- **ML Frameworks**: PyTorch, WhisperX, faster-whisper
+- **GPU**: MPS (Apple), CUDA (NVIDIA)
+- **Storage**: File system
+- **Deployment**: Native installation
 
-### System Failure
-1. Pipeline exits gracefully
-2. Manifest saved with last state
-3. Logs written to disk
-4. Resume recovers from last checkpoint
-
-### Resource Exhaustion
-1. Out of memory → Reduce batch size
-2. Out of disk → Clean cache
-3. GPU out of memory → Fallback to CPU
-4. Network timeout → Retry with backoff
+### Future (v2.0)
+- **Backend**: FastAPI / Django
+- **Frontend**: React / Vue.js
+- **Database**: PostgreSQL + Redis
+- **Message Queue**: RabbitMQ / Celery
+- **Storage**: S3 / MinIO
+- **Containerization**: Docker + Kubernetes
+- **Monitoring**: Prometheus + Grafana
+- **CI/CD**: GitHub Actions
 
 ---
 
-## Related Documentation
+## Scalability Considerations
 
-- [Workflow Guide](WORKFLOW.md) - Detailed stage descriptions
-- [Configuration Guide](CONFIGURATION.md) - Settings reference
-- [Bootstrap Guide](BOOTSTRAP.md) - Environment setup
-- [Running Pipeline](RUNNING.md) - Execution guide
+### Current Limitations (v1.0)
+- Single-user, single-machine execution
+- No job queuing
+- No distributed processing
+- File-based storage only
+- Manual job management
+
+### Target Capabilities (v2.0)
+- Multi-user support with authentication
+- Distributed worker pool
+- Auto-scaling based on load
+- Priority job queuing
+- Cloud storage integration
+- Real-time monitoring
+- Automated failover
 
 ---
 
-Return to [Documentation Index](INDEX.md)
+## Security Considerations (v2.0)
+
+- **Authentication**: JWT tokens, OAuth2
+- **Authorization**: Role-based access control (RBAC)
+- **Data Encryption**: TLS/SSL for transit, at-rest encryption
+- **API Security**: Rate limiting, CORS policies
+- **File Scanning**: Virus/malware detection on uploads
+- **Audit Logging**: All user actions logged
+- **Secrets Management**: Vault integration
+
+---
+
+**Current Version**: v1.0 (CLI-based, single-user)  
+**Target Version**: v2.0 (Web-based, multi-user)  
+**Timeline**: 12-18 months
+
+For current implementation details, see **[Technical Documentation](docs/technical/)**.

@@ -580,37 +580,6 @@ class PreflightCheck:
             self.print_warning(f"Error checking compute devices: {e}")
             devices["recommended"] = "cpu"
         
-        return devices 
-                               f"{devices['cuda']['device_count']} device(s)")
-                for dev in devices["cuda"]["devices"]:
-                    print(f"       GPU {dev['id']}: {dev['name']}")
-                    print(f"       Compute: {dev['compute_capability']}, Memory: {dev['total_memory_gb']:.1f}GB")
-            else:
-                # CUDA not available - not a failure, just informational
-                print(f"{BLUE}ℹ INFO{RESET} CUDA not available (no NVIDIA GPUs)")
-            
-            # Check MPS (Apple Silicon)
-            if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
-                devices["mps"]["available"] = True
-                self.print_check("MPS (Apple Silicon) available", True, "Metal Performance Shaders enabled")
-            else:
-                print(f"{BLUE}ℹ INFO{RESET} MPS not available (not Apple Silicon)")
-            
-            # CPU is always available
-            import platform
-            cpu_info = f"{platform.processor()} ({platform.machine()})"
-            self.print_check("CPU available", True, cpu_info)
-            
-            # At least one GPU acceleration should be available for best performance
-            if not devices["cuda"]["available"] and not devices["mps"]["available"]:
-                self.print_warning("No GPU acceleration available - pipeline will use CPU (slower)")
-            
-        except ImportError:
-            self.print_warning("PyTorch not installed - cannot detect GPU capabilities")
-            self.print_warning("  Install: pip install torch")
-        except Exception as e:
-            self.print_warning(f"Error checking compute devices: {e}")
-        
         return devices
     
     def determine_best_device(self, devices: Dict) -> str:

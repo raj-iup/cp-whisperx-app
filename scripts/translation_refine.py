@@ -19,7 +19,14 @@ from transformers import (
 )
 from tqdm import tqdm
 
-from .logger import PipelineLogger
+import sys
+from pathlib import Path
+
+# Add project root to path for shared imports
+PROJECT_ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from shared.logger import PipelineLogger
 
 
 class TranslationRefiner:
@@ -54,7 +61,7 @@ class TranslationRefiner:
 
     def _create_default_logger(self):
         """Create default logger if none provided"""
-        from .logger import PipelineLogger
+        from shared.logger import PipelineLogger
         return PipelineLogger("translation")
 
     def load_model(self):
@@ -64,11 +71,17 @@ class TranslationRefiner:
         self.logger.info(f"  Device: {self.device}")
 
         try:
-            if self.backend == "opus-mt":
+            # Normalize backend name (nllb -> nllb200 for backward compatibility)
+            backend = self.backend.lower()
+            if backend == "nllb":
+                backend = "nllb200"
+                self.logger.info(f"  Using backend: nllb200 (alias for nllb)")
+            
+            if backend == "opus-mt":
                 self._load_opus_mt()
-            elif self.backend == "mbart50":
+            elif backend == "mbart50":
                 self._load_mbart50()
-            elif self.backend == "nllb200":
+            elif backend == "nllb200":
                 self._load_nllb200()
             else:
                 raise ValueError(f"Unknown backend: {self.backend}")
@@ -377,3 +390,111 @@ def run_translation_refine_pipeline(
     refiner.save_results(refined_segments, output_dir, basename)
 
     return refined_segments
+
+
+def main():
+    """Main entry point for translation refinement stage."""
+    import sys
+    import os
+    import json
+    from pathlib import Path
+    from shared.logger import PipelineLogger
+    from shared.config import load_config
+    
+    # Get output directory and config from environment or command line
+    output_dir_env = os.environ.get('OUTPUT_DIR')
+    config_path_env = os.environ.get('CONFIG_PATH')
+    
+    if output_dir_env:
+        output_dir = Path(output_dir_env)
+    elif len(sys.argv) > 1:
+        output_dir = Path(sys.argv[1])
+    else:
+        print("ERROR: No output directory specified", file=sys.stderr)
+        return 1
+    
+    # Load configuration
+    if config_path_env:
+        config = load_config(config_path_env)
+    else:
+        config = None
+    
+    # Setup logger
+    log_dir = output_dir / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_file = log_dir / "second_pass_translation.log"
+    logger = PipelineLogger("second_pass_translation", log_file)
+    
+    logger.info("Running second-pass translation refinement")
+    logger.info(f"Output directory: {output_dir}")
+    
+    # Check if second pass is enabled
+    second_pass_enabled = getattr(config, 'second_pass_enabled', True) if config else True
+    if not second_pass_enabled:
+        logger.info("Second-pass translation disabled, skipping")
+        return 0
+    
+    # Load transcript from ASR
+    asr_file = output_dir / "07_asr" / "transcript.json"
+    if not asr_file.exists():
+        # Fallback to old paths
+        asr_file = output_dir / "05_asr" / "transcript.json"
+    if not asr_file.exists():
+        asr_file = output_dir / "asr" / "transcript.json"
+    
+    if not asr_file.exists():
+        logger.warning(f"ASR output not found: {asr_file}")
+        logger.warning("Skipping second-pass translation")
+        return 0
+    
+    try:
+        with open(asr_file, 'r') as f:
+            asr_data = json.load(f)
+            segments = asr_data.get('segments', [])
+    except Exception as e:
+        logger.error(f"Could not load ASR data: {e}")
+        return 1
+    
+    # Get configuration parameters
+    backend = getattr(config, 'second_pass_backend', 'nllb') if config else 'nllb'
+    source_lang = getattr(config, 'whisper_language', 'hi') if config else 'hi'
+    target_lang = getattr(config, 'target_language', 'en') if config else 'en'
+    device = os.environ.get('DEVICE_OVERRIDE', getattr(config, 'device', 'cpu') if config else 'cpu').lower()
+    refine_all = False  # Only refine segments with low confidence
+    
+    logger.info(f"Backend: {backend}")
+    logger.info(f"Source language: {source_lang}")
+    logger.info(f"Target language: {target_lang}")
+    logger.info(f"Device: {device}")
+    logger.info(f"Segments to process: {len(segments)}")
+    
+    try:
+        # Run translation refinement
+        refined_segments = run_translation_refine_pipeline(
+            segments=segments,
+            output_dir=output_dir,
+            basename="refined",
+            backend=backend,
+            source_lang=source_lang,
+            target_lang=target_lang,
+            device=device,
+            refine_all=refine_all,
+            logger=logger
+        )
+        
+        logger.info(f"✓ Translation refinement completed successfully")
+        logger.info(f"  Refined segments: {len(refined_segments)}")
+        
+        return 0
+        
+    except Exception as e:
+        logger.error(f"Translation refinement failed: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        logger.warning("Continuing without translation refinement")
+        return 0  # Non-critical, don't fail pipeline
+
+
+if __name__ == "__main__":
+    import sys
+    sys.exit(main())

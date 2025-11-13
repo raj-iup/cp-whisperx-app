@@ -2,38 +2,58 @@
 whisperx_integration.py - WhisperX integration for ASR + translation
 
 Handles:
-- Loading WhisperX model with appropriate device/compute type
+- Loading Whisper model with appropriate backend (WhisperX/MLX)
 - Processing audio with rolling windowed bias prompts
 - ASR + translation in single pass
 - Word-level alignment
 - Saving results to ASR directory
+
+Backends:
+- WhisperX (CTranslate2): CPU/CUDA only
+- MLX-Whisper: Apple Silicon MPS/Metal acceleration
+- Auto-detection based on device availability
 """
+
+import os
+# Fix OpenMP duplicate library issue
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
 import json
 import warnings
 from pathlib import Path
 from typing import List, Dict, Optional, Any
-import whisperx
 from tqdm import tqdm
 
 # Suppress version mismatch warnings
 warnings.filterwarnings('ignore', message='Model was trained with pyannote')
 warnings.filterwarnings('ignore', message='Model was trained with torch')
 warnings.filterwarnings('ignore', category=UserWarning, module='pyannote')
+warnings.filterwarnings('ignore', message='.*torchaudio._backend.list_audio_backends.*')
+warnings.filterwarnings('ignore', message='.*has been deprecated.*', module='torchaudio')
+warnings.filterwarnings('ignore', message='.*has been deprecated.*', module='speechbrain')
 
-from .device_selector import select_whisperx_device
-from .bias_injection import BiasWindow, get_window_for_time
-from .logger import PipelineLogger
+from device_selector import select_whisperx_device, validate_device_and_compute_type
+from bias_injection import BiasWindow, get_window_for_time
+import sys
+from pathlib import Path
+
+# Add project root to path for shared imports
+PROJECT_ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from shared.logger import PipelineLogger
+from whisper_backends import create_backend, get_recommended_backend
 
 
 class WhisperXProcessor:
-    """WhisperX processor with configurable transcription parameters"""
+    """WhisperX processor with configurable transcription parameters and multiple backends"""
 
     def __init__(
         self,
         model_name: str = "large-v3",
         device: str = "cpu",
         compute_type: str = "int8",
+        backend: str = "auto",
         hf_token: Optional[str] = None,
         temperature: str = "0.0,0.2,0.4,0.6,0.8,1.0",
         beam_size: int = 5,
@@ -51,9 +71,10 @@ class WhisperXProcessor:
         Initialize WhisperX processor
 
         Args:
-            model_name: WhisperX model name (e.g., "large-v3", "medium")
+            model_name: Whisper model name (e.g., "large-v3", "medium")
             device: Device to use (cpu, cuda, mps)
             compute_type: Compute type (int8, float16, float32)
+            backend: Backend to use (auto, whisperx, mlx, ctranslate2)
             hf_token: Hugging Face token for model access
             temperature: Sampling temperature(s), comma-separated
             beam_size: Beam size for beam search
@@ -70,17 +91,14 @@ class WhisperXProcessor:
         self.model_name = model_name
         self.device = device
         self.compute_type = compute_type
+        self.backend_type = backend
         self.hf_token = hf_token
         self.logger = logger or self._create_default_logger()
         
-        # NOTE: WhisperX only supports limited transcription parameters:
-        # - language, task, batch_size, chunk_size, num_workers
-        # The following Whisper parameters are stored for reference but NOT used:
-        # - temperature (not supported by CTranslate2 beam search)
-        # - beam_size, best_of, patience, length_penalty (use model defaults)
-        # - no_speech_threshold, logprob_threshold, compression_ratio_threshold
-        # - condition_on_previous_text, initial_prompt
-        # WhisperX handles these internally via FasterWhisperPipeline
+        # NOTE: Backend-specific parameter support:
+        # WhisperX (CTranslate2): Limited parameters (language, task, batch_size)
+        # MLX-Whisper: More parameters supported
+        # Store all for potential use
         
         self.temperature = self._parse_temperature(temperature)
         self.beam_size = beam_size
@@ -93,7 +111,8 @@ class WhisperXProcessor:
         self.condition_on_previous_text = condition_on_previous_text
         self.initial_prompt = initial_prompt
 
-        self.model = None
+        # Backend instance
+        self.backend = None
         self.align_model = None
         self.align_metadata = None
     
@@ -107,59 +126,44 @@ class WhisperXProcessor:
 
     def _create_default_logger(self):
         """Create default logger if none provided"""
-        from .logger import PipelineLogger
+        from shared.logger import PipelineLogger
         return PipelineLogger("whisperx")
 
     def load_model(self):
-        """Load WhisperX model"""
-        self.logger.info(f"Loading WhisperX model: {self.model_name}")
-        self.logger.info(f"  Device: {self.device}")
-        self.logger.info(f"  Compute type: {self.compute_type}")
+        """Load Whisper model using appropriate backend"""
+        self.logger.info(f"Loading Whisper model: {self.model_name}")
+        self.logger.info(f"  Device requested: {self.device}")
+        self.logger.info(f"  Backend: {self.backend_type}")
         
-        # Use TORCH_HOME from environment (set by bootstrap)
-        # This allows bootstrap to control cache location
-        import os
-        cache_dir = os.environ.get('TORCH_HOME', str(Path.home() / '.cache' / 'torch'))
-        self.logger.info(f"  Cache directory: {cache_dir}")
+        # Get recommended backend if auto
+        if self.backend_type == "auto":
+            recommended = get_recommended_backend(self.device, self.logger)
+            self.logger.info(f"  Auto-detected backend: {recommended}")
+            backend_to_use = recommended
+        else:
+            backend_to_use = self.backend_type
         
-        # WhisperX/faster-whisper uses CTranslate2 which only supports CPU and CUDA
-        # MPS is not supported, so we need to map it appropriately
-        device_to_use = self.device
-        compute_type_to_use = self.compute_type
+        # Create backend instance
+        self.backend = create_backend(
+            backend_to_use,
+            self.model_name,
+            self.device,
+            self.compute_type,
+            self.logger
+        )
         
-        if self.device.lower() == "mps":
-            self.logger.warning("  MPS device not supported by CTranslate2 (faster-whisper backend)")
-            self.logger.warning("  Falling back to CPU with int8 compute type for best performance")
-            device_to_use = "cpu"
-            compute_type_to_use = "int8"
-
-        try:
-            self.model = whisperx.load_model(
-                self.model_name,
-                device=device_to_use,
-                compute_type=compute_type_to_use,
-                download_root=cache_dir
-            )
-            self.logger.info(f"  Model loaded successfully on {device_to_use}")
-            # Update instance variables to reflect actual device used
-            self.device = device_to_use
-            self.compute_type = compute_type_to_use
-        except Exception as e:
-            if device_to_use != "cpu":
-                self.logger.warning(f"  Failed to load on {device_to_use}: {e}")
-                self.logger.warning("  Retrying with CPU and int8 compute type...")
-                self.device = "cpu"
-                self.compute_type = "int8"
-                self.model = whisperx.load_model(
-                    self.model_name,
-                    device="cpu",
-                    compute_type="int8",
-                    download_root=cache_dir
-                )
-                self.logger.info("  Model loaded successfully on CPU")
-            else:
-                self.logger.error(f"  Failed to load model: {e}")
-                raise
+        if not self.backend:
+            raise RuntimeError(f"Failed to create backend: {backend_to_use}")
+        
+        # Load model
+        success = self.backend.load_model()
+        if not success:
+            raise RuntimeError(f"Failed to load model with backend: {self.backend.name}")
+        
+        # Update device to actual device used (may have fallen back)
+        self.device = self.backend.device
+        self.logger.info(f"  ✓ Model loaded with backend: {self.backend.name}")
+        self.logger.info(f"  ✓ Active device: {self.device}")
 
     def load_align_model(self, language: str):
         """
@@ -168,18 +172,29 @@ class WhisperXProcessor:
         Args:
             language: Language code (e.g., "en", "hi")
         """
+        if not self.backend:
+            raise RuntimeError("Model not loaded. Call load_model() first.")
+        
         self.logger.info(f"Loading alignment model for language: {language}")
-
+        success = self.backend.load_align_model(language)
+        
+        if success:
+            self.logger.info("  ✓ Alignment model loaded")
+        else:
+            self.logger.warning("  ⚠ Alignment model not available")
+    
+    def cleanup(self):
+        """Clean up resources"""
+        if self.backend:
+            self.backend.cleanup()
+            self.backend = None
+    
+    def __del__(self):
+        """Destructor to ensure cleanup"""
         try:
-            self.align_model, self.align_metadata = whisperx.load_align_model(
-                language_code=language,
-                device=self.device
-            )
-            self.logger.info("  Alignment model loaded successfully")
-        except Exception as e:
-            self.logger.warning(f"  Failed to load alignment model: {e}")
-            self.align_model = None
-            self.align_metadata = None
+            self.cleanup()
+        except:
+            pass
 
     def transcribe_with_bias(
         self,
@@ -200,65 +215,68 @@ class WhisperXProcessor:
             batch_size: Batch size for inference
 
         Returns:
-            WhisperX result dict with segments and word-level timestamps
+            Whisper result dict with segments and word-level timestamps
         """
         self.logger.info(f"Transcribing: {audio_file}")
         self.logger.info(f"  Source: {source_lang}, Target: {target_lang}")
+        self.logger.info(f"  Backend: {self.backend.name}")
 
-        if not self.model:
+        if not self.backend:
             raise RuntimeError("Model not loaded. Call load_model() first.")
 
-        # Load audio
-        self.logger.info("Loading audio...")
-        audio = whisperx.load_audio(audio_file)
-
-        # Transcribe with translation
-        self.logger.info("Transcribing and translating...")
-        # Note: CTranslate2 uses beam search (deterministic), not temperature sampling
-        self.logger.debug(f"  Beam size: {self.beam_size}")
-        self.logger.debug(f"  Best of: {self.best_of}")
-
-        # Bias prompts are saved for potential post-processing use
+        # Determine task
+        task = "translate" if source_lang != target_lang else "transcribe"
+        
+        # Create global bias prompts from bias windows
+        initial_prompt = None
+        hotwords = None
+        
         if bias_windows:
             self.logger.info(f"  Bias windows available: {len(bias_windows)}")
-
-        # Build transcription options
-        # Note: FasterWhisperPipeline (CTranslate2 backend) uses beam search
-        # which is deterministic. Temperature parameter is not supported.
-        # WhisperX only supports a limited set of parameters
-        # See: https://github.com/m-bain/whisperX
-        transcribe_options = {
-            "language": source_lang if source_lang else None,
-            "task": "translate" if source_lang != target_lang else "transcribe",
-            "batch_size": batch_size,
-        }
+            
+            # Collect all unique bias terms across windows
+            all_terms = set()
+            for window in bias_windows:
+                all_terms.update(window.bias_terms)
+            
+            # Create global bias prompts
+            top_terms = list(all_terms)[:50]  # Limit to top 50 terms
+            
+            if top_terms:
+                # initial_prompt: first 20 terms as context (comma-separated sentence)
+                initial_prompt = ", ".join(top_terms[:20])
+                
+                # hotwords: all 50 terms (comma-separated, no spaces for faster-whisper)
+                hotwords = ",".join(top_terms)
+                
+                self.logger.info(f"  🎯 Active bias prompting enabled:")
+                self.logger.info(f"    Initial prompt: {len(top_terms[:20])} terms")
+                self.logger.info(f"    Hotwords: {len(top_terms)} terms")
+                self.logger.debug(f"    Preview: {', '.join(top_terms[:5])}...")
         
         # Log parameters being used
         self.logger.info(f"  Transcription options:")
-        self.logger.info(f"    Language: {transcribe_options['language']}")
-        self.logger.info(f"    Task: {transcribe_options['task']}")
-        self.logger.info(f"    Batch size: {transcribe_options['batch_size']}")
-        
-        # Note: WhisperX doesn't support these Whisper parameters:
-        # - beam_size, best_of, patience, length_penalty (use model defaults)
-        # - temperature (not supported by CTranslate2 beam search)
-        # - no_speech_threshold, logprob_threshold, compression_ratio_threshold
-        # - condition_on_previous_text, initial_prompt
-        # These are handled internally by WhisperX's FasterWhisperPipeline
-        
-        if self.initial_prompt:
-            self.logger.warning(f"  Note: initial_prompt not directly supported by WhisperX")
-            self.logger.warning(f"        (prompt was: {self.initial_prompt[:50]}...)")
-            self.logger.warning(f"        WhisperX uses its own internal prompt handling")
+        self.logger.info(f"    Language: {source_lang}")
+        self.logger.info(f"    Task: {task}")
+        self.logger.info(f"    Batch size: {batch_size}")
+        if initial_prompt:
+            self.logger.info(f"    Bias: ACTIVE (global prompt)")
 
         try:
-            result = self.model.transcribe(audio, **transcribe_options)
-            self.logger.info(f"  Transcription complete: {len(result.get('segments', []))} segments")
+            result = self.backend.transcribe(
+                audio_file,
+                language=source_lang,
+                task=task,
+                batch_size=batch_size,
+                initial_prompt=initial_prompt,
+                hotwords=hotwords
+            )
+            self.logger.info(f"  ✓ Transcription complete: {len(result.get('segments', []))} segments")
         except Exception as e:
-            self.logger.error(f"  Transcription failed: {e}")
+            self.logger.error(f"  ✗ Transcription failed: {e}")
             raise
 
-        # Apply bias prompts to segments (post-processing context)
+        # Apply bias window metadata to segments (for reference)
         if bias_windows:
             result = self._apply_bias_context(result, bias_windows)
 
@@ -302,38 +320,30 @@ class WhisperXProcessor:
         Add word-level alignment to segments
 
         Args:
-            result: WhisperX transcription result
+            result: Whisper transcription result
             audio_file: Path to audio/video file
             target_lang: Target language for alignment
 
         Returns:
             Result with word-level timestamps
         """
-        if not self.align_model:
-            self.logger.warning("Alignment model not loaded, skipping alignment")
+        if not self.backend:
+            self.logger.warning("Backend not loaded, skipping alignment")
             return result
 
         self.logger.info("Aligning segments for word-level timestamps...")
 
         try:
-            # Load audio
-            audio = whisperx.load_audio(audio_file)
-
-            # Align
-            aligned_result = whisperx.align(
-                result["segments"],
-                self.align_model,
-                self.align_metadata,
-                audio,
-                self.device,
-                return_char_alignments=False
+            aligned_result = self.backend.align_segments(
+                result.get("segments", []),
+                audio_file,
+                target_lang
             )
-
-            self.logger.info("  Alignment complete")
+            self.logger.info("  ✓ Alignment complete")
             return aligned_result
 
         except Exception as e:
-            self.logger.warning(f"  Alignment failed: {e}")
+            self.logger.warning(f"  ⚠ Alignment failed: {e}")
             return result
 
     def save_results(
@@ -352,20 +362,20 @@ class WhisperXProcessor:
         """
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        # Save full JSON result
+        # Save full JSON result with basename
         json_file = output_dir / f"{basename}.whisperx.json"
         with open(json_file, "w", encoding="utf-8") as f:
             json.dump(result, f, indent=2, ensure_ascii=False)
         self.logger.info(f"  Saved: {json_file}")
 
-        # Save segments as JSON (cleaner format)
+        # Save segments as JSON (cleaner format) with basename
         segments_file = output_dir / f"{basename}.segments.json"
         segments = result.get("segments", [])
         with open(segments_file, "w", encoding="utf-8") as f:
             json.dump(segments, f, indent=2, ensure_ascii=False)
         self.logger.info(f"  Saved: {segments_file}")
 
-        # Save as plain text transcript
+        # Save as plain text transcript with basename
         txt_file = output_dir / f"{basename}.transcript.txt"
         with open(txt_file, "w", encoding="utf-8") as f:
             for segment in segments:
@@ -374,10 +384,20 @@ class WhisperXProcessor:
                     f.write(f"{text}\n")
         self.logger.info(f"  Saved: {txt_file}")
 
-        # Save as SRT
+        # Save as SRT with basename
         srt_file = output_dir / f"{basename}.srt"
         self._save_as_srt(segments, srt_file)
         self.logger.info(f"  Saved: {srt_file}")
+        
+        # ALSO save with standard names for downstream stages
+        # These are the filenames that other stages expect
+        standard_json = output_dir / "transcript.json"
+        with open(standard_json, "w", encoding="utf-8") as f:
+            json.dump(result, f, indent=2, ensure_ascii=False)
+        
+        standard_segments = output_dir / "segments.json"
+        with open(standard_segments, "w", encoding="utf-8") as f:
+            json.dump(segments, f, indent=2, ensure_ascii=False)
 
     def _save_as_srt(self, segments: List[Dict], srt_file: Path):
         """
@@ -463,22 +483,243 @@ def run_whisperx_pipeline(
         logger=logger
     )
 
-    # Load models
-    processor.load_model()
-    processor.load_align_model(target_lang)
+    try:
+        # Load models
+        processor.load_model()
+        processor.load_align_model(target_lang)
 
-    # Transcribe with bias
-    result = processor.transcribe_with_bias(
-        audio_file,
-        source_lang,
-        target_lang,
-        bias_windows
-    )
+        # Transcribe with bias
+        result = processor.transcribe_with_bias(
+            audio_file,
+            source_lang,
+            target_lang,
+            bias_windows
+        )
 
-    # Align for word-level timestamps
-    result = processor.align_segments(result, audio_file, target_lang)
+        # Align for word-level timestamps
+        result = processor.align_segments(result, audio_file, target_lang)
 
-    # Save results
-    processor.save_results(result, output_dir, basename)
+        # Save results
+        processor.save_results(result, output_dir, basename)
 
-    return result
+        return result
+    finally:
+        # Clean up resources
+        processor.cleanup()
+
+
+def main():
+    """Main entry point for WhisperX ASR stage."""
+    import sys
+    import os
+    import json
+    from pathlib import Path
+    from shared.stage_utils import StageIO, get_stage_logger
+    from shared.config import load_config
+    
+    # Set up stage I/O and logging
+    stage_io = StageIO("asr")
+    logger = get_stage_logger("asr", log_level="DEBUG", stage_io=stage_io)
+    
+    logger.info("=" * 60)
+    logger.info("ASR STAGE: Automatic Speech Recognition")
+    logger.info("=" * 60)
+    
+    # Get output directory from StageIO
+    output_dir = stage_io.output_base
+    
+    # Load configuration
+    config_path_env = os.environ.get('CONFIG_PATH')
+    if config_path_env:
+        logger.debug(f"Loading configuration from: {config_path_env}")
+        config = load_config(config_path_env)
+    else:
+        logger.warning("No config path specified, using defaults")
+        config = None
+    
+    # Get audio file from demux stage
+    audio_file = stage_io.get_input_path("audio.wav", from_stage="demux")
+    if not audio_file.exists():
+        logger.error(f"Audio file not found: {audio_file}")
+        return 1
+    
+    logger.info(f"Input audio: {audio_file}")
+    logger.info(f"Input audio: {audio_file}")
+    logger.info(f"Output directory: {output_dir}")
+    
+    # Get configuration parameters
+    model_name = getattr(config, 'whisper_model', 'large-v3') if config else 'large-v3'
+    source_lang = getattr(config, 'whisper_language', 'hi') if config else 'hi'
+    target_lang = getattr(config, 'target_language', 'en') if config else 'en'
+    device = os.environ.get('DEVICE_OVERRIDE', getattr(config, 'device', 'cpu') if config else 'cpu').lower()
+    compute_type = getattr(config, 'whisper_compute_type', 'float16') if config else 'float16'
+    
+    # Get HF token from secrets or environment
+    hf_token = None
+    secrets_path = Path("config/secrets.json")
+    if secrets_path.exists():
+        try:
+            with open(secrets_path, 'r') as f:
+                secrets = json.load(f)
+                hf_token = secrets.get('hf_token')
+        except Exception as e:
+            logger.warning(f"Could not load HF token from secrets: {e}")
+    
+    if not hf_token:
+        hf_token = os.environ.get('HF_TOKEN')
+    
+    logger.info(f"Model: {model_name}")
+    logger.info(f"Source language: {source_lang}")
+    logger.info(f"Target language: {target_lang}")
+    logger.info(f"Device: {device}")
+    logger.info(f"Compute type: {compute_type}")
+    
+    # Get basename from config or use default
+    basename = getattr(config, 'job_id', 'transcript') if config else 'transcript'
+    
+    # Check for bias windows (from pre-NER or TMDB)
+    bias_windows = None
+    
+    # Check if bias is enabled in config
+    bias_enabled = getattr(config, 'bias_enabled', True) if config else True
+    
+    if bias_enabled:
+        try:
+            from bias_injection import create_bias_windows, save_bias_windows
+            import soundfile as sf
+            
+            # Collect entity names from multiple sources
+            entity_names = []
+            
+            # Load NER entities
+            ner_file = stage_io.get_input_path("entities.json", from_stage="pre_ner")
+            if ner_file.exists():
+                try:
+                    with open(ner_file, 'r') as f:
+                        ner_data = json.load(f)
+                        entities = ner_data.get('entities', [])
+                        for entity in entities:
+                            entity_text = entity.get('text', '').strip()
+                            if entity_text:
+                                entity_names.append(entity_text)
+                        logger.info(f"Loaded {len(entities)} NER entities")
+                except Exception as e:
+                    logger.warning(f"Could not load NER data: {e}")
+            
+            # Load TMDB metadata for cast and character names
+            # Try tmdb_data.json first (contains actual cast/crew data)
+            tmdb_file = stage_io.get_input_path("tmdb_data.json", from_stage="tmdb")
+            if tmdb_file.exists():
+                try:
+                    with open(tmdb_file, 'r') as f:
+                        tmdb_data = json.load(f)
+                        
+                        # Add cast names - tmdb_data.json has simple string arrays
+                        cast = tmdb_data.get('cast', [])
+                        for name in cast[:15]:  # Top 15 cast members
+                            if isinstance(name, str) and name.strip():
+                                entity_names.append(name.strip())
+                        
+                        # Add crew names (director, writer, etc.)
+                        crew = tmdb_data.get('crew', [])
+                        for name in crew[:5]:  # Top 5 crew members
+                            if isinstance(name, str) and name.strip():
+                                entity_names.append(name.strip())
+                        
+                        logger.info(f"Loaded {len(cast)} cast + {len(crew)} crew from TMDB")
+                except Exception as e:
+                    logger.warning(f"Could not load TMDB data: {e}")
+            
+            # Remove duplicates and empty strings
+            entity_names = list(set(filter(None, entity_names)))
+            
+            if entity_names:
+                # Get audio duration
+                audio_file = stage_io.get_input_path("audio.wav", from_stage="demux")
+                try:
+                    audio_data, sr = sf.read(str(audio_file))
+                    duration = len(audio_data) / sr
+                except Exception as e:
+                    logger.warning(f"Could not read audio duration: {e}, using default 3600s")
+                    duration = 3600.0  # Default to 1 hour
+                
+                # Get bias parameters from config
+                window_seconds = getattr(config, 'bias_window_seconds', 45) if config else 45
+                stride_seconds = getattr(config, 'bias_stride_seconds', 15) if config else 15
+                topk = getattr(config, 'bias_topk', 10) if config else 10
+                
+                # Create bias windows
+                logger.info(f"Creating bias windows with {len(entity_names)} unique terms")
+                logger.info(f"  Window size: {window_seconds}s, Stride: {stride_seconds}s, Top-K: {topk}")
+                
+                bias_windows = create_bias_windows(
+                    duration_seconds=duration,
+                    window_seconds=window_seconds,
+                    stride_seconds=stride_seconds,
+                    base_terms=entity_names,
+                    topk=topk
+                )
+                
+                # Save bias windows to stage directory
+                bias_dir = stage_io.stage_dir / "bias_windows"
+                save_bias_windows(bias_dir, bias_windows, basename)
+                
+                logger.info(f"✓ Created {len(bias_windows)} bias windows")
+                logger.info(f"  Bias windows saved to: {bias_dir}")
+            else:
+                logger.info("No entities found for bias injection, proceeding without bias")
+        
+        except Exception as e:
+            logger.warning(f"Bias window generation failed: {e}")
+            logger.warning("Proceeding without bias injection")
+            bias_windows = None
+    else:
+        logger.info("Bias injection disabled in configuration")
+    
+    try:
+        # Run WhisperX pipeline
+        logger.info("Starting WhisperX transcription...")
+        result = run_whisperx_pipeline(
+            audio_file=str(audio_file),
+            output_dir=stage_io.stage_dir,
+            basename=basename,
+            source_lang=source_lang,
+            target_lang=target_lang,
+            bias_windows=bias_windows,
+            model_name=model_name,
+            device=device,
+            compute_type=compute_type,
+            hf_token=hf_token,
+            logger=logger
+        )
+        
+        logger.info(f"✓ ASR completed successfully")
+        logger.info(f"  Segments: {len(result.get('segments', []))}")
+        logger.info("=" * 60)
+        logger.info("ASR STAGE COMPLETED")
+        logger.info("=" * 60)
+        
+        return 0
+        
+    except Exception as e:
+        logger.error(f"WhisperX pipeline failed: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return 1
+
+
+if __name__ == "__main__":
+    import sys
+    import gc
+    try:
+        exit_code = main()
+    finally:
+        # Clean up resources to avoid semaphore leaks
+        gc.collect()
+        try:
+            import torch
+            if hasattr(torch, 'mps') and torch.backends.mps.is_available():
+                torch.mps.empty_cache()
+        except:
+            pass
+    sys.exit(exit_code)

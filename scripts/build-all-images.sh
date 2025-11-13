@@ -72,7 +72,7 @@ if ! build_image "base" "cpu" "docker/base/Dockerfile"; then
     FAILED_BUILDS+=("base:cpu")
     echo -e "${RED}[ERROR] base:cpu build failed!${NC}"
     echo -e "${RED}[ERROR] Cannot proceed - all CPU stages require base:cpu${NC}"
-    echo -e "${RED}[ERROR] Required by: demux, tmdb, pre-ner, post-ner, subtitle-gen, mux${NC}"
+    echo -e "${RED}[ERROR] Required by: demux, tmdb, glossary-builder, pre-ner, post-ner, subtitle-gen, mux${NC}"
     echo -e "${RED}[ERROR] Also required for GPU stage CPU fallbacks${NC}"
     exit 1
 fi
@@ -107,12 +107,13 @@ echo -e "${YELLOW}[INFO] Subsequent GPU stage builds will inherit PyTorch from b
 echo ""
 
 echo -e "${BLUE}=== Phase 2: Building CPU-Only Stages ===${NC}"
-echo -e "(demux, tmdb, pre-ner, post-ner, subtitle-gen, mux)"
+echo -e "(demux, tmdb, glossary-builder, pre-ner, post-ner, subtitle-gen, mux)"
 echo ""
 
 CPU_STAGES=(
     "demux"
     "tmdb"
+    "glossary-builder"
     "pre-ner"
     "post-ner"
     "subtitle-gen"
@@ -190,7 +191,7 @@ if [ ${#FAILED_BUILDS[@]} -eq 0 ]; then
     echo ""
     echo -e "Image Summary:"
     echo -e "  Base images: base:cpu, base:cuda, base-ml:cuda"
-    echo -e "  CPU-only stages (6): demux, tmdb, pre-ner, post-ner, subtitle-gen, mux"
+    echo -e "  CPU-only stages (7): demux, tmdb, glossary-builder, pre-ner, post-ner, subtitle-gen, mux"
     echo -e "  GPU stages with fallback (4-6):"
     echo -e "    - silero-vad:cuda + silero-vad:cpu"
     echo -e "    - pyannote-vad:cuda + pyannote-vad:cpu"

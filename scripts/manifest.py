@@ -168,7 +168,7 @@ class ManifestBuilder:
         """Save manifest to JSON file"""
         filepath.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(filepath, "w") as f:
+        with open(filepath, "w", encoding='utf-8') as f:
             json.dump(self.data, f, indent=2)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -178,7 +178,7 @@ class ManifestBuilder:
     def load(self, filepath: Path):
         """Load existing manifest from JSON file"""
         if filepath.exists():
-            with open(filepath, "r") as f:
+            with open(filepath, "r", encoding='utf-8', errors='replace') as f:
                 loaded_data = json.load(f)
                 # Merge loaded data, preserving structure
                 self.data.update(loaded_data)

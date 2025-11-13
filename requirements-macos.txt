@@ -17,6 +17,9 @@ faster-whisper>=1.0.0
 whisper-ctranslate2>=0.4.0
 ctranslate2>=4.2.0
 
+# 3b. MLX-Whisper for Apple Silicon GPU acceleration (optional but recommended)
+mlx-whisper>=0.4.0
+
 # 4. PyAnnote ecosystem
 pyannote.audio>=3.3.2,<4.0.0
 

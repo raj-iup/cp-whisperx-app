@@ -1,280 +1,173 @@
-# CP-WhisperX-App Documentation Index
+# Documentation Index
 
-**Last Updated**: 2025-11-09  
-**Project**: Context-Aware Hinglish to English Subtitle Generation Pipeline
-
----
-
-## 📚 Documentation Structure
-
-### Core Documentation (Start Here)
-
-1. **[README.md](../README.md)** - Project overview and quick start
-2. **[QUICKSTART.md](QUICKSTART.md)** - Get started in 5 minutes
-3. **[ARCHITECTURE.md](ARCHITECTURE.md)** - System architecture and pipeline stages
-4. **[WORKFLOW.md](WORKFLOW.md)** - Pipeline workflow and stage details
-
-### Setup & Configuration
-
-5. **[BOOTSTRAP.md](BOOTSTRAP.md)** - Environment setup and dependencies
-6. **[CONFIGURATION.md](CONFIGURATION.md)** - Configuration options reference
-7. **[CROSS_PLATFORM_GUIDE.md](CROSS_PLATFORM_GUIDE.md)** - macOS, Windows, Linux setup
-
-### Glossary System (Advanced Features)
-
-8. **[GLOSSARY_SYSTEM.md](GLOSSARY_SYSTEM.md)** - Complete glossary documentation
-   - Basic glossary usage
-   - Advanced strategies (context, character, regional, frequency)
-   - Movie-specific prompts
-   - Integration guide
-   - 18+ Bollywood film prompts
-
-### Operation & Troubleshooting
-
-9. **[RUNNING.md](RUNNING.md)** - Running the pipeline
-10. **[RESUME.md](RESUME.md)** - Resume interrupted jobs
-11. **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)** - Common issues and solutions
-12. **[FAQ.md](FAQ.md)** - Frequently asked questions
-
-### Advanced Topics
-
-13. **[PERFORMANCE.md](PERFORMANCE.md)** - Performance optimization
-14. **[API_REFERENCE.md](API_REFERENCE.md)** - Python API reference
-
-### Development
-
-15. **[CONTRIBUTING.md](CONTRIBUTING.md)** - How to contribute
-16. **[CHANGELOG.md](CHANGELOG.md)** - Version history
-17. **[IMPROVEMENT-PLAN.md](../IMPROVEMENT-PLAN.md)** - Future enhancements roadmap
+Complete guide to CP-WhisperX-App documentation.
 
 ---
 
-## 🗂️ Documentation by Topic
+## 📖 Core Documentation
 
-### Getting Started
-- Quick Start: [QUICKSTART.md](QUICKSTART.md)
-- Bootstrap Setup: [BOOTSTRAP.md](BOOTSTRAP.md)
-- First Job: [RUNNING.md](RUNNING.md) → "Basic Usage"
+### Essential Guides
 
-### Pipeline Understanding
-- Architecture: [ARCHITECTURE.md](ARCHITECTURE.md)
-- Workflow: [WORKFLOW.md](WORKFLOW.md)
-- Stages: [ARCHITECTURE.md](ARCHITECTURE.md) → "Pipeline Stages"
+| Document | Description |
+|----------|-------------|
+| **[Quick Start](QUICKSTART.md)** | Get running in 5 minutes |
+| **[Architecture](ARCHITECTURE.md)** | System design (v1.0 + v2.0 roadmap) |
+| **[Quick Reference](QUICK_REFERENCE.md)** | Common commands |
+| **[Quick Fix Reference](QUICK_FIX_REFERENCE.md)** | Troubleshooting |
 
-### Glossary & Translation
-- Overview: [GLOSSARY_SYSTEM.md](GLOSSARY_SYSTEM.md) → "Overview"
-- Basic Usage: [GLOSSARY_SYSTEM.md](GLOSSARY_SYSTEM.md) → "Basic Usage"
-- Advanced Strategies: [GLOSSARY_SYSTEM.md](GLOSSARY_SYSTEM.md) → "Advanced Strategies"
-- Movie Prompts: [GLOSSARY_SYSTEM.md](GLOSSARY_SYSTEM.md) → "Movie Prompts"
-- Configuration: [GLOSSARY_SYSTEM.md](GLOSSARY_SYSTEM.md) → "Configuration"
+### Installation & Setup
 
-### Configuration
-- Environment Variables: [CONFIGURATION.md](CONFIGURATION.md)
-- Hardware Settings: [BOOTSTRAP.md](BOOTSTRAP.md) → "Hardware Detection"
-- Job Configuration: [RUNNING.md](RUNNING.md) → "Job Configuration"
+| Document | Description |
+|----------|-------------|
+| [Bootstrap Guide](BOOTSTRAP.md) | Install dependencies and environment |
+| [Configuration](CONFIGURATION.md) | All configuration options |
+| [Apple Silicon Guide](APPLE_SILICON_QUICK_REF.md) | Optimize for M1/M2/M3 Macs |
 
-### Platform-Specific
-- macOS Setup: [CROSS_PLATFORM_GUIDE.md](CROSS_PLATFORM_GUIDE.md) → "macOS"
-- Windows Setup: [CROSS_PLATFORM_GUIDE.md](CROSS_PLATFORM_GUIDE.md) → "Windows"
-- Linux Setup: [CROSS_PLATFORM_GUIDE.md](CROSS_PLATFORM_GUIDE.md) → "Linux"
+### Features
 
-### Troubleshooting
-- Common Issues: [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
-- Error Messages: [TROUBLESHOOTING.md](TROUBLESHOOTING.md) → "Error Reference"
-- Performance Issues: [PERFORMANCE.md](PERFORMANCE.md)
-- FAQ: [FAQ.md](FAQ.md)
+| Document | Description |
+|----------|-------------|
+| [Glossary Builder](GLOSSARY_BUILDER_QUICKSTART.md) | Film-specific glossary system |
+| [CPS Optimization](CPS_QUICK_REFERENCE.md) | Subtitle readability |
 
 ---
 
-## 📖 Quick Links by Task
+## 🔬 Technical Documentation
 
-### "I want to..."
+### Implementation Details
 
-**...get started quickly**
-→ [QUICKSTART.md](QUICKSTART.md)
-
-**...understand how it works**
-→ [ARCHITECTURE.md](ARCHITECTURE.md) + [WORKFLOW.md](WORKFLOW.md)
-
-**...set up my environment**
-→ [BOOTSTRAP.md](BOOTSTRAP.md) + [CROSS_PLATFORM_GUIDE.md](CROSS_PLATFORM_GUIDE.md)
-
-**...configure the pipeline**
-→ [CONFIGURATION.md](CONFIGURATION.md)
-
-**...process my first movie**
-→ [RUNNING.md](RUNNING.md) → "Basic Usage"
-
-**...use the glossary system**
-→ [GLOSSARY_SYSTEM.md](GLOSSARY_SYSTEM.md)
-
-**...add custom glossary terms**
-→ [GLOSSARY_SYSTEM.md](GLOSSARY_SYSTEM.md) → "Adding Terms"
-
-**...create movie-specific prompts**
-→ [GLOSSARY_SYSTEM.md](GLOSSARY_SYSTEM.md) → "Movie Prompts" → "Creating Prompts"
-
-**...optimize performance**
-→ [PERFORMANCE.md](PERFORMANCE.md)
-
-**...fix an error**
-→ [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
-
-**...resume a failed job**
-→ [RESUME.md](RESUME.md)
-
-**...contribute to the project**
-→ [CONTRIBUTING.md](CONTRIBUTING.md)
+| Document | Description |
+|----------|-------------|
+| [Bias Prompting](technical/BIAS_ACTIVE_IMPLEMENTATION.md) | Active bias prompting (Phase 1) |
+| [Bias Strategy](technical/BIAS_IMPLEMENTATION_STRATEGY.md) | 3-phase implementation plan |
+| [Bias Data Flow](technical/BIAS_PROMPT_FLOW.md) | How bias data flows |
+| [ASR CPU Mode](technical/ASR_CPU_ONLY_IMPLEMENTATION.md) | CPU-only optimization |
+| [Recent Fixes](technical/LOG_FIXES_IMPLEMENTATION.md) | Bug fixes (2025-11-13) |
 
 ---
 
-## 🎯 Learning Path
+## 📚 Reference Documentation
 
-### Beginner Path (1-2 hours)
+### API & Configuration
 
-1. Read [README.md](../README.md) (5 min)
-2. Follow [QUICKSTART.md](QUICKSTART.md) (30 min)
-3. Skim [ARCHITECTURE.md](ARCHITECTURE.md) (15 min)
-4. Process first test clip (30 min)
-5. Review [TROUBLESHOOTING.md](TROUBLESHOOTING.md) (10 min)
-
-### Intermediate Path (3-4 hours)
-
-1. Complete Beginner Path
-2. Read [WORKFLOW.md](WORKFLOW.md) in detail (30 min)
-3. Read [CONFIGURATION.md](CONFIGURATION.md) (20 min)
-4. Explore [GLOSSARY_SYSTEM.md](GLOSSARY_SYSTEM.md) (60 min)
-5. Process full movie (90 min)
-6. Review output quality (20 min)
-
-### Advanced Path (1-2 days)
-
-1. Complete Intermediate Path
-2. Study [ARCHITECTURE.md](ARCHITECTURE.md) deeply (60 min)
-3. Master [GLOSSARY_SYSTEM.md](GLOSSARY_SYSTEM.md) advanced features (120 min)
-4. Create custom movie prompts (60 min)
-5. Optimize for your hardware - [PERFORMANCE.md](PERFORMANCE.md) (60 min)
-6. Process multiple films with learning (4+ hours)
-7. Review [IMPROVEMENT-PLAN.md](../IMPROVEMENT-PLAN.md) (30 min)
+| Document | Description |
+|----------|-------------|
+| [API Reference](API_REFERENCE.md) | Python API documentation |
+| [FAQ](FAQ.md) | Frequently asked questions |
+| [Contributing](CONTRIBUTING.md) | Contribution guidelines |
 
 ---
 
-## 📁 Historical Documentation
+## 🗂️ By Audience
 
-Archived documentation (reference only):
+### For End Users
 
-- **[history/](history/)** - Implementation logs and fix history
-  - Previous fix documentation (pre-consolidation)
-  - Stage-specific fixes applied
-  - Historical troubleshooting guides
+**Just want to generate subtitles?**
 
-These files are kept for reference but superseded by current docs.
+1. **Start**: [Quick Start](QUICKSTART.md)
+2. **Configure**: [Configuration](CONFIGURATION.md)
+3. **Reference**: [Quick Reference](QUICK_REFERENCE.md)
+4. **Help**: [Quick Fix Reference](QUICK_FIX_REFERENCE.md)
+
+### For Developers
+
+**Want to understand the code?**
+
+1. **Overview**: [Architecture](ARCHITECTURE.md)
+2. **Features**: [Bias System](technical/BIAS_ACTIVE_IMPLEMENTATION.md)
+3. **Detailed**: [Architecture v1.0](ARCHITECTURE.md#current-architecture-v10)
+
+### For Contributors
+
+**Want to help improve the project?**
+
+1. **Guidelines**: [Contributing](CONTRIBUTING.md)
+2. **Architecture**: [System Design](ARCHITECTURE.md)
+3. **Roadmap**: [Future Plans](ARCHITECTURE.md#future-architecture-v20)
 
 ---
 
-## 🔍 Search Tips
+## 📁 Documentation Structure
 
-### By File Name Pattern
-
-- `*QUICK*.md` - Quick references and quick start
-- `*CONFIG*.md` - Configuration documentation
-- `*GLOSSARY*.md` - Glossary system documentation
-- `*TROUBLESHOOT*.md` - Troubleshooting guides
-- `*GUIDE*.md` - Step-by-step guides
-
-### By Content
-
-Use `grep` to search across documentation:
-
-```bash
-# Find glossary documentation
-grep -r "glossary" docs/*.md
-
-# Find configuration options
-grep -r "GLOSSARY_STRATEGY" docs/*.md config/
-
-# Find troubleshooting for specific error
-grep -r "ModuleNotFoundError" docs/*.md
+```
+docs/
+├── INDEX.md (this file)
+│
+├── Core Guides
+│   ├── QUICKSTART.md
+│   ├── ARCHITECTURE.md
+│   ├── QUICK_REFERENCE.md
+│   └── QUICK_FIX_REFERENCE.md
+│
+├── Installation
+│   ├── BOOTSTRAP.md
+│   ├── CONFIGURATION.md
+│   └── APPLE_SILICON_QUICK_REF.md
+│
+├── Features
+│   ├── GLOSSARY_BUILDER_QUICKSTART.md
+│   └── CPS_QUICK_REFERENCE.md
+│
+├── technical/
+│   ├── BIAS_ACTIVE_IMPLEMENTATION.md
+│   ├── BIAS_IMPLEMENTATION_STRATEGY.md
+│   ├── BIAS_PROMPT_FLOW.md
+│   ├── ASR_CPU_ONLY_IMPLEMENTATION.md
+│   └── LOG_FIXES_IMPLEMENTATION.md
+│
+├── reference/
+│   ├── API_REFERENCE.md
+│   ├── FAQ.md
+│   └── CONTRIBUTING.md
+│
+└── archive/
+    └── [Historical implementation notes]
 ```
 
 ---
 
-## 📝 Documentation Standards
+## 🆕 Recent Updates
 
-All current documentation follows these standards:
+### 2025-11-13
 
-1. **Markdown format** with proper heading hierarchy
-2. **Code blocks** with syntax highlighting
-3. **Examples** for all major features
-4. **Cross-references** to related docs
-5. **Date stamps** for version tracking
-6. **Table of contents** for long documents
-
----
-
-## 🚀 What's New (2025-11-09)
-
-### Recent Additions
-
-✅ **Glossary System** - Fully documented in GLOSSARY_SYSTEM.md
-- Basic usage and integration
-- 7 advanced strategies
-- 18+ Bollywood movie prompts
-- Character profiles and regional variants
-- Frequency learning
-
-✅ **Cross-Platform Guide** - Comprehensive setup for all OS
-- macOS (MPS acceleration)
-- Windows (CUDA/CPU)
-- Linux (CUDA/CPU)
-
-✅ **Consolidated Documentation** - This index
-- Organized by topic and task
-- Learning paths
-- Quick reference
-
-### Deprecated Documents (Moved to history/)
-
-The following were consolidated and moved:
-
-- Individual fix documentation (20+ files)
-- Stage-specific troubleshooting
-- Implementation logs
-- Redundant guides
-
-**Note**: All information preserved, just better organized!
+- ✅ Documentation structure refactored
+- ✅ All markdown files moved to docs/
+- ✅ Only README.md in project root
+- ✅ Active bias prompting implemented
+- ✅ ASR CPU-only mode added
+- ✅ Multiple bug fixes applied
 
 ---
 
-## 📧 Getting Help
+## 📞 Getting Help
 
-1. Check [FAQ.md](FAQ.md) first
-2. Review [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
-3. Search this documentation index
-4. Check GitHub issues (if available)
-5. Create new issue with:
-   - OS and hardware
+### Quick Answers
+
+1. Check [Quick Fix Reference](QUICK_FIX_REFERENCE.md)
+2. Check [FAQ](FAQ.md)
+3. Search [GitHub Issues](https://github.com/yourusername/cp-whisperx-app/issues)
+
+### Report Issues
+
+1. Check existing documentation
+2. Search existing issues
+3. Create new issue with:
+   - Environment details
    - Steps to reproduce
    - Relevant logs
-   - Configuration used
 
 ---
 
-## 🎯 Documentation Goals
+## 🔗 External Resources
 
-This documentation aims to:
-
-- ✅ Get you started in < 5 minutes
-- ✅ Explain every configuration option
-- ✅ Document all advanced features
-- ✅ Provide troubleshooting for common issues
-- ✅ Enable contribution from community
-- ✅ Support all platforms (macOS, Windows, Linux)
-
-**Feedback welcome!** Help us improve these docs.
+- **[WhisperX](https://github.com/m-bain/whisperX)** - Core ASR engine
+- **[faster-whisper](https://github.com/guillaumekln/faster-whisper)** - CTranslate2 backend
+- **[MLX](https://github.com/ml-explore/mlx)** - Apple Silicon acceleration
+- **[PyAnnote](https://github.com/pyannote/pyannote-audio)** - Speaker diarization
+- **[TMDB API](https://developers.themoviedb.org/)** - Movie metadata
 
 ---
 
-**Last Updated**: 2025-11-09  
-**Documentation Version**: 2.0 (Consolidated)  
-**Pipeline Version**: 1.0
+**Last Updated**: 2025-11-13  
+**Documentation Version**: 3.0  
+**Project Version**: 1.0

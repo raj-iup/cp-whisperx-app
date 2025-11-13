@@ -1,0 +1,97 @@
+#!/usr/bin/env python3
+"""
+Demux stage: Extract audio from video file
+"""
+import sys
+import os
+import subprocess
+from pathlib import Path
+import json
+
+# Add project root to path
+PROJECT_ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from shared.stage_utils import StageIO, get_stage_logger
+from shared.config import load_config
+
+
+def main():
+    """Extract audio from video file."""
+    # Initialize stage I/O
+    stage_io = StageIO("demux")
+    logger = get_stage_logger("demux", log_level="DEBUG", stage_io=stage_io)
+    
+    logger.info("=" * 60)
+    logger.info("DEMUX STAGE: Extract Audio from Video")
+    logger.info("=" * 60)
+    
+    # Load configuration
+    config_path = os.environ.get('CONFIG_PATH', 'config/.env.pipeline')
+    logger.debug(f"Loading configuration from: {config_path}")
+    
+    try:
+        config = load_config(config_path)
+    except Exception as e:
+        logger.error(f"Failed to load configuration: {e}")
+        return 1
+    
+    # Get input file
+    input_file = getattr(config, 'in_root', getattr(config, 'input_media', ''))
+    if not input_file or not Path(input_file).exists():
+        logger.error(f"Input media not found: {input_file}")
+        return 1
+    
+    logger.info(f"Input media: {input_file}")
+    
+    # Output audio file
+    audio_file = stage_io.get_output_path("audio.wav")
+    logger.info(f"Output audio: {audio_file}")
+    
+    # Extract audio using ffmpeg
+    cmd = [
+        "ffmpeg",
+        "-i", str(input_file),
+        "-vn",  # No video
+        "-acodec", "pcm_s16le",  # 16-bit PCM
+        "-ar", "16000",  # 16kHz sample rate (required by Whisper)
+        "-ac", "1",  # Mono
+        "-y",  # Overwrite
+        str(audio_file)
+    ]
+    
+    logger.debug(f"Running ffmpeg: {' '.join(cmd)}")
+    logger.info("Extracting audio...")
+    
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    
+    if result.returncode != 0:
+        logger.error(f"ffmpeg failed with code {result.returncode}")
+        logger.error(f"stderr: {result.stderr}")
+        return 1
+    
+    logger.info(f"✓ Audio extracted successfully: {audio_file}")
+    logger.debug(f"File size: {audio_file.stat().st_size / (1024*1024):.2f} MB")
+    
+    # Save metadata
+    metadata = {
+        'status': 'completed',
+        'input_file': str(input_file),
+        'audio_file': str(audio_file),
+        'sample_rate': 16000,
+        'channels': 1,
+        'format': 'pcm_s16le'
+    }
+    
+    metadata_path = stage_io.save_metadata(metadata)
+    logger.debug(f"Metadata saved: {metadata_path}")
+    
+    logger.info("=" * 60)
+    logger.info("DEMUX STAGE COMPLETED")
+    logger.info("=" * 60)
+    
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

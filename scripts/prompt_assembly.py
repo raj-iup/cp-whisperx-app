@@ -13,9 +13,9 @@ from typing import Optional
 from dataclasses import dataclass
 import yaml
 
-from .filename_parser import ParsedFilename
-from .era_lexicon import EraLexicon, format_era_context
-from .tmdb_enrichment import TMDBMetadata, format_tmdb_context
+from filename_parser import ParsedFilename
+from era_lexicon import EraLexicon, format_era_context
+from tmdb_enrichment import TMDBMetadata, format_tmdb_context
 
 
 @dataclass

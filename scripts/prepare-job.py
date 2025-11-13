@@ -50,6 +50,7 @@ PROJECT_ROOT = SCRIPT_DIR.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from shared.logger import PipelineLogger, get_stage_log_filename
+from scripts.filename_parser import parse_filename
 
 
 def detect_hardware_capabilities():
@@ -335,7 +336,7 @@ class JobManager:
     
     def create_job(self, input_media: Path, workflow_mode: str = 'subtitle-gen', 
                    native_mode: bool = False, start_time: Optional[str] = None,
-                   end_time: Optional[str] = None) -> Dict:
+                   end_time: Optional[str] = None, stage_flags: Optional[Dict] = None) -> Dict:
         """Create a new job with directory structure and job definition.
         
         Args:
@@ -344,6 +345,12 @@ class JobManager:
             native_mode: Enable native execution with device acceleration
             start_time: Optional start time for clipping (HH:MM:SS)
             end_time: Optional end time for clipping (HH:MM:SS)
+            stage_flags: Optional dict with stage enable/disable flags
+                {
+                    'silero_vad': bool or None,
+                    'pyannote_vad': bool or None,
+                    'diarization': bool or None
+                }
         
         Returns:
             Dictionary with job information
@@ -381,6 +388,10 @@ class JobManager:
             job_info["clip_start"] = start_time
             job_info["clip_end"] = end_time
         
+        # Add stage control flags if provided
+        if stage_flags:
+            job_info["stage_flags"] = stage_flags
+        
         # Save initial job definition
         with open(job_json_file, 'w') as f:
             json.dump(job_info, f, indent=2)
@@ -390,6 +401,12 @@ class JobManager:
             self.logger.info(f"User ID: {user_id}")
             self.logger.info(f"Workflow: {workflow_mode.upper()}")
             self.logger.info(f"Native mode: {'enabled' if native_mode else 'disabled'}")
+            if stage_flags:
+                self.logger.info("Stage controls:")
+                for stage, enabled in stage_flags.items():
+                    if enabled is not None:
+                        status = "ENABLED" if enabled else "DISABLED"
+                        self.logger.info(f"  {stage}: {status}")
             self.logger.info(f"Directory: {job_dir}")
             self.logger.info(f"Job definition: {job_json_file}")
         
@@ -562,6 +579,14 @@ DEVICE_NER=cpu
         with open(config_template) as f:
             config_content = f.read()
         
+        # Parse title and year from media filename
+        parsed_filename = parse_filename(str(media_path))
+        movie_title = parsed_filename.title
+        movie_year = parsed_filename.year
+        
+        if self.logger:
+            self.logger.info(f"Parsed from filename: {movie_title} ({movie_year if movie_year else 'year unknown'})")
+        
         # Calculate paths based on job structure
         year = job_id[0:4]
         month = job_id[4:6]
@@ -622,6 +647,27 @@ DEVICE_NER=cpu
                 'WORKFLOW_MODE': 'subtitle-gen'
             }
         
+        # Apply stage control flags if provided
+        stage_flags = job_info.get('stage_flags', {})
+        if stage_flags:
+            if self.logger:
+                self.logger.info("Applying stage control flags...")
+            
+            if stage_flags.get('silero_vad') is not None:
+                workflow_config['STEP_VAD_SILERO'] = 'true' if stage_flags['silero_vad'] else 'false'
+                if self.logger:
+                    self.logger.info(f"  Silero VAD: {'ENABLED' if stage_flags['silero_vad'] else 'DISABLED'}")
+            
+            if stage_flags.get('pyannote_vad') is not None:
+                workflow_config['STEP_VAD_PYANNOTE'] = 'true' if stage_flags['pyannote_vad'] else 'false'
+                if self.logger:
+                    self.logger.info(f"  PyAnnote VAD: {'ENABLED' if stage_flags['pyannote_vad'] else 'DISABLED'}")
+            
+            if stage_flags.get('diarization') is not None:
+                workflow_config['STEP_DIARIZATION'] = 'true' if stage_flags['diarization'] else 'false'
+                if self.logger:
+                    self.logger.info(f"  Diarization: {'ENABLED' if stage_flags['diarization'] else 'DISABLED'}")
+        
         # Build configuration with hardware optimization comments
         config_lines = []
         
@@ -676,6 +722,11 @@ DEVICE_NER=cpu
             # Handle job-specific overrides with comments
             if line.startswith('JOB_ID='):
                 config_lines.append(f'JOB_ID={job_info["job_id"]}')
+            elif line.startswith('TITLE='):
+                # Quote title to handle spaces and special characters
+                config_lines.append(f'TITLE="{movie_title}"')
+            elif line.startswith('YEAR='):
+                config_lines.append(f'YEAR={movie_year if movie_year else ""}')
             elif line.startswith('IN_ROOT='):
                 config_lines.append(f'IN_ROOT={media_path.absolute()}')
             elif line.startswith('OUTPUT_ROOT='):
@@ -774,11 +825,28 @@ DEVICE_NER=cpu
                 prompts_dir = Path('glossary/prompts')
                 if prompts_dir.exists():
                     # Look for prompts matching the media filename
+                    # Extract significant words (remove common words and split)
+                    media_words = set([w for w in media_name.replace('_', ' ').split() if len(w) > 2])
+                    
+                    best_match = None
+                    best_score = 0
+                    
                     for prompt in prompts_dir.glob('*.txt'):
                         prompt_key = prompt.stem.lower().replace(' ', '_').replace('-', '_')
-                        if prompt_key in media_name or media_name in prompt_key:
-                            prompt_file = f'glossary/prompts/{prompt.name}'
-                            break
+                        prompt_words = set([w for w in prompt_key.replace('_', ' ').split() if len(w) > 2])
+                        
+                        # Calculate match score (number of common words)
+                        common_words = media_words.intersection(prompt_words)
+                        score = len(common_words)
+                        
+                        # If we have at least 2 common words or exact substring match, consider it
+                        if score >= 2 or prompt_key in media_name or media_name in prompt_key:
+                            if score > best_score:
+                                best_score = score
+                                best_match = prompt
+                    
+                    if best_match:
+                        prompt_file = f'glossary/prompts/{best_match.name}'
                 
                 if prompt_file:
                     config_lines.extend([
@@ -805,17 +873,20 @@ DEVICE_NER=cpu
                 config_lines.append(line)
         
         # Add workflow-specific overrides at the end
-        if workflow_mode == 'transcribe':
+        if workflow_config:
             config_lines.extend([
                 "",
                 "# ============================================================================",
-                "# TRANSCRIBE WORKFLOW OVERRIDES",
+                "# WORKFLOW & STAGE OVERRIDES",
                 "# ============================================================================",
-                "# Simplified pipeline - only transcription, no diarization or subtitles",
             ])
+            if workflow_mode == 'transcribe':
+                config_lines.append("# Simplified pipeline - only transcription, no diarization or subtitles")
+            if stage_flags:
+                config_lines.append("# Stage control flags applied")
+            
             for key, value in workflow_config.items():
-                if key != 'WORKFLOW_MODE':
-                    config_lines.append(f"{key}={value}")
+                config_lines.append(f"{key}={value}")
         
         # Add resource monitoring recommendations
         config_lines.extend([
@@ -895,12 +966,29 @@ DEVICE_NER=cpu
             media_name = media_path.stem.lower()
             prompt_found = False
             if prompts_dir.exists():
+                # Extract significant words (remove common words and split)
+                media_words = set([w for w in media_name.replace('_', ' ').replace('-', ' ').split() if len(w) > 2])
+                
+                best_match = None
+                best_score = 0
+                
                 for prompt in prompts_dir.glob('*.txt'):
                     prompt_key = prompt.stem.lower()
-                    if prompt_key in media_name or media_name in prompt_key:
-                        self.logger.info(f"  ✓ Movie prompt: {prompt.name}")
-                        prompt_found = True
-                        break
+                    prompt_words = set([w for w in prompt_key.replace('_', ' ').replace('-', ' ').split() if len(w) > 2])
+                    
+                    # Calculate match score (number of common words)
+                    common_words = media_words.intersection(prompt_words)
+                    score = len(common_words)
+                    
+                    # If we have at least 2 common words or exact substring match, consider it
+                    if score >= 2 or prompt_key in media_name or media_name in prompt_key:
+                        if score > best_score:
+                            best_score = score
+                            best_match = prompt
+                
+                if best_match:
+                    self.logger.info(f"  ✓ Movie prompt: {best_match.name}")
+                    prompt_found = True
             
             if not prompt_found:
                 self.logger.info(f"  • No movie-specific prompt found")
@@ -962,6 +1050,42 @@ Examples:
         help="Enable native execution with MPS/CUDA acceleration (auto-detects capability)"
     )
     
+    parser.add_argument(
+        "--enable-silero-vad",
+        action="store_true",
+        help="Enable Silero VAD stage (default: enabled)"
+    )
+    
+    parser.add_argument(
+        "--disable-silero-vad",
+        action="store_true",
+        help="Disable Silero VAD stage"
+    )
+    
+    parser.add_argument(
+        "--enable-pyannote-vad",
+        action="store_true",
+        help="Enable PyAnnote VAD stage (default: enabled)"
+    )
+    
+    parser.add_argument(
+        "--disable-pyannote-vad",
+        action="store_true",
+        help="Disable PyAnnote VAD stage"
+    )
+    
+    parser.add_argument(
+        "--enable-diarization",
+        action="store_true",
+        help="Enable Diarization stage (default: enabled)"
+    )
+    
+    parser.add_argument(
+        "--disable-diarization",
+        action="store_true",
+        help="Disable Diarization stage"
+    )
+    
     args = parser.parse_args()
     
     # Validate input
@@ -978,6 +1102,19 @@ Examples:
     # Validate workflow flags
     if args.transcribe and args.subtitle_gen:
         print("✗ Cannot specify both --transcribe and --subtitle-gen")
+        sys.exit(1)
+    
+    # Validate stage control flags
+    if args.enable_silero_vad and args.disable_silero_vad:
+        print("✗ Cannot specify both --enable-silero-vad and --disable-silero-vad")
+        sys.exit(1)
+    
+    if args.enable_pyannote_vad and args.disable_pyannote_vad:
+        print("✗ Cannot specify both --enable-pyannote-vad and --disable-pyannote-vad")
+        sys.exit(1)
+    
+    if args.enable_diarization and args.disable_diarization:
+        print("✗ Cannot specify both --enable-diarization and --disable-diarization")
         sys.exit(1)
     
     # Determine workflow mode
@@ -1010,6 +1147,23 @@ Examples:
     if args.start_time and args.end_time:
         logger.info(f"Clip mode: {args.start_time} → {args.end_time}")
     
+    # Build stage control flags dictionary
+    stage_flags = {}
+    if args.enable_silero_vad:
+        stage_flags['silero_vad'] = True
+    elif args.disable_silero_vad:
+        stage_flags['silero_vad'] = False
+    
+    if args.enable_pyannote_vad:
+        stage_flags['pyannote_vad'] = True
+    elif args.disable_pyannote_vad:
+        stage_flags['pyannote_vad'] = False
+    
+    if args.enable_diarization:
+        stage_flags['diarization'] = True
+    elif args.disable_diarization:
+        stage_flags['diarization'] = False
+    
     # Create job
     manager = JobManager(logger=logger)
     
@@ -1018,7 +1172,8 @@ Examples:
         workflow_mode=workflow_mode,
         native_mode=args.native,
         start_time=args.start_time,
-        end_time=args.end_time
+        end_time=args.end_time,
+        stage_flags=stage_flags if stage_flags else None
     )
     
     # Prepare media

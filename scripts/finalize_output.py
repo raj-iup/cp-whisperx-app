@@ -53,7 +53,7 @@ def sanitize_title(title: str) -> str:
 
 def extract_title_from_log(log_file: Path, logger) -> str:
     """
-    Extract title from orchestrator log (line 18)
+    Extract title from orchestrator log
     
     Args:
         log_file: Path to orchestrator log
@@ -66,19 +66,15 @@ def extract_title_from_log(log_file: Path, logger) -> str:
         with open(log_file, 'r', encoding='utf-8') as f:
             lines = f.readlines()
             
-            if len(lines) >= 18:
-                line_18 = lines[17]  # 0-indexed, so line 18 is index 17
-                
-                # Parse: [timestamp] [orchestrator] [INFO] Title: Movie Name
-                match = re.search(r'Title:\s*(.+)$', line_18.strip())
+            # Search for "Title:" in the first 50 lines
+            for i, line in enumerate(lines[:50], 1):
+                match = re.search(r'Title:\s*(.+)$', line.strip())
                 if match:
                     title = match.group(1).strip()
-                    logger.info(f"Extracted title from log: {title}")
+                    logger.info(f"Extracted title from line {i}: {title}")
                     return title
-                else:
-                    logger.warning(f"Line 18 doesn't contain 'Title:' pattern: {line_18}")
-            else:
-                logger.warning(f"Log file has fewer than 18 lines: {len(lines)}")
+            
+            logger.warning(f"No 'Title:' pattern found in first 50 lines of log")
     
     except Exception as e:
         logger.error(f"Error reading log file: {e}")
@@ -250,16 +246,16 @@ def main():
     """Main entry point"""
     logger = setup_logging()
     
-    # Get job directory from command line or environment
-    if len(sys.argv) > 1:
+    # Get job directory from environment or command line
+    job_dir_str = os.environ.get('OUTPUT_DIR') or os.environ.get('JOB_DIR')
+    if job_dir_str:
+        job_dir = Path(job_dir_str)
+    elif len(sys.argv) > 1:
         job_dir = Path(sys.argv[1])
     else:
-        job_dir_str = os.environ.get('JOB_DIR')
-        if not job_dir_str:
-            logger.error("Usage: finalize_output.py <job_directory>")
-            logger.error("   or set JOB_DIR environment variable")
-            sys.exit(1)
-        job_dir = Path(job_dir_str)
+        logger.error("Usage: finalize_output.py <job_directory>")
+        logger.error("   or set OUTPUT_DIR/JOB_DIR environment variable")
+        sys.exit(1)
     
     if not job_dir.exists():
         logger.error(f"Job directory not found: {job_dir}")

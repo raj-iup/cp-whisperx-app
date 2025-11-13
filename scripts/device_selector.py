@@ -50,16 +50,19 @@ def check_device_available(device: str) -> bool:
 
 def select_device(requested: str, fallback: str = "cpu") -> Tuple[str, bool]:
     """
-    Select device with fallback
+    Select device with fallback and auto-detection
 
     Args:
-        requested: Requested device (cpu, cuda, mps)
+        requested: Requested device (cpu, cuda, mps, auto)
         fallback: Fallback device (default: cpu)
 
     Returns:
         Tuple of (actual_device, did_fallback)
 
     Examples:
+        >>> select_device("auto")
+        ("mps", False)  # on Apple Silicon
+
         >>> select_device("mps", "cpu")
         ("mps", False)  # if MPS available
 
@@ -68,6 +71,16 @@ def select_device(requested: str, fallback: str = "cpu") -> Tuple[str, bool]:
     """
     requested = requested.lower()
 
+    # Auto-detect best available device
+    if requested == "auto":
+        if check_device_available("mps"):
+            return "mps", False
+        elif check_device_available("cuda"):
+            return "cuda", False
+        else:
+            return "cpu", False
+    
+    # Use requested device if available
     if check_device_available(requested):
         return requested, False
 
@@ -249,3 +262,58 @@ def get_device_memory_info(device: str) -> Optional[dict]:
         }
     
     return None
+
+
+def validate_device_and_compute_type(device: str, compute_type: Optional[str] = None, logger=None) -> Tuple[str, Optional[str]]:
+    """
+    Validate device and compute_type compatibility for ML stages.
+    
+    This function ensures that:
+    1. MPS devices fall back to CPU (MPS not supported by CTranslate2)
+    2. CPU uses int8 compute type when compute_type is provided
+    3. float16 on CPU is converted to int8
+    
+    Args:
+        device: Requested device (cpu, cuda, mps)
+        compute_type: Requested compute type (int8, float16, float32, or None for PyTorch models)
+        logger: Optional logger for warnings
+    
+    Returns:
+        Tuple of (validated_device, validated_compute_type)
+    
+    Examples:
+        >>> validate_device_and_compute_type("mps", "float32")
+        ("cpu", "int8")
+        
+        >>> validate_device_and_compute_type("cpu", "float16")
+        ("cpu", "int8")
+        
+        >>> validate_device_and_compute_type("cuda", "float16")
+        ("cuda", "float16")
+        
+        >>> validate_device_and_compute_type("cpu", None)  # PyTorch model
+        ("cpu", None)
+    """
+    device_to_use = device.lower()
+    compute_type_to_use = compute_type.lower() if compute_type else None
+    
+    # MPS not supported by CTranslate2, fallback to CPU
+    if device_to_use == "mps":
+        if logger:
+            logger.warning("  MPS device not supported by CTranslate2 (faster-whisper backend)")
+            logger.warning("  Falling back to CPU")
+        device_to_use = "cpu"
+        # If compute_type was specified, force int8 for CPU
+        if compute_type_to_use:
+            compute_type_to_use = "int8"
+    
+    # CPU only efficiently supports int8 for CTranslate2
+    # float16 on CPU causes: "ValueError: Requested float16 compute type, but the target device 
+    # or backend do not support efficient float16 computation"
+    if device_to_use == "cpu" and compute_type_to_use:
+        if compute_type_to_use not in ["int8", "int8_float32", "int8_float16"]:
+            if logger:
+                logger.info(f"  CPU mode: adjusting {compute_type_to_use} → int8 for optimal performance")
+            compute_type_to_use = "int8"
+    
+    return device_to_use, compute_type_to_use

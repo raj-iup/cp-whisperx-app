@@ -14,7 +14,14 @@ from pathlib import Path
 from typing import List, Dict, Optional
 import yaml
 
-from .logger import PipelineLogger
+import sys
+from pathlib import Path
+
+# Add project root to path for shared imports
+PROJECT_ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from shared.logger import PipelineLogger
 
 
 class CanonicalProcessor:
@@ -38,7 +45,7 @@ class CanonicalProcessor:
 
     def _create_default_logger(self):
         """Create default logger if none provided"""
-        from .logger import PipelineLogger
+        from shared.logger import PipelineLogger
         return PipelineLogger("canonicalization")
 
     def load_canon_map(self):
@@ -53,7 +60,7 @@ class CanonicalProcessor:
             return
 
         try:
-            with open(canon_map_path) as f:
+            with open(canon_map_path, 'r', encoding='utf-8', errors='replace') as f:
                 self.canon_map = yaml.safe_load(f) or {}
 
             # Count mappings

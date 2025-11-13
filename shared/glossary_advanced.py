@@ -9,6 +9,12 @@ from typing import Dict, List, Optional, Tuple, Any
 import logging
 from collections import defaultdict, Counter
 
+try:
+    from .glossary_ml import MLTermSelector
+    ML_AVAILABLE = True
+except ImportError:
+    ML_AVAILABLE = False
+
 
 class ContextAnalyzer:
     """Analyzes surrounding text context for intelligent term selection"""
@@ -402,6 +408,23 @@ class AdvancedGlossaryStrategy:
         self.regional_selector = RegionalVariantSelector(logger)
         self.frequency_learner = FrequencyLearner(logger)
         
+        # Initialize ML selector if strategy requires it
+        self.ml_selector = None
+        if strategy == 'ml' or strategy == 'adaptive':
+            if ML_AVAILABLE:
+                try:
+                    self.ml_selector = MLTermSelector(logger)
+                    if self.ml_selector.is_available():
+                        self.logger.info(f"✓ ML selector initialized ({self.ml_selector.model_type})")
+                    else:
+                        self.logger.warning("ML selector initialization failed")
+                        self.ml_selector = None
+                except Exception as e:
+                    self.logger.warning(f"Could not initialize ML selector: {e}")
+                    self.ml_selector = None
+            else:
+                self.logger.warning("ML selector not available (install sentence-transformers)")
+        
         # Context hints for term selection
         self.context_hints = {
             'formal': ['sir', 'ma\'am', 'mister', 'miss'],
@@ -421,10 +444,22 @@ class AdvancedGlossaryStrategy:
         
         # Detect regional variant
         self.regional_selector.detect_region_from_prompt(prompt_path)
+        
+        # Load ML model if available
+        if self.ml_selector:
+            ml_model_path = prompt_path.parent / f"{prompt_path.stem}_ml_model.json"
+            if ml_model_path.exists():
+                self.ml_selector.load_model(ml_model_path)
     
     def load_frequency_data(self, frequency_file: Path):
         """Load learned frequency data"""
         self.frequency_learner.load_from_file(frequency_file)
+        
+        # Also try to load ML model from same directory
+        if self.ml_selector:
+            ml_model_path = frequency_file.parent / "ml_selection_model.json"
+            if ml_model_path.exists():
+                self.ml_selector.load_model(ml_model_path)
     
     def select_best_option(
         self,
@@ -492,6 +527,13 @@ class AdvancedGlossaryStrategy:
         self.frequency_learner.record_selection(
             source_term, selected, context.get('term_context', '')
         )
+        
+        # Record for ML learning as well
+        if self.ml_selector:
+            try:
+                self.ml_selector.record_selection(source_term, selected, context)
+            except Exception as e:
+                self.logger.debug(f"ML recording error: {e}")
         
         return selected
     
@@ -580,15 +622,35 @@ class AdvancedGlossaryStrategy:
         options: List[str],
         context: Dict[str, Any]
     ) -> str:
-        """ML-based selection (placeholder for future implementation)"""
-        # TODO: Implement ML model for term selection
-        # Could use:
-        # - Transformer-based context embeddings
-        # - Character behavior prediction
-        # - Scene classification
+        """ML-based selection using semantic embeddings and similarity matching"""
         
-        self.logger.debug("ML strategy not yet implemented, using adaptive")
-        return self._select_adaptive(source_term, options, context)
+        if not self.ml_selector or not self.ml_selector.is_available():
+            self.logger.debug("ML selector not available, using adaptive")
+            return self._select_adaptive(source_term, options, context)
+        
+        try:
+            # Get ML prediction
+            predicted_option, confidence = self.ml_selector.predict(
+                source_term, options, context
+            )
+            
+            # Use ML prediction if confidence is high enough
+            if confidence > 0.3:  # Minimum confidence threshold
+                self.logger.debug(
+                    f"ML selected '{predicted_option}' for '{source_term}' "
+                    f"(confidence: {confidence:.2f})"
+                )
+                return predicted_option
+            else:
+                # Low confidence, fall back to adaptive
+                self.logger.debug(
+                    f"ML confidence too low ({confidence:.2f}), using adaptive fallback"
+                )
+                return self._select_adaptive(source_term, options, context)
+        
+        except Exception as e:
+            self.logger.warning(f"ML selection error: {e}, using adaptive fallback")
+            return self._select_adaptive(source_term, options, context)
     
     def save_learned_data(self, output_dir: Path):
         """Save all learned data"""
@@ -597,12 +659,26 @@ class AdvancedGlossaryStrategy:
         # Save frequency data
         freq_file = output_dir / "term_frequency.json"
         self.frequency_learner.save_to_file(freq_file)
+        
+        # Save ML model data
+        if self.ml_selector:
+            ml_file = output_dir / "ml_selection_model.json"
+            try:
+                self.ml_selector.save_model(ml_file)
+            except Exception as e:
+                self.logger.warning(f"Could not save ML model: {e}")
     
     def get_statistics(self) -> Dict[str, Any]:
         """Get comprehensive statistics"""
-        return {
+        stats = {
             'strategy': self.strategy,
             'character_profiles': len(self.character_profiler.profiles),
             'regional_variant': self.regional_selector.current_region,
             'frequency_stats': self.frequency_learner.get_statistics()
         }
+        
+        # Add ML stats if available
+        if self.ml_selector:
+            stats['ml_stats'] = self.ml_selector.get_statistics()
+        
+        return stats

@@ -38,7 +38,7 @@ show_help() {
     cat << HELP
 Usage: ./run_pipeline.sh [OPTIONS] --job <job_id>
 
-Docker-based pipeline orchestrator for context-aware subtitle generation.
+Native macOS pipeline orchestrator for context-aware subtitle generation.
 
 OPTIONS:
     -j, --job JOB_ID        Job ID to process (required)

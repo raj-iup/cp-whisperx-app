@@ -185,3 +185,129 @@ def format_tmdb_context(metadata: TMDBMetadata) -> str:
         lines.append(f"Crew: {', '.join(metadata.crew[:8])}")
 
     return "\n".join(lines)
+
+
+def main():
+    """Main entry point for TMDB enrichment stage."""
+    import sys
+    import os
+    import json
+    from pathlib import Path
+    
+    # Add project root to path
+    PROJECT_ROOT = Path(__file__).parent.parent
+    sys.path.insert(0, str(PROJECT_ROOT))
+    
+    from shared.stage_utils import StageIO, get_stage_logger
+    from shared.config import load_config
+    
+    # Initialize stage I/O
+    stage_io = StageIO("tmdb")
+    logger = get_stage_logger("tmdb", log_level="DEBUG", stage_io=stage_io)
+    
+    logger.info("=" * 60)
+    logger.info("TMDB STAGE: Fetch Cast and Crew Metadata")
+    logger.info("=" * 60)
+    
+    # Load configuration
+    config_path = os.environ.get('CONFIG_PATH', 'config/.env.pipeline')
+    logger.debug(f"Loading configuration from: {config_path}")
+    
+    try:
+        config = load_config(config_path)
+        title = getattr(config, 'title', None)
+        year = getattr(config, 'year', None)
+        if year:
+            try:
+                year = int(year)
+            except (ValueError, TypeError):
+                year = None
+    except Exception as e:
+        logger.error(f"Failed to load configuration: {e}")
+        return 1
+    
+    if not title:
+        logger.error("No title specified in configuration")
+        return 1
+    
+    logger.info(f"Movie: {title} ({year if year else 'year unknown'})")
+    
+    # Get API key from secrets or environment
+    api_key = None
+    secrets_path = Path("config/secrets.json")
+    if secrets_path.exists():
+        logger.debug(f"Loading secrets from: {secrets_path}")
+        try:
+            with open(secrets_path, 'r') as f:
+                secrets = json.load(f)
+                api_key = secrets.get('tmdb_api_key')
+        except Exception as e:
+            logger.warning(f"Failed to load secrets: {e}")
+    
+    if not api_key:
+        api_key = os.environ.get('TMDB_API_KEY')
+    
+    if not api_key:
+        logger.warning("No TMDB API key found, skipping TMDB enrichment")
+        # Still save empty metadata for downstream stages
+        metadata = {
+            'title': title,
+            'year': year,
+            'tmdb_id': None,
+            'cast': [],
+            'crew': [],
+            'found': False
+        }
+        stage_io.save_json(metadata, 'tmdb_data.json')
+        stage_io.save_metadata({'status': 'skipped', 'reason': 'no_api_key'})
+        return 0
+    
+    # Fetch TMDB metadata
+    logger.info("Fetching metadata from TMDB...")
+    logger.debug(f"API Key: {'*' * (len(api_key) - 4)}{api_key[-4:]}")
+    
+    metadata_obj = enrich_from_tmdb(title, year, api_key)
+    
+    # Convert to dict
+    metadata = {
+        'title': metadata_obj.title,
+        'year': metadata_obj.year,
+        'tmdb_id': metadata_obj.tmdb_id,
+        'cast': metadata_obj.cast,
+        'crew': metadata_obj.crew,
+        'found': metadata_obj.found
+    }
+    
+    # Save metadata
+    metadata_path = stage_io.save_json(metadata, 'tmdb_data.json')
+    logger.debug(f"Saved TMDB data: {metadata_path}")
+    
+    if metadata_obj.found:
+        logger.info(f"✓ TMDB metadata found (ID: {metadata_obj.tmdb_id})")
+        logger.info(f"  Title: {metadata_obj.title}")
+        logger.info(f"  Year: {metadata_obj.year}")
+        logger.info(f"  Cast: {len(metadata_obj.cast)} members")
+        logger.debug(f"  Cast names: {', '.join(metadata_obj.cast[:5])}...")
+        logger.info(f"  Crew: {len(metadata_obj.crew)} members")
+        logger.debug(f"  Crew names: {', '.join(metadata_obj.crew[:5])}")
+        
+        stage_io.save_metadata({
+            'status': 'completed',
+            'tmdb_id': metadata_obj.tmdb_id,
+            'cast_count': len(metadata_obj.cast),
+            'crew_count': len(metadata_obj.crew)
+        })
+    else:
+        logger.warning("TMDB metadata not found")
+        stage_io.save_metadata({'status': 'completed', 'found': False})
+    
+    logger.info("=" * 60)
+    logger.info("TMDB STAGE COMPLETED")
+    logger.info("=" * 60)
+    
+    return 0
+
+
+if __name__ == "__main__":
+    import sys
+    sys.exit(main())

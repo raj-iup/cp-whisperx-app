@@ -13,10 +13,18 @@ import json
 from pathlib import Path
 from typing import List, Dict, Optional, Set, Tuple
 from collections import Counter
+from datetime import datetime
 import spacy
 from tqdm import tqdm
 
-from .logger import PipelineLogger
+import sys
+from pathlib import Path
+
+# Add project root to path for shared imports
+PROJECT_ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from shared.logger import PipelineLogger
 
 
 class NERProcessor:
@@ -43,7 +51,7 @@ class NERProcessor:
 
     def _create_default_logger(self):
         """Create default logger if none provided"""
-        from .logger import PipelineLogger
+        from shared.logger import PipelineLogger
         return PipelineLogger("ner")
 
     def load_model(self):
@@ -63,8 +71,8 @@ class NERProcessor:
             self.logger.info("  NER model loaded successfully")
 
         except OSError as e:
-            self.logger.error(f"  Model not found: {self.model_name}")
-            self.logger.error(f"  Install with: python -m spacy download {self.model_name}")
+            self.logger.info(f"  Model not found: {self.model_name}")
+            self.logger.info(f"  Install with: python -m spacy download {self.model_name}")
             raise
         except Exception as e:
             self.logger.error(f"  Failed to load NER model: {e}")
@@ -308,3 +316,183 @@ def run_ner_pipeline(
     processor.save_results(annotated_segments, frequency_table, output_dir, basename)
 
     return annotated_segments, frequency_table
+
+
+def main():
+    """Main entry point for NER extraction stage."""
+    import sys
+    import os
+    import json
+    from pathlib import Path
+    from shared.logger import PipelineLogger
+    from shared.config import load_config
+    from shared.stage_utils import StageIO
+    
+    # Get output directory and config from environment or command line
+    output_dir_env = os.environ.get('OUTPUT_DIR')
+    config_path_env = os.environ.get('CONFIG_PATH')
+    
+    if output_dir_env:
+        output_dir = Path(output_dir_env)
+    elif len(sys.argv) > 1:
+        output_dir = Path(sys.argv[1])
+    else:
+        print("ERROR: No output directory specified", file=sys.stderr)
+        return 1
+    
+    # Load configuration
+    if config_path_env:
+        config = load_config(config_path_env)
+    else:
+        config = None
+    
+    # Initialize StageIO for pre_ner stage
+    stage_io = StageIO("pre_ner", output_base=output_dir)
+    
+    # Setup logger with numbered log file
+    log_file = stage_io.get_log_path()
+    logger = PipelineLogger("pre_ner", log_file)  # Use "pre_ner" to match STAGE_ORDER
+    
+    logger.info(f"Running NER extraction")
+    logger.info(f"Output directory: {output_dir}")
+    logger.info(f"Stage directory: {stage_io.stage_dir}")
+    
+    # Get configuration parameters
+    # Try environment variables first, then config object, then defaults
+    model_name = os.environ.get('PRE_NER_MODEL') or os.environ.get('POST_NER_MODEL')
+    if not model_name and config:
+        model_name = getattr(config, 'pre_ner_model', None) or getattr(config, 'post_ner_model', None)
+    if not model_name:
+        model_name = 'en_core_web_trf'  # Default to transformer model
+    
+    device = os.environ.get('DEVICE_OVERRIDE', getattr(config, 'device', 'cpu') if config else 'cpu').lower()
+    
+    # For NER, we can extract from TMDB metadata if available (pre-NER)
+    # Or from transcript if available (post-NER)
+    
+    # Check if this is pre or post NER based on what data is available
+    # Use StageIO to get input paths
+    tmdb_file = stage_io.get_input_path("tmdb_data.json", from_stage="tmdb")
+    asr_file = stage_io.get_input_path("transcript.json", from_stage="asr")
+    
+    segments = []
+    basename = "entities"
+    
+    if asr_file.exists():
+        # Post-NER: extract from transcript
+        logger.info("Running post-NER extraction from transcript")
+        try:
+            with open(asr_file, 'r') as f:
+                asr_data = json.load(f)
+                segments = asr_data.get('segments', [])
+            basename = "post_ner"
+        except Exception as e:
+            logger.warning(f"Could not load ASR data: {e}")
+    
+    elif tmdb_file.exists():
+        # Pre-NER: extract from TMDB metadata
+        logger.info("Running pre-NER extraction from TMDB metadata")
+        try:
+            with open(tmdb_file, 'r') as f:
+                tmdb_data = json.load(f)
+                # Create pseudo-segments from cast/crew
+                text_parts = []
+                if tmdb_data.get('cast'):
+                    text_parts.append("Cast: " + ", ".join(tmdb_data['cast'][:20]))
+                if tmdb_data.get('crew'):
+                    text_parts.append("Crew: " + ", ".join(tmdb_data['crew'][:10]))
+                
+                if text_parts:
+                    segments = [{"text": " ".join(text_parts), "start": 0, "end": 0}]
+            basename = "pre_ner"
+        except Exception as e:
+            logger.warning(f"Could not load TMDB data: {e}")
+    
+    else:
+        logger.info("No TMDB or ASR data found, creating empty NER output")
+        # Create minimal output using StageIO
+        result_file = stage_io.get_output_path("entities.json")
+        with open(result_file, 'w') as f:
+            json.dump({"entities": [], "frequency": {}}, f, indent=2)
+        
+        # Save metadata
+        metadata = {
+            "status": "completed",
+            "entities_found": 0,
+            "stage": "pre_ner",
+            "stage_number": stage_io.stage_number,
+            "timestamp": datetime.now().isoformat()
+        }
+        stage_io.save_json(metadata, "metadata.json")
+        
+        logger.info(f"✓ NER extraction completed (no input data)")
+        return 0
+    
+    logger.info(f"Model: {model_name}")
+    logger.info(f"Device: {device}")
+    logger.info(f"Segments to process: {len(segments)}")
+    
+    try:
+        # Run NER pipeline - use stage_io directory
+        annotated_segments, frequency_table = run_ner_pipeline(
+            segments=segments,
+            output_dir=stage_io.stage_dir,
+            basename=basename,
+            model_name=model_name,
+            device=device,
+            logger=logger
+        )
+        
+        # Save metadata
+        entities_found = sum(len(s.get('entities', [])) for s in annotated_segments)
+        metadata = {
+            "status": "completed",
+            "entities_found": entities_found,
+            "unique_entity_types": len(frequency_table),
+            "stage": "pre_ner",
+            "stage_number": stage_io.stage_number,
+            "timestamp": datetime.now().isoformat()
+        }
+        stage_io.save_json(metadata, "metadata.json")
+        
+        logger.info(f"✓ NER extraction completed successfully")
+        logger.info(f"  Entities found: {entities_found}")
+        logger.info(f"  Unique entity types: {len(frequency_table)}")
+        
+        return 0
+        
+    except Exception as e:
+        error_msg = str(e)
+        
+        # Check if it's a missing model error
+        if "Can't find model" in error_msg or "E050" in error_msg:
+            logger.info(f"NER model not installed: {model_name}")
+            logger.info(f"  To enable NER, install with: python -m spacy download {model_name}")
+            logger.info("  NER is optional - continuing without entity extraction")
+        else:
+            logger.error(f"NER extraction failed: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+        
+        # Create minimal output to avoid breaking pipeline using StageIO
+        result_file = stage_io.get_output_path("entities.json")
+        with open(result_file, 'w') as f:
+            json.dump({"entities": [], "frequency": {}, "error": str(e)}, f, indent=2)
+        
+        # Save metadata with error
+        metadata = {
+            "status": "failed",
+            "error": str(e),
+            "stage": "pre_ner",
+            "stage_number": stage_io.stage_number,
+            "timestamp": datetime.now().isoformat()
+        }
+        stage_io.save_json(metadata, "metadata.json")
+        
+        logger.info("Created empty NER output (NER stage skipped)")
+        return 0  # Non-critical, don't fail pipeline
+
+
+if __name__ == "__main__":
+    import sys
+    sys.exit(main())

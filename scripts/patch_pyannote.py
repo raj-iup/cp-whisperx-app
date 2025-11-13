@@ -22,7 +22,7 @@ def patch_pyannote_io():
         return False
     
     # Read the file
-    with open(io_file, 'r') as f:
+    with open(io_file, 'r', encoding='utf-8', errors='replace') as f:
         content = f.read()
     
     # Check if already patched
@@ -50,7 +50,7 @@ def patch_pyannote_io():
         
         # Write back
         new_content = '\n'.join(lines)
-        with open(io_file, 'w') as f:
+        with open(io_file, 'w', encoding='utf-8') as f:
             f.write(new_content)
         
         print(f"✓ Patched {io_file}")

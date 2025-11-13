@@ -57,7 +57,7 @@ class HinglishGlossary:
         self.advanced_strategy = None
         if strategy != 'first':
             try:
-                from glossary_advanced import AdvancedGlossaryStrategy
+                from .glossary_advanced import AdvancedGlossaryStrategy
                 self.advanced_strategy = AdvancedGlossaryStrategy(strategy, logger)
                 
                 # Initialize from prompt

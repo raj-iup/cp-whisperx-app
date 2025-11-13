@@ -9,12 +9,24 @@ Handles:
 - Saving diarized results
 """
 
-import json
+import sys
+import warnings
 from pathlib import Path
+
+# Suppress deprecation warnings
+warnings.filterwarnings('ignore', message='.*torchaudio._backend.list_audio_backends.*')
+warnings.filterwarnings('ignore', message='.*has been deprecated.*', module='pyannote')
+warnings.filterwarnings('ignore', message='.*has been deprecated.*', module='torchaudio')
+
+# Add project root to path for shared imports
+PROJECT_ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
+import json
 from typing import List, Dict, Optional, Any
 import whisperx
 from pyannote.audio import Pipeline
-from .logger import PipelineLogger
+from shared.logger import PipelineLogger
 
 
 class DiarizationProcessor:
@@ -44,7 +56,7 @@ class DiarizationProcessor:
 
     def _create_default_logger(self):
         """Create default logger if none provided"""
-        from .logger import PipelineLogger
+        from shared.logger import PipelineLogger
         return PipelineLogger("diarization")
 
     def load_model(self):
@@ -57,7 +69,17 @@ class DiarizationProcessor:
 
         # Auto-detect best available device if needed
         original_device = self.device
-        if self.device.upper() == "MPS" and not torch.backends.mps.is_available():
+        if self.device.lower() in ["auto", "cpu", ""]:
+            if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+                self.device = "mps"
+                self.logger.info("  Auto-detected MPS (Apple Silicon GPU)")
+            elif torch.cuda.is_available():
+                self.device = "cuda"
+                self.logger.info("  Auto-detected CUDA GPU")
+            else:
+                self.device = "cpu"
+                self.logger.info("  No GPU detected, using CPU")
+        elif self.device.upper() == "MPS" and not torch.backends.mps.is_available():
             self.logger.warning("  MPS not available on this system")
             if torch.cuda.is_available():
                 self.device = "cuda"
@@ -87,15 +109,35 @@ class DiarizationProcessor:
                     # Convert device string to torch.device object
                     device_obj = torch.device(self.device.lower())
                     self.diarize_model.to(device_obj)
-                    self.logger.info(f"  Model moved to {self.device}")
+                    self.logger.info(f"  ✓ Diarization model moved to {self.device.upper()}")
+                    if self.device.lower() == 'mps':
+                        self.logger.info("    → Using Metal Performance Shaders (Apple Silicon)")
+                    elif self.device.lower() == 'cuda':
+                        self.logger.info("    → Using NVIDIA CUDA acceleration")
                 except Exception as e:
                     self.logger.warning(f"  Could not move to {self.device}: {e}")
                     self.logger.warning("  Using CPU instead (will be slow!)")
                     self.device = "cpu"
+            else:
+                self.logger.info("  Diarization running on CPU")
+                
             self.logger.info("  Diarization model loaded successfully")
         except Exception as e:
+            error_msg = str(e)
             self.logger.error(f"  Failed to load diarization model: {e}")
-            raise
+            
+            # Check for HuggingFace authentication errors
+            if "401" in error_msg or "expired" in error_msg.lower() or "unauthorized" in error_msg.lower():
+                self.logger.error("  ✗ HuggingFace token is invalid or expired")
+                self.logger.error("  → Get a new token from: https://huggingface.co/settings/tokens")
+                self.logger.error("  → Accept model terms at: https://huggingface.co/pyannote/speaker-diarization-3.1")
+                self.logger.error("  → Set HF_TOKEN environment variable or update config/.env.pipeline")
+            elif "repository not found" in error_msg.lower() or "404" in error_msg:
+                self.logger.error("  ✗ Model not found or not accessible")
+                self.logger.error("  → Make sure you have accepted the model terms at:")
+                self.logger.error("  → https://huggingface.co/pyannote/speaker-diarization-3.1")
+            
+            raise RuntimeError(f"Diarization model initialization failed - see errors above") from e
 
     def diarize_audio(
         self,
@@ -169,7 +211,8 @@ class DiarizationProcessor:
 
         try:
             # Use whisperx's assign_word_speakers utility
-            result = whisperx.assign_word_speakers(diarize_segments, segments)
+            # Note: correct parameter order is (segments, diarize_segments)
+            result = whisperx.assign_word_speakers(segments, diarize_segments)
             labeled_segments = result.get("segments", segments)
 
             # Apply speaker name mapping if provided
@@ -300,7 +343,7 @@ def load_speaker_map(speaker_map_file: Optional[str]) -> Optional[Dict[str, str]
         return None
 
     try:
-        with open(speaker_map_path) as f:
+        with open(speaker_map_path, 'r', encoding='utf-8', errors='replace') as f:
             speaker_map = json.load(f)
         return speaker_map
     except Exception as e:
@@ -368,3 +411,123 @@ def run_diarization_pipeline(
     processor.save_results(labeled_segments, output_dir, basename)
 
     return labeled_segments
+
+
+def main():
+    """Main entry point for diarization stage."""
+    import os
+    from shared.stage_utils import StageIO, get_stage_logger
+    from shared.config import load_config
+    
+    # Set up stage I/O and logging
+    stage_io = StageIO("diarization")
+    logger = get_stage_logger("diarization", log_level="DEBUG", stage_io=stage_io)
+    
+    logger.info("=" * 60)
+    logger.info("DIARIZATION STAGE: Speaker Diarization")
+    logger.info("=" * 60)
+    
+    # Load configuration
+    config_path = os.environ.get('CONFIG_PATH', 'config/.env.pipeline')
+    logger.debug(f"Loading configuration from: {config_path}")
+    
+    try:
+        config = load_config(config_path)
+    except Exception as e:
+        logger.error(f"Failed to load configuration: {e}")
+        return 1
+    
+    # Get input files
+    audio_input = stage_io.get_input_path("audio.wav", from_stage="demux")
+    logger.info(f"Input audio: {audio_input}")
+    
+    # Check if ASR has been completed - if not, skip diarization
+    try:
+        # Try whisperx_asr stage first, then fallback to asr
+        asr_results_path = None
+        for stage_name in ["whisperx_asr", "asr"]:
+            try:
+                path = stage_io.get_input_path("transcript.json", from_stage=stage_name)
+                if path.exists():
+                    asr_results_path = path
+                    logger.debug(f"Found ASR results in stage: {stage_name}")
+                    break
+            except Exception:
+                continue
+        
+        if not asr_results_path or not asr_results_path.exists():
+            logger.warning("ASR results not found - diarization requires transcript")
+            logger.warning("Skipping diarization stage")
+            return 0
+        
+        # Load ASR segments
+        import json
+        with open(asr_results_path, 'r', encoding='utf-8') as f:
+            asr_data = json.load(f)
+        segments = asr_data.get("segments", [])
+        logger.info(f"Loaded {len(segments)} segments from ASR")
+    except Exception as e:
+        logger.warning(f"Could not load ASR results: {e}")
+        logger.warning("Skipping diarization stage")
+        return 0
+    
+    # Get device from environment (stage-specific or global)
+    device = os.environ.get("DIARIZATION_DEVICE",
+                           os.environ.get("DEVICE_OVERRIDE", 
+                                        os.environ.get("DEVICE", "cpu"))).lower()
+    logger.info(f"Device: {device}")
+    
+    # Get HuggingFace token
+    hf_token = os.environ.get("HF_TOKEN", getattr(config, 'hf_token', ''))
+    if not hf_token:
+        logger.error("HF_TOKEN not set - required for PyAnnote diarization")
+        logger.error("Set HF_TOKEN environment variable or update config/.env.pipeline")
+        return 1
+    
+    # Get speaker settings
+    min_speakers = getattr(config, 'min_speakers', None)
+    max_speakers = getattr(config, 'max_speakers', None)
+    speaker_map_file = getattr(config, 'speaker_map', None)
+    
+    # Get output basename from config
+    basename = getattr(config, 'job_id', 'output')
+    
+    logger.info("Running diarization pipeline...")
+    
+    try:
+        # Run diarization
+        labeled_segments = run_diarization_pipeline(
+            audio_file=str(audio_input),
+            segments=segments,
+            output_dir=stage_io.stage_dir,
+            basename=basename,
+            hf_token=hf_token,
+            device=device,
+            speaker_map_file=speaker_map_file,
+            min_speakers=min_speakers,
+            max_speakers=max_speakers,
+            logger=logger
+        )
+        
+        # Save the diarized segments as the main output
+        output_json = stage_io.get_output_path("diarized.json")
+        with open(output_json, 'w', encoding='utf-8') as f:
+            json.dump({"segments": labeled_segments}, f, indent=2, ensure_ascii=False)
+        logger.info(f"Saved diarized segments: {output_json}")
+        
+        logger.info("✓ Diarization completed successfully")
+        logger.info("=" * 60)
+        logger.info("DIARIZATION STAGE COMPLETED")
+        logger.info("=" * 60)
+        
+        return 0
+        
+    except Exception as e:
+        logger.error(f"Diarization failed: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

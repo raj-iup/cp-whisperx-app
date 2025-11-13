@@ -1,5 +1,0 @@
-# Lyrics detection requirements
-# Common deps (numpy, scipy) are in requirements-common.txt
-
-# Audio analysis for music detection
-librosa>=0.10.0

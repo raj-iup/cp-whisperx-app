@@ -103,6 +103,35 @@ log_info "  This can take a while, but pinned versions resolve much faster..."
 python -m pip install -r "$SELECTED_REQ_FILE"
 
 # ============================================================================
+# MLX-WHISPER INSTALLATION (Apple Silicon only)
+# ============================================================================
+if [[ "$OS_TYPE" == "Darwin" ]] && [[ "$ARCH_TYPE" == "arm64" ]]; then
+    log_section "MLX-WHISPER (APPLE SILICON GPU ACCELERATION)"
+    log_info "Detected Apple Silicon (M1/M2/M3) - installing MLX-Whisper..."
+    
+    if python -c "import mlx_whisper" 2>/dev/null; then
+        mlx_version=$(python -c "import mlx_whisper; print(mlx_whisper.__version__ if hasattr(mlx_whisper, '__version__') else 'installed')" 2>&1)
+        log_success "MLX-Whisper already installed: $mlx_version"
+    else
+        log_info "Installing mlx-whisper for 2-4x faster ASR on Apple Silicon..."
+        python -m pip install "mlx-whisper>=0.4.0" --quiet
+        
+        if [ $? -eq 0 ]; then
+            mlx_version=$(python -c "import mlx_whisper; print(mlx_whisper.__version__ if hasattr(mlx_whisper, '__version__') else 'installed')" 2>&1)
+            log_success "MLX-Whisper installed: $mlx_version"
+            log_info "  → WhisperX ASR will use Metal/MPS acceleration"
+            log_info "  → Expected speedup: 2-4x faster than CPU"
+        else
+            log_warn "Failed to install MLX-Whisper (optional)"
+            log_info "  → WhisperX will fall back to CPU (slower)"
+            log_info "  → To install manually: pip install mlx-whisper"
+        fi
+    fi
+else
+    log_info "MLX-Whisper: Skipped (Apple Silicon only)"
+fi
+
+# ============================================================================
 # TORCH/TORCHAUDIO/NUMPY VERSION VERIFICATION
 # ============================================================================
 log_info "Verifying torch/torchaudio/numpy versions..."

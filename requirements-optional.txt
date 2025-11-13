@@ -1,0 +1,10 @@
+# Optional dependencies for enhanced features
+# These are not required but provide additional functionality
+
+# ML-based glossary selection (recommended for best accuracy)
+# Provides semantic embeddings for intelligent term selection
+# Falls back to TF-IDF if not installed
+sentence-transformers>=2.2.0
+
+# Note: transformers is already in main requirements.txt
+# sentence-transformers provides optimized inference and better accuracy

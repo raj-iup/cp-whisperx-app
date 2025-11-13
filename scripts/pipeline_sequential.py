@@ -61,7 +61,7 @@ class PipelineManifest:
     def _load_or_init(self) -> dict:
         """Load existing manifest or create new one."""
         if self.path.exists():
-            with open(self.path, 'r') as f:
+            with open(self.path, 'r', encoding='utf-8', errors='replace') as f:
                 return json.load(f)
         
         return {

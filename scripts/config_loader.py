@@ -59,7 +59,7 @@ class Config:
         if not self.secrets_file.exists():
             raise FileNotFoundError(f"Secrets file not found: {self.secrets_file}")
 
-        with open(self.secrets_file) as f:
+        with open(self.secrets_file, 'r', encoding='utf-8', errors='replace') as f:
             self._secrets = json.load(f)
 
     def get(self, key: str, default: Any = None) -> Any:

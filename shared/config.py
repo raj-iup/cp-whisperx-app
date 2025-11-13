@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 from typing import Optional, Any
 from pydantic_settings import BaseSettings
-from pydantic import Field
+from pydantic import Field, field_validator
 
 
 class PipelineConfig(BaseSettings):
@@ -16,6 +16,24 @@ class PipelineConfig(BaseSettings):
     # Job Configuration
     job_id: str = Field(default="", env="JOB_ID")
     user_id: int = Field(default=1, env="USER_ID")
+    title: Optional[str] = Field(default=None, env="TITLE")
+    year: Optional[int] = Field(default=None, env="YEAR")
+    
+    @field_validator('title', mode='before')
+    @classmethod
+    def empty_str_to_none_title(cls, v):
+        """Convert empty string to None for optional title."""
+        if v == '' or v is None:
+            return None
+        return v
+    
+    @field_validator('year', mode='before')
+    @classmethod
+    def empty_str_to_none_year(cls, v):
+        """Convert empty string to None for optional year."""
+        if v == '' or v is None:
+            return None
+        return int(v)
     
     # Docker Registry
     docker_registry: str = Field(default="rajiup", env="DOCKER_REGISTRY")
@@ -42,7 +60,9 @@ class PipelineConfig(BaseSettings):
     step_demux: bool = Field(default=True, env="STEP_DEMUX")
     step_tmdb_metadata: bool = Field(default=True, env="STEP_TMDB_METADATA")
     step_pre_asr_ner: bool = Field(default=True, env="STEP_PRE_ASR_NER")
+    step_vad_silero: bool = Field(default=True, env="STEP_VAD_SILERO")
     step_silero_vad: bool = Field(default=True, env="STEP_SILERO_VAD")
+    step_vad_pyannote: bool = Field(default=True, env="STEP_VAD_PYANNOTE")
     step_pyannote_vad: bool = Field(default=True, env="STEP_PYANNOTE_VAD")
     step_diarization: bool = Field(default=True, env="STEP_DIARIZATION")
     step_whisperx: bool = Field(default=True, env="STEP_WHISPERX")
@@ -67,6 +87,13 @@ class PipelineConfig(BaseSettings):
     pre_ner_confidence_threshold: float = Field(default=0.0, env="PRE_NER_CONFIDENCE")
     pre_ner_entity_types: str = Field(default="PERSON,ORG,GPE,LOC,FAC", env="PRE_NER_ENTITY_TYPES")
     
+    # Bias Injection
+    bias_enabled: bool = Field(default=True, env="BIAS_ENABLED")
+    bias_window_seconds: int = Field(default=45, env="BIAS_WINDOW_SECONDS")
+    bias_stride_seconds: int = Field(default=15, env="BIAS_STRIDE_SECONDS")
+    bias_topk: int = Field(default=10, env="BIAS_TOPK")
+    bias_min_confidence: float = Field(default=0.6, env="BIAS_MIN_CONFIDENCE")
+    
     # Whisper/WhisperX - Basic parameters
     whisper_model: str = Field(default="large-v3", env="WHISPER_MODEL")
     whisper_compute_type: str = Field(default="int8", env="WHISPER_COMPUTE_TYPE")
@@ -87,7 +114,8 @@ class PipelineConfig(BaseSettings):
     whisper_initial_prompt: str = Field(default="", env="WHISPER_INITIAL_PROMPT")
     
     # WhisperX specific
-    whisperx_device: str = Field(default="cpu", env="WHISPERX_DEVICE")
+    whisperx_device: str = Field(default="auto", env="WHISPERX_DEVICE")  # auto, cpu, cuda, mps
+    whisperx_backend: str = Field(default="auto", env="WHISPERX_BACKEND")  # auto, whisperx, mlx, ctranslate2
     whisperx_align_extend: float = Field(default=2.0, env="WHISPERX_ALIGN_EXTEND")
     whisperx_align_from_prev: bool = Field(default=True, env="WHISPERX_ALIGN_FROM_PREV")
     
@@ -108,7 +136,7 @@ class PipelineConfig(BaseSettings):
     pyannote_offset: float = Field(default=0.5, env="PYANNOTE_OFFSET")
     pyannote_min_duration_on: float = Field(default=0.0, env="PYANNOTE_MIN_DURATION_ON")
     pyannote_min_duration_off: float = Field(default=0.0, env="PYANNOTE_MIN_DURATION_OFF")
-    pyannote_device: str = Field(default="cpu", env="PYANNOTE_DEVICE")
+    pyannote_device: str = Field(default="auto", env="PYANNOTE_DEVICE")  # auto, cpu, cuda, mps
     pyannote_window_pad: float = Field(default=0.25, env="PYANNOTE_WINDOW_PAD")
     pyannote_merge_gap: float = Field(default=0.2, env="PYANNOTE_MERGE_GAP")
     
@@ -116,7 +144,7 @@ class PipelineConfig(BaseSettings):
     diarization_min_speakers: int = Field(default=1, env="DIARIZATION_MIN_SPEAKERS")
     diarization_max_speakers: int = Field(default=10, env="DIARIZATION_MAX_SPEAKERS")
     diarization_model: str = Field(default="pyannote/speaker-diarization-3.1", env="DIARIZATION_MODEL")
-    diarization_device: str = Field(default="cpu", env="DIARIZATION_DEVICE")
+    diarization_device: str = Field(default="auto", env="DIARIZATION_DEVICE")  # auto, cpu, cuda, mps
     diarization_method: str = Field(default="pyannote", env="DIARIZATION_METHOD")
     speaker_map: str = Field(default="", env="SPEAKER_MAP")
     

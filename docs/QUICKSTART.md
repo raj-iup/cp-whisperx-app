@@ -1,251 +1,297 @@
 # Quick Start Guide
 
-**Get up and running with CP-WhisperX-App in 5 minutes**
+Get CP-WhisperX-App running in **5 minutes**!
 
 ---
 
 ## Prerequisites
 
-Before starting, ensure you have:
-- ✅ Python 3.11 or higher
-- ✅ 16GB+ RAM (8GB minimum)
-- ✅ 50GB+ free disk space
-- ✅ One of:
-  - macOS with Apple Silicon (M1/M2/M3) - Recommended
-  - Windows 10/11 with NVIDIA GPU
-  - Linux with NVIDIA GPU or CPU
+- **Python 3.11+** installed
+- **20GB free disk space**
+- **8GB+ RAM** (16GB recommended)
+- Optional: **GPU** (Apple Silicon or NVIDIA CUDA)
 
 ---
 
-## Step 1: Clone & Setup (2 minutes)
+## Step 1: Clone and Bootstrap (2 minutes)
 
 ```bash
-# Clone the repository
-git clone <repository-url>
+# Clone repository
+git clone https://github.com/yourusername/cp-whisperx-app.git
 cd cp-whisperx-app
 
-# Run bootstrap (one-time setup)
-./scripts/bootstrap.sh    # macOS/Linux
+# Run bootstrap script
+./scripts/bootstrap.sh  # macOS/Linux
 # OR
-.\scripts\bootstrap.ps1   # Windows
+.\scripts\bootstrap.ps1  # Windows
 ```
 
 **What bootstrap does:**
 - Creates Python virtual environment (`.bollyenv`)
 - Installs all dependencies
-- Detects your hardware (GPU/CPU)
-- Sets up model cache directories
-- Optionally pre-downloads ML models
-
-**Expected output:**
-```
-✓ Python 3.11.x detected
-✓ Virtual environment created
-✓ Dependencies installed
-✓ Hardware detected: Apple M1 Pro (MPS)
-✓ Cache directories created
-✓ Bootstrap complete!
-```
+- Detects GPU capabilities
+- Creates default configuration
 
 ---
 
-## Step 2: Configure API Keys (1 minute)
-
-Create `config/secrets.json`:
+## Step 2: Configure (1 minute)
 
 ```bash
-mkdir -p config
-cat > config/secrets.json << 'EOF'
+# Copy template configuration
+cp config/.env.pipeline.template config/.env.pipeline
+
+# Edit configuration (optional - defaults work fine)
+nano config/.env.pipeline
+```
+
+**Minimum required settings:**
+```bash
+# config/.env.pipeline
+HF_TOKEN=your_huggingface_token  # Get from https://huggingface.co/settings/tokens
+```
+
+**Optional: Get TMDB API key** (for cast/crew metadata):
+```bash
+# config/secrets.json
 {
-  "TMDB_API_KEY": "your-tmdb-api-key-here",
-  "HF_TOKEN": "your-huggingface-token-here"
+  "tmdb_api_key": "your_tmdb_api_key",  # Get from https://www.themoviedb.org/settings/api
+  "hf_token": "your_huggingface_token"
 }
-EOF
 ```
-
-**Get API keys:**
-- **TMDB**: Sign up at [themoviedb.org](https://www.themoviedb.org/settings/api) (free)
-- **HuggingFace**: Get token at [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) (free)
 
 ---
 
-## Step 3: Process Your First Movie (1 minute)
+## Step 3: Prepare a Job (30 seconds)
 
 ```bash
-# 1. Place movie in input directory
-cp /path/to/your/movie.mp4 in/
+# Prepare a job from a video file
+./prepare-job.sh /path/to/movie.mp4
 
-# 2. Prepare the job
-./prepare-job.sh in/movie.mp4
+# Example output:
+# ✓ Created job: 20251113-0001
+# ✓ Job directory: out/2025/11/13/1/20251113-0001/
+# ✓ Configuration: out/2025/11/13/1/20251113-0001/.20251113-0001.env
+```
 
-# Output example:
-# ✓ Parsed: Kabhi Khushi Kabhie Gham (2001)
-# ✓ Job created: 20251108-0001
-# ✓ Configuration: out/2025/11/08/1/20251108-0001/.20251108-0001.env
+**What this does:**
+- Creates job directory structure
+- Copies video to job input
+- Generates job-specific configuration
+- Parses filename for metadata (title, year, etc.)
 
-# 3. Run pipeline
-./run_pipeline.sh --job 20251108-0001
+---
+
+## Step 4: Run the Pipeline (1-4 hours depending on hardware)
+
+```bash
+# Run the complete pipeline
+./run_pipeline.sh --job 20251113-0001
 ```
 
 **What happens:**
-1. Audio extraction (10 min)
-2. Metadata fetch (2 min)
-3. Entity extraction (5 min)
-4. Voice activity detection (30 min)
-5. Speaker diarization (2 hours)
-6. WhisperX transcription (4 hours)
-7. Translation refinement (2 hours)
-8. Lyrics detection (30 min)
-9. Entity correction (20 min)
-10. Subtitle generation (10 min)
-11. Video muxing (10 min)
+```
+Stage  1/14: Demux          ✓ Completed in 45s
+Stage  2/14: TMDB           ✓ Completed in 12s
+Stage  3/14: Pre-NER        ✓ Completed in 8s
+Stage  4/14: Silero VAD     ✓ Completed in 234s
+Stage  5/14: PyAnnote VAD   ✓ Completed in 456s
+Stage  6/14: Diarization    ✓ Completed in 678s
+Stage  7/14: ASR            ✓ Completed in 2847s (47 min)
+Stage  8/14: Glossary       ✓ Completed in 45s
+Stage  9/14: Translation    ✓ Completed in 567s
+Stage 10/14: Lyrics         ✓ Completed in 234s
+Stage 11/14: Post-NER       ✓ Completed in 123s
+Stage 12/14: Subtitles      ✓ Completed in 89s
+Stage 13/14: Mux            ✓ Completed in 67s
+Stage 14/14: Finalize       ✓ Completed in 12s
 
-**Total time**: ~10 hours for a 2.5-hour movie (with GPU)
+✅ Pipeline completed successfully!
+```
+
+**Processing time estimates (2-hour movie):**
+- **CPU only**: 4-6 hours
+- **Apple M2 (MPS)**: 2-3 hours  
+- **NVIDIA RTX 3090**: 1.5-2 hours
+- **Speed mode**: 1-1.5 hours (skip VAD/diarization)
 
 ---
 
-## Step 4: View Results (30 seconds)
+## Step 5: Get Your Subtitles! (instant)
 
 ```bash
-# Find your subtitles
-ls out/2025/11/08/1/20251108-0001/subtitles/subtitles.srt
+# Output directory
+out/2025/11/13/1/20251113-0001/
 
-# View final muxed video
-ls out/2025/11/08/1/20251108-0001/final_output.mp4
-```
-
-**Output structure:**
-```
-out/2025/11/08/1/20251108-0001/
+# Subtitles
 ├── subtitles/
-│   └── subtitles.srt          ← Your English subtitles!
-├── final_output.mp4            ← Video with embedded subtitles
-├── asr/
-│   └── transcript.json         ← Raw transcription
-└── logs/                       ← Processing logs
+│   ├── movie.srt           ← English subtitles (SRT format)
+│   └── movie.vtt           ← English subtitles (VTT format)
+
+# Video with embedded subtitles
+├── movie.with_subs.mp4     ← Video with embedded subtitles
+
+# Intermediate outputs (for debugging)
+├── 01_demux/
+├── 07_asr/
+│   ├── transcript.json     ← Original transcript
+│   └── translation.json    ← Translated transcript
+└── logs/                   ← All stage logs
 ```
 
 ---
 
-## Common Commands
+## Quick Examples
 
-### Check Job Status
+### Example 1: Basic Run
+
 ```bash
-./scripts/pipeline-status.sh 20251108-0001
+./prepare-job.sh Dilwale_Dulhania_Le_Jayenge_1995.mp4
+./run_pipeline.sh --job 20251113-0001
 ```
 
-### Resume Failed Job
+### Example 2: Resume Interrupted Job
+
 ```bash
-# If pipeline fails, resume from checkpoint
-./resume-pipeline.sh 20251108-0001
+# Pipeline was interrupted at stage 7 (ASR)
+./run_pipeline.sh --job 20251113-0001
+# Automatically resumes from stage 7
 ```
 
-### Run Specific Stages
+### Example 3: Speed Mode (Skip VAD/Diarization)
+
 ```bash
-# Re-run only subtitle generation
-./run_pipeline.sh --job 20251108-0001 --stages "subtitle_gen mux"
+# Edit job config before running
+nano out/2025/11/13/1/20251113-0001/.20251113-0001.env
+
+# Set:
+STEP_SILERO_VAD=false
+STEP_PYANNOTE_VAD=false  
+STEP_DIARIZATION=false
+
+# Run (30-50% faster, single speaker assumed)
+./run_pipeline.sh --job 20251113-0001
 ```
 
-### Transcription Only (No Subtitles)
+### Example 4: Specific Stages Only
+
 ```bash
-./prepare-job.sh --workflow transcribe in/movie.mp4
-./run_pipeline.sh --job 20251108-0002
-# Output: transcript.txt
+# Run only ASR and subtitle generation
+./run_pipeline.sh --job 20251113-0001 --stages "asr subtitle_gen"
 ```
 
 ---
 
-## Troubleshooting Quick Fixes
+## Verification
 
-### Bootstrap Fails
+### Check Logs
+
 ```bash
-# Check Python version
-python3 --version  # Should be 3.11+
+# View orchestrator log
+tail -f out/2025/11/13/1/20251113-0001/logs/00_orchestrator_*.log
 
-# Clean and retry
-rm -rf .bollyenv
-./scripts/bootstrap.sh
+# View specific stage log (e.g., ASR)
+cat out/2025/11/13/1/20251113-0001/logs/07_asr_*.log
 ```
 
-### "No GPU Detected" (but you have one)
-```bash
-# Check hardware cache
-cat out/hardware_cache.json | grep gpu_type
+### Check Output Quality
 
-# If wrong, delete cache and re-run bootstrap
-rm out/hardware_cache.json
-./scripts/bootstrap.sh
+```bash
+# View generated subtitles
+cat out/2025/11/13/1/20251113-0001/subtitles/movie.srt | head -20
+
+# Check bias prompting was active
+grep "🎯 Active bias prompting" out/*/logs/07_asr_*.log
+
+# Check transcript
+jq '.segments[:5]' out/2025/11/13/1/20251113-0001/07_asr/transcript.json
 ```
 
-### Models Fail to Download
+---
+
+## Troubleshooting
+
+### Issue: Python version error
+
 ```bash
-# Verify HuggingFace token
-cat config/secrets.json | grep HF_TOKEN
-
-# Check disk space
-df -h .
-
-# Verify cache permissions
-ls -la .cache/
+# Solution: Use Python 3.11+
+python3.11 -m venv .bollyenv
+source .bollyenv/bin/activate
+pip install -r requirements.txt
 ```
 
-### Permission Errors
-```bash
-# Fix cache permissions
-chmod 755 .cache/torch .cache/huggingface
+### Issue: GPU not detected
 
-# Fix output permissions
-chmod 755 out/
+```bash
+# Check GPU availability
+python3 -c "import torch; print('MPS:', torch.backends.mps.is_available())"
+python3 -c "import torch; print('CUDA:', torch.cuda.is_available())"
+
+# Force CPU if needed
+export DEVICE=cpu
+./run_pipeline.sh --job <job-id>
+```
+
+### Issue: HuggingFace token error
+
+```bash
+# Get token from https://huggingface.co/settings/tokens
+export HF_TOKEN=your_token_here
+./run_pipeline.sh --job <job-id>
+```
+
+### Issue: Out of memory
+
+```bash
+# Use smaller Whisper model
+export WHISPER_MODEL=medium  # or small, base
+./run_pipeline.sh --job <job-id>
 ```
 
 ---
 
 ## Next Steps
 
-Now that you have your first subtitles:
+Now that you have the basic pipeline running:
 
-1. **Learn More**: Read [Architecture Overview](ARCHITECTURE.md)
-2. **Advanced Usage**: See [Running Pipeline Guide](RUNNING.md)
-3. **Customize**: Review [Configuration Guide](CONFIGURATION.md)
-4. **Troubleshoot**: Check [Troubleshooting Guide](TROUBLESHOOTING.md)
-
----
-
-## Performance Tips
-
-### Faster Processing
-- ✅ Use GPU (MPS/CUDA) instead of CPU: 10-15x faster
-- ✅ Use `large-v3` model for best quality
-- ✅ Enable resume capability (default)
-- ✅ Run on SSD for better I/O
-
-### Quality Improvements
-- ✅ Ensure good audio quality in source
-- ✅ Use TMDB metadata for better context
-- ✅ Review and update entity lists
-- ✅ Fine-tune diarization settings
+1. **Optimize configuration** → [Configuration Guide](docs/user-guide/CONFIGURATION.md)
+2. **Understand the pipeline** → [Pipeline Stages](docs/technical/PIPELINE_STAGES.md)
+3. **Improve accuracy** → [Bias System](docs/technical/BIAS_SYSTEM.md)
+4. **Customize glossaries** → [Glossary System](docs/technical/GLOSSARY_SYSTEM.md)
+5. **Troubleshoot issues** → [Troubleshooting Guide](docs/reference/TROUBLESHOOTING.md)
 
 ---
 
-## What You've Learned
+## Quick Command Reference
 
-- ✅ How to set up the environment
-- ✅ How to configure API keys
-- ✅ How to prepare and run jobs
-- ✅ Where to find output files
-- ✅ Basic troubleshooting
+```bash
+# Bootstrap
+./scripts/bootstrap.sh
+
+# Prepare job
+./prepare-job.sh <video_file>
+
+# Run pipeline
+./run_pipeline.sh --job <job-id>
+
+# Resume pipeline
+./run_pipeline.sh --job <job-id>
+
+# Start fresh
+./run_pipeline.sh --job <job-id> --no-resume
+
+# Run specific stages
+./run_pipeline.sh --job <job-id> --stages "stage1 stage2"
+
+# List available stages
+./run_pipeline.sh --list-stages
+
+# Check status
+./test-pipeline-status.sh <job-id>
+
+# View logs
+tail -f out/YYYY/MM/DD/N/JOBID/logs/00_orchestrator_*.log
+```
 
 ---
 
-## Support
-
-- **Documentation**: Full guides in `docs/` directory
-- **Status Check**: `./scripts/pipeline-status.sh [job_id]`
-- **Issues**: Open an issue on GitHub
-- **Community**: Join discussions (if available)
-
----
-
-**Congratulations! You've successfully generated your first Bollywood subtitles! 🎉**
-
-Return to [Documentation Index](INDEX.md) | Read [Bootstrap Guide](BOOTSTRAP.md)
+**Questions? See [FAQ](docs/reference/FAQ.md) or [Troubleshooting Guide](docs/reference/TROUBLESHOOTING.md)**
