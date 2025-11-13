@@ -705,6 +705,101 @@ def save_hardware_cache(hw_info: Dict, cache_file: Path = None) -> None:
     print(f"  ✓ Hardware cache saved: {cache_file}")
 
 
+def update_pipeline_config(hw_info: Dict, config_file: Path = None) -> bool:
+    """
+    Update config/.env.pipeline with hardware-optimized settings.
+    
+    Writes detected device, batch size, and MPS environment vars to the
+    pipeline configuration file for use by prepare-job and pipeline stages.
+    
+    Args:
+        hw_info: Hardware information dict with recommended_settings
+        config_file: Path to pipeline config (default: config/.env.pipeline)
+    
+    Returns:
+        True if successful, False otherwise
+    """
+    if config_file is None:
+        config_file = Path('config/.env.pipeline')
+    
+    if not config_file.exists():
+        print(f"  ⚠ Config file not found: {config_file}")
+        return False
+    
+    try:
+        # Read existing config
+        with open(config_file, 'r') as f:
+            lines = f.readlines()
+        
+        # Extract settings
+        gpu_type = hw_info.get('gpu_type', 'cpu')
+        settings = hw_info.get('recommended_settings', {})
+        batch_size = settings.get('batch_size', 16)
+        whisper_model = settings.get('whisper_model', 'large-v3')
+        compute_type = settings.get('compute_type', 'float16')
+        
+        # Update lines
+        updated_lines = []
+        updated_device = False
+        updated_batch = False
+        updated_whisperx_device = False
+        updated_model = False
+        updated_compute = False
+        
+        for line in lines:
+            # Update global DEVICE
+            if line.startswith('DEVICE='):
+                updated_lines.append(f'DEVICE={gpu_type}\n')
+                updated_device = True
+            # Update BATCH_SIZE
+            elif line.startswith('BATCH_SIZE='):
+                updated_lines.append(f'BATCH_SIZE={batch_size}\n')
+                updated_batch = True
+            # Update WHISPERX_DEVICE
+            elif line.startswith('WHISPERX_DEVICE='):
+                updated_lines.append(f'WHISPERX_DEVICE={gpu_type}\n')
+                updated_whisperx_device = True
+            # Update WHISPER_MODEL
+            elif line.startswith('WHISPER_MODEL='):
+                updated_lines.append(f'WHISPER_MODEL={whisper_model}\n')
+                updated_model = True
+            # Update WHISPER_COMPUTE_TYPE
+            elif line.startswith('WHISPER_COMPUTE_TYPE='):
+                updated_lines.append(f'WHISPER_COMPUTE_TYPE={compute_type}\n')
+                updated_compute = True
+            # Update stage-specific devices (optional - make them follow global)
+            elif line.startswith('SILERO_DEVICE='):
+                updated_lines.append(f'SILERO_DEVICE={gpu_type}\n')
+            elif line.startswith('PYANNOTE_DEVICE='):
+                updated_lines.append(f'PYANNOTE_DEVICE={gpu_type}\n')
+            elif line.startswith('DIARIZATION_DEVICE='):
+                updated_lines.append(f'DIARIZATION_DEVICE={gpu_type}\n')
+            else:
+                updated_lines.append(line)
+        
+        # Write updated config
+        with open(config_file, 'w') as f:
+            f.writelines(updated_lines)
+        
+        print(f"  ✓ Updated pipeline config: {config_file}")
+        if updated_device:
+            print(f"    • DEVICE={gpu_type}")
+        if updated_batch:
+            print(f"    • BATCH_SIZE={batch_size}")
+        if updated_whisperx_device:
+            print(f"    • WHISPERX_DEVICE={gpu_type}")
+        if updated_model:
+            print(f"    • WHISPER_MODEL={whisper_model}")
+        if updated_compute:
+            print(f"    • WHISPER_COMPUTE_TYPE={compute_type}")
+        
+        return True
+        
+    except Exception as e:
+        print(f"  ⚠ Failed to update config: {e}")
+        return False
+
+
 def load_hardware_cache(cache_file: Path = None, max_age_hours: float = 1.0) -> Optional[Dict]:
     """
     Load hardware info from cache if fresh.
@@ -766,6 +861,9 @@ def get_hardware_info(use_cache: bool = True, max_age_hours: float = 1.0) -> Dic
     
     # Save to cache
     save_hardware_cache(hw_info, cache_file)
+    
+    # Update pipeline config with optimized settings
+    update_pipeline_config(hw_info)
     
     return hw_info
 
