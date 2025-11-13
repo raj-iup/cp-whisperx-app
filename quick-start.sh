@@ -28,17 +28,21 @@ if [ ! -f "$INPUT_VIDEO" ]; then
     exit 1
 fi
 
-# Step 1: Preflight checks
+# Step 1: Ensure environment is set up
 echo ""
-echo "Step 1/3: Running preflight checks..."
+echo "Step 1/3: Checking environment..."
 echo "------------------------------------------------------------"
-log_info "Validating system requirements..."
+log_info "Verifying virtual environment setup..."
 
-if python3 scripts/preflight.py; then
-    log_success "Preflight checks passed"
+if [ ! -d ".bollyenv" ]; then
+    log_warning "Virtual environment not found. Running bootstrap..."
+    ./scripts/bootstrap.sh
+    if [ $? -ne 0 ]; then
+        log_error "Bootstrap failed! Please check errors."
+        exit 1
+    fi
 else
-    log_error "Preflight checks failed! Please fix errors before continuing."
-    exit 1
+    log_success "Environment ready"
 fi
 
 # Step 2: Prepare job
