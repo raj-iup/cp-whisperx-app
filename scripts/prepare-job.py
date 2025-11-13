@@ -159,9 +159,7 @@ def _calculate_optimal_settings(hw_info: dict) -> dict:
         'chunk_length_s': 30,
         'chunk_length_reason': '',
         'max_speakers': 10,
-        'max_speakers_reason': '',
-        'use_docker_cpu_fallback': True,
-        'docker_recommendation': ''
+        'max_speakers_reason': ''
     }
     
     memory_gb = hw_info['memory_gb']
@@ -185,8 +183,6 @@ def _calculate_optimal_settings(hw_info: dict) -> dict:
         settings['device_whisperx'] = gpu_type
         settings['device_diarization'] = gpu_type
         settings['device_vad'] = gpu_type
-        settings['use_docker_cpu_fallback'] = True
-        settings['docker_recommendation'] = f'Use {gpu_type} images with CPU fallback enabled'
     else:
         # CPU only
         if memory_gb >= 16:
@@ -202,8 +198,6 @@ def _calculate_optimal_settings(hw_info: dict) -> dict:
         settings['device_whisperx'] = 'cpu'
         settings['device_diarization'] = 'cpu'
         settings['device_vad'] = 'cpu'
-        settings['use_docker_cpu_fallback'] = False
-        settings['docker_recommendation'] = 'Use CPU images only'
     
     # Batch size based on available resources
     if gpu_type in ['cuda', 'mps']:
@@ -693,14 +687,12 @@ DEVICE_NER=cpu
                 f"# GPU Type: {hw_info['gpu_type'].upper()}",
                 "#",
                 "# RECOMMENDATION: GPU acceleration available",
-                f"# Docker: {settings['docker_recommendation']}",
             ])
         else:
             config_lines.extend([
                 "# GPU: Not available",
                 "#",
                 "# RECOMMENDATION: CPU-only execution",
-                "# Docker: Use CPU images only",
                 "# WARNING: Processing will be slower without GPU",
             ])
         
@@ -860,13 +852,6 @@ DEVICE_NER=cpu
                         f"# Create: glossary/prompts/{media_path.stem.lower().replace(' ', '_')}.txt",
                         f"FILM_PROMPT_PATH="
                     ])
-            
-            # Docker-specific settings
-            elif line.startswith('USE_GPU_FALLBACK='):
-                config_lines.extend([
-                    f"# GPU fallback enabled for reliability",
-                    f"USE_GPU_FALLBACK={'true' if settings['use_docker_cpu_fallback'] else 'false'}"
-                ])
             
             else:
                 # Keep original line

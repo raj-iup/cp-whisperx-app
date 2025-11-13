@@ -95,7 +95,7 @@ class DiarizationProcessor:
         if self.device == "cpu":
             self.logger.warning("  ⚠️  Running diarization on CPU is VERY SLOW")
             self.logger.warning("  ⚠️  This may take hours for long audio files")
-            self.logger.warning("  ⚠️  Consider using GPU acceleration or Docker mode")
+            self.logger.warning("  ⚠️  Consider using GPU acceleration")
 
         try:
             # Use pyannote.audio Pipeline directly
