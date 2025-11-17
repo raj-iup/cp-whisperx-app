@@ -400,6 +400,7 @@ def main():
     from pathlib import Path
     from shared.logger import PipelineLogger
     from shared.config import load_config
+    from shared.stage_utils import StageIO
     
     # Get output directory and config from environment or command line
     output_dir_env = os.environ.get('OUTPUT_DIR')
@@ -419,14 +420,16 @@ def main():
     else:
         config = None
     
-    # Setup logger
-    log_dir = output_dir / "logs"
-    log_dir.mkdir(parents=True, exist_ok=True)
-    log_file = log_dir / "second_pass_translation.log"
+    # Initialize StageIO for proper directory structure
+    stage_io = StageIO("second_pass_translation", output_base=output_dir)
+    
+    # Setup logger with proper log path
+    log_file = stage_io.get_log_path()
     logger = PipelineLogger("second_pass_translation", log_file)
     
     logger.info("Running second-pass translation refinement")
     logger.info(f"Output directory: {output_dir}")
+    logger.info(f"Stage directory: {stage_io.stage_dir}")
     
     # Check if second pass is enabled
     second_pass_enabled = getattr(config, 'second_pass_enabled', True) if config else True
@@ -434,26 +437,44 @@ def main():
         logger.info("Second-pass translation disabled, skipping")
         return 0
     
-    # Load transcript from ASR
-    asr_file = output_dir / "07_asr" / "transcript.json"
-    if not asr_file.exists():
-        # Fallback to old paths
-        asr_file = output_dir / "05_asr" / "transcript.json"
-    if not asr_file.exists():
-        asr_file = output_dir / "asr" / "transcript.json"
+    # Load transcript from ASR - check multiple possible locations
+    logger.info("Loading ASR transcript...")
     
-    if not asr_file.exists():
-        logger.warning(f"ASR output not found: {asr_file}")
+    asr_file_locations = [
+        output_dir / "06_asr" / "transcript.json",  # Standard stage location
+        output_dir / "06_asr" / "segments.json",    # Segments file
+        output_dir / "07_song_bias_injection" / "segments.json",  # After song bias
+        output_dir / "asr" / "transcript.json",     # Legacy location
+        output_dir / "07_asr" / "transcript.json",  # Alternate
+        output_dir / "05_asr" / "transcript.json"   # Alternate
+    ]
+    
+    segments = None
+    asr_file = None
+    
+    for location in asr_file_locations:
+        if location.exists():
+            asr_file = location
+            logger.info(f"Found ASR output: {asr_file}")
+            try:
+                with open(asr_file, 'r') as f:
+                    asr_data = json.load(f)
+                    segments = asr_data.get('segments', []) if isinstance(asr_data, dict) else asr_data
+                    
+                if segments:
+                    logger.info(f"Loaded {len(segments)} segments")
+                    break
+            except Exception as e:
+                logger.warning(f"Failed to load {location}: {e}")
+                continue
+    
+    if not segments:
+        logger.warning("ASR output not found in any expected location")
+        logger.info("Expected locations:")
+        for loc in asr_file_locations:
+            logger.info(f"  - {loc}")
         logger.warning("Skipping second-pass translation")
         return 0
-    
-    try:
-        with open(asr_file, 'r') as f:
-            asr_data = json.load(f)
-            segments = asr_data.get('segments', [])
-    except Exception as e:
-        logger.error(f"Could not load ASR data: {e}")
-        return 1
     
     # Get configuration parameters
     backend = getattr(config, 'second_pass_backend', 'nllb') if config else 'nllb'
@@ -469,10 +490,10 @@ def main():
     logger.info(f"Segments to process: {len(segments)}")
     
     try:
-        # Run translation refinement
+        # Run translation refinement - save to stage directory
         refined_segments = run_translation_refine_pipeline(
             segments=segments,
-            output_dir=output_dir,
+            output_dir=stage_io.stage_dir,
             basename="refined",
             backend=backend,
             source_lang=source_lang,
@@ -481,6 +502,18 @@ def main():
             refine_all=refine_all,
             logger=logger
         )
+        
+        # Save metadata
+        metadata = {
+            "status": "completed",
+            "segments_total": len(segments),
+            "segments_refined": len([s for s in refined_segments if s.get("refined")]),
+            "backend": backend,
+            "source_lang": source_lang,
+            "target_lang": target_lang,
+            "device": device
+        }
+        stage_io.save_metadata(metadata)
         
         logger.info(f"✓ Translation refinement completed successfully")
         logger.info(f"  Refined segments: {len(refined_segments)}")

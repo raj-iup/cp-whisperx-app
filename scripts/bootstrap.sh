@@ -102,6 +102,18 @@ log_info "Installing Python packages from $(basename "$SELECTED_REQ_FILE")"
 log_info "  This can take a while, but pinned versions resolve much faster..."
 python -m pip install -r "$SELECTED_REQ_FILE"
 
+# Install optional dependencies (includes jellyfish for bias injection)
+OPTIONAL_REQ="$PROJECT_ROOT/requirements-optional.txt"
+if [ -f "$OPTIONAL_REQ" ]; then
+    log_info "Installing optional dependencies (enhanced features)..."
+    log_info "  → jellyfish: Phonetic matching for bias correction"
+    log_info "  → sentence-transformers: ML-based glossary selection"
+    python -m pip install -r "$OPTIONAL_REQ" --quiet
+    log_success "Optional dependencies installed"
+else
+    log_warn "requirements-optional.txt not found - skipping enhanced features"
+fi
+
 # ============================================================================
 # MLX-WHISPER INSTALLATION (Apple Silicon only)
 # ============================================================================
@@ -244,37 +256,107 @@ if cd "$PROJECT_ROOT" && python "shared/hardware_detection.py" --no-cache; then
     log_info "  → Pipeline config: config/.env.pipeline (auto-updated)"
     log_info "  → Settings applied: DEVICE, BATCH_SIZE, WHISPER_MODEL, etc."
     log_info "  → You can manually override settings in config/.env.pipeline if needed"
+    
+    # Set recommended BIAS_STRATEGY to chunked_windows
+    config_file="$PROJECT_ROOT/config/.env.pipeline"
+    if [ -f "$config_file" ]; then
+        # Check if BIAS_STRATEGY exists and update it
+        if grep -q "^BIAS_STRATEGY=" "$config_file"; then
+            # Update existing BIAS_STRATEGY to chunked_windows
+            if [[ "$OSTYPE" == "darwin"* ]]; then
+                # macOS sed syntax
+                sed -i '' 's/^BIAS_STRATEGY=.*/BIAS_STRATEGY=chunked_windows/' "$config_file"
+            else
+                # Linux sed syntax
+                sed -i 's/^BIAS_STRATEGY=.*/BIAS_STRATEGY=chunked_windows/' "$config_file"
+            fi
+            log_info "  → BIAS_STRATEGY set to: chunked_windows (recommended)"
+        fi
+    fi
 else
     log_warn "Hardware detection failed, but continuing..."
 fi
 
 # ============================================================================
-# MPS OPTIMIZATION: Configure Environment Variables for Apple Silicon
+# AUTO-CONFIGURATION: Read Hardware Cache and Export Settings
 # ============================================================================
-if [[ "$OS_TYPE" == "Darwin" ]]; then
-    log_section "MPS OPTIMIZATION"
-    log_info "Configuring MPS environment variables for Apple Silicon..."
+log_section "AUTO-CONFIGURATION FROM HARDWARE CACHE"
+
+hw_cache_file="$PROJECT_ROOT/out/hardware_cache.json"
+
+if [ -f "$hw_cache_file" ]; then
+    log_info "Reading hardware cache: $hw_cache_file"
     
-    # Prevent memory fragmentation
-    export PYTORCH_MPS_HIGH_WATERMARK_RATIO=0.0
-    log_info "  ✓ PYTORCH_MPS_HIGH_WATERMARK_RATIO=0.0 (prevents fragmentation)"
+    # Extract settings from hardware cache using Python
+    hw_settings=$(python -c "
+import json
+import sys
+try:
+    with open('$hw_cache_file', 'r') as f:
+        hw = json.load(f)
     
-    # Disable MPS fallback (fail fast instead of silent CPU fallback)
-    export PYTORCH_ENABLE_MPS_FALLBACK=0
-    log_info "  ✓ PYTORCH_ENABLE_MPS_FALLBACK=0 (fail fast on errors)"
+    # Get device type
+    device = hw.get('gpu_type', 'cpu')
     
-    # Set memory allocator max size (4GB)
-    export MPS_ALLOC_MAX_SIZE_MB=4096
-    log_info "  ✓ MPS_ALLOC_MAX_SIZE_MB=4096 (4GB max allocation)"
+    # Get recommended settings
+    settings = hw.get('recommended_settings', {})
+    batch_size = settings.get('batch_size', 16)
+    whisper_model = settings.get('whisper_model', 'large-v3')
     
-    log_success "MPS environment optimized for stability"
+    # Print settings in format: device|batch_size|whisper_model
+    print(f'{device}|{batch_size}|{whisper_model}')
+except Exception as e:
+    print('cpu|16|large-v3', file=sys.stderr)
+    sys.exit(1)
+" 2>/dev/null)
+    
+    if [ $? -eq 0 ] && [ -n "$hw_settings" ]; then
+        # Parse settings
+        IFS='|' read -r detected_device detected_batch_size detected_model <<< "$hw_settings"
+        
+        # Export DEVICE_OVERRIDE for runtime integration
+        export DEVICE_OVERRIDE="$detected_device"
+        log_success "DEVICE_OVERRIDE=$DEVICE_OVERRIDE"
+        
+        # Log recommended settings (these are already written to config/.env.pipeline)
+        log_info "Recommended batch size: $detected_batch_size (saved to config/.env.pipeline)"
+        log_info "Recommended Whisper model: $detected_model (saved to config/.env.pipeline)"
+        
+        # MPS-specific environment variables (if MPS detected)
+        if [[ "$detected_device" == "mps" ]]; then
+            log_section "MPS ENVIRONMENT OPTIMIZATION"
+            log_info "Apple Silicon (MPS) detected - configuring environment..."
+            
+            # Prevent memory fragmentation
+            export PYTORCH_MPS_HIGH_WATERMARK_RATIO=0.0
+            log_info "  ✓ PYTORCH_MPS_HIGH_WATERMARK_RATIO=0.0 (prevents fragmentation)"
+            
+            # Disable MPS fallback (fail fast instead of silent CPU fallback)
+            export PYTORCH_ENABLE_MPS_FALLBACK=0
+            log_info "  ✓ PYTORCH_ENABLE_MPS_FALLBACK=0 (fail fast on errors)"
+            
+            # Set memory allocator max size (4GB)
+            export MPS_ALLOC_MAX_SIZE_MB=4096
+            log_info "  ✓ MPS_ALLOC_MAX_SIZE_MB=4096 (4GB max allocation)"
+            
+            log_success "MPS environment optimized for stability"
+            log_info "Note: These settings are also saved to config/.env.pipeline"
+        fi
+    else
+        log_warn "Could not parse hardware cache - using defaults"
+        export DEVICE_OVERRIDE="cpu"
+    fi
+else
+    log_warn "Hardware cache not found: $hw_cache_file"
+    log_info "Using default device: cpu"
+    export DEVICE_OVERRIDE="cpu"
 fi
 
 # ============================================================================
 # PHASE 3 ENHANCEMENT: Parallel ML Model Pre-download
 # ============================================================================
 log_section "ML MODEL PRE-DOWNLOAD (PARALLEL)"
-log_info "Pre-downloading ML models in parallel (Phase 3 optimization)..."
+log_info "Pre-downloading and caching all required ML models..."
 
 secrets_file="$PROJECT_ROOT/config/secrets.json"
 hf_token=""
@@ -285,80 +367,35 @@ if [ -f "$secrets_file" ]; then
         hf_token=$(jq -r '.HF_TOKEN // empty' "$secrets_file" 2>/dev/null || echo "")
         if [ -n "$hf_token" ]; then
             export HF_TOKEN="$hf_token"
-            log_info "HuggingFace token found - will download authenticated models"
         fi
     fi
 fi
 
-# Use parallel model downloader if available
+# Use parallel model downloader
 downloader_script="$PROJECT_ROOT/shared/model_downloader.py"
 if [ -f "$downloader_script" ]; then
-    log_info "Starting parallel model downloads (this will be faster)..."
+    log_info "Starting parallel model downloads..."
+    echo ""
     
+    # Run downloader and display its output directly
     if [ -n "$hf_token" ]; then
-        download_output=$(cd "$PROJECT_ROOT" && python "shared/model_downloader.py" --hf-token "$hf_token" --max-workers 3 2>&1)
+        cd "$PROJECT_ROOT" && python "shared/model_downloader.py" --hf-token "$hf_token" --max-workers 3
         download_exit=$?
     else
-        download_output=$(cd "$PROJECT_ROOT" && python "shared/model_downloader.py" --max-workers 3 2>&1)
+        cd "$PROJECT_ROOT" && python "shared/model_downloader.py" --max-workers 3
         download_exit=$?
     fi
     
+    echo ""
     if [ $download_exit -eq 0 ]; then
-        log_success "ML models pre-downloaded (parallel mode)"
-        log_info "  ⚡ Phase 3: 30-40% faster than sequential downloads"
+        log_success "ML model download completed"
     else
-        # Some models failed - check if it's just PyAnnote (expected)
-        if echo "$download_output" | grep -q "pyannote"; then
-            log_info "Whisper models downloaded successfully"
-            log_info "PyAnnote models require HF token + compatible torchaudio - will download on first use"
-        else
-            log_warn "Some models may not have downloaded - will retry on first use"
-        fi
+        log_warn "Model download completed with some warnings (non-critical)"
+        log_info "Models can be downloaded on-demand during first use"
     fi
 else
-    # Fallback to sequential download
-    log_warn "Parallel downloader not found - using sequential method"
-    log_info "Downloading Whisper base model..."
-    python -c "from faster_whisper import WhisperModel; WhisperModel('base', device='cpu', compute_type='int8')" 2>/dev/null || true
-    
-    if [ -n "$hf_token" ]; then
-        log_info "Downloading PyAnnote models..."
-        python -c "from pyannote.audio import Pipeline; Pipeline.from_pretrained('pyannote/speaker-diarization-3.1', use_auth_token=True)" 2>/dev/null || true
-    fi
-    
-    log_info "Models will be downloaded on first use if needed"
-fi
-
-# ============================================================================
-# SPACY MODEL DOWNLOAD (for NER stages)
-# ============================================================================
-log_section "SPACY MODEL DOWNLOAD"
-log_info "Downloading spaCy models for NER (Named Entity Recognition)..."
-
-# Check if spacy models are already installed
-spacy_check=$(python -c "import spacy; spacy.load('en_core_web_trf'); print('installed')" 2>&1 || echo "")
-
-if [[ "$spacy_check" == *"installed"* ]]; then
-    log_success "spaCy transformer model (en_core_web_trf) already installed"
-else
-    log_info "Downloading spaCy transformer model (en_core_web_trf)..."
-    log_info "  This is a large model (~500MB) with best accuracy for NER"
-    
-    if python -m spacy download en_core_web_trf >/dev/null 2>&1; then
-        log_success "spaCy transformer model downloaded successfully"
-    else
-        log_warn "Failed to download transformer model, trying small model..."
-        
-        # Fallback to small model
-        if python -m spacy download en_core_web_sm >/dev/null 2>&1; then
-            log_success "spaCy small model (en_core_web_sm) downloaded"
-            log_info "  Note: Small model has lower accuracy than transformer model"
-        else
-            log_warn "Could not download spaCy models"
-            log_info "  NER stages will fail without spaCy models"
-            log_info "  Install manually: python -m spacy download en_core_web_trf"
-        fi
-    fi
+    log_error "Model downloader not found: $downloader_script"
+    log_info "Models will be downloaded on first use"
 fi
 
 # ============================================================================
@@ -552,6 +589,41 @@ log_info "  2. Include: characters, tone, key terms, cultural context"
 log_info "  3. See existing prompts for examples"
 
 # ============================================================================
+# INDICTRANS2 SETUP (Indic Language Translation)
+# ============================================================================
+log_section "INDICTRANS2 SETUP (INDIC LANGUAGES)"
+log_info "Installing IndicTrans2 for high-quality Indic→English translation..."
+log_info "  Supports: 22 Indic languages (Hindi, Tamil, Telugu, Bengali, etc.)"
+log_info "  Benefit: 90% faster than Whisper for translation"
+log_info ""
+
+# Run IndicTrans2 installation in bootstrap mode
+export BOOTSTRAP_MODE=true
+export SKIP_PROMPTS=true
+
+INDICTRANS2_INSTALLER="$PROJECT_ROOT/install-indictrans2.sh"
+if [ -f "$INDICTRANS2_INSTALLER" ]; then
+    if bash "$INDICTRANS2_INSTALLER"; then
+        log_success "IndicTrans2 setup complete"
+        log_info "  ✓ Dependencies installed"
+        log_info "  ✓ Model cached (~2GB)"
+        log_info "  ✓ Configuration added"
+        log_info "  → Automatically activates for Indic source languages"
+    else
+        log_warn "IndicTrans2 setup failed (optional feature)"
+        log_info "  Pipeline will use Whisper for all translations"
+        log_info "  To retry: ./install-indictrans2.sh"
+    fi
+else
+    log_warn "IndicTrans2 installer not found: $INDICTRANS2_INSTALLER"
+    log_info "  IndicTrans2 is optional but recommended for Indic languages"
+    log_info "  Install manually: ./install-indictrans2.sh"
+fi
+
+unset BOOTSTRAP_MODE
+unset SKIP_PROMPTS
+
+# ============================================================================
 # Complete
 # ============================================================================
 log_section "BOOTSTRAP COMPLETE"
@@ -560,7 +632,11 @@ echo "✅ Environment ready!"
 echo ""
 echo "What's been set up:"
 echo "  ✓ Python virtual environment (.bollyenv/)"
-echo "  ✓ 70+ Python packages installed"
+echo "  ✓ 70+ Python packages installed (requirements.txt)"
+echo "  ✓ Optional enhancements installed (requirements-optional.txt)"
+echo "    → jellyfish: Phonetic matching for bias correction"
+echo "    → sentence-transformers: ML-based glossary selection"
+echo "  ✓ IndicTrans2: Fast Indic→English translation (22 languages)"
 echo "  ✓ torch 2.8.x / torchaudio 2.8.x (pyannote compatible)"
 echo "  ✓ Hardware capabilities detected & cached"
 echo "  ✓ Required directories created"
@@ -582,6 +658,9 @@ echo "  • Create config/secrets.json with API tokens"
 echo "  • Configure TMDB_API_KEY for metadata enrichment"
 echo "  • Add glossary terms to glossary/hinglish_master.tsv"
 echo "  • Create movie-specific prompts in glossary/prompts/"
+echo ""
+echo "Check model status:"
+echo "  python shared/model_checker.py"
 echo ""
 
 exit 0

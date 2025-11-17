@@ -9,20 +9,28 @@ Usage:
     python prepare-job.py <input_media> [OPTIONS]
 
 Options:
-    --transcribe          Transcribe-only workflow (faster)
+    --transcribe          Transcribe-only workflow (faster, 3 stages)
+    --transcribe-only     Transcription only (6 stages, includes VAD)
+    --translate-only      Translation only (9 stages, reuses existing transcription)
+    --subtitle-gen        Full pipeline (default, 15 stages)
+    --source-language     Source language code (e.g., hi, es, ja, auto)
+    --target-language     Target language code (e.g., en, es, fr, de)
     --native              Enable native GPU acceleration (MPS/CUDA)
     --start-time TIME     Start time for clip (HH:MM:SS)
     --end-time TIME       End time for clip (HH:MM:SS)
 
-Example:
-    # Full subtitle generation (default)
+Examples:
+    # Full subtitle generation (default): Hindi → English
     python prepare-job.py /path/to/movie.mp4
     
-    # Transcribe only with GPU acceleration
-    python prepare-job.py /path/to/movie.mp4 --transcribe --native
+    # Spanish to English workflow
+    python prepare-job.py /path/to/movie.mp4 --transcribe-only --source-language es
+    python prepare-job.py /path/to/movie.mp4 --translate-only --source-language es --target-language en
     
-    # Process clip for testing
-    python prepare-job.py /path/to/movie.mp4 --start-time 00:10:00 --end-time 00:15:00
+    # Japanese to multiple targets
+    python prepare-job.py /path/to/anime.mp4 --transcribe-only --source-language ja
+    python prepare-job.py /path/to/anime.mp4 --translate-only --source-language ja --target-language en
+    python prepare-job.py /path/to/anime.mp4 --translate-only --source-language ja --target-language es
 
 Job Creation Process:
     1. Create job directory: out/YYYY/MM/DD/<user-id>/<job-id>/
@@ -51,6 +59,164 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from shared.logger import PipelineLogger, get_stage_log_filename
 from scripts.filename_parser import parse_filename
+
+
+# IndicTrans2 Language Mapping - Indic languages that can use IndicTrans2
+INDIC_LANGUAGES = {
+    "hi", "as", "bn", "gu", "kn", "ml", "mr", "or", "pa", "ta", "te", "ur",
+    "ne", "sd", "si", "sa", "ks", "doi", "mni", "kok", "mai", "sat"
+}
+
+def is_indic_language(lang_code: str) -> bool:
+    """Check if language code is an Indic language supported by IndicTrans2."""
+    return lang_code in INDIC_LANGUAGES
+
+
+# Supported language codes (90+ languages supported by Whisper)
+SUPPORTED_LANGUAGES = {
+    # Auto-detect
+    'auto': 'Auto-detect',
+    
+    # South Asian
+    'hi': 'Hindi',
+    'ur': 'Urdu',
+    'ta': 'Tamil',
+    'te': 'Telugu',
+    'bn': 'Bengali',
+    'mr': 'Marathi',
+    'gu': 'Gujarati',
+    'kn': 'Kannada',
+    'ml': 'Malayalam',
+    'pa': 'Punjabi',
+    'sd': 'Sindhi',
+    'ne': 'Nepali',
+    'si': 'Sinhala',
+    
+    # European
+    'en': 'English',
+    'es': 'Spanish',
+    'fr': 'French',
+    'de': 'German',
+    'it': 'Italian',
+    'pt': 'Portuguese',
+    'ru': 'Russian',
+    'nl': 'Dutch',
+    'pl': 'Polish',
+    'uk': 'Ukrainian',
+    'cs': 'Czech',
+    'ro': 'Romanian',
+    'sv': 'Swedish',
+    'da': 'Danish',
+    'no': 'Norwegian',
+    'fi': 'Finnish',
+    'el': 'Greek',
+    'bg': 'Bulgarian',
+    'hr': 'Croatian',
+    'sr': 'Serbian',
+    'sk': 'Slovak',
+    'sl': 'Slovenian',
+    'et': 'Estonian',
+    'lv': 'Latvian',
+    'lt': 'Lithuanian',
+    'is': 'Icelandic',
+    'ga': 'Irish',
+    'cy': 'Welsh',
+    'eu': 'Basque',
+    'ca': 'Catalan',
+    'gl': 'Galician',
+    'mt': 'Maltese',
+    'sq': 'Albanian',
+    'mk': 'Macedonian',
+    'be': 'Belarusian',
+    
+    # East Asian
+    'ja': 'Japanese',
+    'ko': 'Korean',
+    'zh': 'Chinese',
+    'yue': 'Cantonese',
+    'my': 'Burmese',
+    'lo': 'Lao',
+    'km': 'Khmer',
+    
+    # Middle Eastern
+    'ar': 'Arabic',
+    'tr': 'Turkish',
+    'fa': 'Persian',
+    'he': 'Hebrew',
+    'az': 'Azerbaijani',
+    'kk': 'Kazakh',
+    'uz': 'Uzbek',
+    'ky': 'Kyrgyz',
+    'tg': 'Tajik',
+    'tk': 'Turkmen',
+    
+    # Southeast Asian
+    'vi': 'Vietnamese',
+    'id': 'Indonesian',
+    'ms': 'Malay',
+    'th': 'Thai',
+    'tl': 'Tagalog',
+    'jv': 'Javanese',
+    
+    # African
+    'sw': 'Swahili',
+    'yo': 'Yoruba',
+    'ha': 'Hausa',
+    'zu': 'Zulu',
+    'af': 'Afrikaans',
+    'am': 'Amharic',
+    'so': 'Somali',
+    
+    # Other
+    'mn': 'Mongolian',
+    'hy': 'Armenian',
+    'ka': 'Georgian',
+    'bo': 'Tibetan',
+    'la': 'Latin',
+    'sa': 'Sanskrit',
+    'mi': 'Maori',
+    'haw': 'Hawaiian',
+    'ps': 'Pashto',
+    'sn': 'Shona',
+    'mg': 'Malagasy',
+    'oc': 'Occitan',
+    'br': 'Breton',
+    'lb': 'Luxembourgish',
+    'fo': 'Faroese',
+    'yi': 'Yiddish',
+    'ht': 'Haitian Creole',
+}
+
+
+def validate_language_code(lang_code: str, arg_name: str = "language") -> str:
+    """Validate language code against supported languages.
+    
+    Args:
+        lang_code: Language code to validate
+        arg_name: Argument name for error messages
+    
+    Returns:
+        Validated language code (lowercase)
+    
+    Raises:
+        SystemExit: If language code is not supported
+    """
+    if not lang_code:
+        return None
+    
+    lang_lower = lang_code.lower()
+    if lang_lower not in SUPPORTED_LANGUAGES:
+        print(f"✗ Unsupported {arg_name}: {lang_code}")
+        print(f"\nSupported languages ({len(SUPPORTED_LANGUAGES)}):")
+        print("\nPopular languages:")
+        popular = ['auto', 'hi', 'en', 'es', 'fr', 'de', 'it', 'ja', 'ko', 'zh', 'ar', 'pt', 'ru']
+        for code in popular:
+            if code in SUPPORTED_LANGUAGES:
+                print(f"  {code:4s} - {SUPPORTED_LANGUAGES[code]}")
+        print(f"\nFor complete list, see: https://github.com/openai/whisper#available-models-and-languages")
+        sys.exit(1)
+    
+    return lang_lower
 
 
 def detect_hardware_capabilities():
@@ -330,12 +496,13 @@ class JobManager:
     
     def create_job(self, input_media: Path, workflow_mode: str = 'subtitle-gen', 
                    native_mode: bool = False, start_time: Optional[str] = None,
-                   end_time: Optional[str] = None, stage_flags: Optional[Dict] = None) -> Dict:
+                   end_time: Optional[str] = None, stage_flags: Optional[Dict] = None,
+                   source_language: Optional[str] = None, target_language: Optional[str] = None) -> Dict:
         """Create a new job with directory structure and job definition.
         
         Args:
             input_media: Path to input media file
-            workflow_mode: Workflow mode - 'transcribe' or 'subtitle-gen'
+            workflow_mode: Workflow mode - 'transcribe', 'transcribe-only', 'translate-only', or 'subtitle-gen'
             native_mode: Enable native execution with device acceleration
             start_time: Optional start time for clipping (HH:MM:SS)
             end_time: Optional end time for clipping (HH:MM:SS)
@@ -345,6 +512,8 @@ class JobManager:
                     'pyannote_vad': bool or None,
                     'diarization': bool or None
                 }
+            source_language: Source language code (e.g., hi, es, ja, auto)
+            target_language: Target language code (e.g., en, es, fr, de)
         
         Returns:
             Dictionary with job information
@@ -364,6 +533,24 @@ class JobManager:
         # Job definition file
         job_json_file = job_dir / "job.json"
         
+        # Validate translate-only mode prerequisites
+        if workflow_mode == 'translate-only':
+            # Check if segments.json exists from previous transcription
+            segments_file = job_dir / "06_asr" / "segments.json"
+            if not segments_file.exists():
+                if self.logger:
+                    self.logger.error(f"translate-only mode requires existing transcription")
+                    self.logger.error(f"Missing: {segments_file}")
+                    self.logger.error(f"")
+                    self.logger.error(f"Please run --transcribe-only first:")
+                    self.logger.error(f"  python prepare-job.py {input_media} --transcribe-only --source-language {source_language or 'auto'}")
+                print(f"✗ translate-only mode requires existing transcription")
+                print(f"  Missing: {segments_file}")
+                print(f"")
+                print(f"Please run --transcribe-only first:")
+                print(f"  python prepare-job.py {input_media} --transcribe-only --source-language {source_language or 'auto'}")
+                sys.exit(1)
+        
         # Create job info (will be updated after media preparation)
         job_info = {
             "job_id": job_id,
@@ -377,6 +564,12 @@ class JobManager:
             "is_clip": bool(start_time and end_time),
             "status": "preparing"
         }
+        
+        # Add language settings
+        if source_language:
+            job_info["source_language"] = source_language
+        if target_language:
+            job_info["target_language"] = target_language
         
         if start_time and end_time:
             job_info["clip_start"] = start_time
@@ -394,6 +587,12 @@ class JobManager:
             self.logger.info(f"Job created: {job_id}")
             self.logger.info(f"User ID: {user_id}")
             self.logger.info(f"Workflow: {workflow_mode.upper()}")
+            if source_language:
+                lang_name = SUPPORTED_LANGUAGES.get(source_language, source_language)
+                self.logger.info(f"Source language: {source_language} ({lang_name})")
+            if target_language:
+                lang_name = SUPPORTED_LANGUAGES.get(target_language, target_language)
+                self.logger.info(f"Target language: {target_language} ({lang_name})")
             self.logger.info(f"Native mode: {'enabled' if native_mode else 'disabled'}")
             if stage_flags:
                 self.logger.info("Stage controls:")
@@ -556,6 +755,9 @@ DEVICE_NER=cpu
         # Get recommended settings
         settings = hw_info['recommended_settings']
         
+        # Extract GPU type for backend selection
+        gpu_type = hw_info.get('gpu_type', 'cpu')
+        
         # Load config template from config/.env.pipeline
         config_template = Path("config/.env.pipeline")
         
@@ -593,27 +795,29 @@ DEVICE_NER=cpu
         # Get workflow mode and native mode from job_info
         workflow_mode = job_info.get("workflow_mode", "subtitle-gen")
         native_mode = job_info.get("native_mode", False)
+        source_language = job_info.get("source_language")
+        target_language = job_info.get("target_language")
         
         # Determine device based on performance_profile from hardware_cache
-        device = 'CPU'  # Default to CPU (uppercase)
+        device = 'cpu'  # Default to CPU (lowercase)
         performance_profile = settings.get('performance_profile', '')
         
         if performance_profile:
             # Map performance profile to device type
             if 'cuda' in performance_profile.lower() or 'gpu' in performance_profile.lower():
-                device = 'CUDA'
+                device = 'cuda'
             elif 'mps' in performance_profile.lower():
-                device = 'MPS'
+                device = 'mps'
             elif 'cpu' in performance_profile.lower():
-                device = 'CPU'
+                device = 'cpu'
         
         # Override with detected device if native mode enabled
         if native_mode:
             detected = detect_device_capability()
-            device = detected.upper()  # Ensure uppercase
+            device = detected.lower()  # Ensure lowercase for consistency
             if self.logger:
                 self.logger.info(f"Native mode enabled - detected device: {device}")
-                if device == 'CPU':
+                if device == 'cpu':
                     self.logger.warning("No GPU acceleration available, falling back to CPU")
         else:
             if self.logger:
@@ -634,12 +838,59 @@ DEVICE_NER=cpu
                 'POST_NER_ENTITY_CORRECTION': 'false',
                 'POST_NER_TMDB_MATCHING': 'false'
             }
+        elif workflow_mode == 'transcribe-only':
+            if self.logger:
+                self.logger.info("Workflow: TRANSCRIBE-ONLY (6 stages, includes VAD)")
+            workflow_config = {
+                'WORKFLOW_MODE': 'transcribe-only',
+                'WHISPER_TASK': 'transcribe',
+                'SECOND_PASS_ENABLED': 'false',
+                'STEP_SONG_BIAS': 'false',
+                'STEP_LYRICS': 'false',
+                'STEP_BIAS_CORRECTION': 'false',
+                'STEP_DIARIZATION': 'false',
+                'STEP_GLOSSARY': 'false',
+                'STEP_TRANSLATION': 'false',
+                'POST_NER_ENTITY_CORRECTION': 'false',
+                'STEP_SUBTITLE_GEN': 'false',
+                'STEP_MUX': 'false'
+            }
+        elif workflow_mode == 'translate-only':
+            if self.logger:
+                self.logger.info("Workflow: TRANSLATE-ONLY (9 stages, reuses transcription)")
+            workflow_config = {
+                'WORKFLOW_MODE': 'translate-only',
+                'SECOND_PASS_ENABLED': 'true',
+                'STEP_DEMUX': 'false',
+                'STEP_VAD_SILERO': 'false',
+                'STEP_VAD_PYANNOTE': 'false',
+                'STEP_ASR': 'false'
+            }
         else:
             if self.logger:
                 self.logger.info("Workflow: SUBTITLE-GEN (full pipeline)")
             workflow_config = {
                 'WORKFLOW_MODE': 'subtitle-gen'
             }
+        
+        # Add language settings to workflow config
+        if source_language:
+            workflow_config['SOURCE_LANGUAGE'] = source_language
+            workflow_config['WHISPER_LANGUAGE'] = source_language
+        if target_language:
+            workflow_config['TARGET_LANGUAGE'] = target_language
+        
+        # Configure IndicTrans2 if source is Indic and target is English/non-Indic
+        if source_language and target_language:
+            if is_indic_language(source_language) and target_language == 'en':
+                workflow_config['INDICTRANS2_ENABLED'] = 'true'
+                if self.logger:
+                    lang_name = SUPPORTED_LANGUAGES.get(source_language, source_language)
+                    self.logger.info(f"✓ IndicTrans2 enabled for {lang_name}→English translation")
+                    self.logger.info("  → 90% faster than Whisper for Indic languages")
+            else:
+                # Disable for non-Indic or non-English target
+                workflow_config['INDICTRANS2_ENABLED'] = 'false'
         
         # Apply stage control flags if provided
         stage_flags = job_info.get('stage_flags', {})
@@ -750,6 +1001,18 @@ DEVICE_NER=cpu
                     f"# Compute type optimized for device",
                     f"# {settings['compute_type_reason']}",
                     f"WHISPER_COMPUTE_TYPE={settings['compute_type']}"
+                ])
+            
+            # Backend optimization (hardware-aware)
+            elif line.startswith('WHISPER_BACKEND='):
+                backend = settings.get('whisper_backend', 'whisperx')
+                backend_reason = settings.get('whisper_backend_reason', 'Default backend')
+                bias_note = settings.get('bias_prompting_note', '')
+                config_lines.extend([
+                    f"# Backend optimized for {gpu_type.upper() if gpu_type != 'cpu' else 'CPU'}",
+                    f"# {backend_reason}",
+                    f"# {bias_note}",
+                    f"WHISPER_BACKEND={backend}"
                 ])
             
             # Chunk length optimization
@@ -988,10 +1251,22 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Process full movie with subtitle generation (default)
+  # Full subtitle generation (default): Hindi → English
   python prepare-job.py /path/to/movie.mp4
   
-  # Transcribe only (faster, no subtitles)
+  # Spanish to English workflow
+  python prepare-job.py /path/to/movie.mp4 --transcribe-only --source-language es
+  python prepare-job.py /path/to/movie.mp4 --translate-only --source-language es --target-language en
+  
+  # Japanese to multiple targets
+  python prepare-job.py /path/to/anime.mp4 --transcribe-only --source-language ja
+  python prepare-job.py /path/to/anime.mp4 --translate-only --source-language ja --target-language en
+  python prepare-job.py /path/to/anime.mp4 --translate-only --source-language ja --target-language es
+  
+  # Auto-detect source language
+  python prepare-job.py /path/to/movie.mp4 --transcribe-only
+  
+  # Transcribe only (faster, 3 stages minimal)
   python prepare-job.py /path/to/movie.mp4 --transcribe
   
   # Enable native GPU acceleration (auto-detects MPS/CUDA)
@@ -1017,16 +1292,40 @@ Examples:
         help="End time for clip (HH:MM:SS format)"
     )
     
+    # Workflow mode arguments
     parser.add_argument(
         "--transcribe",
         action="store_true",
-        help="Transcribe-only workflow (skip diarization, NER, subtitle gen, mux)"
+        help="Transcribe-only workflow - minimal (3 stages: demux, ASR, basic output)"
+    )
+    
+    parser.add_argument(
+        "--transcribe-only",
+        action="store_true",
+        help="Transcription-only workflow (6 stages: includes VAD, outputs segments.json)"
+    )
+    
+    parser.add_argument(
+        "--translate-only",
+        action="store_true",
+        help="Translation-only workflow (9 stages: reuses existing segments.json, skips audio processing)"
     )
     
     parser.add_argument(
         "--subtitle-gen",
         action="store_true",
-        help="Full subtitle generation workflow (default)"
+        help="Full subtitle generation workflow - default (15 stages)"
+    )
+    
+    # Language arguments
+    parser.add_argument(
+        "--source-language", "-s",
+        help=f"Source language code (e.g., hi, es, ja, fr, de, auto). Supported: {len(SUPPORTED_LANGUAGES)} languages"
+    )
+    
+    parser.add_argument(
+        "--target-language", "-t",
+        help="Target language code (e.g., en, es, fr, de). Required for --translate-only"
     )
     
     parser.add_argument(
@@ -1084,10 +1383,36 @@ Examples:
         print("✗ Both --start-time and --end-time must be specified together")
         sys.exit(1)
     
-    # Validate workflow flags
-    if args.transcribe and args.subtitle_gen:
-        print("✗ Cannot specify both --transcribe and --subtitle-gen")
+    # Validate workflow flags (mutually exclusive)
+    workflow_flags = [args.transcribe, args.transcribe_only, args.translate_only, args.subtitle_gen]
+    if sum(workflow_flags) > 1:
+        print("✗ Only one workflow mode can be specified: --transcribe, --transcribe-only, --translate-only, or --subtitle-gen")
         sys.exit(1)
+    
+    # Validate language codes
+    source_language = None
+    target_language = None
+    
+    if args.source_language:
+        source_language = validate_language_code(args.source_language, "source language")
+    
+    if args.target_language:
+        target_language = validate_language_code(args.target_language, "target language")
+    
+    # Validate translate-only requirements
+    if args.translate_only:
+        if not source_language:
+            print("✗ --translate-only requires --source-language")
+            print("  Example: --translate-only --source-language es --target-language en")
+            sys.exit(1)
+        if not target_language:
+            print("✗ --translate-only requires --target-language")
+            print("  Example: --translate-only --source-language es --target-language en")
+            sys.exit(1)
+    
+    # Set default language for transcribe-only if not specified
+    if args.transcribe_only and not source_language:
+        source_language = 'auto'  # Default to auto-detect
     
     # Validate stage control flags
     if args.enable_silero_vad and args.disable_silero_vad:
@@ -1105,8 +1430,17 @@ Examples:
     # Determine workflow mode
     if args.transcribe:
         workflow_mode = 'transcribe'
+    elif args.transcribe_only:
+        workflow_mode = 'transcribe-only'
+    elif args.translate_only:
+        workflow_mode = 'translate-only'
     else:
         workflow_mode = 'subtitle-gen'  # default
+        # Set default languages for subtitle-gen if not specified
+        if not source_language:
+            source_language = 'hi'  # Default Hindi for backward compatibility
+        if not target_language:
+            target_language = 'en'  # Default English for backward compatibility
     
     # Setup logging
     logs_dir = Path("logs") / "prepare-job"
@@ -1126,6 +1460,12 @@ Examples:
     logger.info("="*60)
     logger.info(f"Input media: {input_media}")
     logger.info(f"Workflow: {workflow_mode.upper()}")
+    if source_language:
+        lang_name = SUPPORTED_LANGUAGES.get(source_language, source_language)
+        logger.info(f"Source language: {source_language} ({lang_name})")
+    if target_language:
+        lang_name = SUPPORTED_LANGUAGES.get(target_language, target_language)
+        logger.info(f"Target language: {target_language} ({lang_name})")
     if args.native:
         detected_device = detect_device_capability()
         logger.info(f"Native mode: ENABLED (detected: {detected_device.upper()})")
@@ -1158,7 +1498,9 @@ Examples:
         native_mode=args.native,
         start_time=args.start_time,
         end_time=args.end_time,
-        stage_flags=stage_flags if stage_flags else None
+        stage_flags=stage_flags if stage_flags else None,
+        source_language=source_language,
+        target_language=target_language
     )
     
     # Prepare media
@@ -1181,6 +1523,12 @@ Examples:
     logger.info(f"Environment File: {job_info['env_file']}")
     logger.info(f"Media File: {media_path}")
     logger.info(f"Workflow Mode: {workflow_mode.upper()}")
+    if source_language:
+        lang_name = SUPPORTED_LANGUAGES.get(source_language, source_language)
+        logger.info(f"Source Language: {source_language} ({lang_name})")
+    if target_language:
+        lang_name = SUPPORTED_LANGUAGES.get(target_language, target_language)
+        logger.info(f"Target Language: {target_language} ({lang_name})")
     # Always show device configuration
     device_value = job_info.get('hardware', {}).get('device', 'CPU')
     logger.info(f"Device Configuration: {device_value}")
@@ -1196,6 +1544,12 @@ Examples:
     print(f"\n✓ Job created: {job_info['job_id']}")
     print(f"  Directory: {job_info['job_dir']}")
     print(f"  Workflow: {workflow_mode.upper()}")
+    if source_language:
+        lang_name = SUPPORTED_LANGUAGES.get(source_language, source_language)
+        print(f"  Source: {source_language} ({lang_name})")
+    if target_language:
+        lang_name = SUPPORTED_LANGUAGES.get(target_language, target_language)
+        print(f"  Target: {target_language} ({lang_name})")
     # Always show device configuration
     device_value = job_info.get('hardware', {}).get('device', 'CPU')
     print(f"  Device: {device_value}")

@@ -33,7 +33,7 @@ warnings.filterwarnings('ignore', message='.*has been deprecated.*', module='tor
 warnings.filterwarnings('ignore', message='.*has been deprecated.*', module='speechbrain')
 
 from device_selector import select_whisperx_device, validate_device_and_compute_type
-from bias_injection import BiasWindow, get_window_for_time
+from bias_window_generator import BiasWindow, get_window_for_time
 from mps_utils import cleanup_mps_memory, log_mps_memory, optimize_batch_size_for_mps
 from asr_chunker import ChunkedASRProcessor
 import sys
@@ -45,6 +45,17 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from shared.logger import PipelineLogger
 from whisper_backends import create_backend, get_recommended_backend
+
+# Import IndicTrans2 translator for high-quality Indic→English translation
+try:
+    from indictrans2_translator import (
+        translate_whisperx_result, 
+        IndicTrans2Translator,
+        can_use_indictrans2
+    )
+    INDICTRANS2_AVAILABLE = True
+except ImportError:
+    INDICTRANS2_AVAILABLE = False
 
 
 class WhisperXProcessor:
@@ -205,13 +216,18 @@ class WhisperXProcessor:
         target_lang: str,
         bias_windows: Optional[List[BiasWindow]] = None,
         batch_size: int = 16,
-        output_dir: Optional[Path] = None
+        output_dir: Optional[Path] = None,
+        bias_strategy: str = "global",
+        workflow_mode: str = "subtitle-gen"
     ) -> Dict[str, Any]:
         """
         Transcribe and translate audio with bias prompt injection.
         
-        Uses chunked processing for MPS devices or long files for stability.
-        Passes bias prompts actively to WhisperX (not just metadata).
+        Supports multiple bias strategies:
+        - global: Phase 1 - Global prompts (fast, good accuracy)
+        - hybrid: Phase 2 - Global hotwords + contextual initial_prompt (best balance)
+        - chunked_windows: Phase 3 - Window-specific prompts (most accurate, slower)
+        - chunked: Large file chunking with checkpointing (for stability)
 
         Args:
             audio_file: Path to audio/video file
@@ -220,6 +236,8 @@ class WhisperXProcessor:
             bias_windows: List of bias windows for prompt injection
             batch_size: Batch size for inference
             output_dir: Output directory for checkpoints (required for chunking)
+            bias_strategy: Bias prompting strategy (global/hybrid/chunked_windows/chunked)
+            workflow_mode: Workflow mode (transcribe/transcribe-only/translate-only/subtitle-gen)
 
         Returns:
             Whisper result dict with segments and word-level timestamps
@@ -227,6 +245,7 @@ class WhisperXProcessor:
         self.logger.info(f"Transcribing: {audio_file}")
         self.logger.info(f"  Source: {source_lang}, Target: {target_lang}")
         self.logger.info(f"  Backend: {self.backend.name}")
+        self.logger.info(f"  Bias strategy: {bias_strategy}")
 
         if not self.backend:
             raise RuntimeError("Model not loaded. Call load_model() first.")
@@ -238,27 +257,69 @@ class WhisperXProcessor:
             self.logger.info(f"  🎯 MPS optimization: batch_size {original_batch_size} → {batch_size}")
 
         # Determine task
-        task = "translate" if source_lang != target_lang else "transcribe"
-        
-        # Determine if chunking should be used
-        audio_duration = self._get_audio_duration(audio_file)
-        use_chunking = (
-            self.backend.device == 'mps' or  # Always chunk for MPS stability
-            audio_duration > 600  # Always chunk if > 10 minutes
-        )
-        
-        if use_chunking:
-            self.logger.info(f"  📦 Using chunked processing (duration={audio_duration:.0f}s, device={self.backend.device})")
-            return self._transcribe_chunked(
-                audio_file, source_lang, task, 
-                bias_windows, batch_size, output_dir
-            )
+        # For transcribe-only workflows, always transcribe (never translate)
+        # For transcribe mode with target language, can translate
+        # For other workflows, translate if source != target
+        if workflow_mode == 'transcribe-only':
+            task = "transcribe"
+            self.logger.info(f"  Task: {task} (workflow_mode={workflow_mode}, keeping source language)")
+        elif workflow_mode == 'transcribe':
+            # Allow translation in transcribe mode if target is different
+            task = "translate" if (source_lang != target_lang and target_lang != 'auto') else "transcribe"
+            self.logger.info(f"  Task: {task} (workflow_mode={workflow_mode})")
         else:
-            self.logger.info(f"  🚀 Using whole-file processing (duration={audio_duration:.0f}s)")
-            return self._transcribe_whole(
+            task = "translate" if source_lang != target_lang else "transcribe"
+            self.logger.info(f"  Task: {task}")
+        
+        # Determine audio duration
+        audio_duration = self._get_audio_duration(audio_file)
+        self.logger.info(f"  Audio duration: {audio_duration:.1f}s ({audio_duration/60:.1f} minutes)")
+        
+        # Strategy selection logic
+        if bias_strategy == "chunked_windows":
+            # Phase 3: Window-specific bias (most accurate)
+            self.logger.info(f"  📊 PHASE 3: Chunked windows strategy")
+            return self._transcribe_windowed_chunks(
                 audio_file, source_lang, task,
                 bias_windows, batch_size
             )
+        
+        elif bias_strategy == "hybrid":
+            # Phase 2: Hybrid global + context (best balance)
+            self.logger.info(f"  ⚡ PHASE 2: Hybrid strategy")
+            return self._transcribe_hybrid(
+                audio_file, source_lang, task,
+                bias_windows, batch_size
+            )
+        
+        elif bias_strategy == "chunked":
+            # Large file chunking with checkpointing (for stability, not bias-specific)
+            self.logger.info(f"  📦 Large file chunking strategy (with checkpointing)")
+            return self._transcribe_chunked(
+                audio_file, source_lang, task,
+                bias_windows, batch_size, output_dir
+            )
+        
+        else:
+            # Phase 1: Global bias (default, fast)
+            # Auto-decide between whole-file and chunked based on duration/device
+            use_chunking = (
+                self.backend.device == 'mps' or  # Always chunk for MPS stability
+                audio_duration > 600  # Always chunk if > 10 minutes
+            )
+            
+            if use_chunking:
+                self.logger.info(f"  📦 Using chunked processing (duration={audio_duration:.0f}s, device={self.backend.device})")
+                return self._transcribe_chunked(
+                    audio_file, source_lang, task, 
+                    bias_windows, batch_size, output_dir
+                )
+            else:
+                self.logger.info(f"  🚀 PHASE 1: Global bias strategy")
+                return self._transcribe_whole(
+                    audio_file, source_lang, task,
+                    bias_windows, batch_size
+                )
     
     def _get_audio_duration(self, audio_file: str) -> float:
         """Get audio duration in seconds"""
@@ -338,6 +399,262 @@ class WhisperXProcessor:
 
         return result
     
+    def _transcribe_hybrid(
+        self,
+        audio_file: str,
+        source_lang: str,
+        task: str,
+        bias_windows: Optional[List[BiasWindow]],
+        batch_size: int
+    ) -> Dict[str, Any]:
+        """
+        PHASE 2: Hybrid Strategy - Global hotwords + dynamic initial_prompt
+        
+        Best balance between speed and accuracy:
+        - Uses global hotwords for comprehensive coverage
+        - Uses first window's terms as initial context
+        - Lets Whisper's condition_on_previous_text provide adaptation
+        - Single transcription pass (fast like global, but more contextual)
+        
+        Args:
+            audio_file: Path to audio file
+            source_lang: Source language code
+            task: 'transcribe' or 'translate'
+            bias_windows: List of bias windows
+            batch_size: Batch size for processing
+            
+        Returns:
+            Transcription result with bias metadata
+        """
+        if not bias_windows:
+            # Fall back to regular transcription without bias
+            return self.backend.transcribe(
+                audio_file, 
+                language=source_lang, 
+                task=task, 
+                batch_size=batch_size
+            )
+        
+        self.logger.info(f"  🎯 PHASE 2: Hybrid bias strategy")
+        
+        # Create global hotwords from all unique terms across windows
+        all_terms = set()
+        for window in bias_windows:
+            all_terms.update(window.bias_terms)
+        
+        top_terms = list(all_terms)[:50]
+        hotwords = ",".join(top_terms) if top_terms else None
+        
+        # Use first window's terms as initial prompt (provides early context)
+        initial_prompt = None
+        if bias_windows and bias_windows[0].bias_terms:
+            # Get up to 20 terms from first window for initial context
+            first_window_terms = list(bias_windows[0].bias_terms)[:20]
+            initial_prompt = ", ".join(first_window_terms)
+        
+        self.logger.info(f"    • Global hotwords: {len(top_terms)} terms")
+        self.logger.info(f"    • Initial prompt: {len(first_window_terms) if initial_prompt else 0} terms from first window")
+        self.logger.info(f"    • Strategy: Global coverage + early context + Whisper's adaptation")
+        
+        # Log memory before
+        log_mps_memory(self.logger, "  Before hybrid transcription - ")
+        
+        try:
+            result = self.backend.transcribe(
+                audio_file,
+                language=source_lang,
+                task=task,
+                batch_size=batch_size,
+                initial_prompt=initial_prompt,
+                hotwords=hotwords
+            )
+            
+            self.logger.info(f"  ✓ Hybrid transcription complete: {len(result.get('segments', []))} segments")
+            
+        except Exception as e:
+            self.logger.error(f"  ✗ Hybrid transcription failed: {e}")
+            raise
+        finally:
+            cleanup_mps_memory(self.logger)
+            log_mps_memory(self.logger, "  After hybrid transcription - ")
+        
+        # Add window-specific metadata post-processing
+        result = self._apply_bias_context(result, bias_windows)
+        
+        return result
+    
+    def _transcribe_windowed_chunks(
+        self,
+        audio_file: str,
+        source_lang: str,
+        task: str,
+        bias_windows: Optional[List[BiasWindow]],
+        batch_size: int
+    ) -> Dict[str, Any]:
+        """
+        PHASE 3: Chunked Windows Strategy - Window-specific bias prompts
+        
+        Most accurate but slower:
+        - Processes audio in chunks matching bias windows
+        - Each chunk uses window-specific bias terms (10 terms per window)
+        - Time-aware: different terms for different scenes
+        - Handles overlapping windows with merging logic
+        
+        Args:
+            audio_file: Path to audio file
+            source_lang: Source language code
+            task: 'transcribe' or 'translate'
+            bias_windows: List of bias windows
+            batch_size: Batch size for processing
+            
+        Returns:
+            Transcription result with window-specific bias metadata
+        """
+        import whisperx
+        import numpy as np
+        
+        if not bias_windows:
+            # Fall back to regular transcription
+            return self.backend.transcribe(
+                audio_file,
+                language=source_lang,
+                task=task,
+                batch_size=batch_size
+            )
+        
+        self.logger.info(f"  🎯 PHASE 3: Chunked windows strategy")
+        self.logger.info(f"    • Processing {len(bias_windows)} bias windows")
+        self.logger.info(f"    • Window-specific bias terms (adaptive)")
+        
+        # Load full audio
+        audio = whisperx.load_audio(audio_file)
+        sample_rate = 16000  # WhisperX standard sample rate
+        
+        all_segments = []
+        total_windows = len(bias_windows)
+        
+        # Process each bias window
+        for i, window in enumerate(bias_windows, 1):
+            self.logger.info(f"  Window {i}/{total_windows}: {window.start_time:.1f}s - {window.end_time:.1f}s")
+            
+            # Extract audio chunk for this window
+            start_sample = int(window.start_time * sample_rate)
+            end_sample = int(window.end_time * sample_rate)
+            chunk_audio = audio[start_sample:end_sample]
+            
+            # Skip if chunk is too short
+            if len(chunk_audio) < sample_rate * 0.5:  # Skip chunks < 0.5 seconds
+                self.logger.warning(f"    ⚠️  Skipping window (too short)")
+                continue
+            
+            # Create window-specific bias prompt
+            window_terms = list(window.bias_terms)[:20]  # Up to 20 terms
+            initial_prompt = ", ".join(window_terms) if window_terms else None
+            hotwords = ",".join(list(window.bias_terms)[:50]) if window.bias_terms else None
+            
+            self.logger.info(f"    • Bias: {len(window_terms)} terms")
+            self.logger.debug(f"    • Preview: {', '.join(window_terms[:3])}...")
+            
+            # Transcribe chunk with window-specific bias
+            try:
+                log_mps_memory(self.logger, f"    Before window {i} - ")
+                
+                chunk_result = self.backend.transcribe(
+                    chunk_audio,  # NumPy array (WhisperX supports this)
+                    language=source_lang,
+                    task=task,
+                    batch_size=batch_size,
+                    initial_prompt=initial_prompt,
+                    hotwords=hotwords
+                )
+                
+                # Adjust timestamps to global timeline
+                for segment in chunk_result.get('segments', []):
+                    segment['start'] += window.start_time
+                    segment['end'] += window.start_time
+                    # Add window-specific metadata
+                    segment['bias_window_id'] = window.window_id
+                    segment['bias_terms'] = window.bias_terms
+                    segment['bias_strategy'] = 'chunked_windows'
+                
+                all_segments.extend(chunk_result.get('segments', []))
+                self.logger.info(f"    ✓ Window complete: {len(chunk_result.get('segments', []))} segments")
+                
+            except Exception as e:
+                self.logger.error(f"    ✗ Window {i} failed: {e}")
+                # Continue with other windows - partial results better than none
+                continue
+            finally:
+                cleanup_mps_memory(self.logger)
+        
+        self.logger.info(f"  Merging {len(all_segments)} segments from {total_windows} windows...")
+        
+        # Merge overlapping segments from adjacent windows
+        merged_segments = self._merge_overlapping_segments(all_segments)
+        
+        self.logger.info(f"  ✓ Chunked transcription complete: {len(merged_segments)} merged segments")
+        
+        return {
+            "segments": merged_segments,
+            "language": source_lang,
+            "bias_strategy": "chunked_windows",
+            "num_windows": total_windows
+        }
+    
+    def _merge_overlapping_segments(self, segments: List[Dict]) -> List[Dict]:
+        """
+        Merge duplicate segments from overlapping bias windows
+        
+        When windows overlap (stride < window_size), we get duplicate transcriptions
+        for the overlapping region. This merges them intelligently.
+        
+        Args:
+            segments: List of segments from multiple windows
+            
+        Returns:
+            Merged list with duplicates removed
+        """
+        if not segments:
+            return []
+        
+        # Sort by start time
+        sorted_segments = sorted(segments, key=lambda s: s.get('start', 0))
+        
+        merged = []
+        for segment in sorted_segments:
+            start = segment.get('start', 0)
+            end = segment.get('end', 0)
+            
+            # Check if this segment overlaps significantly with the last merged segment
+            if merged:
+                last = merged[-1]
+                last_end = last.get('end', 0)
+                
+                # If significant overlap (>50% of current segment)
+                overlap = min(last_end, end) - max(last.get('start', 0), start)
+                segment_duration = end - start
+                
+                if overlap > 0 and segment_duration > 0:
+                    overlap_ratio = overlap / segment_duration
+                    
+                    if overlap_ratio > 0.5:
+                        # Merge: choose segment with higher confidence or longer text
+                        last_text = last.get('text', '').strip()
+                        curr_text = segment.get('text', '').strip()
+                        
+                        # Prefer segment with more text (likely more complete)
+                        if len(curr_text) > len(last_text):
+                            # Replace last with current
+                            merged[-1] = segment
+                            self.logger.debug(f"    Merged overlap: kept newer segment")
+                        # else: keep existing segment
+                        continue
+            
+            # No significant overlap, add as new segment
+            merged.append(segment)
+        
+        return merged
+    
     def _transcribe_chunked(
         self,
         audio_file: str,
@@ -361,8 +678,9 @@ class WhisperXProcessor:
         chunks = chunker.create_chunks(audio_file, bias_windows)
         
         # Process each chunk with checkpointing
+        # Use task-specific subdirectory to avoid cache conflicts between transcribe/translate
         chunk_results = []
-        checkpoint_dir = output_dir / 'chunks'
+        checkpoint_dir = output_dir / 'chunks' / task
         checkpoint_dir.mkdir(parents=True, exist_ok=True)
         
         for i, chunk in enumerate(chunks):
@@ -499,7 +817,8 @@ class WhisperXProcessor:
         self,
         result: Dict[str, Any],
         output_dir: Path,
-        basename: str
+        basename: str,
+        target_lang: Optional[str] = None
     ):
         """
         Save WhisperX results to output directory
@@ -508,24 +827,39 @@ class WhisperXProcessor:
             result: WhisperX result
             output_dir: Output directory (e.g., out/Movie/asr/)
             basename: Base filename
+            target_lang: Target language for filename suffix (e.g., "en" -> "basename-English.srt")
         """
         output_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Language code to name mapping for readable filenames
+        lang_names = {
+            'en': 'English', 'es': 'Spanish', 'fr': 'French', 'de': 'German',
+            'it': 'Italian', 'pt': 'Portuguese', 'ru': 'Russian', 'ja': 'Japanese',
+            'ko': 'Korean', 'zh': 'Chinese', 'ar': 'Arabic', 'hi': 'Hindi',
+            'ta': 'Tamil', 'te': 'Telugu', 'bn': 'Bengali', 'ur': 'Urdu'
+        }
+        
+        # Create language suffix for filenames if target_lang is provided
+        lang_suffix = ""
+        if target_lang and target_lang != 'auto':
+            lang_name = lang_names.get(target_lang, target_lang.upper())
+            lang_suffix = f"-{lang_name}"
 
         # Save full JSON result with basename
-        json_file = output_dir / f"{basename}.whisperx.json"
+        json_file = output_dir / f"{basename}{lang_suffix}.whisperx.json"
         with open(json_file, "w", encoding="utf-8") as f:
             json.dump(result, f, indent=2, ensure_ascii=False)
         self.logger.info(f"  Saved: {json_file}")
 
         # Save segments as JSON (cleaner format) with basename
-        segments_file = output_dir / f"{basename}.segments.json"
+        segments_file = output_dir / f"{basename}{lang_suffix}.segments.json"
         segments = result.get("segments", [])
         with open(segments_file, "w", encoding="utf-8") as f:
             json.dump(segments, f, indent=2, ensure_ascii=False)
         self.logger.info(f"  Saved: {segments_file}")
 
         # Save as plain text transcript with basename
-        txt_file = output_dir / f"{basename}.transcript.txt"
+        txt_file = output_dir / f"{basename}.transcript{lang_suffix}.txt"
         with open(txt_file, "w", encoding="utf-8") as f:
             for segment in segments:
                 text = segment.get("text", "").strip()
@@ -534,7 +868,7 @@ class WhisperXProcessor:
         self.logger.info(f"  Saved: {txt_file}")
 
         # Save as SRT with basename
-        srt_file = output_dir / f"{basename}.srt"
+        srt_file = output_dir / f"{basename}{lang_suffix}.srt"
         self._save_as_srt(segments, srt_file)
         self.logger.info(f"  Saved: {srt_file}")
         
@@ -603,7 +937,15 @@ def run_whisperx_pipeline(
     device: str,
     compute_type: str,
     hf_token: Optional[str],
-    logger: Optional[PipelineLogger] = None
+    logger: Optional[PipelineLogger] = None,
+    bias_strategy: str = "global",
+    backend: str = "whisperx",
+    workflow_mode: str = "subtitle-gen",
+    temperature: str = "0.0,0.2,0.4,0.6,0.8,1.0",
+    beam_size: int = 5,
+    no_speech_threshold: float = 0.6,
+    logprob_threshold: float = -1.0,
+    compression_ratio_threshold: float = 2.4
 ) -> Dict[str, Any]:
     """
     Run complete WhisperX pipeline
@@ -620,6 +962,14 @@ def run_whisperx_pipeline(
         compute_type: Compute type
         hf_token: HF token
         logger: Logger instance
+        bias_strategy: Bias prompting strategy (global/hybrid/chunked_windows/chunked)
+        backend: Backend to use (whisperx/mlx/auto)
+        workflow_mode: Workflow mode (transcribe/transcribe-only/translate-only/subtitle-gen)
+        temperature: Temperature values for sampling
+        beam_size: Beam size for decoding
+        no_speech_threshold: Threshold for no speech detection
+        logprob_threshold: Log probability threshold
+        compression_ratio_threshold: Compression ratio threshold
 
     Returns:
         WhisperX result dict
@@ -628,31 +978,143 @@ def run_whisperx_pipeline(
         model_name=model_name,
         device=device,
         compute_type=compute_type,
+        backend=backend,  # Pass backend parameter
         hf_token=hf_token,
+        temperature=temperature,
+        beam_size=beam_size,
+        no_speech_threshold=no_speech_threshold,
+        logprob_threshold=logprob_threshold,
+        compression_ratio_threshold=compression_ratio_threshold,
         logger=logger
     )
 
     try:
         # Load models
         processor.load_model()
-        processor.load_align_model(target_lang)
+        
+        # For transcribe mode with translation: Two-step process
+        # Step 1: Transcribe in source language → save source files
+        # Step 2: Translate source transcript → save target files
+        if workflow_mode == 'transcribe' and source_lang != target_lang and target_lang != 'auto':
+            logger.info("=" * 60)
+            logger.info("TWO-STEP TRANSCRIPTION + TRANSLATION")
+            logger.info("=" * 60)
+            
+            # STEP 1: Transcribe in source language
+            logger.info("STEP 1: Transcribing in source language...")
+            processor.load_align_model(source_lang)
+            
+            source_result = processor.transcribe_with_bias(
+                audio_file,
+                source_lang,
+                source_lang,  # Same as source - no translation
+                bias_windows,
+                output_dir=output_dir,
+                bias_strategy=bias_strategy,
+                workflow_mode='transcribe-only'  # Force transcribe-only for step 1
+            )
+            
+            # Align to source language
+            source_result = processor.align_segments(source_result, audio_file, source_lang)
+            
+            # Save source language files (no language suffix)
+            logger.info(f"Saving source language files ({source_lang})...")
+            processor.save_results(source_result, output_dir, basename, target_lang=None)
+            
+            logger.info("✓ Step 1 completed: Source language files saved")
+            logger.info("")
+            
+            # STEP 2: Translate to target language
+            logger.info("STEP 2: Translating to target language...")
+            
+            # Use IndicTrans2 for Indic→English/non-Indic translation (better quality than Whisper)
+            # Supports all 22 scheduled Indian languages (Hindi, Tamil, Telugu, Bengali, etc.)
+            if INDICTRANS2_AVAILABLE and can_use_indictrans2(source_lang, target_lang):
+                logger.info(f"  Using IndicTrans2 for {source_lang}→{target_lang} translation")
+                logger.info(f"  Source segments: {len(source_result.get('segments', []))}")
+                
+                # Translate using IndicTrans2
+                target_result = translate_whisperx_result(
+                    source_result,
+                    source_lang=source_lang,
+                    target_lang=target_lang,
+                    logger=logger
+                )
+                
+                # Align to target language
+                logger.info(f"  Aligning translated segments to {target_lang}...")
+                processor.load_align_model(target_lang)
+                target_result = processor.align_segments(target_result, audio_file, target_lang)
+            else:
+                # Fallback to Whisper translation for other language pairs
+                if not INDICTRANS2_AVAILABLE:
+                    # Check if this would have been an Indic language pair
+                    try:
+                        from indictrans2_translator import can_use_indictrans2 as check_indic
+                        if check_indic(source_lang, target_lang):
+                            logger.warning("  IndicTrans2 not available, falling back to Whisper translation")
+                            logger.warning("  Install with: pip install 'transformers>=4.44' sentencepiece sacremoses")
+                    except ImportError:
+                        pass
+                
+                logger.info("  Using Whisper translation")
+                processor.load_align_model(target_lang)
+                
+                target_result = processor.transcribe_with_bias(
+                    audio_file,
+                    source_lang,
+                    target_lang,  # Translate to target
+                    bias_windows,
+                    output_dir=output_dir,
+                    bias_strategy=bias_strategy,
+                    workflow_mode='transcribe'  # Use transcribe mode for translation
+                )
+                
+                # Align to target language
+                target_result = processor.align_segments(target_result, audio_file, target_lang)
+            
+            # Save target language files (with language suffix)
+            logger.info(f"Saving target language files ({target_lang})...")
+            processor.save_results(target_result, output_dir, basename, target_lang=target_lang)
+            
+            logger.info("✓ Step 2 completed: Target language files saved")
+            logger.info("=" * 60)
+            
+            return target_result  # Return target result as main result
+        
+        else:
+            # Single-step transcription (original behavior)
+            # Determine alignment language:
+            # - transcribe-only: always source language
+            # - other workflows: target language
+            if workflow_mode == 'transcribe-only':
+                align_lang = source_lang
+            else:
+                align_lang = source_lang if workflow_mode == 'transcribe' else target_lang
+            
+            processor.load_align_model(align_lang)
 
-        # Transcribe with bias
-        result = processor.transcribe_with_bias(
-            audio_file,
-            source_lang,
-            target_lang,
-            bias_windows,
-            output_dir=output_dir  # Pass output_dir for checkpointing
-        )
+            # Transcribe with bias strategy
+            result = processor.transcribe_with_bias(
+                audio_file,
+                source_lang,
+                target_lang,
+                bias_windows,
+                output_dir=output_dir,
+                bias_strategy=bias_strategy,
+                workflow_mode=workflow_mode
+            )
 
-        # Align for word-level timestamps
-        result = processor.align_segments(result, audio_file, target_lang)
+            # Align for word-level timestamps
+            result = processor.align_segments(result, audio_file, align_lang)
 
-        # Save results
-        processor.save_results(result, output_dir, basename)
+            # Save results
+            # In transcribe mode, we only transcribe (no translation), so don't add language suffix
+            # In other modes, add language suffix if target differs from source
+            save_target_lang = None if workflow_mode == 'transcribe' else (target_lang if source_lang != target_lang else None)
+            processor.save_results(result, output_dir, basename, target_lang=save_target_lang)
 
-        return result
+            return result
     finally:
         # Clean up resources
         processor.cleanup()
@@ -704,6 +1166,13 @@ def main():
     device = os.environ.get('DEVICE_OVERRIDE', getattr(config, 'device', 'cpu') if config else 'cpu').lower()
     compute_type = getattr(config, 'whisper_compute_type', 'float16') if config else 'float16'
     
+    # Get backend preference from config (whisperx, mlx, auto)
+    # Default to 'whisperx' to ensure bias prompting support
+    backend = getattr(config, 'whisper_backend', 'whisperx') if config else 'whisperx'
+    
+    # Get workflow mode
+    workflow_mode = getattr(config, 'workflow_mode', 'subtitle-gen') if config else 'subtitle-gen'
+    
     # Get HF token from secrets or environment
     hf_token = None
     secrets_path = Path("config/secrets.json")
@@ -723,6 +1192,38 @@ def main():
     logger.info(f"Target language: {target_lang}")
     logger.info(f"Device: {device}")
     logger.info(f"Compute type: {compute_type}")
+    logger.info(f"Backend: {backend}")
+    logger.info(f"Workflow mode: {workflow_mode}")
+    
+    # Language-specific parameter tuning
+    # For non-Hindi/English pairs, use stricter parameters for better quality
+    use_enhanced_params = not ((source_lang == 'hi' and target_lang == 'en') or 
+                               (source_lang == 'en' and target_lang == 'hi') or
+                               (source_lang == target_lang and source_lang in ['hi', 'en']))
+    
+    # Load Whisper parameters from environment or config
+    # Enhanced defaults for non-Hindi/English languages
+    if use_enhanced_params:
+        temperature = os.environ.get('WHISPER_TEMPERATURE', '0.0')
+        beam_size = int(os.environ.get('WHISPER_BEAM_SIZE', '10'))
+        no_speech_threshold = float(os.environ.get('WHISPER_NO_SPEECH_THRESHOLD', '0.7'))
+        logprob_threshold = float(os.environ.get('WHISPER_LOGPROB_THRESHOLD', '-0.5'))
+        logger.info("Using enhanced parameters for non-Hindi/English language pair")
+    else:
+        # Default parameters for Hindi/English
+        temperature = os.environ.get('WHISPER_TEMPERATURE', '0.0,0.2,0.4,0.6,0.8,1.0')
+        beam_size = int(os.environ.get('WHISPER_BEAM_SIZE', '5'))
+        no_speech_threshold = float(os.environ.get('WHISPER_NO_SPEECH_THRESHOLD', '0.6'))
+        logprob_threshold = float(os.environ.get('WHISPER_LOGPROB_THRESHOLD', '-1.0'))
+    
+    compression_ratio_threshold = float(os.environ.get('WHISPER_COMPRESSION_RATIO_THRESHOLD', '2.4'))
+    
+    logger.info("Whisper parameters:")
+    logger.info(f"  Temperature: {temperature}")
+    logger.info(f"  Beam size: {beam_size}")
+    logger.info(f"  No speech threshold: {no_speech_threshold}")
+    logger.info(f"  Logprob threshold: {logprob_threshold}")
+    logger.info(f"  Compression ratio threshold: {compression_ratio_threshold}")
     
     # Get basename from config or use default
     basename = getattr(config, 'job_id', 'transcript') if config else 'transcript'
@@ -732,10 +1233,15 @@ def main():
     
     # Check if bias is enabled in config
     bias_enabled = getattr(config, 'bias_enabled', True) if config else True
+    bias_strategy = getattr(config, 'bias_strategy', 'global') if config else 'global'
+    
+    logger.info(f"Bias configuration:")
+    logger.info(f"  Enabled: {bias_enabled}")
+    logger.info(f"  Strategy: {bias_strategy}")
     
     if bias_enabled:
         try:
-            from bias_injection import create_bias_windows, save_bias_windows
+            from bias_window_generator import create_bias_windows, save_bias_windows
             import soundfile as sf
             
             # Collect entity names from multiple sources
@@ -840,7 +1346,15 @@ def main():
             device=device,
             compute_type=compute_type,
             hf_token=hf_token,
-            logger=logger
+            logger=logger,
+            bias_strategy=bias_strategy,
+            backend=backend,
+            workflow_mode=workflow_mode,
+            temperature=temperature,
+            beam_size=beam_size,
+            no_speech_threshold=no_speech_threshold,
+            logprob_threshold=logprob_threshold,
+            compression_ratio_threshold=compression_ratio_threshold
         )
         
         logger.info(f"✓ ASR completed successfully")

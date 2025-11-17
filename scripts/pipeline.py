@@ -33,15 +33,16 @@ STAGE_DEFINITIONS = [
     ("pre_ner", "silero_vad", "pre-ner", 300, False, False),
     ("silero_vad", "pyannote_vad", "silero-vad", 1800, True, True),  # ML: PyTorch
     ("pyannote_vad", "asr", "pyannote-vad", 3600, True, True),  # ML: PyTorch
-    ("asr", "diarization", "asr", 14400, True, True),  # ML: PyTorch (Whisper)
+    ("asr", "song_bias_injection", "asr", 14400, True, True),  # ML: PyTorch (Whisper) - Stage 6: Character name bias
+    ("song_bias_injection", "lyrics_detection", "song-bias-injection", 600, False, False),  # Stage 7: Song-specific bias
+    ("lyrics_detection", "bias_correction", "lyrics-detection", 1800, False, True),  # Stage 8: ML: Audio analysis
+    ("bias_correction", "diarization", "bias-correction", 600, False, False),  # Stage 9: Post-processing corrections
     ("diarization", "glossary_builder", "diarization", 7200, True, True),  # ML: PyTorch
-    ("glossary_builder", "second_pass_translation", "glossary-builder", 300, False, False),  # Build glossary after ASR
-    ("second_pass_translation", "lyrics_detection", "second-pass-translation", 7200, False, True),  # ML: Translation models
-    ("lyrics_detection", "post_ner", "lyrics-detection", 1800, False, True),  # ML: Audio analysis
+    ("glossary_builder", "second_pass_translation", "glossary-builder", 300, False, False),
+    ("second_pass_translation", "post_ner", "second-pass-translation", 7200, False, True),  # ML: Translation models
     ("post_ner", "subtitle_gen", "post-ner", 1200, False, False),
     ("subtitle_gen", "mux", "subtitle-gen", 600, True, False),
-    ("mux", "finalize", "mux", 600, True, False),
-    ("finalize", None, "finalize", 60, False, False),  # New: organize output
+    ("mux", None, "mux", 600, True, False),
 ]
 
 # ML stages that can run natively with MPS/CUDA
@@ -51,8 +52,8 @@ ML_STAGES = {
     "pyannote_vad": "pyannote_vad.py",
     "diarization": "diarization.py",
     "asr": "whisperx_asr.py",
-    "second_pass_translation": "second_pass_translation.py",
-    "lyrics_detection": "lyrics_detection.py"
+    "lyrics_detection": "lyrics_detection.py",
+    "second_pass_translation": "second_pass_translation.py"
 }
 
 # All stage scripts (for native execution)
@@ -63,16 +64,106 @@ STAGE_SCRIPTS = {
     "pre_ner": "pre_ner.py",
     "silero_vad": "silero_vad.py",
     "pyannote_vad": "pyannote_vad.py",
-    "diarization": "diarization.py",
     "asr": "whisperx_asr.py",
+    "song_bias_injection": "song_bias_injection.py",  # NEW: Stage 7 - Song-specific bias
+    "lyrics_detection": "lyrics_detection.py",  # REFACTORED: Stage 8 - Proper lyrics detection
+    "bias_correction": "bias_injection.py",  # RENAMED: Stage 9 - Post-processing correction
+    "diarization": "diarization.py",
     "glossary_builder": "glossary_builder.py",
     "second_pass_translation": "second_pass_translation.py",
-    "lyrics_detection": "lyrics_detection.py",
     "post_ner": "post_ner.py",
     "subtitle_gen": "subtitle_gen.py",
     "mux": "mux.py",
-    "finalize": "finalize.py"
+    "create_clip": "create_clip.py"  # NEW: Create video clip with embedded subtitles
 }
+
+
+def get_stages_for_workflow(workflow_mode: str, config: 'Config') -> List[tuple]:
+    """Get stage definitions for a specific workflow mode.
+    
+    Args:
+        workflow_mode: Workflow mode (transcribe, transcribe-only, translate-only, subtitle-gen)
+        config: Configuration object
+    
+    Returns:
+        List of stage tuples (stage_name, next_stage, service_name, timeout, critical, uses_ml_model)
+    """
+    if workflow_mode == 'transcribe':
+        # Minimal transcribe workflow: demux → [silero_vad] → [pyannote_vad] → asr → create_clip (3-5 stages)
+        # Check stage flags to determine which VAD stages to include
+        silero_enabled = getattr(config, 'step_vad_silero', True)
+        pyannote_enabled = getattr(config, 'step_vad_pyannote', False)
+        
+        stages = []
+        
+        # Always start with demux
+        if silero_enabled and pyannote_enabled:
+            # Both VAD stages enabled: demux → silero → pyannote → asr → create_clip
+            stages = [
+                ("demux", "silero_vad", "demux", 600, True, False),
+                ("silero_vad", "pyannote_vad", "silero-vad", 1800, True, True),
+                ("pyannote_vad", "asr", "pyannote-vad", 3600, True, True),
+                ("asr", "create_clip", "asr", 14400, True, True),
+                ("create_clip", None, "create-clip", 1200, False, False),
+            ]
+        elif silero_enabled:
+            # Only Silero VAD: demux → silero → asr → create_clip
+            stages = [
+                ("demux", "silero_vad", "demux", 600, True, False),
+                ("silero_vad", "asr", "silero-vad", 1800, True, True),
+                ("asr", "create_clip", "asr", 14400, True, True),
+                ("create_clip", None, "create-clip", 1200, False, False),
+            ]
+        elif pyannote_enabled:
+            # Only PyAnnote VAD: demux → pyannote → asr → create_clip
+            stages = [
+                ("demux", "pyannote_vad", "demux", 600, True, False),
+                ("pyannote_vad", "asr", "pyannote-vad", 3600, True, True),
+                ("asr", "create_clip", "asr", 14400, True, True),
+                ("create_clip", None, "create-clip", 1200, False, False),
+            ]
+        else:
+            # No VAD: demux → asr → create_clip
+            stages = [
+                ("demux", "asr", "demux", 600, True, False),
+                ("asr", "create_clip", "asr", 14400, True, True),
+                ("create_clip", None, "create-clip", 1200, False, False),
+            ]
+        
+        return stages
+    
+    elif workflow_mode == 'transcribe-only':
+        # Transcription-only workflow: 6 stages with VAD, outputs segments.json
+        # Stages: demux → tmdb → pre_ner → silero_vad → pyannote_vad → asr
+        return [
+            ("demux", "tmdb", "demux", 600, True, False),
+            ("tmdb", "pre_ner", "tmdb", 120, False, False),
+            ("pre_ner", "silero_vad", "pre-ner", 300, False, False),
+            ("silero_vad", "pyannote_vad", "silero-vad", 1800, True, True),
+            ("pyannote_vad", "asr", "pyannote-vad", 3600, True, True),
+            ("asr", None, "asr", 14400, True, True),
+        ]
+    
+    elif workflow_mode == 'translate-only':
+        # Translation-only workflow: 9 stages, skips audio processing
+        # Stages: tmdb → song_bias → lyrics → bias_correction → diarization → glossary → second_pass → post_ner → subtitle_gen → mux
+        # Note: Reuses existing segments.json from previous transcription
+        return [
+            ("tmdb", "song_bias_injection", "tmdb", 120, False, False),
+            ("song_bias_injection", "lyrics_detection", "song-bias-injection", 600, False, False),
+            ("lyrics_detection", "bias_correction", "lyrics-detection", 1800, False, True),
+            ("bias_correction", "diarization", "bias-correction", 600, False, False),
+            ("diarization", "glossary_builder", "diarization", 7200, True, True),
+            ("glossary_builder", "second_pass_translation", "glossary-builder", 300, False, False),
+            ("second_pass_translation", "post_ner", "second-pass-translation", 7200, False, True),
+            ("post_ner", "subtitle_gen", "post-ner", 1200, False, False),
+            ("subtitle_gen", "mux", "subtitle-gen", 600, True, False),
+            ("mux", None, "mux", 600, True, False),
+        ]
+    
+    else:
+        # Full subtitle-gen workflow (15 stages, default)
+        return STAGE_DEFINITIONS.copy()
 
 
 class JobOrchestrator:
@@ -107,23 +198,28 @@ class JobOrchestrator:
                 missing = set(stages) - found
                 print(f"Warning: Unknown stages skipped: {missing}")
         else:
-            # Filter stages based on workflow mode
+            # Get stages based on workflow mode
             workflow_mode = getattr(self.config, 'workflow_mode', 'subtitle-gen')
-            if workflow_mode == 'transcribe':
-                # Transcribe workflow: demux → silero_vad → asr only
-                transcribe_stages = ['demux', 'silero_vad', 'asr']
-                self.stages = [s for s in STAGE_DEFINITIONS if s[0] in transcribe_stages]
-                # Update stage transitions for transcribe workflow
-                self.stages = [
-                    ("demux", "silero_vad", "demux", 600, True, False),
-                    ("silero_vad", "asr", "silero-vad", 1800, True, True),
-                    ("asr", None, "asr", 14400, True, True),
-                ]
-            else:
-                # Full subtitle-gen workflow
-                self.stages = STAGE_DEFINITIONS.copy()
-                
-                # Apply stage control flags from config
+            self.stages = get_stages_for_workflow(workflow_mode, self.config)
+            
+            # Validate prerequisites for translate-only workflow
+            if workflow_mode == 'translate-only':
+                # Check if segments.json exists from previous transcription
+                output_dir = self._get_output_dir()
+                segments_file = output_dir / "06_asr" / "segments.json"
+                if not segments_file.exists():
+                    raise ValueError(
+                        f"translate-only mode requires existing transcription.\n"
+                        f"Missing: {segments_file}\n"
+                        f"\n"
+                        f"Please run --transcribe-only first:\n"
+                        f"  python prepare-job.py <input> --transcribe-only --source-language {getattr(self.config, 'source_language', 'auto')}"
+                    )
+                self.logger.info(f"✓ Found existing transcription: {segments_file}")
+                self.logger.info(f"  Reusing segments.json from previous transcription")
+            
+            # Apply stage control flags for subtitle-gen workflow
+            if workflow_mode == 'subtitle-gen':
                 # Check for STEP_VAD_SILERO, STEP_VAD_PYANNOTE, STEP_DIARIZATION flags
                 silero_enabled = getattr(self.config, 'step_vad_silero', True)
                 pyannote_enabled = getattr(self.config, 'step_vad_pyannote', True)
@@ -146,6 +242,11 @@ class JobOrchestrator:
                 
                 # Fix stage transitions based on what's enabled
                 self.stages = self._fix_stage_transitions(enabled_stages, silero_enabled, pyannote_enabled, diarization_enabled)
+            
+            # Store workflow info for logging later (after logger is initialized)
+            self.workflow_mode = workflow_mode
+            self.source_lang = getattr(self.config, 'source_language', None)
+            self.target_lang = getattr(self.config, 'target_language', None)
         
         # Setup output directory (from config or calculate from job)
         if hasattr(self.config, 'output_root') and self.config.output_root and not self.config.output_root.startswith('./'):
@@ -177,6 +278,14 @@ class JobOrchestrator:
         self.logger.info(f"Logs: {self.log_dir}")
         self.logger.info(f"Platform: {platform.system()}")
         self.logger.info(f"Device mode: {self.device_type.upper()}")
+        
+        # Log workflow information (now that logger is initialized)
+        if hasattr(self, 'workflow_mode'):
+            self.logger.info(f"Workflow mode: {self.workflow_mode.upper()}")
+            if hasattr(self, 'source_lang') and self.source_lang:
+                self.logger.info(f"Source language: {self.source_lang}")
+            if hasattr(self, 'target_lang') and self.target_lang:
+                self.logger.info(f"Target language: {self.target_lang}")
         
         # Platform-aware execution mode info
         system = platform.system()
@@ -237,7 +346,10 @@ class JobOrchestrator:
         if stages:
             self.logger.info(f"Running stages: {', '.join([s[0] for s in self.stages])}")
         elif workflow_mode == 'transcribe':
-            self.logger.info("Transcribe workflow: demux → silero_vad → asr → transcript.txt")
+            # Log actual stages being run (respects VAD flags)
+            stage_names = [s[0] for s in self.stages]
+            stage_flow = ' → '.join(stage_names)
+            self.logger.info(f"Transcribe workflow: {stage_flow} → transcript.txt")
         
         self.manifest = None
         self.start_time = datetime.now()
@@ -498,15 +610,12 @@ class JobOrchestrator:
         self.logger.debug(f"Device: {device_for_run}")
         self.logger.debug(f"Timeout: {timeout}s")
         
-        # Warn about CPU for ML stages
-        if stage_name in ML_STAGES and device_for_run == "cpu":
+        # Log device info for ML stages (no CPU fallback)
+        if stage_name in ML_STAGES:
             if force_device:
-                self.logger.info(f"Running {stage_name} on CPU (fallback from {self.device_type.upper()})")
+                self.logger.info(f"Running {stage_name} on {device_for_run.upper()} (forced)")
             else:
-                self.logger.warning(f"⚠️  Running {stage_name} on CPU - this will be VERY SLOW")
-                self.logger.warning(f"⚠️  Expected time: 2-4 hours for 2-hour movie")
-                self.logger.warning(f"⚠️  Recommendation: Enable GPU (CUDA) or skip stage")
-                self.logger.warning(f"⚠️  To skip: Set STEP_{stage_name.upper()}=false in config/.env.pipeline")
+                self.logger.info(f"Running {stage_name} on {device_for_run.upper()} with tuned parameters from job environment")
         
         try:
             result = subprocess.run(
@@ -654,6 +763,24 @@ class JobOrchestrator:
                 continue
             
             # Check if stage is conditionally enabled
+            if stage_name == "name_correction":
+                # Auto-enable for MPS+MLX, optional for others
+                name_correction_enabled = getattr(self.config, 'name_correction_enabled', True)
+                whisper_backend = getattr(self.config, 'whisper_backend', 'whisperx')
+                gpu_type = getattr(self.config, 'device', 'cpu').lower()
+                
+                # Skip if disabled in config
+                if not name_correction_enabled:
+                    self.logger.info(f"⏭️  Skipping - disabled in config (NAME_CORRECTION_ENABLED=false)")
+                    continue
+                
+                # Skip if not using MLX (other backends have bias support)
+                if whisper_backend != 'mlx':
+                    self.logger.info(f"⏭️  Skipping - not needed (backend={whisper_backend} has bias support)")
+                    continue
+                
+                self.logger.info(f"✓ Enabled for {whisper_backend} backend (compensates for lack of bias)")
+            
             if stage_name == "glossary_builder":
                 if not getattr(self.config, 'glossary_enable', True):
                     self.logger.info(f"⏭️  Skipping - disabled in config (GLOSSARY_ENABLE=false)")
@@ -668,35 +795,6 @@ class JobOrchestrator:
                 if not getattr(self.config, 'lyric_detect_enabled', False):
                     self.logger.info(f"⏭️  Skipping - disabled in config (LYRIC_DETECT_ENABLED=false)")
                     continue
-            
-            # Special handling for finalize stage (output organization)
-            if stage_name == "finalize":
-                self.logger.info("📁 Organizing final output...")
-                try:
-                    finalize_script = PROJECT_ROOT / "scripts" / "finalize_output.py"
-                    result = subprocess.run(
-                        [sys.executable, str(finalize_script), str(self.output_dir)],
-                        capture_output=True,
-                        text=True,
-                        timeout=60
-                    )
-                    
-                    if result.returncode == 0:
-                        self.logger.info("✓ Output organized successfully")
-                        # Log output
-                        for line in result.stdout.strip().split('\n'):
-                            if line:
-                                self.logger.info(line)
-                    else:
-                        self.logger.warning("Output organization failed (non-critical)")
-                        if result.stderr:
-                            self.logger.warning(result.stderr)
-                
-                except Exception as e:
-                    self.logger.warning(f"Output organization failed (non-critical): {e}")
-                
-                # Always continue (finalize is non-critical)
-                continue
             
             # Check if native execution is available
             run_native = self._should_run_native(stage_name)
@@ -720,12 +818,14 @@ class JobOrchestrator:
             
             # Run stage
             start_time = time.time()
-            max_retries = 2 if stage_name == "asr" else 1  # Allow retries for ASR
+            max_retries = 2 if stage_name in ML_STAGES else 1  # Allow retries for ML stages
             retry_count = 0
-            attempted_cpu_fallback = False
             
-            # ASR ALWAYS runs on CPU only (no GPU, no fallback)
-            force_cpu_only = (stage_name == "asr")
+            # ML stages run ONLY on configured device (no CPU fallback)
+            # Device and parameters are tuned in job environment file
+            if stage_name in ML_STAGES and retry_count == 0:
+                self.logger.info(f"ℹ️  ML stage configured for {self.device_type.upper()}-only execution with tuned parameters")
+                self.logger.info(f"   No CPU fallback - device settings from job environment file")
             
             try:
                 while retry_count < max_retries:
@@ -738,53 +838,27 @@ class JobOrchestrator:
                     else:
                         self.logger.info(f"Timeout: {timeout}s")
                     
-                    # Determine if we should force CPU for this attempt
-                    force_cpu = False
-                    if force_cpu_only:
-                        # ASR always runs on CPU
-                        force_cpu = True
-                        if retry_count == 0:
-                            self.logger.info(f"ℹ️  ASR stage configured for CPU-only execution (no GPU)")
-                    elif stage_name in ML_STAGES and self.device_type in ['mps', 'cuda'] and attempted_cpu_fallback:
-                        force_cpu = True
-                    
-                    # Run natively
+                    # Run natively - always use configured device (no CPU fallback)
                     script_name = STAGE_SCRIPTS.get(stage_name)
                     if not script_name:
                         self.logger.error(f"No script mapping for stage: {stage_name}")
                         raise Exception(f"Unknown stage: {stage_name}")
                     
-                    if force_cpu:
-                        success = self.run_native_step(stage_name, script_name, args, timeout=timeout, force_device='cpu')
-                    else:
-                        success = self.run_native_step(stage_name, script_name, args, timeout=timeout)
+                    success = self.run_native_step(stage_name, script_name, args, timeout=timeout)
                     
                     duration = time.time() - start_time
                     
                     if not success:
-                        # Check if this is an ML stage that can fallback to CPU
-                        # ASR stage is excluded from CPU fallback since it always runs on CPU
-                        if not force_cpu_only and stage_name in ML_STAGES and self.device_type in ['mps', 'cuda'] and not attempted_cpu_fallback:
-                            self.logger.warning(f"⚠️  Stage failed on {self.device_type.upper()}")
-                            self.logger.warning(f"⚠️  Attempting CPU fallback...")
-                            attempted_cpu_fallback = True
-                            retry_count += 1
-                            if retry_count < max_retries:
-                                time.sleep(5)  # Brief pause before retry
-                                continue
-                            else:
-                                raise Exception("Stage execution failed after retries")
-                        
-                        # Regular retry logic (not CPU fallback)
+                        # Retry logic for ML stages (same device, no CPU fallback)
                         retry_count += 1
                         if retry_count < max_retries:
-                            self.logger.warning(f"Stage failed, retrying... ({retry_count}/{max_retries-1})")
+                            self.logger.warning(f"Stage failed, retrying on same device... ({retry_count}/{max_retries-1})")
                             time.sleep(5)  # Brief pause before retry
                             continue
                         raise Exception("Stage execution failed after retries")
                     
                     # Record success with device info
-                    device_used = 'cpu' if force_cpu else self.device_type
+                    device_used = self.device_type if stage_name in ML_STAGES else 'cpu'
                     self.manifest.set_pipeline_step(
                         stage_name,
                         True,
@@ -795,10 +869,7 @@ class JobOrchestrator:
                         device=device_used.upper() if stage_name in ML_STAGES else 'CPU'
                     )
                     
-                    if attempted_cpu_fallback and force_cpu:
-                        self.logger.info(f"✓ Stage completed in {duration:.1f}s (on CPU after {self.device_type.upper()} failure)")
-                    else:
-                        self.logger.info(f"✓ Stage completed in {duration:.1f}s{' on ' + device_used.upper() if stage_name in ML_STAGES else ''}")
+                    self.logger.info(f"✓ Stage completed in {duration:.1f}s{' on ' + device_used.upper() if stage_name in ML_STAGES else ''}")
                     self.logger.info(f"Progress: {idx}/{total_stages} stages complete")
                     break  # Success, exit retry loop
                 
@@ -960,6 +1031,18 @@ class JobOrchestrator:
             args.extend(["--min-confidence", str(min_conf)])
             
             return args
+        elif stage_name == "name_correction":
+            # Name entity correction (Stage 7B)
+            args = ["--job-dir", output_dir_path]
+            
+            # Add threshold parameters
+            fuzzy_threshold = getattr(self.config, 'name_correction_fuzzy_threshold', 0.85)
+            phonetic_threshold = getattr(self.config, 'name_correction_phonetic_threshold', 0.90)
+            
+            args.extend(["--fuzzy-threshold", str(fuzzy_threshold)])
+            args.extend(["--phonetic-threshold", str(phonetic_threshold)])
+            
+            return args
         elif stage_name == "mux":
             if use_container_paths:
                 input_container = self._to_container_path(input_path)
@@ -1014,7 +1097,7 @@ Examples:
         help="Specific stages to run",
         choices=["demux", "tmdb", "pre_ner", "silero_vad", "pyannote_vad",
                  "diarization", "asr", "glossary_builder", "second_pass_translation", 
-                 "lyrics_detection", "post_ner", "subtitle_gen", "mux", "finalize"]
+                 "lyrics_detection", "post_ner", "subtitle_gen", "mux"]
     )
     
     parser.add_argument(

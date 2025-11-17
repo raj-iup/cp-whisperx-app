@@ -248,9 +248,13 @@ class LyricsDetector:
                 max_similarity = max(max_similarity, similarity)
             
             # High repetition suggests lyrics
-            if max_similarity > 0.4:  # 40% word overlap
+            # Lower threshold for better detection of songs and poetic segments
+            if max_similarity > 0.35:  # 35% word overlap (more sensitive)
                 duration = block1['end'] - block1['start']
-                if duration >= self.min_duration:
+                # Use a more flexible duration threshold
+                # Allow shorter segments (15s minimum) if high confidence
+                min_dur = 15.0 if max_similarity > 0.5 else self.min_duration
+                if duration >= min_dur:
                     lyric_segments.append({
                         'start': block1['start'],
                         'end': block1['end'],
@@ -259,12 +263,158 @@ class LyricsDetector:
                         'detection_method': 'transcript_pattern'
                     })
         
+        # Additional pass: detect short poetic lines (common in Bollywood songs)
+        # Look for consecutive short segments with simple language patterns
+        for i, block in enumerate(text_blocks):
+            duration = block['end'] - block['start']
+            # Short segments (10-45 seconds) with few words per segment suggest lyrics
+            if 10.0 <= duration <= 45.0 and block['segment_count'] >= 4:
+                avg_words_per_seg = len(block['text'].split()) / block['segment_count']
+                # Lyrics often have 3-8 words per line
+                if 3 <= avg_words_per_seg <= 10:
+                    # Check if not already detected
+                    overlaps = any(
+                        seg['start'] <= block['start'] <= seg['end'] or
+                        seg['start'] <= block['end'] <= seg['end']
+                        for seg in lyric_segments
+                    )
+                    if not overlaps:
+                        lyric_segments.append({
+                            'start': block['start'],
+                            'end': block['end'],
+                            'confidence': 0.4,  # Lower confidence for pattern-only detection
+                            'type': 'lyric',
+                            'detection_method': 'transcript_pattern_short'
+                        })
+        
         return lyric_segments
+    
+    def detect_from_soundtrack_durations(
+        self,
+        segments: List[Dict],
+        soundtrack: List[Dict]
+    ) -> List[Dict]:
+        """
+        Detect song segments by matching duration with known soundtrack
+        
+        Args:
+            segments: ASR transcript segments
+            soundtrack: List of soundtrack tracks with duration_ms
+        
+        Returns:
+            List of detected lyric segments
+        """
+        if not soundtrack:
+            self.logger.debug("No soundtrack data available")
+            return []
+        
+        self.logger.info("Detecting songs using soundtrack duration matching...")
+        
+        # Build continuous segment groups (potential song segments)
+        song_candidates = []
+        current_group = []
+        last_end = 0
+        
+        for seg in segments:
+            seg_start = seg.get('start', 0)
+            seg_end = seg.get('end', 0)
+            
+            # If gap > 5 seconds, start new group
+            if seg_start - last_end > 5.0:
+                if current_group:
+                    group_start = current_group[0]['start']
+                    group_end = current_group[-1]['end']
+                    group_duration = group_end - group_start
+                    
+                    song_candidates.append({
+                        'start': group_start,
+                        'end': group_end,
+                        'duration': group_duration,
+                        'segments': current_group
+                    })
+                
+                current_group = []
+            
+            current_group.append(seg)
+            last_end = seg_end
+        
+        # Add last group
+        if current_group:
+            group_start = current_group[0]['start']
+            group_end = current_group[-1]['end']
+            group_duration = group_end - group_start
+            
+            song_candidates.append({
+                'start': group_start,
+                'end': group_end,
+                'duration': group_duration,
+                'segments': current_group
+            })
+        
+        self.logger.debug(f"Found {len(song_candidates)} candidate segments")
+        
+        # Match candidates with soundtrack durations
+        detected_lyrics = []
+        
+        for candidate in song_candidates:
+            candidate_duration = candidate['duration']
+            
+            # Skip very short segments
+            if candidate_duration < self.min_duration:
+                continue
+            
+            best_match = None
+            best_score = 0
+            
+            for track in soundtrack:
+                # Get track duration in seconds
+                track_duration_ms = track.get('duration_ms', 0)
+                if not track_duration_ms:
+                    continue
+                
+                track_duration = track_duration_ms / 1000.0
+                
+                # Calculate similarity (1 - normalized difference)
+                # Allow ±20% variation
+                duration_diff = abs(candidate_duration - track_duration)
+                duration_ratio = duration_diff / track_duration
+                
+                if duration_ratio < 0.20:  # Within 20%
+                    # Score: 1.0 for exact match, decreasing with difference
+                    score = 1.0 - (duration_ratio * 2)  # Scale to 0.6-1.0 range
+                    
+                    if score > best_score:
+                        best_score = score
+                        best_match = track
+            
+            # If good match found, mark as lyrics
+            if best_match and best_score > 0.6:
+                detected_lyrics.append({
+                    'start': candidate['start'],
+                    'end': candidate['end'],
+                    'duration': candidate['duration'],
+                    'confidence': best_score,
+                    'detection_method': 'soundtrack_duration',
+                    'matched_song': best_match.get('title', 'Unknown'),
+                    'matched_artist': best_match.get('artist', 'Unknown'),
+                    'expected_duration': best_match.get('duration_ms', 0) / 1000.0
+                })
+                
+                self.logger.debug(
+                    f"Matched segment {candidate['start']:.1f}-{candidate['end']:.1f}s "
+                    f"({candidate['duration']:.1f}s) to '{best_match.get('title')}' "
+                    f"(confidence: {best_score:.2f})"
+                )
+        
+        self.logger.info(f"Detected {len(detected_lyrics)} song segments using soundtrack")
+        
+        return detected_lyrics
     
     def merge_detections(
         self,
         audio_detections: List[Dict],
-        transcript_detections: List[Dict]
+        transcript_detections: List[Dict],
+        soundtrack_detections: List[Dict] = None
     ) -> List[Dict]:
         """
         Merge and consolidate detections from multiple methods
@@ -272,11 +422,14 @@ class LyricsDetector:
         Args:
             audio_detections: Detections from audio features
             transcript_detections: Detections from transcript patterns
+            soundtrack_detections: Detections from soundtrack duration matching (optional)
             
         Returns:
             Merged list of lyric segments
         """
         all_detections = audio_detections + transcript_detections
+        if soundtrack_detections:
+            all_detections += soundtrack_detections
         
         if not all_detections:
             return []
@@ -294,12 +447,18 @@ class LyricsDetector:
                 # Merge
                 current['end'] = max(current['end'], det['end'])
                 current['confidence'] = max(current['confidence'], det['confidence'])
+                
                 # Combine methods
                 methods = current.get('detection_method', '').split(',')
                 det_method = det.get('detection_method', '')
                 if det_method and det_method not in methods:
                     methods.append(det_method)
                 current['detection_method'] = ','.join(filter(None, methods))
+                
+                # Preserve song metadata if available
+                if 'matched_song' in det and 'matched_song' not in current:
+                    current['matched_song'] = det['matched_song']
+                    current['matched_artist'] = det.get('matched_artist', '')
             else:
                 # No overlap, save current and start new
                 merged.append(current)

@@ -39,7 +39,12 @@ spacy>=3.7.0
 rapidfuzz>=3.10.0
 transformers>=4.30.0
 
-# 10. UI and utilities
+# 10. IndicTrans2 translation dependencies
+sentencepiece>=0.1.99
+sacremoses>=0.0.53
+srt>=3.5.0
+
+# 11. UI and utilities
 rich>=13.7.0
 python-dotenv>=1.0.0
 

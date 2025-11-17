@@ -225,9 +225,18 @@ class DiarizationProcessor:
         self.logger.info("Assigning speaker labels to segments...")
 
         try:
+            import pandas as pd
+            
+            # Convert diarization segments to pandas DataFrame (expected format for whisperx)
+            diarize_list = diarize_segments.get("segments", [])
+            diarize_df = pd.DataFrame(diarize_list)
+            
+            # Create transcript result dict in whisperx format
+            transcript_result = {"segments": segments}
+            
             # Use whisperx's assign_word_speakers utility
-            # Note: correct parameter order is (segments, diarize_segments)
-            result = whisperx.assign_word_speakers(segments, diarize_segments)
+            # Note: correct parameter order is (diarize_df, transcript_result)
+            result = whisperx.assign_word_speakers(diarize_df, transcript_result)
             labeled_segments = result.get("segments", segments)
 
             # Apply speaker name mapping if provided

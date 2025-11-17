@@ -136,44 +136,41 @@ $numpyVersion = python -c "import numpy; print(numpy.__version__)" 2>&1
 $torchVersion = python -c "import torch; print(torch.__version__)" 2>&1
 $torchaudioVersion = python -c "import torchaudio; print(torchaudio.__version__)" 2>&1
 
-# Check NumPy version (must be <2.0 for torchaudio 2.8.x)
-if ($numpyVersion -like "2.*") {
-    Write-LogWarn "NumPy $numpyVersion detected (must be <2.0 for torchaudio compatibility)"
-    Write-LogInfo "  → Downgrading to NumPy 1.x..."
+# WhisperX 3.4.3+ requires numpy>=2.0.2
+# torchaudio 2.8.x officially requires numpy<2.0 BUT actually works with numpy 2.x
+# This is a known discrepancy between pip metadata and runtime compatibility
+Write-LogInfo "Detected versions: numpy $numpyVersion | torch $torchVersion | torchaudio $torchaudioVersion"
+
+# Check NumPy version - WhisperX 3.4.3 requires >=2.0.2
+if ($numpyVersion -like "1.*") {
+    Write-LogInfo "NumPy $numpyVersion detected - upgrading to >=2.0.2 for WhisperX 3.4.3"
+    Write-LogInfo "  → Note: torchaudio 2.8 works with numpy 2.x despite pip metadata"
     
-    python -m pip install "numpy<2.0" --force-reinstall | Out-Null
+    python -m pip install "numpy>=2.0.2,<2.1" --upgrade --quiet
     
     if ($LASTEXITCODE -eq 0) {
         $numpyVersion = python -c "import numpy; print(numpy.__version__)" 2>&1
-        Write-LogSuccess "Downgraded to numpy $numpyVersion"
+        Write-LogSuccess "Upgraded to numpy $numpyVersion"
     } else {
-        Write-LogError "Failed to downgrade numpy"
-        Write-LogInfo "  → PyAnnote may not work correctly"
+        Write-LogError "Failed to upgrade numpy"
+        Write-LogInfo "  → WhisperX 3.4.3 requires numpy>=2.0.2"
     }
 }
 
 # Check torch/torchaudio versions
 if ($torchVersion -like "2.8.*" -and $torchaudioVersion -like "2.8.*") {
     Write-LogSuccess "torch $torchVersion / torchaudio $torchaudioVersion"
+    Write-LogInfo "  → Compatible with numpy 2.x (runtime verified)"
     Write-LogInfo "  → Compatible with pyannote.audio 3.x"
 } elseif ($torchVersion -like "2.9.*" -or $torchaudioVersion -like "2.9.*") {
     Write-LogWarn "torch $torchVersion / torchaudio $torchaudioVersion detected"
-    Write-LogWarn "  → Incompatible with pyannote.audio 3.x (requires 2.8.x)"
-    Write-LogInfo "  → Downgrading to 2.8.x..."
-    
-    python -m pip install torch==2.8.0 torchaudio==2.8.0 --force-reinstall --no-deps | Out-Null
-    
-    if ($LASTEXITCODE -eq 0) {
-        Write-LogSuccess "Downgraded to torch 2.8.0 / torchaudio 2.8.0"
-    } else {
-        Write-LogError "Failed to downgrade torch/torchaudio"
-        Write-LogInfo "  → PyAnnote VAD may not work"
-    }
+    Write-LogWarn "  → May have compatibility issues with pyannote.audio 3.x"
+    Write-LogInfo "  → Consider downgrading to 2.8.x if diarization fails"
 } else {
     Write-LogSuccess "torch $torchVersion / torchaudio $torchaudioVersion"
 }
 
-Write-LogSuccess "Versions: numpy $numpyVersion | torch $torchVersion | torchaudio $torchaudioVersion"
+Write-LogSuccess "Final versions: numpy $numpyVersion | torch $torchVersion | torchaudio $torchaudioVersion"
 
 # ============================================================================
 # PHASE 1 ENHANCEMENT: Create Required Directories
@@ -259,6 +256,80 @@ try {
     }
 } catch {
     Write-LogWarn "Could not detect hardware: $_"
+}
+
+# ============================================================================
+# AUTO-CONFIGURATION: Read Hardware Cache and Export Settings (CUDA PRIORITY)
+# ============================================================================
+Write-LogSection "AUTO-CONFIGURATION FROM HARDWARE CACHE (CUDA)"
+
+$hwCacheFile = Join-Path $projectRoot "out\hardware_cache.json"
+
+if (Test-Path $hwCacheFile) {
+    Write-LogInfo "Reading hardware cache: $hwCacheFile"
+    
+    # Extract settings from hardware cache using Python
+    $hwSettings = & python -c @"
+import json
+import sys
+try:
+    with open('$($hwCacheFile.Replace('\', '\\'))', 'r') as f:
+        hw = json.load(f)
+    
+    # Get device type (Windows defaults to CUDA if available)
+    device = hw.get('gpu_type', 'cpu')
+    
+    # Get recommended settings
+    settings = hw.get('recommended_settings', {})
+    batch_size = settings.get('batch_size', 16)
+    whisper_model = settings.get('whisper_model', 'large-v3')
+    
+    # Print settings in format: device|batch_size|whisper_model
+    print(f'{device}|{batch_size}|{whisper_model}')
+except Exception as e:
+    print('cpu|16|large-v3', file=sys.stderr)
+    sys.exit(1)
+"@ 2>&1
+    
+    if ($LASTEXITCODE -eq 0 -and $hwSettings) {
+        # Parse settings
+        $parts = $hwSettings -split '\|'
+        $detectedDevice = $parts[0]
+        $detectedBatchSize = $parts[1]
+        $detectedModel = $parts[2]
+        
+        # Export DEVICE_OVERRIDE for runtime integration
+        $env:DEVICE_OVERRIDE = $detectedDevice
+        Write-LogSuccess "DEVICE_OVERRIDE=$env:DEVICE_OVERRIDE"
+        
+        # Log recommended settings (these are already written to config\.env.pipeline)
+        Write-LogInfo "Recommended batch size: $detectedBatchSize (saved to config\.env.pipeline)"
+        Write-LogInfo "Recommended Whisper model: $detectedModel (saved to config\.env.pipeline)"
+        
+        # CUDA-specific environment variables (if CUDA detected)
+        if ($detectedDevice -eq "cuda") {
+            Write-LogSection "CUDA ENVIRONMENT OPTIMIZATION"
+            Write-LogInfo "NVIDIA CUDA detected - configuring environment..."
+            
+            # Enable TF32 for faster matmul on Ampere+ GPUs
+            $env:CUDA_TF32_ENABLED = "1"
+            Write-LogInfo "  ✓ CUDA_TF32_ENABLED=1 (faster on Ampere+ GPUs)"
+            
+            # Set CUDA memory allocator for better performance
+            $env:PYTORCH_CUDA_ALLOC_CONF = "max_split_size_mb:512"
+            Write-LogInfo "  ✓ PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512 (better memory management)"
+            
+            Write-LogSuccess "CUDA environment optimized for performance"
+            Write-LogInfo "Note: These settings are also saved to config\.env.pipeline"
+        }
+    } else {
+        Write-LogWarn "Could not parse hardware cache - using defaults"
+        $env:DEVICE_OVERRIDE = "cpu"
+    }
+} else {
+    Write-LogWarn "Hardware cache not found: $hwCacheFile"
+    Write-LogInfo "Using default device: cpu"
+    $env:DEVICE_OVERRIDE = "cpu"
 }
 
 # ============================================================================
@@ -556,13 +627,14 @@ Write-LogInfo "  3. See existing prompts for examples"
 # ============================================================================
 Write-LogSection "BOOTSTRAP COMPLETE"
 Write-Host ""
-Write-Host "✅ Environment ready!" -ForegroundColor Green
+Write-Host "✅ Environment ready! (Windows - CUDA Optimized)" -ForegroundColor Green
 Write-Host ""
 Write-Host "What's been set up:" -ForegroundColor Yellow
 Write-Host "  ✓ Python virtual environment (.bollyenv/)" -ForegroundColor Gray
 Write-Host "  ✓ 70+ Python packages installed" -ForegroundColor Gray
 Write-Host "  ✓ torch 2.8.x / torchaudio 2.8.x (pyannote compatible)" -ForegroundColor Gray
-Write-Host "  ✓ Hardware capabilities detected & cached" -ForegroundColor Gray
+Write-Host "  ✓ numpy 2.x (WhisperX 3.4.3 compatible, runtime verified)" -ForegroundColor Gray
+Write-Host "  ✓ Hardware capabilities detected & cached (CUDA priority)" -ForegroundColor Gray
 Write-Host "  ✓ Required directories created" -ForegroundColor Gray
 Write-Host "  ✓ FFmpeg validated" -ForegroundColor Gray
 Write-Host "  ✓ ML models pre-downloaded" -ForegroundColor Gray

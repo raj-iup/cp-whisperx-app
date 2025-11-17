@@ -19,6 +19,11 @@ class PipelineConfig(BaseSettings):
     title: Optional[str] = Field(default=None, env="TITLE")
     year: Optional[int] = Field(default=None, env="YEAR")
     
+    # Workflow Configuration
+    workflow_mode: str = Field(default="subtitle-gen", env="WORKFLOW_MODE")
+    source_language: Optional[str] = Field(default=None, env="SOURCE_LANGUAGE")
+    target_language: Optional[str] = Field(default=None, env="TARGET_LANGUAGE")
+    
     @field_validator('title', mode='before')
     @classmethod
     def empty_str_to_none_title(cls, v):
@@ -93,6 +98,14 @@ class PipelineConfig(BaseSettings):
     bias_stride_seconds: int = Field(default=15, env="BIAS_STRIDE_SECONDS")
     bias_topk: int = Field(default=10, env="BIAS_TOPK")
     bias_min_confidence: float = Field(default=0.6, env="BIAS_MIN_CONFIDENCE")
+    
+    # Song Bias Injection (Stage 7)
+    song_bias_enabled: bool = Field(default=True, env="SONG_BIAS_ENABLED")
+    song_bias_fuzzy_threshold: float = Field(default=0.80, env="SONG_BIAS_FUZZY_THRESHOLD")
+    
+    # Soundtrack Enrichment (Stage 2 - TMDB)
+    use_musicbrainz: bool = Field(default=True, env="USE_MUSICBRAINZ")
+    cache_musicbrainz: bool = Field(default=True, env="CACHE_MUSICBRAINZ")
     
     # Whisper/WhisperX - Basic parameters
     whisper_model: str = Field(default="large-v3", env="WHISPER_MODEL")

@@ -1,0 +1,51 @@
+{
+  "Jaane Tu... Ya Jaane Na (2008)": {
+    "title": "Jaane Tu... Ya Jaane Na",
+    "year": 2008,
+    "imdb_id": "tt1093370",
+    "tracks": [
+      {
+        "title": "Pappu Can't Dance Saala",
+        "artist": "Benny Dayal",
+        "composer": "A. R. Rahman"
+      },
+      {
+        "title": "Kabhi Kabhi Aditi",
+        "artist": "Rashid Ali",
+        "composer": "A. R. Rahman"
+      },
+      {
+        "title": "Kahin To Hogi Woh",
+        "artist": "Rashid Ali, Madhushree",
+        "composer": "A. R. Rahman"
+      },
+      {
+        "title": "Tu Bole Main Boloon",
+        "artist": "Naresh Iyer, Sonu Kakkar",
+        "composer": "A. R. Rahman"
+      },
+      {
+        "title": "Nazrein Milaana Nazrein Churaana",
+        "artist": "Karthik",
+        "composer": "A. R. Rahman"
+      },
+      {
+        "title": "Jaane Tu Ya Jaane Na",
+        "artist": "A. R. Rahman",
+        "composer": "A. R. Rahman"
+      }
+    ]
+  },
+  "_template": {
+    "title": "Movie Title",
+    "year": 2020,
+    "imdb_id": "tt1234567",
+    "tracks": [
+      {
+        "title": "Song Title",
+        "artist": "Singer Name",
+        "composer": "Music Director"
+      }
+    ]
+  }
+}

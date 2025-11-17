@@ -11,6 +11,33 @@ Features:
 - GPU detection (CUDA/MPS/CPU)
 - Hardware capability caching (1-hour validity)
 - Optimal settings calculation
+
+CONFIGURATION FLOW:
+==================
+
+1. Hardware Detection (Existing + Enhanced):
+   - shared/hardware_detection.py detects CPU, memory, GPU type (MPS/CUDA/CPU)
+   - Calculates optimal batch sizes based on GPU memory
+   - Saves recommendations to out/hardware_cache.json
+   - Updates config/.env.pipeline with tuned parameters (DEVICE, BATCH_SIZE, etc.)
+
+2. Auto-Configuration (Enhanced):
+   - scripts/bootstrap.sh reads hardware cache
+   - Exports DEVICE_OVERRIDE with detected device
+   - Logs recommended batch size (saved to config/.env.pipeline)
+   - Sets MPS environment variables if macOS (PYTORCH_MPS_HIGH_WATERMARK_RATIO, etc.)
+   - All tuned parameters saved to config/.env.pipeline
+
+3. Job Preparation:
+   - prepare-job.sh/prepare-job.py copies config/.env.pipeline
+   - Creates job-specific .env file with output directory structure
+   - Job inherits all hardware-optimized settings from config/.env.pipeline
+
+4. Runtime Integration (Existing):
+   - All ML stages use device_selector.py
+   - Reads DEVICE from job environment file (inherited from config/.env.pipeline)
+   - Falls back gracefully (mps → cuda → cpu)
+   - MPS batch sizes auto-optimized for stability by pipeline orchestrator
 """
 
 import json
@@ -550,6 +577,33 @@ def calculate_optimal_settings(hw_info: Dict) -> Dict:
         settings['max_speakers'] = 8
         settings['max_speakers_reason'] = 'Limited resources cap speaker count'
     
+    # ========================================================================
+    # WHISPER BACKEND RECOMMENDATION
+    # ========================================================================
+    # CTranslate2 (faster-whisper) DOES NOT support MPS at all
+    # Trade-off for Apple Silicon users:
+    #   whisperx (CTranslate2): Supports bias ✅ but CPU-only on MPS (slow)
+    #   mlx: Supports MPS GPU ✅ but NO bias prompting ❌
+    
+    if gpu_type == 'mps':
+        # Apple Silicon: MLX is only option for GPU acceleration
+        settings['whisper_backend'] = 'mlx'
+        settings['whisper_backend_reason'] = 'MPS requires MLX backend (CTranslate2 not compatible with MPS)'
+        settings['bias_prompting_supported'] = False
+        settings['bias_prompting_note'] = 'MLX does not support bias prompting - speed prioritized over name accuracy'
+    elif gpu_type == 'cuda':
+        # NVIDIA: CTranslate2 supports CUDA with bias
+        settings['whisper_backend'] = 'whisperx'
+        settings['whisper_backend_reason'] = 'CUDA-compatible CTranslate2 with bias prompting support'
+        settings['bias_prompting_supported'] = True
+        settings['bias_prompting_note'] = 'Full bias support (initial_prompt + hotwords)'
+    else:
+        # CPU: CTranslate2 with bias support
+        settings['whisper_backend'] = 'whisperx'
+        settings['whisper_backend_reason'] = 'CPU mode with CTranslate2 and bias prompting support'
+        settings['bias_prompting_supported'] = True
+        settings['bias_prompting_note'] = 'Full bias support (initial_prompt + hotwords) but slow on CPU'
+    
     return settings
 
 
@@ -738,6 +792,9 @@ def update_pipeline_config(hw_info: Dict, config_file: Path = None) -> bool:
         whisper_model = settings.get('whisper_model', 'large-v3')
         compute_type = settings.get('compute_type', 'float16')
         
+        # Determine if we need to add MPS environment variables
+        is_mps = (gpu_type == 'mps')
+        
         # Update lines
         updated_lines = []
         updated_device = False
@@ -745,6 +802,7 @@ def update_pipeline_config(hw_info: Dict, config_file: Path = None) -> bool:
         updated_whisperx_device = False
         updated_model = False
         updated_compute = False
+        found_mps_section = False
         
         for line in lines:
             # Update global DEVICE
@@ -774,8 +832,24 @@ def update_pipeline_config(hw_info: Dict, config_file: Path = None) -> bool:
                 updated_lines.append(f'PYANNOTE_DEVICE={gpu_type}\n')
             elif line.startswith('DIARIZATION_DEVICE='):
                 updated_lines.append(f'DIARIZATION_DEVICE={gpu_type}\n')
+            # Check if MPS section already exists
+            elif 'MPS ENVIRONMENT VARIABLES' in line or line.startswith('PYTORCH_MPS_HIGH_WATERMARK_RATIO='):
+                found_mps_section = True
+                updated_lines.append(line)
             else:
                 updated_lines.append(line)
+        
+        # Add MPS environment variables section if MPS is detected and section doesn't exist
+        if is_mps and not found_mps_section:
+            updated_lines.append('\n')
+            updated_lines.append('# ============================================================\n')
+            updated_lines.append('# MPS ENVIRONMENT VARIABLES (Apple Silicon)\n')
+            updated_lines.append('# ============================================================\n')
+            updated_lines.append('# Auto-configured by hardware detection\n')
+            updated_lines.append('PYTORCH_MPS_HIGH_WATERMARK_RATIO=0.0\n')
+            updated_lines.append('PYTORCH_ENABLE_MPS_FALLBACK=0\n')
+            updated_lines.append('MPS_ALLOC_MAX_SIZE_MB=4096\n')
+            updated_lines.append('\n')
         
         # Write updated config
         with open(config_file, 'w') as f:
@@ -792,6 +866,8 @@ def update_pipeline_config(hw_info: Dict, config_file: Path = None) -> bool:
             print(f"    • WHISPER_MODEL={whisper_model}")
         if updated_compute:
             print(f"    • WHISPER_COMPUTE_TYPE={compute_type}")
+        if is_mps and not found_mps_section:
+            print(f"    • MPS environment variables added")
         
         return True
         

@@ -65,7 +65,7 @@ Web UI / API → Job Queue → Distributed Workers → Database → Admin Dashbo
 ┌────────────────────────────────────────────────────────────────┐
 │                      Processing Stages                          │
 ├────────────────────────────────────────────────────────────────┤
-│  Stage Pipeline (14 stages):                                   │
+│  Stage Pipeline (15 stages):                                   │
 │                                                                 │
 │  1. Demux (demux.py)                                           │
 │     └─ Extract audio/video streams using ffmpeg               │
@@ -82,35 +82,39 @@ Web UI / API → Job Queue → Distributed Workers → Database → Admin Dashbo
 │  5. PyAnnote VAD (pyannote_vad.py)                             │
 │     └─ Enhanced VAD (PyTorch)                                  │
 │                                                                 │
-│  6. Diarization (diarization.py)                               │
-│     └─ Speaker identification (PyTorch, WhisperX)              │
-│                                                                 │
-│  7. ASR (whisperx_integration.py)                              │
+│  6. ASR (whisperx_integration.py)                              │
 │     ├─ Load bias terms from TMDB + Pre-NER                    │
 │     ├─ Create bias windows (45s, 15s stride)                  │
 │     ├─ Generate global bias prompts                           │
 │     └─ Transcribe with active bias (faster-whisper)           │
 │                                                                 │
-│  8. Glossary Builder (glossary_builder.py)                     │
-│     └─ Build film-specific glossary from transcript            │
+│  7. Song Bias Injection (song_bias_injection.py)               │
+│     └─ Inject song titles as bias terms                        │
 │                                                                 │
-│  9. Second Pass Translation (translation_refine.py)             │
-│     └─ Refine translation using glossary                       │
-│                                                                 │
-│ 10. Lyrics Detection (lyrics_detection.py)                     │
+│  8. Lyrics Detection (lyrics_detection.py)                     │
 │     └─ Detect and format song sequences                        │
 │                                                                 │
-│ 11. Post-NER (post_ner.py)                                     │
+│  9. Bias Correction (bias_correction.py)                       │
+│     └─ Fix over-biasing artifacts                              │
+│                                                                 │
+│ 10. Diarization (diarization.py)                               │
+│     └─ Speaker identification (PyTorch, WhisperX)              │
+│                                                                 │
+│ 11. Glossary Builder (glossary_builder.py)                     │
+│     └─ Build film-specific glossary from transcript            │
+│                                                                 │
+│ 12. Second Pass Translation (translation_refine.py)            │
+│     └─ Refine translation using glossary                       │
+│                                                                 │
+│ 13. Post-NER (post_ner.py)                                     │
 │     └─ Entity resolution and linking                           │
 │                                                                 │
-│ 12. Subtitle Generation (subtitle_gen.py)                      │
+│ 14. Subtitle Generation (subtitle_gen.py)                      │
 │     └─ Generate SRT/VTT with CPS optimization                  │
 │                                                                 │
-│ 13. Mux (mux.py)                                               │
+│ 15. Mux (mux.py)                                               │
 │     └─ Embed subtitles in video using ffmpeg                   │
-│                                                                 │
-│ 14. Finalize (finalize.py)                                     │
-│     └─ Organize output files                                   │
+│     └─ Final output in 15_mux/<movie_title>/<movie>_subtitled │
 └──────────────────┬─────────────────────────────────────────────┘
                    │
                    ▼

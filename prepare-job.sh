@@ -27,9 +27,21 @@ OPTIONS:
   --end-time TIME      End time for clip (HH:MM:SS format)
 
 WORKFLOW MODES:
-  --transcribe         Transcribe-only workflow (faster, no subtitles)
-  --subtitle-gen       Full subtitle workflow with embedded subtitles (default)
-  --native             Enable native GPU acceleration (auto-detects MPS/CUDA)
+  --transcribe            Transcribe-only workflow - minimal (3 stages)
+  --transcribe-only       Transcription-only workflow (6 stages, includes VAD)
+  --translate-only        Translation-only workflow (9 stages, reuses transcription)
+  --subtitle-gen          Full subtitle workflow (default, 15 stages)
+  --native                Enable native GPU acceleration (auto-detects MPS/CUDA)
+
+LANGUAGE OPTIONS:
+  -s, --source-language CODE   Source language (e.g., hi, es, ja, fr, de, auto)
+  -t, --target-language CODE   Target language (e.g., en, es, fr, de)
+                               Required for --translate-only
+                               
+  Supported: 96 languages including:
+    auto (Auto-detect), hi (Hindi), en (English), es (Spanish),
+    fr (French), de (German), it (Italian), ja (Japanese),
+    ko (Korean), zh (Chinese), ar (Arabic), pt (Portuguese), etc.
 
 STAGE CONTROL:
   --enable-silero-vad     Enable Silero VAD stage (default: enabled)
@@ -40,11 +52,24 @@ STAGE CONTROL:
   --disable-diarization   Disable Diarization stage
 
 EXAMPLES:
-  # Process full movie with subtitle generation (default)
+  # Default: Full Hindi → English subtitle generation (backward compatible)
   $0 /path/to/movie.mp4
 
-  # Transcribe only (faster, no subtitles)
-  $0 /path/to/movie.mp4 --transcribe
+  # Spanish to English (full pipeline)
+  $0 /path/to/movie.mp4 -s es -t en
+  $0 /path/to/movie.mp4 --subtitle-gen -s es -t en  # explicit mode
+
+  # Japanese to French (full pipeline)
+  $0 /path/to/anime.mp4 -s ja -t fr
+
+  # Multi-language workflow (transcribe once, translate many times)
+  $0 /path/to/anime.mp4 --transcribe-only -s ja
+  $0 /path/to/anime.mp4 --translate-only -s ja -t en
+  $0 /path/to/anime.mp4 --translate-only -s ja -t es
+  $0 /path/to/anime.mp4 --translate-only -s ja -t fr
+
+  # Auto-detect source language
+  $0 /path/to/movie.mp4 --transcribe-only
 
   # Enable native GPU acceleration
   $0 /path/to/movie.mp4 --native
@@ -52,16 +77,20 @@ EXAMPLES:
   # Fast mode (skip PyAnnote VAD for 30% speed boost)
   $0 /path/to/movie.mp4 --disable-pyannote-vad
 
-  # Speed mode (skip diarization for 50% speed boost, no speaker labels)
-  $0 /path/to/movie.mp4 --disable-diarization
-
   # Process 5-minute clip for testing
   $0 /path/to/movie.mp4 --start-time 00:10:00 --end-time 00:15:00
 
+WORKFLOW COMPARISON:
+  Mode              Languages         Stages  Time  Output
+  --subtitle-gen    any → any (hi→en) 15      100%  Subtitled video file
+  --transcribe-only any               6       40%   Source transcript (JSON)
+  --translate-only  any → any         9       60%   Target subtitles (SRT)
+  --transcribe      any               3       20%   Raw transcription
+
 PERFORMANCE TIPS:
-  - Use --transcribe for fastest processing (3 stages only)
-  - Use --disable-pyannote-vad for 30% faster (slight quality trade-off)
-  - Use --disable-diarization for 50% faster (no speaker labels)
+  - Use --transcribe-only for transcription (40% time, outputs segments.json)
+  - Use --translate-only to reuse transcription (60% time, no audio processing)
+  - Generate 3 subtitle tracks in 160% time vs 300% (transcribe once, translate 3x)
   - Use --native for GPU acceleration (MPS on macOS, CUDA on Linux/Windows)
 
 For more information, see: docs/QUICKSTART.md
@@ -75,6 +104,8 @@ INPUT_MEDIA=""
 START_TIME=""
 END_TIME=""
 WORKFLOW="subtitle-gen"  # default
+SOURCE_LANGUAGE=""
+TARGET_LANGUAGE=""
 ENABLE_SILERO_VAD=""
 ENABLE_PYANNOTE_VAD=""
 ENABLE_DIARIZATION=""
@@ -96,9 +127,25 @@ while [[ $# -gt 0 ]]; do
             WORKFLOW="transcribe"
             shift
             ;;
+        --transcribe-only)
+            WORKFLOW="transcribe-only"
+            shift
+            ;;
+        --translate-only)
+            WORKFLOW="translate-only"
+            shift
+            ;;
         --subtitle-gen)
             WORKFLOW="subtitle-gen"
             shift
+            ;;
+        -s|--source-language)
+            SOURCE_LANGUAGE="$2"
+            shift 2
+            ;;
+        -t|--target-language)
+            TARGET_LANGUAGE="$2"
+            shift 2
             ;;
         --enable-silero-vad)
             ENABLE_SILERO_VAD="true"
@@ -217,10 +264,27 @@ fi
 # Add workflow mode
 if [ "$WORKFLOW" = "transcribe" ]; then
     PYTHON_ARGS+=("--transcribe")
-    log_info "Workflow: TRANSCRIBE (demux → vad → asr only)"
+    log_info "Workflow: TRANSCRIBE (minimal, 3 stages)"
+elif [ "$WORKFLOW" = "transcribe-only" ]; then
+    PYTHON_ARGS+=("--transcribe-only")
+    log_info "Workflow: TRANSCRIBE-ONLY (6 stages with VAD)"
+elif [ "$WORKFLOW" = "translate-only" ]; then
+    PYTHON_ARGS+=("--translate-only")
+    log_info "Workflow: TRANSLATE-ONLY (9 stages, reuses transcription)"
 else
     PYTHON_ARGS+=("--subtitle-gen")
-    log_info "Workflow: SUBTITLE-GEN (all 13 stages, default)"
+    log_info "Workflow: SUBTITLE-GEN (15 stages, default)"
+fi
+
+# Add language arguments
+if [ -n "$SOURCE_LANGUAGE" ]; then
+    PYTHON_ARGS+=("--source-language" "$SOURCE_LANGUAGE")
+    log_info "Source language: $SOURCE_LANGUAGE"
+fi
+
+if [ -n "$TARGET_LANGUAGE" ]; then
+    PYTHON_ARGS+=("--target-language" "$TARGET_LANGUAGE")
+    log_info "Target language: $TARGET_LANGUAGE"
 fi
 
 # Add stage control flags
@@ -295,6 +359,7 @@ if [ $exit_code -eq 0 ]; then
     log_info "Pipeline will execute these stages automatically:"
     
     if [ "$WORKFLOW" = "transcribe" ]; then
+        # Minimal transcription: 3 stages
         stage_num=1
         log_info "  ${stage_num}. Demux (audio extraction)"
         stage_num=$((stage_num + 1))
@@ -307,7 +372,9 @@ if [ $exit_code -eq 0 ]; then
         stage_num=$((stage_num + 1))
         
         log_info "  ${stage_num}. ASR (transcription)"
-    else
+        
+    elif [ "$WORKFLOW" = "transcribe-only" ]; then
+        # Transcription with VAD: 6 stages
         stage_num=1
         log_info "  ${stage_num}. Demux (audio extraction)"
         stage_num=$((stage_num + 1))
@@ -332,6 +399,23 @@ if [ $exit_code -eq 0 ]; then
         fi
         stage_num=$((stage_num + 1))
         
+        log_info "  ${stage_num}. ASR (transcription with character bias)"
+        
+    elif [ "$WORKFLOW" = "translate-only" ]; then
+        # Translation only: 9 stages (reuses existing transcription)
+        stage_num=1
+        log_info "  ${stage_num}. TMDB (metadata fetch)"
+        stage_num=$((stage_num + 1))
+        
+        log_info "  ${stage_num}. Song Bias Injection (song/artist corrections)"
+        stage_num=$((stage_num + 1))
+        
+        log_info "  ${stage_num}. Lyrics Detection (song identification)"
+        stage_num=$((stage_num + 1))
+        
+        log_info "  ${stage_num}. Bias Correction (post-processing)"
+        stage_num=$((stage_num + 1))
+        
         if [ "$ENABLE_DIARIZATION" != "false" ]; then
             log_info "  ${stage_num}. Diarization (speaker identification)"
         else
@@ -339,16 +423,10 @@ if [ $exit_code -eq 0 ]; then
         fi
         stage_num=$((stage_num + 1))
         
-        log_info "  ${stage_num}. ASR (transcription)"
+        log_info "  ${stage_num}. Glossary Builder (term management)"
         stage_num=$((stage_num + 1))
         
         log_info "  ${stage_num}. Second Pass Translation (refinement)"
-        stage_num=$((stage_num + 1))
-        
-        log_info "  ${stage_num}. Lyrics Detection (song identification)"
-        stage_num=$((stage_num + 1))
-        
-        log_info "  ${stage_num}. Lyrics Translation (song translation)"
         stage_num=$((stage_num + 1))
         
         log_info "  ${stage_num}. Post-NER (name correction)"
@@ -357,7 +435,66 @@ if [ $exit_code -eq 0 ]; then
         log_info "  ${stage_num}. Subtitle Generation (SRT creation)"
         stage_num=$((stage_num + 1))
         
-        log_info "  ${stage_num}. Mux (video embedding)"
+        log_info "  ${stage_num}. MUX (video embedding)"
+        
+    else
+        # Full subtitle-gen workflow: 15 stages
+        stage_num=1
+        log_info "  ${stage_num}. Demux (audio extraction)"
+        stage_num=$((stage_num + 1))
+        
+        log_info "  ${stage_num}. TMDB (metadata fetch)"
+        stage_num=$((stage_num + 1))
+        
+        log_info "  ${stage_num}. Pre-NER (entity extraction)"
+        stage_num=$((stage_num + 1))
+        
+        if [ "$ENABLE_SILERO_VAD" != "false" ]; then
+            log_info "  ${stage_num}. Silero VAD (voice detection)"
+        else
+            log_info "  ${stage_num}. Silero VAD (voice detection) [SKIPPED]"
+        fi
+        stage_num=$((stage_num + 1))
+        
+        if [ "$ENABLE_PYANNOTE_VAD" != "false" ]; then
+            log_info "  ${stage_num}. PyAnnote VAD (voice refinement)"
+        else
+            log_info "  ${stage_num}. PyAnnote VAD (voice refinement) [SKIPPED]"
+        fi
+        stage_num=$((stage_num + 1))
+        
+        log_info "  ${stage_num}. ASR (transcription with character bias)"
+        stage_num=$((stage_num + 1))
+        
+        log_info "  ${stage_num}. Song Bias Injection (song/artist corrections)"
+        stage_num=$((stage_num + 1))
+        
+        log_info "  ${stage_num}. Lyrics Detection (song identification)"
+        stage_num=$((stage_num + 1))
+        
+        log_info "  ${stage_num}. Bias Correction (post-processing)"
+        stage_num=$((stage_num + 1))
+        
+        if [ "$ENABLE_DIARIZATION" != "false" ]; then
+            log_info "  ${stage_num}. Diarization (speaker identification)"
+        else
+            log_info "  ${stage_num}. Diarization (speaker identification) [SKIPPED]"
+        fi
+        stage_num=$((stage_num + 1))
+        
+        log_info "  ${stage_num}. Glossary Builder (term management)"
+        stage_num=$((stage_num + 1))
+        
+        log_info "  ${stage_num}. Second Pass Translation (refinement)"
+        stage_num=$((stage_num + 1))
+        
+        log_info "  ${stage_num}. Post-NER (name correction)"
+        stage_num=$((stage_num + 1))
+        
+        log_info "  ${stage_num}. Subtitle Generation (SRT creation)"
+        stage_num=$((stage_num + 1))
+        
+        log_info "  ${stage_num}. MUX (video embedding)"
     fi
     
     echo ""

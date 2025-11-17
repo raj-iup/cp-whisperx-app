@@ -153,11 +153,15 @@ class WhisperXBackend(WhisperBackend):
         initial_prompt: Optional[str] = None,
         hotwords: Optional[str] = None
     ) -> Dict[str, Any]:
-        """Transcribe using WhisperX with optional bias prompting
+        """
+        Transcribe using WhisperX with optional bias prompting
         
-        Bias parameters (initial_prompt, hotwords) are passed to the underlying
-        faster-whisper model when available. These help improve recognition of
-        proper nouns, character names, and domain-specific terminology.
+        ARCHITECTURE:
+        - CPU/CUDA: Bias parameters applied during ASR (optimal path)
+        - bias_injection stage provides additional correction pass
+        
+        Bias parameters help improve recognition of proper nouns,
+        character names, and domain-specific terminology.
         
         Args:
             audio_file: Path to audio file
@@ -185,9 +189,7 @@ class WhisperXBackend(WhisperBackend):
             'batch_size': batch_size
         }
         
-        # Add bias parameters if provided
-        # Note: These pass through to faster-whisper's transcribe() method
-        # via WhisperX's model.transcribe() call
+        # Add bias parameters if provided (works on CPU/CUDA)
         if initial_prompt:
             transcribe_params['initial_prompt'] = initial_prompt
             self.logger.debug(f"  Using initial_prompt: {initial_prompt[:100]}...")
@@ -332,14 +334,35 @@ class MLXWhisperBackend(WhisperBackend):
         initial_prompt: Optional[str] = None,
         hotwords: Optional[str] = None
     ) -> Dict[str, Any]:
-        """Transcribe using MLX-Whisper (bias prompting not supported by MLX yet)"""
+        """
+        Transcribe using MLX-Whisper (native MPS acceleration)
+        
+        MPS ARCHITECTURE:
+        - Clean ASR transcription on native MPS (no bias parameters)
+        - Bias correction handled in separate post-ASR stage
+        - This separation allows:
+          * Full MPS GPU acceleration (2-4x faster)
+          * No CTranslate2 limitations
+          * Flexible bias correction methods
+        
+        Args:
+            audio_file: Path to audio file
+            language: Source language
+            task: 'transcribe' or 'translate'
+            batch_size: Batch size (unused by MLX)
+            initial_prompt: Ignored (bias in separate stage)
+            hotwords: Ignored (bias in separate stage)
+            
+        Returns:
+            Transcription result
+        """
         if not self.model_loaded:
             raise RuntimeError("MLX backend not loaded")
         
-        # Log if bias prompting was requested but not supported
+        # MPS Architecture: Bias handled in separate stage
         if initial_prompt or hotwords:
-            self.logger.warning("  ⚠️  MLX backend does not support bias prompting yet")
-            self.logger.warning("  Continuing without bias prompts")
+            self.logger.info("  ℹ️  MPS Architecture: Bias injection deferred to post-ASR stage")
+            self.logger.info("     (MLX runs clean ASR on native MPS acceleration)")
         
         # Map model names to MLX format
         model_path = self._map_model_name(self.model_name)
@@ -520,6 +543,14 @@ def get_recommended_backend(device: str, logger) -> str:
     """
     Get recommended backend for the given device
     
+    Architecture:
+    - MPS: Use MLX for native acceleration (no bias in ASR)
+           → Bias injection handled in separate post-ASR stage
+    - CUDA: Use WhisperX with bias parameters (optimal)
+    - CPU: Use WhisperX with bias parameters (optimal)
+    
+    Preference: MPS > CUDA > CPU (performance-based)
+    
     Args:
         device: Target device (cpu, cuda, mps)
         logger: Logger instance
@@ -532,14 +563,18 @@ def get_recommended_backend(device: str, logger) -> str:
     if device_lower == "mps":
         try:
             import mlx_whisper
-            logger.info("✓ MLX-Whisper available for MPS acceleration")
+            logger.info("✓ MPS: Using MLX-Whisper (native GPU acceleration)")
+            logger.info("  → ASR runs clean on MPS (2-4x faster than CPU)")
+            logger.info("  → Bias injection: post-ASR stage (bias_injection)")
             return "mlx"
         except ImportError:
-            logger.warning("⚠ MLX-Whisper not installed")
+            logger.warning("⚠ MLX-Whisper not installed (recommended for MPS)")
             logger.warning("  Install with: pip install mlx-whisper")
-            logger.warning("  Falling back to WhisperX (CPU mode)")
+            logger.warning("  Falling back to WhisperX on CPU (with bias)")
             return "whisperx"
     elif device_lower == "cuda":
+        logger.info("✓ CUDA: Using WhisperX (GPU acceleration + bias parameters)")
         return "whisperx"
     else:
+        logger.info(f"✓ CPU: Using WhisperX (with bias parameters)")
         return "whisperx"

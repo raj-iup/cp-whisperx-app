@@ -36,15 +36,17 @@ class StageIO:
         "pre_ner": 3,
         "silero_vad": 4,
         "pyannote_vad": 5,
-        "diarization": 6,
-        "asr": 7,
-        "glossary_builder": 8,
-        "second_pass_translation": 9,
-        "lyrics_detection": 10,
-        "post_ner": 11,
-        "subtitle_gen": 12,
-        "mux": 13,
-        "finalize": 14
+        "asr": 6,
+        "song_bias_injection": 7,
+        "lyrics_detection": 8,
+        "bias_correction": 9,
+        "diarization": 10,
+        "glossary_builder": 11,
+        "second_pass_translation": 12,
+        "post_ner": 13,
+        "subtitle_gen": 14,
+        "mux": 15,
+        "finalize": 16
     }
     
     def __init__(self, stage_name: str, output_base: Optional[Path] = None):

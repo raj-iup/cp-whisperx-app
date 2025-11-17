@@ -1,0 +1,55 @@
+term	english	alternatives	context	confidence	source	frequency	notes
+abey	hey you	hey you|dude	informal	1.0	manual:master	0	"Informal/rude; ""hey you"" neutral, ""dude"" friendlier"
+acha	well	well|okay|I see	discourse	1.0	manual:master	0	"Discourse marker; ""well"" for transitions, ""okay"" for agreement, ""I see"" for understanding"
+apun	I	I|me|we	mumbai-slang	1.0	manual:master	0	Mumbai slang for first person
+arey	hey	hey|hey there|oh	exclamation	1.0	manual:master	0	"Exclamation; keep if emphatic, ""hey"" casual, ""oh"" surprise"
+arre	hey	hey|wait	exclamation	1.0	manual:master	0	"Attention-getting; ""hey"" for calling, ""wait"" for pausing"
+arre yaar	oh dude	oh dude|hey man|oh man	casual	1.0	manual:master	0	Combined exclamation; very casual
+arrey	hey	hey|oh|wait	exclamation	1.0	manual:master	0	"Variant of ""arre"""
+aunty	aunt	aunt|ma'am	respect	1.0	manual:master	0	"Respectful address for older women; can keep as ""aunty"""
+bakwas	nonsense	nonsense|rubbish|bullshit	slang	1.0	manual:master	0	"Dismissive; ""nonsense"" mild, ""rubbish"" moderate, ""bullshit"" strong"
+bas	just	just|enough|that's it	multiple	1.0	manual:master	0	"just for limitation, ""enough"" for stopping, ""that's it"" for finality"
+beta	son	son|child|dear	endearment	1.0	manual:master	0	"Term of endearment or addressing youth; ""son"" male, ""child"" neutral, ""dear"" affectionate"
+bete	son	son	endearment	1.0	manual:master	0	Vocative case of beta
+beti	daughter	daughter|dear	endearment	1.0	manual:master	0	Female equivalent of beta
+bhai	bro	bro|brother	casual/formal	1.0	manual:master	0	"Use ""bro"" in casual banter; ""brother"" formal"
+bhaiya	brother	brother|sir	respect	1.0	manual:master	0	"Respectful for older male; ""brother"" literal, ""sir"" respectful"
+bhidu	friend	friend|buddy|dude	mumbai-slang	1.0	manual:master	0	Mumbai slang for friend
+bilkul	absolutely	absolutely|exactly|completely	agreement	1.0	manual:master	0	Strong agreement; all are emphatic
+bindaas	carefree	carefree|cool|confident	slang	1.0	manual:master	0	"Attitude; ""carefree"" literal, ""cool"" casual, ""confident"" strong"
+chal	go	go|come on|okay	movement/agreement	1.0	manual:master	0	Movement or agreement; very context-dependent
+chalo	let's go	let's go|come on|alright	movement	1.0	manual:master	0	Movement or transition; context-dependent
+dekho	look	look|see	visual	1.0	manual:master	0	"Visual attention; ""look"" for pointing, ""see"" for understanding"
+didi	sister	sister|ma'am	respect	1.0	manual:master	0	"Respectful for older female; ""sister"" literal, ""ma'am"" respectful"
+drama	drama	drama|fuss|scene	slang	1.0	manual:master	0	"Exaggeration; can keep as ""drama"" or use alternatives"
+ekdum	totally	totally|completely|very	intensifier	1.0	manual:master	0	"Intensifier; ""totally"" casual, ""completely"" formal, ""very"" moderate"
+full	totally	totally|completely|very	intensifier	1.0	manual:master	0	Borrowed English intensifier
+fundoo	smart	smart|clever|genius	slang	1.0	manual:master	0	"Intelligence; ""smart"" moderate, ""clever"" cunning, ""genius"" extreme"
+haan	yes	yes|yeah|yup	agreement	1.0	manual:master	0	"Agreement; ""yes"" formal, ""yeah"" casual, ""yup"" very casual"
+ji	sir	sir|ma'am|	honorific	1.0	manual:master	0	"Honorific suffix; ""sir"" for males, ""ma'am"" for females, omit if repetitive"
+jugaad	makeshift fix	makeshift fix|workaround|hack	slang	1.0	manual:master	0	"Creative solution; ""makeshift fix"" literal, ""workaround"" tech, ""hack"" casual"
+koi baat nahi	no problem	no problem|no worries|it's okay	reassurance	1.0	manual:master	0	Reassurance; all convey forgiveness
+kya	what	what|really	question/exclamation	1.0	manual:master	0	"Question word or exclamation; ""what"" for questions, ""really"" for emphasis"
+kya scene hai	what's up	what's up|what's going on|what's the deal	casual	1.0	manual:master	0	Casual inquiry
+mast	cool	cool|awesome|great	slang	1.0	manual:master	0	"Positive; ""cool"" casual, ""awesome"" enthusiastic, ""great"" moderate"
+matlab	I mean	I mean|meaning	discourse	1.0	manual:master	0	"Clarification marker; usually ""I mean"""
+nahi	no	no|nope|nah	disagreement	1.0	manual:master	0	"Disagreement; ""no"" formal, ""nope"" casual, ""nah"" very casual"
+nahin	no	no|not	disagreement	1.0	manual:master	0	"Formal ""no"" or negation"
+oho	oh	oh|oops|uh-oh	reaction	1.0	manual:master	0	"Reaction; ""oh"" surprise, ""oops"" mistake, ""uh-oh"" concern"
+pagal	crazy	crazy|mad|insane	slang	1.0	manual:master	0	"Mental state; ""crazy"" casual, ""mad"" moderate, ""insane"" strong"
+paisa	money	money|cash|bucks	slang	1.0	manual:master	0	"Currency; ""money"" formal, ""cash"" casual, ""bucks"" very casual"
+pakka	sure	sure|certain|definitely	affirmation	1.0	manual:master	0	"Certainty; ""sure"" casual, ""certain"" formal, ""definitely"" emphatic"
+pucca	solid	solid|genuine|proper	quality	1.0	manual:master	0	"Quality; ""solid"" reliable, ""genuine"" authentic, ""proper"" correct"
+sahi	right	right|correct|true	agreement	1.0	manual:master	0	"Agreement; ""right"" casual, ""correct"" formal, ""true"" factual"
+scene	situation	situation|thing|matter	slang	1.0	manual:master	0	"Context; ""situation"" formal, ""thing"" casual, ""matter"" serious"
+shabash	well done	well done|bravo|good job	praise	1.0	manual:master	0	"Praise; ""well done"" formal, ""bravo"" enthusiastic, ""good job"" casual"
+suno	listen	listen|hey	attention	1.0	manual:master	0	"Attention-getting; ""listen"" for important, ""hey"" casual"
+tapori	street-smart guy	street-smart guy|hustler|local	mumbai-slang	1.0	manual:master	0	Mumbai street culture
+tension	stress	stress|worry|problem	slang	1.0	manual:master	0	"Concern; ""stress"" modern, ""worry"" emotional, ""problem"" practical"
+theek hai	okay	okay|fine|alright	agreement	1.0	manual:master	0	"Agreement; ""okay"" casual, ""fine"" resigned, ""alright"" accepting"
+timepass	killing time	killing time|pastime|hanging out	slang	1.0	manual:master	0	Casual activity; context-dependent
+uncle	uncle	uncle|sir	respect	1.0	manual:master	0	"Respectful address for older men; can keep as ""uncle"""
+waah	wow	wow|amazing|bravo	appreciation	1.0	manual:master	0	Appreciation; all options convey admiration
+woh	that	that|he|she	demonstrative	1.0	manual:master	0	"Context-dependent; ""that"" for objects, pronouns for people"
+yaar	dude	dude|man|buddy	casual	1.0	manual:master	0	"Use ""dude"" for young male; ""man"" neutral; ""buddy"" friendly"
+yeh	this	this|that	demonstrative	1.0	manual:master	0	"Context-dependent; usually ""this"""

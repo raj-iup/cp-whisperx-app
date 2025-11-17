@@ -15,6 +15,8 @@ from pythonjsonlogger import jsonlogger
 
 
 # Stage order mapping for log file prefixes
+# NOTE: ASR (stage 6) must execute before bias_injection (stage 7) before Diarization (stage 8)
+# ASR generates transcripts → bias_injection corrects names → diarization assigns speakers
 STAGE_ORDER = {
     "orchestrator": 0,
     "demux": 1,
@@ -25,20 +27,26 @@ STAGE_ORDER = {
     "silero_vad": 4,
     "pyannote-vad": 5,
     "pyannote_vad": 5,
-    "diarization": 6,
-    "asr": 7,
-    "glossary-builder": 8,
-    "glossary_builder": 8,
-    "second-pass-translation": 9,
-    "second_pass_translation": 9,
-    "lyrics-detection": 10,
-    "lyrics_detection": 10,
-    "post-ner": 11,
-    "post_ner": 11,
-    "subtitle-gen": 12,
-    "subtitle_gen": 12,
-    "mux": 13,
-    "finalize": 14,
+    "asr": 6,
+    "song-bias-injection": 7,  # NEW: Song-specific bias
+    "song_bias_injection": 7,
+    "lyrics-detection": 8,  # REFACTORED: Proper lyrics detection
+    "lyrics_detection": 8,
+    "bias-correction": 9,  # RENAMED: Post-processing corrections (was bias_injection)
+    "bias_correction": 9,
+    "bias-injection": 9,  # Legacy name compatibility
+    "bias_injection": 9,
+    "diarization": 10,
+    "glossary-builder": 11,
+    "glossary_builder": 11,
+    "second-pass-translation": 12,
+    "second_pass_translation": 12,
+    "post-ner": 13,
+    "post_ner": 13,
+    "subtitle-gen": 14,
+    "subtitle_gen": 14,
+    "mux": 15,
+    "finalize": 16,
 }
 
 

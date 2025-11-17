@@ -1,0 +1,274 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                                                                              ║
+║         DOCUMENTATION UPDATE: subtitle-gen Language Support                 ║
+║                          COMPLETE ✅                                          ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+📅 UPDATE DATE: November 14, 2025
+🎯 SCOPE: Clarify subtitle-gen supports ANY-TO-ANY languages
+📊 STATUS: All documentation updated
+
+════════════════════════════════════════════════════════════════════════════════
+ISSUE ADDRESSED
+════════════════════════════════════════════════════════════════════════════════
+
+BEFORE:
+  Documentation stated: "subtitle-gen: hi → en"
+  
+PROBLEM:
+  This was MISLEADING - suggested subtitle-gen ONLY supports Hindi→English
+  
+REALITY:
+  subtitle-gen supports ANY-TO-ANY language combinations (96 languages)!
+  hi→en is just the DEFAULT for backward compatibility
+
+════════════════════════════════════════════════════════════════════════════════
+WHAT WAS UPDATED
+════════════════════════════════════════════════════════════════════════════════
+
+✅ prepare-job.sh
+   - Updated WORKFLOW COMPARISON table
+   - Updated EXAMPLES section
+   - Added Spanish→English, Japanese→French examples
+   
+✅ prepare-job.ps1
+   - Updated WORKFLOW COMPARISON table  
+   - Updated EXAMPLES section
+   - Added multi-language examples
+
+✅ README.md
+   - Updated workflow modes table
+   - Changed "hi → en" to "ANY → ANY (default: hi→en)"
+   - Updated example workflows section
+
+✅ docs/WORKFLOW_MODES_GUIDE.md
+   - Expanded subtitle-gen section
+   - Added 5 language pair examples
+   - Added "When to Use" guidance
+   - Clarified ANY→ANY support
+
+════════════════════════════════════════════════════════════════════════════════
+UPDATED TEXT SNIPPETS
+════════════════════════════════════════════════════════════════════════════════
+
+WORKFLOW COMPARISON TABLE:
+
+BEFORE:
+  Mode              Languages  Stages  Time  Output
+  --subtitle-gen    hi → en    15      100%  English subs + video
+
+AFTER:
+  Mode              Languages         Stages  Time  Output
+  --subtitle-gen    any → any (hi→en) 15      100%  Subtitled video file
+
+────────────────────────────────────────────────────────────────────────────────
+
+EXAMPLES SECTION:
+
+ADDED:
+  # Spanish to English (full pipeline)
+  ./prepare-job.sh movie.mp4 -s es -t en
+  
+  # Japanese to French (full pipeline)
+  ./prepare-job.sh anime.mp4 -s ja -t fr
+  
+  # German to Spanish
+  ./prepare-job.sh film.mp4 -s de -t es
+
+────────────────────────────────────────────────────────────────────────────────
+
+README.md WORKFLOW TABLE:
+
+BEFORE:
+  | **subtitle-gen** | hi → en | 15 | 100% | Video + embedded subs | Bollywood (default) |
+
+AFTER:
+  | **subtitle-gen** | ANY → ANY (default: hi→en) | 15 | 100% | Video + embedded subs | Single subtitled video |
+
+════════════════════════════════════════════════════════════════════════════════
+KEY MESSAGES NOW CLEAR
+════════════════════════════════════════════════════════════════════════════════
+
+✅ subtitle-gen supports 96 languages (ANY-TO-ANY)
+✅ Defaults to hi→en for backward compatibility
+✅ Use -s and -t flags to specify any language pair
+✅ Examples show Spanish, Japanese, German, Arabic, Chinese, etc.
+✅ All 4 workflows support multi-language
+
+════════════════════════════════════════════════════════════════════════════════
+USAGE EXAMPLES (NOW DOCUMENTED)
+════════════════════════════════════════════════════════════════════════════════
+
+Default (backward compatible):
+  ./prepare-job.sh movie.mp4
+  # Uses: hi → en
+
+Spanish to English:
+  ./prepare-job.sh movie.mp4 -s es -t en
+  # Full pipeline with Spanish audio → English subtitles
+
+Japanese to French:
+  ./prepare-job.sh anime.mp4 -s ja -t fr
+  # Full pipeline with Japanese audio → French subtitles
+
+German to Spanish:
+  ./prepare-job.sh film.mp4 -s de -t es
+  # Full pipeline with German audio → Spanish subtitles
+
+Arabic to English:
+  ./prepare-job.sh film.mp4 -s ar -t en
+  # Full pipeline with Arabic audio → English subtitles
+
+Auto-detect to English:
+  ./prepare-job.sh mystery.mp4 -s auto -t en
+  # Whisper auto-detects source → English subtitles
+
+════════════════════════════════════════════════════════════════════════════════
+WORKFLOW DECISION GUIDE (NOW CLEAR)
+════════════════════════════════════════════════════════════════════════════════
+
+USE subtitle-gen (15 stages, ANY→ANY) WHEN:
+  ✅ You want ONE subtitled video file
+  ✅ You want embedded subtitles in the video
+  ✅ Single language pair is sufficient
+  ✅ You want all features (bias, glossary, quality)
+  
+  Time: 100% (baseline)
+  Output: Video file with embedded subtitles
+
+USE transcribe-only + translate-only WHEN:
+  ✅ You need MULTIPLE subtitle tracks
+  ✅ You want to save time (27-36%)
+  ✅ You need multiple language outputs
+  ✅ You want separate SRT files
+  
+  Time: 40% + (60% × N tracks) = 40% + 60N%
+  Output: N separate SRT files
+
+════════════════════════════════════════════════════════════════════════════════
+PERFORMANCE COMPARISON (CLARIFIED)
+════════════════════════════════════════════════════════════════════════════════
+
+Scenario: Spanish film → 3 language subtitles (English, French, German)
+
+OPTION 1: Run subtitle-gen 3 times
+  ./prepare-job.sh movie.mp4 -s es -t en  # 100%
+  ./prepare-job.sh movie.mp4 -s es -t fr  # 100%
+  ./prepare-job.sh movie.mp4 -s es -t de  # 100%
+  
+  Total Time: 300%
+  Output: 3 separate videos with embedded subs
+  Pros: Each video standalone
+  Cons: Transcribes audio 3 times (slow)
+
+OPTION 2: Transcribe once + translate 3 times
+  ./prepare-job.sh movie.mp4 --transcribe-only -s es      # 40%
+  ./prepare-job.sh movie.mp4 --translate-only -s es -t en # 60%
+  ./prepare-job.sh movie.mp4 --translate-only -s es -t fr # 60%
+  ./prepare-job.sh movie.mp4 --translate-only -s es -t de # 60%
+  
+  Total Time: 220% (27% faster!)
+  Output: 3 SRT files + original video
+  Pros: Faster, flexible
+  Cons: Need to mux separately if embedding needed
+
+════════════════════════════════════════════════════════════════════════════════
+FILES UPDATED
+════════════════════════════════════════════════════════════════════════════════
+
+✓ prepare-job.sh                       - Help text & examples
+✓ prepare-job.ps1                      - Help text & examples
+✓ README.md                            - Workflow table & examples
+✓ docs/WORKFLOW_MODES_GUIDE.md        - subtitle-gen section expanded
+
+Total: 4 files updated
+
+════════════════════════════════════════════════════════════════════════════════
+BENEFITS OF THIS UPDATE
+════════════════════════════════════════════════════════════════════════════════
+
+For Users:
+  ✅ Clear understanding of capabilities
+  ✅ Correct workflow selection
+  ✅ Better time estimates
+  ✅ Confidence in language support
+
+For International Users:
+  ✅ Realize they can use subtitle-gen for ANY language pair
+  ✅ Don't think it's Hindi-only
+  ✅ See examples in their language
+  ✅ Understand defaults vs capabilities
+
+For Documentation:
+  ✅ Accurate representation
+  ✅ No misleading information
+  ✅ Complete examples
+  ✅ Professional presentation
+
+════════════════════════════════════════════════════════════════════════════════
+BACKWARD COMPATIBILITY
+════════════════════════════════════════════════════════════════════════════════
+
+✅ 100% Backward Compatible
+
+Existing behavior preserved:
+  - ./prepare-job.sh movie.mp4 still defaults to hi→en
+  - All existing scripts continue to work
+  - No breaking changes
+  - Just clarified documentation
+
+New capabilities now documented:
+  - ./prepare-job.sh movie.mp4 -s es -t en (always worked, now documented)
+  - ./prepare-job.sh movie.mp4 -s ja -t fr (always worked, now documented)
+  - etc.
+
+════════════════════════════════════════════════════════════════════════════════
+TESTING RECOMMENDATIONS
+════════════════════════════════════════════════════════════════════════════════
+
+Verify documentation updates:
+  ✓ ./prepare-job.sh --help | grep subtitle-gen
+  ✓ cat README.md | grep "subtitle-gen"
+  ✓ cat docs/WORKFLOW_MODES_GUIDE.md | grep "subtitle-gen"
+
+Test workflows:
+  ✓ ./prepare-job.sh test.mp4                     # Default hi→en
+  ✓ ./prepare-job.sh test.mp4 -s es -t en         # Spanish→English
+  ✓ ./prepare-job.sh test.mp4 -s ja -t fr         # Japanese→French
+  ✓ ./prepare-job.sh test.mp4 -s auto -t en       # Auto-detect
+
+════════════════════════════════════════════════════════════════════════════════
+SUMMARY
+════════════════════════════════════════════════════════════════════════════════
+
+Documentation Update: ✅ COMPLETE
+
+Changes:
+✅ Updated 4 documentation files
+✅ Clarified subtitle-gen supports ANY→ANY languages
+✅ Updated workflow comparison tables
+✅ Added multi-language examples
+✅ Maintained 100% backward compatibility
+✅ Improved international user clarity
+
+Impact:
+🎯 Users understand full capabilities
+🌍 International users feel included
+📊 Accurate feature representation
+✨ Professional, complete documentation
+
+Status:
+✅ All documentation consistent
+✅ Examples comprehensive
+✅ No misleading information
+✅ Production ready
+
+════════════════════════════════════════════════════════════════════════════════
+
+🎉 DOCUMENTATION UPDATE COMPLETE - November 14, 2025
+
+The subtitle-gen workflow documentation now accurately reflects its
+ANY-TO-ANY language support capability across all 96 supported languages.
+
+════════════════════════════════════════════════════════════════════════════════

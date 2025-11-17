@@ -346,14 +346,21 @@ def main():
     else:
         config = None
     
-    # Initialize StageIO for pre_ner stage
-    stage_io = StageIO("pre_ner", output_base=output_dir)
+    # Determine if this is pre_ner or post_ner based on caller
+    # Check the script name that called us
+    caller_script = Path(sys.argv[0]).name
+    is_post_ner = 'post_ner' in caller_script
+    
+    stage_name = "post_ner" if is_post_ner else "pre_ner"
+    
+    # Initialize StageIO for correct stage
+    stage_io = StageIO(stage_name, output_base=output_dir)
     
     # Setup logger with numbered log file
     log_file = stage_io.get_log_path()
-    logger = PipelineLogger("pre_ner", log_file)  # Use "pre_ner" to match STAGE_ORDER
+    logger = PipelineLogger(stage_name, log_file)
     
-    logger.info(f"Running NER extraction")
+    logger.info(f"Running NER extraction ({stage_name})")
     logger.info(f"Output directory: {output_dir}")
     logger.info(f"Stage directory: {stage_io.stage_dir}")
     
@@ -385,7 +392,7 @@ def main():
             with open(asr_file, 'r') as f:
                 asr_data = json.load(f)
                 segments = asr_data.get('segments', [])
-            basename = "post_ner"
+            basename = "entities"
         except Exception as e:
             logger.warning(f"Could not load ASR data: {e}")
     
@@ -404,7 +411,7 @@ def main():
                 
                 if text_parts:
                     segments = [{"text": " ".join(text_parts), "start": 0, "end": 0}]
-            basename = "pre_ner"
+            basename = "entities"
         except Exception as e:
             logger.warning(f"Could not load TMDB data: {e}")
     
@@ -418,12 +425,9 @@ def main():
         # Save metadata
         metadata = {
             "status": "completed",
-            "entities_found": 0,
-            "stage": "pre_ner",
-            "stage_number": stage_io.stage_number,
-            "timestamp": datetime.now().isoformat()
+            "entities_found": 0
         }
-        stage_io.save_json(metadata, "metadata.json")
+        stage_io.save_metadata(metadata)
         
         logger.info(f"✓ NER extraction completed (no input data)")
         return 0
@@ -449,11 +453,10 @@ def main():
             "status": "completed",
             "entities_found": entities_found,
             "unique_entity_types": len(frequency_table),
-            "stage": "pre_ner",
-            "stage_number": stage_io.stage_number,
-            "timestamp": datetime.now().isoformat()
+            "model": model_name,
+            "device": device
         }
-        stage_io.save_json(metadata, "metadata.json")
+        stage_io.save_metadata(metadata)
         
         logger.info(f"✓ NER extraction completed successfully")
         logger.info(f"  Entities found: {entities_found}")
