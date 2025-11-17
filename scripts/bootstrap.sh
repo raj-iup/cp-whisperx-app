@@ -10,6 +10,41 @@ set -euo pipefail
 # - Directory creation
 # - FFmpeg validation
 # - Comprehensive validation
+# - Debug mode with detailed logging
+
+# Parse command line arguments
+DEBUG_MODE=false
+LOG_FILE=""
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --debug)
+            DEBUG_MODE=true
+            shift
+            ;;
+        --log-file)
+            LOG_FILE="$2"
+            shift 2
+            ;;
+        -h|--help)
+            echo "Usage: $0 [OPTIONS]"
+            echo ""
+            echo "Options:"
+            echo "  --debug            Enable debug mode with verbose logging"
+            echo "  --log-file FILE    Save bootstrap log to FILE (default: logs/bootstrap_TIMESTAMP.log)"
+            echo "  -h, --help         Show this help message"
+            echo ""
+            echo "Example:"
+            echo "  $0 --debug --log-file logs/bootstrap.log"
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Run '$0 --help' for usage information"
+            exit 1
+            ;;
+    esac
+done
 
 # Load common logging
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -19,12 +54,75 @@ VENV_DIR=".bollyenv"
 REQ_FILE="requirements.txt"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
+# Setup log file
+if [ -z "$LOG_FILE" ]; then
+    TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+    LOG_FILE="$PROJECT_ROOT/logs/bootstrap_${TIMESTAMP}.log"
+fi
+
+# Ensure logs directory exists
+mkdir -p "$(dirname "$LOG_FILE")"
+
+# Initialize log file
+{
+    echo "════════════════════════════════════════════════════════════════════════"
+    echo "CP-WHISPERX-APP BOOTSTRAP LOG"
+    echo "════════════════════════════════════════════════════════════════════════"
+    echo "Start Time: $(date '+%Y-%m-%d %H:%M:%S')"
+    echo "Debug Mode: $DEBUG_MODE"
+    echo "Log File: $LOG_FILE"
+    echo "════════════════════════════════════════════════════════════════════════"
+    echo ""
+} > "$LOG_FILE"
+
+# Enhanced logging function that writes to both console and file
+log_both() {
+    local level="$1"
+    shift
+    local message="$*"
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    
+    # Log to file with timestamp and level
+    echo "[$timestamp] [$level] $message" >> "$LOG_FILE"
+    
+    # Log to console using existing functions
+    case "$level" in
+        INFO)
+            log_info "$message"
+            ;;
+        SUCCESS)
+            log_success "$message"
+            ;;
+        WARNING)
+            log_warn "$message"
+            ;;
+        ERROR)
+            log_error "$message"
+            ;;
+        DEBUG)
+            if [ "$DEBUG_MODE" = true ]; then
+                echo "🔍 DEBUG: $message"
+            fi
+            ;;
+        SECTION)
+            log_section "$message"
+            ;;
+    esac
+}
+
+# Debug helper function
+debug() {
+    log_both "DEBUG" "$@"
+}
+
 # Detect platform for optimal requirements file
 OS_TYPE=$(uname -s)
 ARCH_TYPE=$(uname -m)
 
-log_section "CP-WHISPERX-APP BOOTSTRAP (ENHANCED)"
-log_info "One-time environment setup..."
+log_both "SECTION" "CP-WHISPERX-APP BOOTSTRAP (ENHANCED)"
+log_both "INFO" "One-time environment setup..."
+log_both "INFO" "Platform: $OS_TYPE ($ARCH_TYPE)"
+debug "Debug mode enabled - verbose logging to: $LOG_FILE"
 
 PYTHON_BIN=""
 if command -v python3 >/dev/null 2>&1; then
@@ -32,34 +130,42 @@ if command -v python3 >/dev/null 2>&1; then
 elif command -v python >/dev/null 2>&1; then
   PYTHON_BIN=python
 else
-  log_error "Python not found. Please install Python 3.11+."
+  log_both "ERROR" "Python not found. Please install Python 3.11+."
   exit 1
 fi
 
-log_info "Using python: $(command -v $PYTHON_BIN)"
+log_both "INFO" "Using python: $(command -v $PYTHON_BIN)"
+debug "Python binary path: $(command -v $PYTHON_BIN)"
 
-log_info "Checking Python version (recommended: 3.11+)"
-$PYTHON_BIN - <<'PY'
+log_both "INFO" "Checking Python version (recommended: 3.11+)"
+python_version=$($PYTHON_BIN - <<'PY'
 import sys
 v = sys.version_info
-print(f"Python {v.major}.{v.minor}.{v.micro}")
+print(f"{v.major}.{v.minor}.{v.micro}")
 if v.major < 3 or (v.major == 3 and v.minor < 11):
     print("Warning: Python 3.11+ recommended for best compatibility.")
 PY
+)
+log_both "INFO" "Python version: $python_version"
+debug "Python version info: $python_version"
 
 if [ -d "$VENV_DIR" ]; then
-  log_info "Found existing virtualenv in $VENV_DIR"
+  log_both "INFO" "Found existing virtualenv in $VENV_DIR"
+  debug "Virtualenv directory: $PROJECT_ROOT/$VENV_DIR"
 else
-  log_info "Creating virtualenv in $VENV_DIR"
-  $PYTHON_BIN -m venv "$VENV_DIR"
+  log_both "INFO" "Creating virtualenv in $VENV_DIR"
+  debug "Running: $PYTHON_BIN -m venv $VENV_DIR"
+  $PYTHON_BIN -m venv "$VENV_DIR" 2>&1 | tee -a "$LOG_FILE"
 fi
 
-log_info "Activating virtualenv"
+log_both "INFO" "Activating virtualenv"
+debug "Sourcing: $VENV_DIR/bin/activate"
 # shellcheck source=/dev/null
 source "$VENV_DIR/bin/activate"
 
-log_info "Upgrading pip, setuptools, and wheel"
-python -m pip install -U pip setuptools wheel
+log_both "INFO" "Upgrading pip, setuptools, and wheel"
+debug "Running: python -m pip install -U pip setuptools wheel"
+python -m pip install -U pip setuptools wheel 2>&1 | tee -a "$LOG_FILE"
 
 # Select optimal requirements file for platform
 SELECTED_REQ_FILE="$REQ_FILE"
@@ -626,9 +732,38 @@ unset SKIP_PROMPTS
 # ============================================================================
 # Complete
 # ============================================================================
-log_section "BOOTSTRAP COMPLETE"
+END_TIME=$(date '+%Y-%m-%d %H:%M:%S')
+
+log_both "SECTION" "BOOTSTRAP COMPLETE"
+
+# Write completion summary to log
+{
+    echo ""
+    echo "════════════════════════════════════════════════════════════════════════"
+    echo "BOOTSTRAP COMPLETION SUMMARY"
+    echo "════════════════════════════════════════════════════════════════════════"
+    echo "End Time: $END_TIME"
+    echo "Duration: $SECONDS seconds"
+    echo ""
+    echo "Environment Configuration:"
+    echo "  • Python: $python_version"
+    echo "  • Virtual Environment: $VENV_DIR"
+    echo "  • Platform: $OS_TYPE ($ARCH_TYPE)"
+    echo "  • Log File: $LOG_FILE"
+    echo ""
+    echo "Installed Components:"
+    echo "  ✓ Python packages from $SELECTED_REQ_FILE"
+    echo "  ✓ Optional enhancements (jellyfish, sentence-transformers)"
+    echo "  ✓ IndicTrans2 dependencies"
+    echo "  ✓ torch $torch_version / torchaudio $torchaudio_version"
+    echo "  ✓ numpy $numpy_version"
+    echo ""
+    echo "Status: SUCCESS"
+    echo "════════════════════════════════════════════════════════════════════════"
+} | tee -a "$LOG_FILE"
+
 echo ""
-echo "✅ Environment ready!"
+log_both "SUCCESS" "Environment ready!"
 echo ""
 echo "What's been set up:"
 echo "  ✓ Python virtual environment (.bollyenv/)"
@@ -646,6 +781,11 @@ echo "  ✓ spaCy NER models installed"
 echo "  ✓ PyAnnote.audio verified working"
 echo "  ✓ Glossary system validated"
 echo ""
+echo "📋 Bootstrap log saved to: $LOG_FILE"
+if [ "$DEBUG_MODE" = true ]; then
+    echo "🔍 Debug mode was enabled - detailed logs available"
+fi
+echo ""
 echo "Next steps:"
 echo "  1. Prepare a job:"
 echo "     ./prepare-job.sh path/to/video.mp4"
@@ -662,5 +802,11 @@ echo ""
 echo "Check model status:"
 echo "  python shared/model_checker.py"
 echo ""
+echo "View bootstrap log:"
+echo "  cat $LOG_FILE"
+echo ""
+
+log_both "INFO" "Bootstrap completed successfully"
+debug "Total execution time: $SECONDS seconds"
 
 exit 0
