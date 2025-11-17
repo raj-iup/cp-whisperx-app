@@ -134,6 +134,59 @@ print('✓ All imports successful')
 
 log_success "Import verification complete"
 
+# Check HuggingFace Authentication
+log_section "HuggingFace Authentication"
+
+# Check if user is logged in
+HF_TOKEN_EXISTS=false
+if python -c "from huggingface_hub import HfFolder; token = HfFolder.get_token(); exit(0 if token else 1)" 2>/dev/null; then
+    HF_TOKEN_EXISTS=true
+    log_success "HuggingFace authentication found"
+else
+    log_warn "HuggingFace authentication not found"
+    log_info ""
+    log_info "IndicTrans2 model (ai4bharat/indictrans2-indic-en-1B) is gated and requires:"
+    log_info "  1. HuggingFace account"
+    log_info "  2. Model access request approval"
+    log_info "  3. Authentication token"
+    log_info ""
+    
+    if [[ "$SKIP_PROMPTS" == "false" ]] && [[ "$BOOTSTRAP_MODE" != "true" ]]; then
+        log_info "To setup HuggingFace authentication:"
+        log_info "  1. Create account at https://huggingface.co/join"
+        log_info "  2. Request access at https://huggingface.co/ai4bharat/indictrans2-indic-en-1B"
+        log_info "  3. Create token at https://huggingface.co/settings/tokens"
+        log_info "  4. Run: huggingface-cli login"
+        echo ""
+        
+        read -p "Do you want to authenticate now? (y/n) " -n 1 -r
+        echo ""
+        
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            log_info "Starting HuggingFace authentication..."
+            huggingface-cli login
+            
+            # Verify authentication
+            if python -c "from huggingface_hub import HfFolder; token = HfFolder.get_token(); exit(0 if token else 1)" 2>/dev/null; then
+                HF_TOKEN_EXISTS=true
+                log_success "HuggingFace authentication successful"
+            else
+                log_error "Authentication failed"
+            fi
+        else
+            log_warn "Skipping authentication"
+            log_info "IndicTrans2 will not be functional without authentication"
+        fi
+    else
+        # In bootstrap mode, provide instructions
+        log_info "To enable IndicTrans2, authenticate with HuggingFace:"
+        log_info "  1. Visit https://huggingface.co/ai4bharat/indictrans2-indic-en-1B"
+        log_info "  2. Click 'Agree and access repository'"
+        log_info "  3. Run: huggingface-cli login"
+        log_info "  4. Run: ./install-indictrans2.sh"
+    fi
+fi
+
 # Download and cache IndicTrans2 model
 if [[ "$SKIP_PROMPTS" == "false" ]] && [[ "$BOOTSTRAP_MODE" != "true" ]]; then
     log_section "Model Download"
@@ -154,26 +207,56 @@ else
 fi
 
 if [[ $DOWNLOAD_MODEL =~ ^[Yy]$ ]]; then
-    log_info "Downloading and caching model (this may take a few minutes)..."
-    
-    # Run test which will download the model
-    cd "$(dirname "$0")"
-    
-    if python scripts/test_indictrans2.py 2>&1 | tee /tmp/indictrans2_test.log; then
-        log_success "IndicTrans2 model downloaded and cached"
-        log_success "Model ready for use"
-    else
-        log_error "Model download/test failed"
-        log_info "Check /tmp/indictrans2_test.log for details"
-        if [[ "$BOOTSTRAP_MODE" == "true" ]]; then
-            log_warn "Continuing bootstrap (IndicTrans2 optional)"
-        else
+    if [[ "$HF_TOKEN_EXISTS" == "false" ]]; then
+        log_error "Cannot download model without HuggingFace authentication"
+        log_info "Please authenticate first:"
+        log_info "  1. Visit https://huggingface.co/ai4bharat/indictrans2-indic-en-1B"
+        log_info "  2. Click 'Agree and access repository'"
+        log_info "  3. Run: huggingface-cli login"
+        log_info "  4. Re-run this script"
+        
+        if [[ "$BOOTSTRAP_MODE" != "true" ]]; then
             exit 1
+        else
+            log_warn "Continuing bootstrap (IndicTrans2 will not be functional)"
+        fi
+    else
+        log_info "Downloading and caching model (this may take a few minutes)..."
+        
+        # Run test which will download the model
+        cd "$(dirname "$0")"
+        
+        if python scripts/test_indictrans2.py 2>&1 | tee /tmp/indictrans2_test.log; then
+            log_success "IndicTrans2 model downloaded and cached"
+            log_success "Model ready for use"
+        else
+            # Check if it's an authentication error
+            if grep -q "gated repo\|401\|Unauthorized" /tmp/indictrans2_test.log; then
+                log_error "Authentication error detected"
+                log_info "The model requires access approval from AI4Bharat"
+                log_info "Steps to fix:"
+                log_info "  1. Visit https://huggingface.co/ai4bharat/indictrans2-indic-en-1B"
+                log_info "  2. Click 'Agree and access repository'"
+                log_info "  3. Wait for approval (usually instant)"
+                log_info "  4. Re-run this script"
+            else
+                log_error "Model download/test failed"
+                log_info "Check /tmp/indictrans2_test.log for details"
+            fi
+            
+            if [[ "$BOOTSTRAP_MODE" == "true" ]]; then
+                log_warn "Continuing bootstrap (IndicTrans2 optional)"
+            else
+                exit 1
+            fi
         fi
     fi
 else
     log_info "Skipping model download"
-    log_info "Model will be downloaded on first use"
+    log_info "Model will be downloaded on first use (requires authentication)"
+    if [[ "$HF_TOKEN_EXISTS" == "false" ]]; then
+        log_warn "Remember to authenticate with HuggingFace before using IndicTrans2"
+    fi
 fi
 
 # Generate IndicTrans2 configuration
@@ -234,19 +317,50 @@ fi
 log_section "SETUP COMPLETE"
 
 if [[ "$BOOTSTRAP_MODE" == "true" ]]; then
-    log_success "IndicTrans2 is ready for use"
-    log_info "Supported: 22 Indic languages → English"
-    log_info "Usage: Automatically activated for Indic source languages"
+    if [[ "$HF_TOKEN_EXISTS" == "true" ]]; then
+        log_success "IndicTrans2 is ready for use"
+        log_info "Supported: 22 Indic languages → English"
+        log_info "Usage: Automatically activated for Indic source languages"
+    else
+        log_warn "IndicTrans2 dependencies installed but requires authentication"
+        log_info "To enable: huggingface-cli login"
+        log_info "Then visit: https://huggingface.co/ai4bharat/indictrans2-indic-en-1B"
+    fi
 else
     echo ""
-    echo "✅ IndicTrans2 is ready to use!"
+    if [[ "$HF_TOKEN_EXISTS" == "true" ]]; then
+        echo "✅ IndicTrans2 is ready to use!"
+    else
+        echo "⚠️  IndicTrans2 dependencies installed (authentication required)"
+    fi
     echo ""
     echo "What's been configured:"
     echo "  ✓ Dependencies installed (sentencepiece, sacremoses, srt, transformers)"
     echo "  ✓ IndicTransToolkit installed (optional, recommended)"
-    echo "  ✓ Model cached (~2GB in ~/.cache/huggingface/)"
+    
+    if [[ "$HF_TOKEN_EXISTS" == "true" ]]; then
+        echo "  ✓ HuggingFace authenticated"
+        echo "  ✓ Model cached (~2GB in ~/.cache/huggingface/)"
+    else
+        echo "  ⚠️  HuggingFace authentication required"
+        echo "  ⚠️  Model not downloaded (requires auth)"
+    fi
+    
     echo "  ✓ Configuration added to config/.env.pipeline"
     echo ""
+    
+    if [[ "$HF_TOKEN_EXISTS" == "false" ]]; then
+        echo "⚠️  IMPORTANT: Authentication Required"
+        echo ""
+        echo "IndicTrans2 model is gated and requires HuggingFace authentication:"
+        echo "  1. Create account: https://huggingface.co/join"
+        echo "  2. Request access: https://huggingface.co/ai4bharat/indictrans2-indic-en-1B"
+        echo "     (Click 'Agree and access repository')"
+        echo "  3. Authenticate: huggingface-cli login"
+        echo "  4. Re-run: ./install-indictrans2.sh"
+        echo ""
+    fi
+    
     echo "Supported languages:"
     echo "  • 22 Indic languages: Hindi, Tamil, Telugu, Bengali, Gujarati,"
     echo "    Kannada, Malayalam, Marathi, Punjabi, Urdu, and 12 more"
@@ -259,11 +373,18 @@ else
     echo "  • Handles Hinglish (preserves English words automatically)"
     echo ""
     echo "Next steps:"
-    echo "  1. Process Indic language content:"
-    echo "     ./prepare-job.sh movie.mp4 --source-language hi --target-language en"
-    echo ""
-    echo "  2. Check logs for IndicTrans2 usage:"
-    echo "     grep 'Using IndicTrans2' out/*/rpatel/*/logs/pipeline.log"
+    
+    if [[ "$HF_TOKEN_EXISTS" == "true" ]]; then
+        echo "  1. Process Indic language content:"
+        echo "     ./prepare-job.sh movie.mp4 --source-language hi --target-language en"
+        echo ""
+        echo "  2. Check logs for IndicTrans2 usage:"
+        echo "     grep 'Using IndicTrans2' out/*/rpatel/*/logs/pipeline.log"
+    else
+        echo "  1. Authenticate with HuggingFace (see above)"
+        echo "  2. Process Indic language content:"
+        echo "     ./prepare-job.sh movie.mp4 --source-language hi --target-language en"
+    fi
     echo ""
     echo "Documentation:"
     echo "  • Quick Start: docs/INDICTRANS2_QUICKSTART.md"

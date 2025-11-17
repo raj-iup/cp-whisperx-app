@@ -43,9 +43,41 @@ cd /Users/rpatel/Projects/cp-whisperx-app
 
 # Bootstrap will:
 # ✓ Install all dependencies (including IndicTrans2)
+# ✓ Prompt for HuggingFace authentication (required)
 # ✓ Download and cache IndicTrans2 model (~2GB)
 # ✓ Configure .env.pipeline with IndicTrans2 settings
 # ✓ Ready for use immediately
+```
+
+### HuggingFace Authentication (Required)
+
+⚠️ **IMPORTANT**: The IndicTrans2 model is **gated** and requires HuggingFace authentication:
+
+**Step 1: Create HuggingFace Account**
+```bash
+# Visit https://huggingface.co/join
+```
+
+**Step 2: Request Model Access**
+```bash
+# Visit https://huggingface.co/ai4bharat/indictrans2-indic-en-1B
+# Click "Agree and access repository"
+# Access is usually granted instantly
+```
+
+**Step 3: Authenticate**
+```bash
+# Login to HuggingFace
+huggingface-cli login
+
+# Enter your access token from https://huggingface.co/settings/tokens
+# Choose: "y" to add token as git credential
+```
+
+**Step 4: Verify Authentication**
+```bash
+# Test IndicTrans2
+python scripts/test_indictrans2.py
 ```
 
 ### Manual Installation (if needed)
@@ -452,6 +484,33 @@ grep "Detected language" out/*/rpatel/*/logs/pipeline.log
 ---
 
 ## Troubleshooting
+
+### Model Access / Authentication Errors
+
+**Error:**
+```
+GatedRepoError: 401 Client Error
+Access to model ai4bharat/indictrans2-indic-en-1B is restricted
+You must have access to it and be authenticated to access it
+```
+
+**Fix:**
+```bash
+# Step 1: Request access to the model
+# Visit: https://huggingface.co/ai4bharat/indictrans2-indic-en-1B
+# Click: "Agree and access repository"
+# Wait: Access is usually granted instantly
+
+# Step 2: Authenticate with HuggingFace
+huggingface-cli login
+# Enter your token from: https://huggingface.co/settings/tokens
+
+# Step 3: Verify authentication
+python -c "from huggingface_hub import HfFolder; print('✓ Authenticated' if HfFolder.get_token() else '✗ Not authenticated')"
+
+# Step 4: Re-run installer
+./install-indictrans2.sh
+```
 
 ### IndicTrans2 Not Available
 

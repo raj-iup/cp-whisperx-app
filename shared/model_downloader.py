@@ -227,7 +227,8 @@ def main():
             try:
                 with open(secrets_file, 'r') as f:
                     secrets = json.load(f)
-                    hf_token = secrets.get('HF_TOKEN')
+                    # Check multiple possible key names
+                    hf_token = secrets.get('HF_TOKEN') or secrets.get('hf_token') or secrets.get('pyannote_token')
             except Exception:
                 pass
     

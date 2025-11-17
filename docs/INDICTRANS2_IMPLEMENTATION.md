@@ -143,7 +143,7 @@ The implementation gracefully falls back to Whisper translation if:
 
 ```bash
 # Required dependencies
-pip install sentencepiece sacremoses srt
+pip install sentencepiece sacremoses srt transformers>=4.44
 
 # Or update all dependencies:
 pip install -r requirements.txt
@@ -160,7 +160,31 @@ pip install -r requirements-optional.txt
 - Automatically used if installed
 - Falls back to basic tokenization if not available
 
-### 2. Verify Setup
+### 2. HuggingFace Authentication (Required)
+
+⚠️ **The IndicTrans2 model is gated and requires authentication**
+
+```bash
+# Step 1: Create HuggingFace account
+# Visit: https://huggingface.co/join
+
+# Step 2: Request model access
+# Visit: https://huggingface.co/ai4bharat/indictrans2-indic-en-1B
+# Click: "Agree and access repository"
+# Access is usually granted instantly
+
+# Step 3: Create access token
+# Visit: https://huggingface.co/settings/tokens
+# Click: "New token"
+# Choose: "Read" access
+# Copy the token
+
+# Step 4: Login with CLI
+huggingface-cli login
+# Paste your token when prompted
+```
+
+### 3. Verify Setup
 
 ```bash
 cd /Users/rpatel/Projects/cp-whisperx-app/scripts
@@ -173,6 +197,8 @@ Expected output:
 ✓ All dependencies installed
 ✓ IndicTrans2 model working
 ```
+
+If you see authentication errors, make sure you've completed Step 2 above.
 
 ### 3. Test Translation (Optional)
 
