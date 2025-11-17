@@ -1033,18 +1033,55 @@ def run_whisperx_pipeline(
                 logger.info(f"  Using IndicTrans2 for {source_lang}→{target_lang} translation")
                 logger.info(f"  Source segments: {len(source_result.get('segments', []))}")
                 
-                # Translate using IndicTrans2
-                target_result = translate_whisperx_result(
-                    source_result,
-                    source_lang=source_lang,
-                    target_lang=target_lang,
-                    logger=logger
-                )
-                
-                # Align to target language
-                logger.info(f"  Aligning translated segments to {target_lang}...")
-                processor.load_align_model(target_lang)
-                target_result = processor.align_segments(target_result, audio_file, target_lang)
+                try:
+                    # Translate using IndicTrans2
+                    target_result = translate_whisperx_result(
+                        source_result,
+                        source_lang=source_lang,
+                        target_lang=target_lang,
+                        logger=logger
+                    )
+                    
+                    # Check if translation actually happened (not fallback)
+                    if target_result == source_result:
+                        logger.warning("  IndicTrans2 returned source unchanged - falling back to Whisper")
+                        raise RuntimeError("IndicTrans2 fallback triggered")
+                    
+                    # Align to target language
+                    logger.info(f"  Aligning translated segments to {target_lang}...")
+                    processor.load_align_model(target_lang)
+                    target_result = processor.align_segments(target_result, audio_file, target_lang)
+                    
+                except (RuntimeError, Exception) as e:
+                    error_msg = str(e)
+                    if "authentication" in error_msg.lower() or "gated" in error_msg.lower():
+                        logger.error("=" * 70)
+                        logger.error("IndicTrans2 authentication required")
+                        logger.error("=" * 70)
+                        logger.warning("Falling back to Whisper translation (slower)")
+                        logger.info("To enable IndicTrans2 for future runs:")
+                        logger.info("  1. Visit: https://huggingface.co/ai4bharat/indictrans2-indic-en-1B")
+                        logger.info("  2. Click: 'Agree and access repository'")
+                        logger.info("  3. Run: huggingface-cli login")
+                        logger.error("=" * 70)
+                    else:
+                        logger.error(f"IndicTrans2 translation failed: {e}")
+                        logger.warning("Falling back to Whisper translation")
+                    
+                    # Fallback to Whisper
+                    logger.info("  Using Whisper translation (fallback)")
+                    processor.load_align_model(target_lang)
+                    
+                    target_result = processor.transcribe_with_bias(
+                        audio_file,
+                        source_lang,
+                        target_lang,  # Translate to target
+                        bias_windows,
+                        output_dir=output_dir,
+                        bias_strategy=bias_strategy,
+                        workflow_mode='transcribe'  # Use transcribe mode for translation
+                    )
+                    
             else:
                 # Fallback to Whisper translation for other language pairs
                 if not INDICTRANS2_AVAILABLE:

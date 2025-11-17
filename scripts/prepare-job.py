@@ -888,6 +888,25 @@ DEVICE_NER=cpu
                     lang_name = SUPPORTED_LANGUAGES.get(source_language, source_language)
                     self.logger.info(f"✓ IndicTrans2 enabled for {lang_name}→English translation")
                     self.logger.info("  → 90% faster than Whisper for Indic languages")
+                    
+                    # Check for HuggingFace authentication
+                    try:
+                        from huggingface_hub import HfFolder
+                        token = HfFolder.get_token()
+                        if not token:
+                            self.logger.warning("")
+                            self.logger.warning("⚠️  HuggingFace authentication not found")
+                            self.logger.warning("   IndicTrans2 requires authentication for gated model access")
+                            self.logger.warning("")
+                            self.logger.warning("   To enable IndicTrans2:")
+                            self.logger.warning("   1. Visit: https://huggingface.co/ai4bharat/indictrans2-indic-en-1B")
+                            self.logger.warning("   2. Click: 'Agree and access repository'")
+                            self.logger.warning("   3. Run: huggingface-cli login")
+                            self.logger.warning("")
+                            self.logger.warning("   Pipeline will fall back to Whisper if authentication fails")
+                            self.logger.warning("")
+                    except ImportError:
+                        pass  # huggingface_hub not available, will fail later with clear message
             else:
                 # Disable for non-Indic or non-English target
                 workflow_config['INDICTRANS2_ENABLED'] = 'false'

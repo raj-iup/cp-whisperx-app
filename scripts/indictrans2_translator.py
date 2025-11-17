@@ -237,8 +237,30 @@ class IndicTrans2Translator:
             
             self._log("✓ IndicTrans2 model loaded successfully")
         except Exception as e:
-            self._log(f"Failed to load IndicTrans2 model: {e}", level="error")
-            raise
+            error_msg = str(e)
+            
+            # Check for authentication/gated repo errors
+            if "gated" in error_msg.lower() or "401" in error_msg or "unauthorized" in error_msg.lower():
+                self._log("=" * 70, level="error")
+                self._log("AUTHENTICATION ERROR: IndicTrans2 model access denied", level="error")
+                self._log("=" * 70, level="error")
+                self._log("", level="error")
+                self._log("The IndicTrans2 model is gated and requires authentication.", level="error")
+                self._log("", level="error")
+                self._log("To fix this issue:", level="error")
+                self._log("  1. Create HuggingFace account: https://huggingface.co/join", level="error")
+                self._log("  2. Request access: https://huggingface.co/ai4bharat/indictrans2-indic-en-1B", level="error")
+                self._log("     (Click 'Agree and access repository' - instant approval)", level="error")
+                self._log("  3. Create access token: https://huggingface.co/settings/tokens", level="error")
+                self._log("  4. Authenticate: huggingface-cli login", level="error")
+                self._log("  5. Re-run the pipeline", level="error")
+                self._log("", level="error")
+                self._log("Pipeline will fall back to Whisper translation for now.", level="warning")
+                self._log("=" * 70, level="error")
+                raise RuntimeError("IndicTrans2 authentication required") from e
+            else:
+                self._log(f"Failed to load IndicTrans2 model: {e}", level="error")
+                raise
     
     def _is_mostly_english(self, text: str) -> bool:
         """
@@ -521,6 +543,24 @@ def translate_whisperx_result(
             if logger:
                 logger.warning("No segments found in source result")
             return source_result
+    
+    except RuntimeError as e:
+        # Check for authentication errors
+        if "authentication required" in str(e).lower():
+            if logger:
+                logger.error("=" * 70)
+                logger.error("IndicTrans2 authentication required - falling back to Whisper")
+                logger.error("=" * 70)
+                logger.warning("Translation will continue using Whisper (slower)")
+            return source_result
+        else:
+            raise
+    
+    except Exception as e:
+        if logger:
+            logger.error(f"IndicTrans2 translation failed: {e}")
+            logger.warning("Falling back to returning source result")
+        return source_result
             
     finally:
         translator.cleanup()
