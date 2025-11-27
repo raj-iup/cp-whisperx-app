@@ -26,12 +26,13 @@ from lyrics_detection_core import LyricsDetector
 
 def main():
     """Main entry point for lyrics detection stage"""
+    stage_io = None
+    logger = None
     
-    # Setup stage I/O
-    stage_io = StageIO("lyrics_detection")
-    
-    # Setup logger using get_stage_logger
-    logger = get_stage_logger("lyrics_detection", stage_io=stage_io)
+    try:
+        # Setup stage I/O with manifest tracking
+        stage_io = StageIO("lyrics_detection", enable_manifest=True)
+        logger = stage_io.get_stage_logger("INFO")
     
     logger.info("=" * 70)
     logger.info("LYRICS DETECTION STAGE - Song Segment Identification")
@@ -44,24 +45,43 @@ def main():
         config = load_config()
     except Exception as e:
         logger.error(f"Failed to load configuration: {e}")
+        stage_io.add_error(f"Config load failed: {e}", e)
+        stage_io.finalize(status="failed", error=str(e))
         return 1
     
     # Check if lyrics detection is enabled
     lyrics_detection_enabled = getattr(config, 'lyrics_detection_enabled', True)
+    
+    # Track configuration
+    stage_io.set_config({
+        "enabled": lyrics_detection_enabled,
+        "threshold": getattr(config, 'lyrics_detection_threshold', 0.5),
+        "min_duration": getattr(config, 'lyrics_min_duration', 30.0),
+        "device": getattr(config, 'device', 'cpu')
+    })
+    
     if not lyrics_detection_enabled:
         logger.info("Lyrics detection is disabled - skipping")
         # Copy segments as-is
         segments = stage_io.load_json("segments.json", from_stage="song_bias_injection")
         stage_io.save_json(segments, "segments.json")
         logger.info("=" * 70)
+        stage_io.finalize(status="skipped", reason="Disabled in config")
         return 0
     
     # Load segments from previous stage
     logger.info("Loading segments from song bias injection stage...")
     try:
+        segments_file = stage_io.get_input_path("segments.json", from_stage="song_bias_injection")
         data = stage_io.load_json("segments.json", from_stage="song_bias_injection")
+        
+        # Track input
+        if segments_file.exists():
+            stage_io.track_input(segments_file, "segments", format="json")
     except Exception as e:
         logger.error(f"Failed to load segments: {e}")
+        stage_io.add_error(f"Failed to load segments: {e}", e)
+        stage_io.finalize(status="failed", error=str(e))
         return 1
     
     # Extract segments
@@ -76,7 +96,10 @@ def main():
     
     if not segments:
         logger.warning("No segments found")
-        stage_io.save_json(data, "segments.json")
+        output_file = stage_io.save_json(data, "segments.json")
+        stage_io.track_output(output_file, "segments", format="json", segments_count=0)
+        stage_io.add_warning("No segments found")
+        stage_io.finalize(status="success", segments_count=0)
         logger.info("=" * 70)
         return 0
     
@@ -269,10 +292,17 @@ def main():
     output_data['total_dialogue_segments'] = dialogue_count
     
     # Save annotated segments
-    stage_io.save_json(output_data, "segments.json")
+    output_file = stage_io.save_json(output_data, "segments.json")
+    stage_io.track_output(output_file, "segments", 
+                         format="json",
+                         total_segments=len(segments),
+                         lyric_segments=lyric_count,
+                         dialogue_segments=dialogue_count)
     
     # Save detected lyric regions for reference
-    stage_io.save_json(all_lyrics, "detected_lyric_regions.json")
+    regions_file = stage_io.save_json(all_lyrics, "detected_lyric_regions.json")
+    stage_io.track_intermediate(regions_file, retained=True,
+                                reason="Detected lyric regions for reference")
     
     # Save metadata
     save_metadata = {
@@ -283,10 +313,73 @@ def main():
         "detection_threshold": threshold,
         "min_duration": min_duration
     }
-    stage_io.save_metadata(save_metadata)
+    metadata_file = stage_io.save_metadata(save_metadata)
+    stage_io.track_intermediate(metadata_file, retained=True,
+                               reason="Stage metadata")
+    
+    # Finalize with success
+    stage_io.finalize(status="success",
+                     lyric_segments=lyric_count,
+                     dialogue_segments=dialogue_count,
+                     detection_methods=len(methods_count))
     
     logger.info("=" * 70)
-    return 0
+    logger.info("LYRICS DETECTION COMPLETE")
+    logger.info("=" * 70)
+    logger.info(f"Stage log: {stage_io.stage_log.relative_to(stage_io.output_base)}")
+    logger.info(f"Stage manifest: {stage_io.manifest_path.relative_to(stage_io.output_base)}")
+    
+        return 0
+    
+    except FileNotFoundError as e:
+        if logger:
+            logger.error(f"File not found: {e}", exc_info=True)
+        if stage_io:
+            stage_io.add_error(f"File not found: {e}")
+            stage_io.finalize(status="failed", error=f"Missing file: {e}")
+        return 1
+    
+    except IOError as e:
+        if logger:
+            logger.error(f"I/O error: {e}", exc_info=True)
+        if stage_io:
+            stage_io.add_error(f"I/O error: {e}")
+            stage_io.finalize(status="failed", error=f"IO error: {e}")
+        return 1
+    
+    except ValueError as e:
+        if logger:
+            logger.error(f"Invalid value: {e}", exc_info=True)
+        if stage_io:
+            stage_io.add_error(f"Validation error: {e}")
+            stage_io.finalize(status="failed", error=f"Invalid input: {e}")
+        return 1
+    
+    except KeyError as e:
+        if logger:
+            logger.error(f"Missing required field: {e}", exc_info=True)
+        if stage_io:
+            stage_io.add_error(f"Missing field: {e}")
+            stage_io.finalize(status="failed", error=f"Missing data: {e}")
+        return 1
+    
+    except KeyboardInterrupt:
+        if logger:
+            logger.warning("Interrupted by user")
+        if stage_io:
+            stage_io.add_error("User interrupted")
+            stage_io.finalize(status="failed", error="User interrupted")
+        return 130
+    
+    except Exception as e:
+        if logger:
+            logger.error(f"Unexpected error: {e}", exc_info=True)
+        else:
+            print(f"ERROR: {e}", file=sys.stderr)
+        if stage_io:
+            stage_io.add_error(f"Unexpected error: {e}")
+            stage_io.finalize(status="failed", error=f"Unexpected: {type(e).__name__}")
+        return 1
 
 
 if __name__ == "__main__":

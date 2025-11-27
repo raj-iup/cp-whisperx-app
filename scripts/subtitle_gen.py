@@ -82,11 +82,13 @@ def format_subtitle_text(segment, has_lyrics_data=False):
     return formatted_text
 
 def main():
-    # Initialize StageIO
-    stage_io = StageIO("subtitle_generation")
+    stage_io = None
+    logger = None
     
-    # Setup logger
-    logger = get_stage_logger("subtitle_generation", stage_io=stage_io)
+    try:
+        # Initialize StageIO with manifest tracking
+        stage_io = StageIO("subtitle_generation", enable_manifest=True)
+        logger = stage_io.get_stage_logger("INFO")
     
     logger.info("=" * 60)
     logger.info("SUBTITLE GENERATION STAGE")
@@ -98,6 +100,8 @@ def main():
         config = load_config()
     except Exception as e:
         logger.error(f"Failed to load configuration: {e}")
+        stage_io.add_error(f"Config load failed: {e}", e)
+        stage_io.finalize(status="failed", error=str(e))
         return 1
     
     # Load glossary if available and enabled
@@ -135,6 +139,13 @@ def main():
     if glossary is None:
         logger.info("Glossary not loaded (disabled or unavailable)")
     
+    # Track configuration
+    stage_io.set_config({
+        "glossary_enabled": getattr(config, 'glossary_enabled', True),
+        "format": "srt",
+        "has_lyrics_detection": False  # Will be updated
+    })
+    
     # Try to read from lyrics detection (includes song metadata)
     # Fall back to ASR if lyrics detection not available
     transcript_file = stage_io.get_input_path("segments.json", from_stage="lyrics_detection")
@@ -147,9 +158,17 @@ def main():
         logger.info("Using lyrics detection output (includes song metadata)")
         has_lyrics_data = True
     
+    # Update config with actual lyrics detection status
+    stage_io.set_config({"has_lyrics_detection": has_lyrics_data})
+    
     if not transcript_file.exists():
         logger.error(f"Transcript not found: {transcript_file}")
+        stage_io.add_error(f"Transcript not found: {transcript_file}")
+        stage_io.finalize(status="failed", error="Input file missing")
         return 1
+    
+    # Track input
+    stage_io.track_input(transcript_file, "transcript", format="json")
     
     logger.info(f"Reading transcript from: {transcript_file}")
     
@@ -211,7 +230,22 @@ def main():
         "format": "srt",
         "subtitle_file": str(srt_file)
     }
-    stage_io.save_metadata(metadata)
+    metadata_file = stage_io.save_metadata(metadata)
+    stage_io.track_intermediate(metadata_file, retained=True,
+                               reason="Stage metadata")
+    
+    # Track output
+    stage_io.track_output(srt_file, "subtitles",
+                         format="srt",
+                         subtitle_count=subtitle_count,
+                         lyrics_count=lyrics_count,
+                         dialogue_count=subtitle_count - lyrics_count)
+    
+    # Finalize with success
+    stage_io.finalize(status="success",
+                     subtitle_count=subtitle_count,
+                     lyrics_count=lyrics_count,
+                     has_lyrics=has_lyrics_data)
     
     logger.info(f"✓ Subtitles generated successfully")
     logger.info(f"  Subtitle count: {subtitle_count}")
@@ -220,23 +254,63 @@ def main():
         logger.info(f"  Dialogue subtitles: {subtitle_count - lyrics_count}")
     logger.info(f"  Output file: {srt_file}")
     
-    # Update manifest
-    manifest_file = output_dir / "manifest.json"
-    if manifest_file.exists():
-        with open(manifest_file, 'r', encoding='utf-8', errors='replace') as f:
-            manifest = json.load(f)
-    else:
-        manifest = {}
+    logger.info("=" * 60)
+    logger.info("SUBTITLE GENERATION COMPLETE")
+    logger.info("=" * 60)
+    logger.info(f"Stage log: {stage_io.stage_log.relative_to(stage_io.output_base)}")
+    logger.info(f"Stage manifest: {stage_io.manifest_path.relative_to(stage_io.output_base)}")
     
-    manifest.setdefault('stages', {})['subtitle_gen'] = {
-        'status': 'completed',
-        'subtitle_file': str(srt_file)
-    }
+        return 0
     
-    with open(manifest_file, 'w', encoding='utf-8') as f:
-        json.dump(manifest, f, indent=2)
+    except FileNotFoundError as e:
+        if logger:
+            logger.error(f"File not found: {e}", exc_info=True)
+        if stage_io:
+            stage_io.add_error(f"File not found: {e}")
+            stage_io.finalize(status="failed", error=f"Missing file: {e}")
+        return 1
     
-    return 0
+    except IOError as e:
+        if logger:
+            logger.error(f"I/O error: {e}", exc_info=True)
+        if stage_io:
+            stage_io.add_error(f"I/O error: {e}")
+            stage_io.finalize(status="failed", error=f"IO error: {e}")
+        return 1
+    
+    except json.JSONDecodeError as e:
+        if logger:
+            logger.error(f"Invalid JSON in input: {e}", exc_info=True)
+        if stage_io:
+            stage_io.add_error(f"JSON decode error: {e}")
+            stage_io.finalize(status="failed", error=f"Invalid JSON: {e}")
+        return 1
+    
+    except ValueError as e:
+        if logger:
+            logger.error(f"Invalid value: {e}", exc_info=True)
+        if stage_io:
+            stage_io.add_error(f"Validation error: {e}")
+            stage_io.finalize(status="failed", error=f"Invalid input: {e}")
+        return 1
+    
+    except KeyboardInterrupt:
+        if logger:
+            logger.warning("Interrupted by user")
+        if stage_io:
+            stage_io.add_error("User interrupted")
+            stage_io.finalize(status="failed", error="User interrupted")
+        return 130
+    
+    except Exception as e:
+        if logger:
+            logger.error(f"Unexpected error: {e}", exc_info=True)
+        else:
+            print(f"ERROR: {e}", file=sys.stderr)
+        if stage_io:
+            stage_io.add_error(f"Unexpected error: {e}")
+            stage_io.finalize(status="failed", error=f"Unexpected: {type(e).__name__}")
+        return 1
 
 if __name__ == "__main__":
     sys.exit(main())

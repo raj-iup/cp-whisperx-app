@@ -16,11 +16,13 @@ from shared.stage_utils import StageIO, get_stage_logger
 from shared.config import load_config
 
 def main():
-    # Initialize StageIO
-    stage_io = StageIO("mux")
+    stage_io = None
+    logger = None
     
-    # Setup logger
-    logger = get_stage_logger("mux", stage_io=stage_io)
+    try:
+        # Initialize StageIO with manifest tracking
+        stage_io = StageIO("mux", enable_manifest=True)
+        logger = stage_io.get_stage_logger("INFO")
     
     logger.info("=" * 60)
     logger.info("MUX STAGE: Combine Video with Subtitles")
@@ -31,6 +33,8 @@ def main():
         config = load_config()
     except Exception as e:
         logger.error(f"Failed to load configuration: {e}")
+        stage_io.add_error(f"Config load failed: {e}", e)
+        stage_io.finalize(status="failed", error=str(e))
         return 1
     
     logger.info(f"Output directory: {stage_io.output_base}")
@@ -40,7 +44,13 @@ def main():
     input_file = getattr(config, 'in_root', getattr(config, 'input_media', ''))
     if not input_file or not Path(input_file).exists():
         logger.error(f"Input media not found: {input_file}")
+        stage_io.add_error(f"Input media not found: {input_file}")
+        stage_io.finalize(status="failed", error="Input file missing")
         return 1
+    
+    # Track input video
+    input_path = Path(input_file)
+    stage_io.track_input(input_path, "video", format=input_path.suffix[1:])
     
     logger.info(f"Input media: {input_file}")
     
@@ -64,7 +74,13 @@ def main():
     if not subtitle_files:
         logger.error(f"No subtitle files found")
         logger.error(f"  Searched: {', '.join(str(loc) for loc in subtitle_locations)}")
+        stage_io.add_error("No subtitle files found")
+        stage_io.finalize(status="failed", error="No subtitles")
         return 1
+    
+    # Track subtitle inputs
+    for sub_file in subtitle_files:
+        stage_io.track_input(sub_file, "subtitle", format="srt")
     
     # Sort subtitle files by language (prioritize: hi, en, then others)
     def sort_key(path):
@@ -96,6 +112,13 @@ def main():
     output_filename = f"{original_name}_subtitled{original_ext}"
     output_file = movie_dir / output_filename
     
+    # Track configuration
+    stage_io.set_config({
+        "subtitle_codec": "auto",  # Will be set below
+        "subtitle_count": len(subtitle_files),
+        "container_format": original_ext
+    })
+    
     logger.info(f"Original file: {input_path.name}")
     logger.info(f"Output format: {original_ext} (preserved from original)")
     logger.info(f"Movie directory: {movie_dir}")
@@ -112,6 +135,9 @@ def main():
         # Default to srt for unknown formats
         subtitle_codec = "srt"
         logger.info(f"Using srt codec (default) for {original_ext} container")
+    
+    # Update config with actual codec
+    stage_io.set_config({"subtitle_codec": subtitle_codec})
     
     # Build ffmpeg command with multiple subtitle inputs
     cmd = ["ffmpeg", "-i", str(input_file)]
@@ -194,11 +220,21 @@ def main():
     if result.returncode != 0:
         logger.error(f"ffmpeg failed with code {result.returncode}")
         logger.error(f"stderr: {result.stderr}")
+        stage_io.add_error(f"ffmpeg failed: {result.stderr[:200]}")
+        stage_io.finalize(status="failed", error="Muxing failed")
         return 1
     
     logger.info(f"✓ Video muxed successfully")
     
+    # Track output
+    output_size_mb = output_file.stat().st_size / (1024*1024) if output_file.exists() else 0
+    stage_io.track_output(output_file, "video",
+                         format=original_ext[1:],
+                         subtitle_tracks=len(subtitle_files),
+                         size_mb=round(output_size_mb, 2))
+    
     # Create final_output.mp4 symlink at job directory root
+    output_dir = stage_io.output_base
     final_output_link = output_dir / "final_output.mp4"
     try:
         # Remove existing symlink/file if present
@@ -208,8 +244,13 @@ def main():
         # Create symlink to muxed file
         final_output_link.symlink_to(output_file.relative_to(output_dir))
         logger.info(f"✓ Created final_output.mp4 link")
+        
+        # Track symlink as intermediate
+        stage_io.track_intermediate(final_output_link, retained=True,
+                                   reason="Convenience symlink to final output")
     except Exception as e:
         logger.warning(f"Could not create final_output link: {e}")
+        stage_io.add_warning(f"Symlink creation failed: {e}")
     
     # Save metadata
     metadata = {
@@ -219,25 +260,74 @@ def main():
         "subtitle_count": len(subtitle_files),
         "output_file": str(output_file)
     }
-    stage_io.save_metadata(metadata)
+    metadata_file = stage_io.save_metadata(metadata)
+    stage_io.track_intermediate(metadata_file, retained=True,
+                               reason="Stage metadata")
     
-    # Update manifest
-    manifest_file = output_dir / "manifest.json"
-    if manifest_file.exists():
-        with open(manifest_file, 'r', encoding='utf-8', errors='replace') as f:
-            manifest = json.load(f)
-    else:
-        manifest = {}
+    # Finalize with success
+    stage_io.finalize(status="success",
+                     subtitle_tracks=len(subtitle_files),
+                     output_size_mb=round(output_size_mb, 2),
+                     codec=subtitle_codec)
     
-    manifest.setdefault('stages', {})['mux'] = {
-        'status': 'completed',
-        'output_file': str(output_file)
-    }
+    logger.info("=" * 60)
+    logger.info("MUX STAGE COMPLETE")
+    logger.info("=" * 60)
+    logger.info(f"Final video: {output_file}")
+    logger.info(f"Stage log: {stage_io.stage_log.relative_to(stage_io.output_base)}")
+    logger.info(f"Stage manifest: {stage_io.manifest_path.relative_to(stage_io.output_base)}")
     
-    with open(manifest_file, 'w', encoding='utf-8') as f:
-        json.dump(manifest, f, indent=2)
+        return 0
     
-    return 0
+    except FileNotFoundError as e:
+        if logger:
+            logger.error(f"File not found: {e}", exc_info=True)
+        if stage_io:
+            stage_io.add_error(f"File not found: {e}")
+            stage_io.finalize(status="failed", error=f"Missing file: {e}")
+        return 1
+    
+    except IOError as e:
+        if logger:
+            logger.error(f"I/O error: {e}", exc_info=True)
+        if stage_io:
+            stage_io.add_error(f"I/O error: {e}")
+            stage_io.finalize(status="failed", error=f"IO error: {e}")
+        return 1
+    
+    except subprocess.CalledProcessError as e:
+        if logger:
+            logger.error(f"ffmpeg command failed: {e}", exc_info=True)
+        if stage_io:
+            stage_io.add_error(f"ffmpeg error: {e}")
+            stage_io.finalize(status="failed", error="Muxing process failed")
+        return 1
+    
+    except ValueError as e:
+        if logger:
+            logger.error(f"Invalid value: {e}", exc_info=True)
+        if stage_io:
+            stage_io.add_error(f"Validation error: {e}")
+            stage_io.finalize(status="failed", error=f"Invalid input: {e}")
+        return 1
+    
+    except KeyboardInterrupt:
+        if logger:
+            logger.warning("Interrupted by user")
+        if stage_io:
+            stage_io.add_error("User interrupted")
+            stage_io.finalize(status="failed", error="User interrupted")
+        return 130
+    
+    except Exception as e:
+        if logger:
+            logger.error(f"Unexpected error: {e}", exc_info=True)
+        else:
+            print(f"ERROR: {e}", file=sys.stderr)
+        if stage_io:
+            stage_io.add_error(f"Unexpected error: {e}")
+            stage_io.finalize(status="failed", error=f"Unexpected: {type(e).__name__}")
+        return 1
 
 if __name__ == "__main__":
     sys.exit(main())
