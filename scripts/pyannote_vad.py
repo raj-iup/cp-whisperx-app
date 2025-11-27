@@ -64,8 +64,21 @@ if __name__ == "__main__":
     logger.info("Running PyAnnote VAD chunker...")
     
     # Import and run the main VAD chunker
-    from pyannote_vad_chunker import main
-    exit_code = main()
+    try:
+        from pyannote_vad_chunker import main as vad_main
+        exit_code = vad_main()
+    except ImportError as e:
+        logger.error(f"✗ Failed to import pyannote_vad_chunker: {e}")
+        logger.error("Make sure PyAnnote is installed in the correct environment")
+        sys.exit(1)
+    except KeyboardInterrupt:
+        logger.warning("✗ VAD interrupted by user")
+        sys.exit(130)
+    except Exception as e:
+        logger.error(f"✗ VAD failed with unexpected error: {e}")
+        import traceback
+        logger.debug(traceback.format_exc())
+        sys.exit(1)
     
     # Handle None exit code (should not happen with fixed chunker)
     if exit_code is None:
