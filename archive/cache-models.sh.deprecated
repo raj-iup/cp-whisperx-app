@@ -1,0 +1,380 @@
+#!/bin/bash
+# Pre-cache models for pipeline execution
+# Downloads and caches all required models so pipeline can run offline/reliably
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$SCRIPT_DIR"
+
+# Load common logging
+if [[ -f "$SCRIPT_DIR/scripts/common-logging.sh" ]]; then
+    source "$SCRIPT_DIR/scripts/common-logging.sh"
+else
+    log_section() { echo ""; echo "━━━ $1 ━━━"; }
+    log_info() { echo "  $1"; }
+    log_success() { echo "✓ $1"; }
+    log_warn() { echo "⚠️  $1"; }
+    log_error() { echo "✗ $1"; }
+fi
+
+log_section "MODEL PRE-CACHING FOR PIPELINE"
+echo ""
+log_info "This script downloads and caches all models required by the pipeline"
+log_info "so that jobs can execute reliably without internet dependency."
+echo ""
+
+# Check if bootstrap has been run
+if [ ! -f "$PROJECT_ROOT/config/hardware_cache.json" ]; then
+    log_error "Bootstrap has not been run yet"
+    log_info "Please run ./bootstrap.sh first"
+    exit 1
+fi
+
+# Set cache directories
+export TORCH_HOME="$PROJECT_ROOT/.cache/torch"
+export HF_HOME="$PROJECT_ROOT/.cache/huggingface"
+export TRANSFORMERS_CACHE="$PROJECT_ROOT/.cache/huggingface"
+export MLX_CACHE_DIR="$PROJECT_ROOT/.cache/mlx"
+
+log_info "Cache directories:"
+log_info "  HuggingFace: $HF_HOME"
+log_info "  Torch: $TORCH_HOME"
+log_info "  MLX: $MLX_CACHE_DIR"
+echo ""
+
+# Function to check if model is cached
+is_model_cached() {
+    local model_name=$1
+    # Convert slashes to double dashes (HuggingFace cache naming convention)
+    local cache_dir="$HF_HOME/models--${model_name//\//--}"
+    [ -d "$cache_dir" ]
+}
+
+# Function to cache a model
+cache_model() {
+    local model_name=$1
+    local env_name=$2
+    local description=$3
+    
+    log_section "Caching: $description"
+    log_info "Model: $model_name"
+    log_info "Environment: .venv-$env_name"
+    
+    if is_model_cached "$model_name"; then
+        log_success "Model already cached"
+        return 0
+    fi
+    
+    log_info "Downloading model (~2-5GB, may take several minutes)..."
+    
+    # Activate environment and download
+    source "$PROJECT_ROOT/.venv-$env_name/bin/activate"
+    
+    # Load HF token from secrets.json if available
+    HF_TOKEN=""
+    if [ -f "$PROJECT_ROOT/config/secrets.json" ]; then
+        HF_TOKEN=$(python3 -c "import json; print(json.load(open('$PROJECT_ROOT/config/secrets.json')).get('hf_token', ''))" 2>/dev/null || echo "")
+    fi
+    
+    python3 << EOF
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+import torch
+import os
+
+# Use HF token if available
+token = os.environ.get('HF_TOKEN') or "$HF_TOKEN" or None
+if token:
+    print("✓ Using HuggingFace token from secrets.json")
+
+print("Downloading tokenizer...")
+tokenizer = AutoTokenizer.from_pretrained(
+    "$model_name",
+    trust_remote_code=True,
+    token=token
+)
+
+print("Downloading model...")
+model = AutoModelForSeq2SeqLM.from_pretrained(
+    "$model_name",
+    trust_remote_code=True,
+    token=token
+)
+
+print("✓ Model cached successfully")
+EOF
+    
+    deactivate
+    
+    if is_model_cached "$model_name"; then
+        log_success "Model cached successfully: $model_name"
+        return 0
+    else
+        log_error "Failed to cache model: $model_name"
+        return 1
+    fi
+}
+
+# Parse arguments
+CACHE_ALL=true
+CACHE_INDICTRANS2=false
+CACHE_NLLB=false
+CACHE_WHISPERX=false
+CACHE_MLX=false
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --indictrans2) CACHE_INDICTRANS2=true; CACHE_ALL=false; shift ;;
+        --nllb) CACHE_NLLB=true; CACHE_ALL=false; shift ;;
+        --whisperx) CACHE_WHISPERX=true; CACHE_ALL=false; shift ;;
+        --mlx) CACHE_MLX=true; CACHE_ALL=false; shift ;;
+        --all) CACHE_ALL=true; shift ;;
+        -h|--help)
+            cat << 'HELP'
+Usage: ./cache-models.sh [OPTIONS]
+
+Pre-cache models for reliable offline pipeline execution
+
+OPTIONS:
+  --indictrans2   Cache only IndicTrans2 models
+  --nllb          Cache only NLLB models
+  --whisperx      Cache only WhisperX models
+  --mlx           Cache only MLX Whisper models (Apple Silicon)
+  --all           Cache all models (default)
+  -h, --help      Show this help
+
+EXAMPLES:
+  ./cache-models.sh              # Cache all models
+  ./cache-models.sh --indictrans2  # Cache only IndicTrans2
+  ./cache-models.sh --whisperx     # Cache only WhisperX
+  ./cache-models.sh --all          # Explicit cache all
+
+MODELS CACHED:
+  1. IndicTrans2 Indic→English (ai4bharat/indictrans2-indic-en-1B)
+  2. IndicTrans2 Indic→Indic (ai4bharat/indictrans2-indic-indic-1B)  
+  3. NLLB-200 3.3B (facebook/nllb-200-3.3B)
+  4. WhisperX Large-v3 (openai/whisper-large-v3)
+  5. MLX Whisper Large-v3 (mlx-community/whisper-large-v3-mlx) [Apple Silicon only]
+
+TOTAL SIZE: ~15-20GB
+
+CACHE LOCATION: .cache/huggingface/
+
+HELP
+            exit 0
+            ;;
+        *) log_error "Unknown option: $1"; exit 1 ;;
+    esac
+done
+
+# Set flags for all if nothing specific selected
+if [ "$CACHE_ALL" = true ]; then
+    CACHE_INDICTRANS2=true
+    CACHE_NLLB=true
+    CACHE_WHISPERX=true
+    # Only cache MLX on Apple Silicon
+    if [[ "$(uname -m)" == "arm64" ]]; then
+        CACHE_MLX=true
+    fi
+fi
+
+# Cache models based on flags
+ERRORS=0
+
+# 1. IndicTrans2 Indic→English
+if [ "$CACHE_INDICTRANS2" = true ]; then
+    if [ -d "$PROJECT_ROOT/.venv-indictrans2" ]; then
+        cache_model "ai4bharat/indictrans2-indic-en-1B" "indictrans2" "IndicTrans2 Indic→English" || ((ERRORS++))
+        echo ""
+        
+        # Optional: Indic→Indic model
+        log_info "Note: IndicTrans2 Indic→Indic model can also be cached"
+        log_info "Model: ai4bharat/indictrans2-indic-indic-1B"
+        log_info "This is only needed if translating between Indic languages (e.g., Hindi→Tamil)"
+        echo ""
+    else
+        log_warn "Skipping IndicTrans2: Environment not found (.venv-indictrans2)"
+        log_info "Run ./bootstrap.sh to create it"
+    fi
+fi
+
+# 2. NLLB
+if [ "$CACHE_NLLB" = true ]; then
+    if [ -d "$PROJECT_ROOT/.venv-nllb" ]; then
+        cache_model "facebook/nllb-200-3.3B" "nllb" "NLLB-200 for non-Indic languages" || ((ERRORS++))
+        echo ""
+    else
+        log_warn "Skipping NLLB: Environment not found (.venv-nllb)"
+        log_info "Run ./bootstrap.sh to create it"
+    fi
+fi
+
+# 3. WhisperX (uses faster-whisper backend)
+if [ "$CACHE_WHISPERX" = true ]; then
+    if [ -d "$PROJECT_ROOT/.venv-whisperx" ]; then
+        log_section "Caching: WhisperX Model"
+        log_info "Model: openai/whisper-large-v3 (via faster-whisper)"
+        log_info "Environment: .venv-whisperx"
+        log_info "Size: ~3GB"
+        echo ""
+        
+        # Check if model already cached
+        WHISPERX_CACHE="$HF_HOME/hub/models--Systran--faster-whisper-large-v3"
+        if [ -d "$WHISPERX_CACHE" ]; then
+            log_success "WhisperX model already cached"
+        else
+            log_info "Downloading WhisperX model (this may take 5-10 minutes)..."
+            
+            # Activate environment
+            source "$PROJECT_ROOT/.venv-whisperx/bin/activate"
+            
+            # Download model by loading it
+            python3 << 'PYEOF'
+import os
+import sys
+
+# Suppress warnings
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
+print("Loading WhisperX model (downloads automatically)...")
+try:
+    import whisperx
+    
+    # This will download the model to cache
+    model = whisperx.load_model(
+        "large-v3",
+        device="cpu",
+        compute_type="int8"
+    )
+    
+    print("✓ WhisperX model cached successfully")
+    sys.exit(0)
+    
+except Exception as e:
+    print(f"✗ Error caching WhisperX model: {e}")
+    sys.exit(1)
+PYEOF
+            
+            RESULT=$?
+            deactivate
+            
+            if [ $RESULT -eq 0 ]; then
+                log_success "WhisperX model cached successfully"
+            else
+                log_error "Failed to cache WhisperX model"
+                ((ERRORS++))
+            fi
+        fi
+        echo ""
+    else
+        log_warn "Skipping WhisperX: Environment not found (.venv-whisperx)"
+        log_info "Run ./bootstrap.sh to create it"
+    fi
+fi
+
+# 4. MLX Whisper (Apple Silicon only)
+if [ "$CACHE_MLX" = true ]; then
+    if [ -d "$PROJECT_ROOT/.venv-mlx" ]; then
+        log_section "Caching: MLX Whisper Model (Apple Silicon)"
+        log_info "Model: mlx-community/whisper-large-v3-mlx"
+        log_info "Environment: .venv-mlx"
+        log_info "Size: ~3GB"
+        echo ""
+        
+        # Check if model already cached
+        MLX_CACHE="$HF_HOME/mlx-community--whisper-large-v3-mlx"
+        if [ -d "$MLX_CACHE" ] || [ -d "$HF_HOME/models--mlx-community--whisper-large-v3-mlx" ]; then
+            log_success "MLX Whisper model already cached"
+        else
+            log_info "Downloading MLX Whisper model (this may take 5-10 minutes)..."
+            
+            # Activate environment
+            source "$PROJECT_ROOT/.venv-mlx/bin/activate"
+            
+            # Load HF token if available
+            HF_TOKEN=""
+            if [ -f "$PROJECT_ROOT/config/secrets.json" ]; then
+                HF_TOKEN=$(python3 -c "import json; print(json.load(open('$PROJECT_ROOT/config/secrets.json')).get('hf_token', ''))" 2>/dev/null || echo "")
+            fi
+            
+            # Download model by loading it
+            python3 << 'PYEOF'
+import os
+import sys
+
+# Suppress warnings
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
+print("Loading MLX Whisper model (downloads automatically)...")
+try:
+    from mlx_whisper.load_models import load_model
+    
+    # This will download the model to cache
+    model = load_model("mlx-community/whisper-large-v3-mlx")
+    
+    print("✓ MLX Whisper model cached successfully")
+    sys.exit(0)
+    
+except Exception as e:
+    print(f"✗ Error caching MLX Whisper model: {e}")
+    import traceback
+    traceback.print_exc()
+    sys.exit(1)
+PYEOF
+            
+            RESULT=$?
+            deactivate
+            
+            if [ $RESULT -eq 0 ]; then
+                log_success "MLX Whisper model cached successfully"
+            else
+                log_error "Failed to cache MLX Whisper model"
+                ((ERRORS++))
+            fi
+        fi
+        echo ""
+    else
+        log_warn "Skipping MLX Whisper: Environment not found (.venv-mlx)"
+        log_info "Run ./bootstrap.sh to create it (Apple Silicon only)"
+    fi
+fi
+
+# LLM models (anthropic/openai) - API-based, no local cache needed
+log_section "LLM Models (Optional)"
+log_info "LLM models (Anthropic Claude, OpenAI GPT) are API-based"
+log_info "No local caching required - models accessed via API calls"
+log_info "Requires API key in config/secrets.json"
+echo ""
+
+# Summary
+log_section "MODEL CACHING SUMMARY"
+echo ""
+
+if [ $ERRORS -eq 0 ]; then
+    log_success "All requested models cached successfully!"
+    echo ""
+    log_info "Models are cached in: $HF_HOME"
+    log_info "Cache size: $(du -sh $HF_HOME 2>/dev/null | cut -f1 || echo "unknown")"
+    echo ""
+    log_info "Your pipeline can now run reliably without internet dependency"
+    log_info "for the cached models."
+else
+    log_error "$ERRORS model(s) failed to cache"
+    log_info "Check the errors above for details"
+    exit 1
+fi
+
+# Show cached models
+log_section "CACHED MODELS"
+if [ -d "$HF_HOME/hub" ]; then
+    ls -1 "$HF_HOME/hub" | grep "^models--" | sed 's/models--/  ✓ /' | sed 's/__/\//g'
+else
+    log_info "No models cached yet"
+fi
+
+echo ""
+log_info "To cache additional models, re-run this script"
+log_info "To clear cache: rm -rf $HF_HOME"
+echo ""
+
+log_success "Model pre-caching complete!"

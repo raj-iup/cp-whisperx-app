@@ -1,0 +1,21 @@
+# ==============================================================================
+# NLLB (No Language Left Behind) - Non-Indic Translation Environment
+# ==============================================================================
+# Supports 200+ languages for subtitle and transcript translation
+# Use for: Spanish, Arabic, French, German, etc. (non-Indic languages)
+# ==============================================================================
+
+# Core translation model
+transformers>=4.51.0
+torch>=2.5.0
+sentencepiece>=0.2.0
+
+# Utilities
+srt>=3.5.0
+python-json-logger>=2.0.0
+python-dotenv>=1.0.0
+
+# Dependencies
+accelerate>=0.20.0
+safetensors>=0.4.3
+huggingface-hub>=0.34.0

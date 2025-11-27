@@ -18,33 +18,50 @@ if [ -n "$JOB_ID" ]; then
     echo "📋 JOB STATUS: $JOB_ID"
     echo "────────────────────────────────────────────────────"
     
-    # Find job directory
-    YEAR="${JOB_ID:0:4}"
-    MONTH="${JOB_ID:4:2}"
-    DAY="${JOB_ID:6:2}"
+    # Find job directory - support new and legacy structures
+    JOB_DIR=""
     
-    JOB_DIR="$PROJECT_ROOT/out/$YEAR/$MONTH/$DAY"
-    JOB_PATH=""
+    # New structure: out/YYYY/MM/DD/USERID/counter (job ID in job.json)
+    for dir in "$PROJECT_ROOT"/out/*/*/*/*/*/; do
+        if [ -f "${dir}job.json" ]; then
+            job_id_in_file=$(grep -o '"job_id"[[:space:]]*:[[:space:]]*"[^"]*"' "${dir}job.json" | cut -d'"' -f4)
+            if [ "$job_id_in_file" = "$JOB_ID" ]; then
+                JOB_DIR="${dir%/}"
+                break
+            fi
+        fi
+    done
     
-    if [ -d "$JOB_DIR" ]; then
-        for user_dir in "$JOB_DIR"/*; do
-            if [ -d "$user_dir/$JOB_ID" ]; then
-                JOB_PATH="$user_dir/$JOB_ID"
+    # Fallback: Legacy structure out/YYYY/MM/DD/username/job_NNNN
+    if [ -z "$JOB_DIR" ]; then
+        for dir in "$PROJECT_ROOT"/out/*/*/*/*/*/; do
+            if [[ "$dir" == *"/$JOB_ID/" ]]; then
+                JOB_DIR="${dir%/}"
                 break
             fi
         done
     fi
     
-    if [ -z "$JOB_PATH" ]; then
+    # Fallback: Very legacy structure out/YYYY-MM-DD_HH-MM-SS/username/job-id
+    if [ -z "$JOB_DIR" ]; then
+        for dir in "$PROJECT_ROOT"/out/*/*/; do
+            if [ -d "${dir}${JOB_ID}" ]; then
+                JOB_DIR="${dir}${JOB_ID}"
+                break
+            fi
+        done
+    fi
+    
+    if [ -z "$JOB_DIR" ]; then
         echo "  ❌ Job not found: $JOB_ID"
         echo ""
         exit 1
     fi
     
-    echo "  📁 Location: $JOB_PATH"
+    echo "  📁 Location: $JOB_DIR"
     
     # Check manifest for stage status
-    MANIFEST="$JOB_PATH/manifest.json"
+    MANIFEST="$JOB_DIR/manifest.json"
     if [ -f "$MANIFEST" ]; then
         echo "  📊 Stage Progress:"
         echo ""
@@ -110,17 +127,17 @@ echo ""
 
 echo "🔧 EXECUTION MODES"
 echo "────────────────────────────────────────────────────"
-echo "  macOS:   Native mode with MPS acceleration (.bollyenv)"
-echo "  Windows: Native mode with CUDA/CPU (.bollyenv)"
+echo "  macOS:   Native mode with MPS acceleration (.venv-*)"
+echo "  Windows: Native mode with CUDA/CPU (.venv-*)"
 echo "  Linux:   Docker mode with CUDA/CPU containers"
 echo ""
 
 echo "📁 OUTPUT STRUCTURE (Job-Based)"
 echo "────────────────────────────────────────────────────"
-echo "  out/YYYY/MM/DD/USER_ID/JOB_ID/"
-echo "  ├── .JOB_ID.env              # Job configuration"
-echo "  ├── job.json                 # Job metadata"
-echo "  ├── manifest.json            # Stage tracking"
+echo "  out/YYYY/MM/DD/USERID/counter/"
+echo "  ├── .job-YYYYMMDD-USERID-nnnn.env  # Job configuration"
+echo "  ├── job.json                       # Job metadata (contains job_id)"
+echo "  ├── manifest.json                  # Stage tracking"
 echo "  ├── audio/                   # Extracted audio"
 echo "  │   └── audio.wav"
 echo "  ├── metadata/                # TMDB data"

@@ -1,297 +1,278 @@
 # Quick Start Guide
 
-Get CP-WhisperX-App running in **5 minutes**!
-
----
+Get the WhisperX Speech Processing Pipeline running in 5 minutes.
 
 ## Prerequisites
 
-- **Python 3.11+** installed
-- **20GB free disk space**
+- **macOS** (Apple Silicon or Intel) or **Linux**
+- **Python 3.8+**
 - **8GB+ RAM** (16GB recommended)
-- Optional: **GPU** (Apple Silicon or NVIDIA CUDA)
+- **10GB disk space** for models
 
----
+## Installation
 
-## Step 1: Clone and Bootstrap (2 minutes)
+### Step 1: Clone and Setup
 
 ```bash
-# Clone repository
-git clone https://github.com/yourusername/cp-whisperx-app.git
-cd cp-whisperx-app
+# Clone repository (if not already done)
+cd /path/to/cp-whisperx-app
 
-# Run bootstrap script
-./scripts/bootstrap.sh  # macOS/Linux
-# OR
-.\scripts\bootstrap.ps1  # Windows
+# Run bootstrap (one-time setup)
+./bootstrap.sh
 ```
 
-**What bootstrap does:**
-- Creates Python virtual environment (`.bollyenv`)
+**Bootstrap does:**
+- Creates Python virtual environment
 - Installs all dependencies
-- Detects GPU capabilities
-- Creates default configuration
+- Downloads required models
+- Configures environment (MLX/CUDA/CPU)
+- Sets up directory structure
 
----
+**Time**: 5-10 minutes (first run only)
 
-## Step 2: Configure (1 minute)
+### Step 2: Prepare Audio File
 
-```bash
-# Copy template configuration
-cp config/.env.pipeline.template config/.env.pipeline
-
-# Edit configuration (optional - defaults work fine)
-nano config/.env.pipeline
-```
-
-**Minimum required settings:**
-```bash
-# config/.env.pipeline
-HF_TOKEN=your_huggingface_token  # Get from https://huggingface.co/settings/tokens
-```
-
-**Optional: Get TMDB API key** (for cast/crew metadata):
-```bash
-# config/secrets.json
-{
-  "tmdb_api_key": "your_tmdb_api_key",  # Get from https://www.themoviedb.org/settings/api
-  "hf_token": "your_huggingface_token"
-}
-```
-
----
-
-## Step 3: Prepare a Job (30 seconds)
+Place your audio file in the `in/` directory or use any path:
 
 ```bash
-# Prepare a job from a video file
-./prepare-job.sh /path/to/movie.mp4
+# Example: Copy your audio file
+cp ~/Downloads/meeting.mp3 in/
 
-# Example output:
-# ✓ Created job: 20251113-0001
-# ✓ Job directory: out/2025/11/13/1/20251113-0001/
-# ✓ Configuration: out/2025/11/13/1/20251113-0001/.20251113-0001.env
+# Or just use the full path
 ```
 
-**What this does:**
-- Creates job directory structure
-- Copies video to job input
-- Generates job-specific configuration
-- Parses filename for metadata (title, year, etc.)
-
----
-
-## Step 4: Run the Pipeline (1-4 hours depending on hardware)
+### Step 3: Prepare Job
 
 ```bash
-# Run the complete pipeline
-./run_pipeline.sh --job 20251113-0001
+# Basic usage
+./prepare-job.sh in/meeting.mp3
+
+# With options
+./prepare-job.sh --source-lang hi --target-lang en in/meeting.mp3
 ```
 
-**What happens:**
-```
-Stage  1/14: Demux          ✓ Completed in 45s
-Stage  2/14: TMDB           ✓ Completed in 12s
-Stage  3/14: Pre-NER        ✓ Completed in 8s
-Stage  4/14: Silero VAD     ✓ Completed in 234s
-Stage  5/14: PyAnnote VAD   ✓ Completed in 456s
-Stage  6/14: Diarization    ✓ Completed in 678s
-Stage  7/14: ASR            ✓ Completed in 2847s (47 min)
-Stage  8/14: Glossary       ✓ Completed in 45s
-Stage  9/14: Translation    ✓ Completed in 567s
-Stage 10/14: Lyrics         ✓ Completed in 234s
-Stage 11/14: Post-NER       ✓ Completed in 123s
-Stage 12/14: Subtitles      ✓ Completed in 89s
-Stage 13/14: Mux            ✓ Completed in 67s
-Stage 14/14: Finalize       ✓ Completed in 12s
+**This creates**: Job configuration file with your settings
 
-✅ Pipeline completed successfully!
-```
-
-**Processing time estimates (2-hour movie):**
-- **CPU only**: 4-6 hours
-- **Apple M2 (MPS)**: 2-3 hours  
-- **NVIDIA RTX 3090**: 1.5-2 hours
-- **Speed mode**: 1-1.5 hours (skip VAD/diarization)
-
----
-
-## Step 5: Get Your Subtitles! (instant)
+### Step 4: Run Pipeline
 
 ```bash
-# Output directory
-out/2025/11/13/1/20251113-0001/
-
-# Subtitles
-├── subtitles/
-│   ├── movie.srt           ← English subtitles (SRT format)
-│   └── movie.vtt           ← English subtitles (VTT format)
-
-# Video with embedded subtitles
-├── movie.with_subs.mp4     ← Video with embedded subtitles
-
-# Intermediate outputs (for debugging)
-├── 01_demux/
-├── 07_asr/
-│   ├── transcript.json     ← Original transcript
-│   └── translation.json    ← Translated transcript
-└── logs/                   ← All stage logs
+# Process the audio file
+./run-pipeline.sh in/meeting.mp3
 ```
 
----
+**Pipeline stages:**
+1. **Transcribe**: Speech-to-text with WhisperX
+2. **Translate**: Multi-language translation
+3. **Subtitles**: SRT/VTT generation
 
-## Quick Examples
+**Output location**: `out/meeting/`
 
-### Example 1: Basic Run
+## Output Files
+
+After processing, you'll find:
+
+```
+out/meeting/
+├── meeting_transcript.json          # Full transcription with timing
+├── meeting_transcript.txt           # Plain text transcript
+├── meeting_translation.txt          # Translated text
+├── meeting_subtitles.srt           # SRT subtitles
+├── meeting_subtitles.vtt           # VTT subtitles (with metadata)
+├── meeting_glossary.txt            # Auto-generated glossary
+└── meeting_metadata.json           # Processing metadata
+```
+
+## Common Usage Patterns
+
+### Standard Transcription Only
 
 ```bash
-./prepare-job.sh Dilwale_Dulhania_Le_Jayenge_1995.mp4
-./run_pipeline.sh --job 20251113-0001
+./prepare-job.sh --stage transcribe audio.mp3
+./run-pipeline.sh audio.mp3
 ```
 
-### Example 2: Resume Interrupted Job
+### Transcription + Translation
 
 ```bash
-# Pipeline was interrupted at stage 7 (ASR)
-./run_pipeline.sh --job 20251113-0001
-# Automatically resumes from stage 7
+./prepare-job.sh --source-lang hi --target-lang en audio.mp3
+./run-pipeline.sh audio.mp3
 ```
 
-### Example 3: Speed Mode (Skip VAD/Diarization)
+### With Custom Glossary
 
 ```bash
-# Edit job config before running
-nano out/2025/11/13/1/20251113-0001/.20251113-0001.env
+# Create glossary file
+echo "WhisperX|व्हिस्परएक्स" > glossary/my-terms.txt
+echo "Pipeline|पाइपलाइन" >> glossary/my-terms.txt
 
-# Set:
-STEP_SILERO_VAD=false
-STEP_PYANNOTE_VAD=false  
-STEP_DIARIZATION=false
-
-# Run (30-50% faster, single speaker assumed)
-./run_pipeline.sh --job 20251113-0001
+# Use it
+./prepare-job.sh --glossary glossary/my-terms.txt --source-lang hi audio.mp3
+./run-pipeline.sh audio.mp3
 ```
 
-### Example 4: Specific Stages Only
+### Process Specific Stages
 
 ```bash
-# Run only ASR and subtitle generation
-./run_pipeline.sh --job 20251113-0001 --stages "asr subtitle_gen"
+# Only transcribe
+./run-pipeline.sh --stage transcribe audio.mp3
+
+# Only translate (requires existing transcript)
+./run-pipeline.sh --stage translate audio.mp3
+
+# Only generate subtitles
+./run-pipeline.sh --stage subtitles audio.mp3
 ```
 
----
+## Configuration Quick Reference
 
-## Verification
+### Common Options
 
-### Check Logs
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--source-lang` | Audio language code | `hi` |
+| `--target-lang` | Translation target | `en` |
+| `--beam-size` | Beam search width | `5` |
+| `--best-of` | Best candidates | `5` |
+| `--glossary` | Glossary file path | None |
+| `--stage` | Run specific stage | `all` |
 
-```bash
-# View orchestrator log
-tail -f out/2025/11/13/1/20251113-0001/logs/00_orchestrator_*.log
+### Language Codes
 
-# View specific stage log (e.g., ASR)
-cat out/2025/11/13/1/20251113-0001/logs/07_asr_*.log
-```
+**Indian Languages** (IndicTrans2 optimized):
+- `hi` - Hindi
+- `bn` - Bengali
+- `ta` - Tamil
+- `te` - Telugu
+- `mr` - Marathi
+- `gu` - Gujarati
+- `kn` - Kannada
+- `ml` - Malayalam
+- `pa` - Punjabi
+- `ur` - Urdu
 
-### Check Output Quality
+**Other Languages**: Use ISO 639-1 codes (`en`, `es`, `fr`, etc.)
 
-```bash
-# View generated subtitles
-cat out/2025/11/13/1/20251113-0001/subtitles/movie.srt | head -20
-
-# Check bias prompting was active
-grep "🎯 Active bias prompting" out/*/logs/07_asr_*.log
-
-# Check transcript
-jq '.segments[:5]' out/2025/11/13/1/20251113-0001/07_asr/transcript.json
-```
-
----
+See [Language Support](technical/language-support.md) for complete list.
 
 ## Troubleshooting
 
-### Issue: Python version error
+### Bootstrap Issues
 
 ```bash
-# Solution: Use Python 3.11+
-python3.11 -m venv .bollyenv
-source .bollyenv/bin/activate
-pip install -r requirements.txt
+# Issue: Permission denied
+chmod +x bootstrap.sh prepare-job.sh run-pipeline.sh
+
+# Issue: Python not found
+# Install Python 3.8+ first
+python3 --version
 ```
 
-### Issue: GPU not detected
+### Model Loading Errors
 
 ```bash
-# Check GPU availability
-python3 -c "import torch; print('MPS:', torch.backends.mps.is_available())"
-python3 -c "import torch; print('CUDA:', torch.cuda.is_available())"
+# Re-run bootstrap
+./bootstrap.sh
 
-# Force CPU if needed
-export DEVICE=cpu
-./run_pipeline.sh --job <job-id>
+# Check model directory
+ls -lh venv/lib/python*/site-packages/whisperx/models/
 ```
 
-### Issue: HuggingFace token error
+### Memory Issues
 
 ```bash
-# Get token from https://huggingface.co/settings/tokens
-export HF_TOKEN=your_token_here
-./run_pipeline.sh --job <job-id>
+# Reduce beam size in job config
+./prepare-job.sh --beam-size 3 --best-of 3 audio.mp3
 ```
 
-### Issue: Out of memory
+### Translation Failures
 
 ```bash
-# Use smaller Whisper model
-export WHISPER_MODEL=medium  # or small, base
-./run_pipeline.sh --job <job-id>
+# Verify language code
+./prepare-job.sh --source-lang hi --target-lang en audio.mp3
+
+# Check glossary format (pipe-separated)
+cat glossary/my-terms.txt
+# Should be: source|target
 ```
 
----
+See [Troubleshooting Guide](user-guide/troubleshooting.md) for detailed solutions.
+
+## Environment Detection
+
+The pipeline automatically detects and uses the best available environment:
+
+1. **MLX** - Apple Silicon (M1/M2/M3) - Fastest on Mac
+2. **CUDA** - NVIDIA GPU - Fastest on Linux/Windows
+3. **CPU** - Universal fallback - Works everywhere
+
+Check detected environment:
+
+```bash
+# In bootstrap output, look for:
+# "Environment: MLX" or "Environment: CUDA" or "Environment: CPU"
+```
+
+## Performance Expectations
+
+**Transcription speed** (varies by environment):
+
+| Environment | Processing Speed | 1hr Audio |
+|-------------|-----------------|-----------|
+| MLX (M2)    | ~20x realtime   | ~3 min    |
+| CUDA (3090) | ~30x realtime   | ~2 min    |
+| CPU (8-core)| ~2x realtime    | ~30 min   |
+
+**Translation**: 1-2 minutes per 1000 segments
+**Subtitles**: Under 1 minute
 
 ## Next Steps
 
-Now that you have the basic pipeline running:
+Now that you have the basics:
 
-1. **Optimize configuration** → [Configuration Guide](docs/user-guide/CONFIGURATION.md)
-2. **Understand the pipeline** → [Pipeline Stages](docs/technical/PIPELINE_STAGES.md)
-3. **Improve accuracy** → [Bias System](docs/technical/BIAS_SYSTEM.md)
-4. **Customize glossaries** → [Glossary System](docs/technical/GLOSSARY_SYSTEM.md)
-5. **Troubleshoot issues** → [Troubleshooting Guide](docs/reference/TROUBLESHOOTING.md)
+1. **Learn Workflows**: [Workflows Guide](user-guide/workflows.md)
+2. **Customize Config**: [Configuration Guide](user-guide/configuration.md)
+3. **Create Glossaries**: [Glossary Builder](user-guide/glossary-builder.md)
+4. **Understand Architecture**: [Technical Docs](technical/README.md)
 
----
+## Need Help?
 
-## Quick Command Reference
+- **Documentation Index**: [docs/INDEX.md](INDEX.md)
+- **User Guide**: [user-guide/README.md](user-guide/README.md)
+- **Troubleshooting**: [user-guide/troubleshooting.md](user-guide/troubleshooting.md)
+- **Configuration**: [user-guide/configuration.md](user-guide/configuration.md)
+
+## Example Session
+
+Complete example from start to finish:
 
 ```bash
-# Bootstrap
-./scripts/bootstrap.sh
+# 1. Bootstrap (first time only)
+./bootstrap.sh
+# Output: Environment setup complete. MLX detected.
 
-# Prepare job
-./prepare-job.sh <video_file>
+# 2. Prepare job for Hindi audio
+./prepare-job.sh --source-lang hi --target-lang en in/meeting.mp3
+# Output: Job configuration created: config/job_meeting.conf
 
-# Run pipeline
-./run_pipeline.sh --job <job-id>
+# 3. Run pipeline
+./run-pipeline.sh in/meeting.mp3
+# Output:
+# [Transcribe] Processing meeting.mp3...
+# [Transcribe] Complete: out/meeting/meeting_transcript.json
+# [Translate] Translating 150 segments...
+# [Translate] Complete: out/meeting/meeting_translation.txt
+# [Subtitles] Generating SRT/VTT...
+# [Subtitles] Complete: out/meeting/meeting_subtitles.srt
+# Pipeline complete!
 
-# Resume pipeline
-./run_pipeline.sh --job <job-id>
-
-# Start fresh
-./run_pipeline.sh --job <job-id> --no-resume
-
-# Run specific stages
-./run_pipeline.sh --job <job-id> --stages "stage1 stage2"
-
-# List available stages
-./run_pipeline.sh --list-stages
-
-# Check status
-./test-pipeline-status.sh <job-id>
-
-# View logs
-tail -f out/YYYY/MM/DD/N/JOBID/logs/00_orchestrator_*.log
+# 4. Check output
+ls -lh out/meeting/
+# meeting_transcript.json  meeting_transcript.txt
+# meeting_translation.txt  meeting_glossary.txt
+# meeting_subtitles.srt   meeting_subtitles.vtt
+# meeting_metadata.json
 ```
 
 ---
 
-**Questions? See [FAQ](docs/reference/FAQ.md) or [Troubleshooting Guide](docs/reference/TROUBLESHOOTING.md)**
+**Navigation**: [Home](../README.md) | [Documentation Index](INDEX.md) | [User Guide](user-guide/README.md)

@@ -1,0 +1,88 @@
+{
+  "version": "1.0.0",
+  "created_at": "2025-11-25T15:18:46Z",
+  "hardware": {
+    "platform": "darwin",
+    "machine": "arm64",
+    "has_cuda": false,
+    "has_mps": true,
+    "has_mlx": true
+  },
+  "environments": {
+    "common": {
+      "path": "venv/common",
+      "purpose": "Core utilities, job management, logging, muxing"
+    },
+    "whisperx": {
+      "path": "venv/whisperx",
+      "purpose": "WhisperX ASR transcription",
+      "stages": ["demux", "asr", "alignment"]
+    },
+    "mlx": {
+      "path": "venv/mlx",
+      "purpose": "MLX-accelerated transcription (Apple Silicon)",
+      "stages": ["asr"],
+      "enabled": true
+    },
+    "pyannote": {
+      "path": "venv/pyannote",
+      "purpose": "PyAnnote VAD for voice activity detection",
+      "stages": ["pyannote_vad"]
+    },
+    "demucs": {
+      "path": "venv/demucs",
+      "purpose": "Demucs for audio source separation",
+      "stages": ["source_separation"]
+    },
+    "indictrans2": {
+      "path": "venv/indictrans2",
+      "purpose": "IndicTrans2 Indic→English + Indic→Indic translation",
+      "stages": ["indictrans2_en_translation", "indictrans2_indic_translation"]
+    },
+    "nllb": {
+      "path": "venv/nllb",
+      "purpose": "NLLB translation for 200+ non-Indic languages",
+      "stages": ["nllb_translation"]
+    },
+    "llm": {
+      "path": "venv/llm",
+      "purpose": "LLM for context-aware song/poetry translation",
+      "stages": ["hybrid_translation"]
+    }
+  },
+  "workflow_to_environments_mapping": {
+    "transcribe": ["common", "whisperx", "pyannote", "demucs"],
+    "translate": ["common", "whisperx", "indictrans2", "nllb", "llm", "pyannote", "demucs"],
+    "subtitle": ["common", "whisperx", "indictrans2", "nllb", "llm", "pyannote", "demucs"]
+  },
+  "stage_to_environment_mapping": {
+    "demux": "common",
+    "tmdb": "common",
+    "glossary_load": "common",
+    "source_separation": "demucs",
+    "pyannote_vad": "pyannote",
+    "asr": "whisperx",
+    "alignment": "whisperx",
+    "export_transcript": "common",
+    "lyrics_detection": "demucs",
+    "hybrid_translation": "llm",
+    "indictrans2_en_translation": "indictrans2",
+    "indictrans2_indic_translation": "indictrans2",
+    "nllb_translation": "nllb",
+    "subtitle_gen": "common",
+    "subtitle_generation": "common",
+    "mux": "common",
+    "beam_optimization": "indictrans2"
+  },
+  "cache": {
+    "base_dir": ".cache",
+    "torch_home": ".cache/torch",
+    "hf_home": ".cache/huggingface",
+    "mlx_home": ".cache/mlx",
+    "application_caches": {
+      "tmdb": "out/tmdb_cache",
+      "musicbrainz": "out/musicbrainz_cache",
+      "glossary": "glossary/cache"
+    }
+  }
+}

@@ -1,0 +1,24 @@
+# WhisperX Environment Requirements
+# Compatible with torch ~=2.8.0 and numpy >=2.0.2
+# Note: For MLX backend on Apple Silicon, use .venv-mlx instead
+
+# Core dependencies (shared with common)
+python-json-logger>=2.0.0
+python-dotenv>=1.0.0
+
+# Core WhisperX with dependencies
+# Using 3.7.4 (latest version with torch 2.8.x)
+# Note: 3.1.1 was yanked (unofficial third-party release)
+# Note: 3.4+ requires torch>=2.5, 3.7+ requires torch~=2.8
+whisperx==3.7.4
+
+# PyTorch ecosystem (latest versions)
+torch~=2.8.0
+torchaudio~=2.8.0
+numpy>=2.0.2,<2.1.0
+
+# Faster Whisper backend (CTranslate2)
+faster-whisper>=1.1.1
+
+# Audio/Video processing
+ffmpeg-python>=0.2.0

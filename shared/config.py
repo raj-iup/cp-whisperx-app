@@ -6,8 +6,23 @@ import os
 import json
 from pathlib import Path
 from typing import Optional, Any
-from pydantic_settings import BaseSettings
-from pydantic import Field, field_validator
+
+# Try to import pydantic_settings, fall back to simple implementation if not available
+try:
+    from pydantic_settings import BaseSettings
+    from pydantic import Field, field_validator
+    PYDANTIC_AVAILABLE = True
+except ImportError:
+    PYDANTIC_AVAILABLE = False
+    # Provide dummy implementations
+    class BaseSettings:
+        pass
+    def Field(*args, **kwargs):
+        return None
+    def field_validator(*args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator
 
 
 class PipelineConfig(BaseSettings):
@@ -24,6 +39,11 @@ class PipelineConfig(BaseSettings):
     source_language: Optional[str] = Field(default=None, env="SOURCE_LANGUAGE")
     target_language: Optional[str] = Field(default=None, env="TARGET_LANGUAGE")
     
+    # Media Processing Configuration
+    media_processing_mode: str = Field(default="full", env="MEDIA_PROCESSING_MODE")
+    media_start_time: Optional[str] = Field(default=None, env="MEDIA_START_TIME")
+    media_end_time: Optional[str] = Field(default=None, env="MEDIA_END_TIME")
+    
     @field_validator('title', mode='before')
     @classmethod
     def empty_str_to_none_title(cls, v):
@@ -39,6 +59,14 @@ class PipelineConfig(BaseSettings):
         if v == '' or v is None:
             return None
         return int(v)
+    
+    @field_validator('media_start_time', 'media_end_time', mode='before')
+    @classmethod
+    def empty_str_to_none_time(cls, v):
+        """Convert empty string to None for optional time values."""
+        if v == '' or v is None:
+            return None
+        return v
     
     # Docker Registry
     docker_registry: str = Field(default="rajiup", env="DOCKER_REGISTRY")
@@ -244,8 +272,17 @@ class PipelineConfig(BaseSettings):
         return getattr(self, key.lower(), default)
 
 
-def load_config(env_file: Optional[str] = None) -> PipelineConfig:
-    """Load pipeline configuration."""
+def load_config(env_file: Optional[str] = None):
+    """
+    Load pipeline configuration.
+    Returns PipelineConfig if pydantic_settings is available, otherwise returns simple Config.
+    """
+    if not PYDANTIC_AVAILABLE:
+        # Fallback to simple Config when pydantic_settings not available
+        # Path is already imported at module level (line 7)
+        project_root = Path(__file__).parent.parent
+        return Config(project_root)
+    
     # Check for CONFIG_PATH environment variable first
     if env_file is None:
         env_file = os.getenv('CONFIG_PATH')
@@ -269,3 +306,127 @@ def load_config(env_file: Optional[str] = None) -> PipelineConfig:
             config.tmdb_api_key = secrets['TMDB_API_KEY']
     
     return config
+
+
+class Config:
+    """
+    Simple configuration loader for reading from config/.env.pipeline
+    Used by prepare-job.py to read configuration values.
+    
+    Best practice: Use this class instead of os.environ.get()
+    """
+    
+    def __init__(self, project_root: Path):
+        """Initialize config loader with project root."""
+        self.project_root = project_root
+        self.config_file = project_root / "config" / ".env.pipeline"
+        self._config = {}
+        self._load()
+    
+    def _load(self):
+        """Load configuration from .env.pipeline file."""
+        if not self.config_file.exists():
+            return
+        
+        with open(self.config_file, 'r') as f:
+            for line in f:
+                line = line.strip()
+                # Skip comments and empty lines
+                if not line or line.startswith('#'):
+                    continue
+                # Parse KEY=value
+                if '=' in line:
+                    key, value = line.split('=', 1)
+                    # Remove inline comments
+                    if '#' in value:
+                        value = value.split('#')[0]
+                    self._config[key.strip()] = value.strip()
+    
+    def get(self, key: str, default: Any = None) -> Any:
+        """
+        Get configuration value by key.
+        
+        Args:
+            key: Configuration key (e.g., 'SOURCE_SEPARATION_ENABLED')
+            default: Default value if key not found
+        
+        Returns:
+            Configuration value or default
+        """
+        return self._config.get(key, default)
+    
+    def get_secret(self, key: str) -> Optional[str]:
+        """
+        Get secret value from secrets.json.
+        
+        Args:
+            key: Secret key (e.g., 'HUGGINGFACE_TOKEN')
+        
+        Returns:
+            Secret value or None
+        """
+        secrets_file = self.project_root / "config" / "secrets.json"
+        if not secrets_file.exists():
+            return None
+        
+        try:
+            with open(secrets_file, 'r') as f:
+                secrets = json.load(f)
+                return secrets.get(key)
+        except Exception:
+            return None
+    
+    def __getattr__(self, name: str) -> Any:
+        """
+        Allow attribute-style access to config values.
+        
+        Args:
+            name: Attribute name (converted to uppercase for env var lookup)
+        
+        Returns:
+            Configuration value or None
+        """
+        # Convert snake_case to UPPERCASE for env var lookup
+        env_key = name.upper()
+        
+        # Check environment variables first (for runtime overrides)
+        env_value = os.getenv(env_key)
+        if env_value is not None:
+            return self._parse_value(env_value)
+        
+        # Check loaded config
+        if env_key in self._config:
+            return self._parse_value(self._config[env_key])
+        
+        # Return None for missing attributes (compatible with getattr(config, 'key', default))
+        return None
+    
+    def _parse_value(self, value: str) -> Any:
+        """Parse string value to appropriate type."""
+        if value.lower() in ('true', 'yes', '1', 'on'):
+            return True
+        if value.lower() in ('false', 'no', '0', 'off'):
+            return False
+        
+        # Try to parse as number
+        try:
+            if '.' in value:
+                return float(value)
+            return int(value)
+        except ValueError:
+            pass
+        
+        # Return as string, removing quotes if present
+        return value.strip('"').strip("'")
+    
+    def load_secrets(self) -> dict:
+        """Load secrets from JSON file (for compatibility with PipelineConfig)."""
+        secrets_file = self.project_root / "config" / "secrets.json"
+        if not secrets_file.exists():
+            return {}
+        
+        try:
+            with open(secrets_file, 'r') as f:
+                return json.load(f)
+        except Exception:
+            return {}

@@ -9,6 +9,9 @@ from pathlib import Path
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 
+# Import centralized stage ordering
+from shared.stage_order import get_stage_number, get_stage_dir, STAGE_NUMBERS
+
 
 class StageIO:
     """
@@ -22,32 +25,11 @@ class StageIO:
             02_tmdb/
                 tmdb_data.json
                 metadata.json
-            03_pre_ner/
-                entities.txt
-                ner_annotated.json
+            03_glossary_load/
+                glossary_snapshot.json
                 metadata.json
             ...
     """
-    
-    # Stage number mapping
-    STAGE_NUMBERS = {
-        "demux": 1,
-        "tmdb": 2,
-        "pre_ner": 3,
-        "silero_vad": 4,
-        "pyannote_vad": 5,
-        "asr": 6,
-        "song_bias_injection": 7,
-        "lyrics_detection": 8,
-        "bias_correction": 9,
-        "diarization": 10,
-        "glossary_builder": 11,
-        "second_pass_translation": 12,
-        "post_ner": 13,
-        "subtitle_gen": 14,
-        "mux": 15,
-        "finalize": 16
-    }
     
     def __init__(self, stage_name: str, output_base: Optional[Path] = None):
         """
@@ -58,15 +40,26 @@ class StageIO:
             output_base: Base output directory (defaults to OUTPUT_DIR env var or 'out')
         """
         self.stage_name = stage_name
-        self.stage_number = self.STAGE_NUMBERS.get(stage_name, 99)
+        
+        try:
+            self.stage_number = get_stage_number(stage_name)
+        except ValueError:
+            # Fallback for unknown stages
+            self.stage_number = 99
         
         # Determine output base directory
         if output_base is None:
             output_base = os.environ.get('OUTPUT_DIR', 'out')
         self.output_base = Path(output_base)
         
-        # Create stage-specific directory
-        self.stage_dir = self.output_base / f"{self.stage_number:02d}_{stage_name}"
+        # Create stage-specific directory using centralized naming
+        try:
+            stage_dir_name = get_stage_dir(stage_name).split('/')[-1]
+            self.stage_dir = self.output_base / stage_dir_name
+        except ValueError:
+            # Fallback for unknown stages
+            self.stage_dir = self.output_base / f"{self.stage_number:02d}_{stage_name}"
+        
         self.stage_dir.mkdir(parents=True, exist_ok=True)
         
         # Logs directory
@@ -87,17 +80,24 @@ class StageIO:
         if from_stage is None:
             # Default to previous stage
             from_stage_num = self.stage_number - 1
-            # Find stage name by number
+            # Find stage name by number using centralized mapping
             from_stage = next(
-                (name for name, num in self.STAGE_NUMBERS.items() if num == from_stage_num),
+                (name for name, num in STAGE_NUMBERS.items() if num == from_stage_num),
                 None
             )
         else:
             # Get stage number for specified stage
-            from_stage_num = self.STAGE_NUMBERS.get(from_stage, self.stage_number - 1)
+            try:
+                from_stage_num = get_stage_number(from_stage)
+            except ValueError:
+                from_stage_num = self.stage_number - 1
         
         if from_stage:
-            input_dir = self.output_base / f"{from_stage_num:02d}_{from_stage}"
+            try:
+                input_dir_name = get_stage_dir(from_stage).split('/')[-1]
+                input_dir = self.output_base / input_dir_name
+            except ValueError:
+                input_dir = self.output_base / f"{from_stage_num:02d}_{from_stage}"
             input_path = input_dir / filename
         else:
             # Fallback to output_base
@@ -233,12 +233,16 @@ class StageIO:
         """
         from_stage_num = self.stage_number - 1
         from_stage = next(
-            (name for name, num in self.STAGE_NUMBERS.items() if num == from_stage_num),
+            (name for name, num in STAGE_NUMBERS.items() if num == from_stage_num),
             None
         )
         
         if from_stage:
-            input_dir = self.output_base / f"{from_stage_num:02d}_{from_stage}"
+            try:
+                input_dir_name = get_stage_dir(from_stage).split('/')[-1]
+                input_dir = self.output_base / input_dir_name
+            except ValueError:
+                input_dir = self.output_base / f"{from_stage_num:02d}_{from_stage}"
             if input_dir.exists():
                 return list(input_dir.iterdir())
         

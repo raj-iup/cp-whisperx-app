@@ -56,6 +56,10 @@ manifest.json.lock
 # Model cache and downloads
 models/
 .cache/
+shared/model-cache/
+out/tmdb_cache/
+out/musicbrainz_cache/
+glossary/cache/
 *.pt
 *.pth
 *.onnx

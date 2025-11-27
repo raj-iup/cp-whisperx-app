@@ -117,8 +117,8 @@ Write-Host ""
 
 Write-Host "🔧 EXECUTION MODES"
 Write-Host "────────────────────────────────────────────────────"
-Write-Host "  macOS:   Native mode with MPS acceleration (.bollyenv)"
-Write-Host "  Windows: Native mode with CUDA/CPU (.bollyenv)"
+Write-Host "  macOS:   Native mode with MPS acceleration (.venv-*)"
+Write-Host "  Windows: Native mode with CUDA/CPU (.venv-*)"
 Write-Host "  Linux:   Docker mode with CUDA/CPU containers"
 Write-Host ""
 

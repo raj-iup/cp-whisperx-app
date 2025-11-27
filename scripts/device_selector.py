@@ -8,13 +8,44 @@ Cross-platform support:
 - Windows: CUDA, CPU
 - Linux: CUDA, CPU
 - macOS: MPS, CPU
+
+DEVELOPER STANDARDS COMPLIANCE:
+- Lazy import of torch (environment-specific dependency)
+- Graceful fallback if torch unavailable
+- Multi-environment architecture support
 """
 
-import torch
 import platform
 from typing import Tuple, Literal, Optional
 
 DeviceType = Literal["cpu", "cuda", "mps"]
+
+# Lazy-loaded torch module
+_torch = None
+_torch_available = None
+
+
+def _get_torch():
+    """
+    Lazy-load torch module with graceful fallback.
+    
+    Returns:
+        (torch_module, is_available)
+    
+    Developer Standards: Section 7.2 - Graceful Degradation
+    """
+    global _torch, _torch_available
+    
+    if _torch_available is None:
+        try:
+            import torch as _torch_module
+            _torch = _torch_module
+            _torch_available = True
+        except ImportError:
+            _torch = None
+            _torch_available = False
+    
+    return _torch, _torch_available
 
 
 def check_device_available(device: str) -> bool:
@@ -31,6 +62,7 @@ def check_device_available(device: str) -> bool:
         - Windows: CUDA or CPU only
         - Linux: CUDA or CPU
         - macOS: MPS or CPU
+        - Returns False for CUDA/MPS if torch unavailable
     """
     device = device.lower()
 
@@ -38,11 +70,18 @@ def check_device_available(device: str) -> bool:
         return True
     elif device == "cuda":
         # CUDA available on Windows and Linux with NVIDIA GPU
+        torch, torch_available = _get_torch()
+        if not torch_available:
+            return False
         return torch.cuda.is_available()
     elif device == "mps":
         # MPS only available on Apple Silicon (macOS)
         if platform.system() != 'Darwin':
             return False
+        torch, torch_available = _get_torch()
+        if not torch_available:
+            # Fallback: assume MPS available on macOS (let MLX handle it)
+            return True
         return hasattr(torch.backends, "mps") and torch.backends.mps.is_available()
     else:
         return False

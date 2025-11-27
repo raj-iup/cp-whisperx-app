@@ -37,8 +37,9 @@ class ModelDownloader:
             # Use int8 for efficiency during download
             model = WhisperModel(model_name, device='cpu', compute_type='int8')
             
-            # Test that model loaded
-            _ = model.transcribe_beam_size
+            # Test that model loaded by checking the underlying model
+            if model.model is None:
+                raise ValueError("Model not loaded properly")
             
             return (model_name, True, f"Whisper {model_name} cached")
         except Exception as e:

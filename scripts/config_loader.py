@@ -23,7 +23,8 @@ class Config:
             project_root = Path(__file__).parent.parent
 
         self.project_root = Path(project_root)
-        self.env_file = self.project_root / "config" / ".env"
+        # Use .env.pipeline as the main config file
+        self.env_file = self.project_root / "config" / ".env.pipeline"
         self.secrets_file = self.project_root / "config" / "secrets.json"
 
         self._env: Dict[str, Any] = {}
@@ -129,7 +130,24 @@ class Config:
 
     @property
     def whisperx_model(self) -> str:
-        return self.get("WHISPERX_MODEL", "large-v2")
+        # Support both WHISPER_MODEL and WHISPERX_MODEL for backwards compatibility
+        return self.get("WHISPER_MODEL", self.get("WHISPERX_MODEL", "large-v3"))
+    
+    @property
+    def whisper_compute_type(self) -> str:
+        return self.get("WHISPER_COMPUTE_TYPE", "int8")
+    
+    @property
+    def batch_size(self) -> int:
+        return self.get("BATCH_SIZE", 16)
+    
+    @property
+    def whisper_backend(self) -> str:
+        return self.get("WHISPER_BACKEND", "whisperx")
+    
+    @property
+    def indictrans2_device(self) -> str:
+        return self.get("INDICTRANS2_DEVICE", "cpu")
 
     @property
     def device_whisperx(self) -> str:

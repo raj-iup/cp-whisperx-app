@@ -1,0 +1,26 @@
+# Demucs Source Separation Environment Requirements
+# Isolated environment for audio source separation
+
+# Core dependencies (shared with common)
+python-json-logger>=2.0.0
+python-dotenv>=1.0.0
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+
+# Core ML framework
+# Pin torch/torchaudio to 2.5.x for compatibility
+torch==2.5.1
+torchaudio==2.5.1
+
+# Demucs for source separation
+demucs>=4.0.0
+
+# Required for MDX models
+diffq>=0.2.0
+
+# Audio I/O and processing
+soundfile>=0.12.0
+librosa>=0.10.0
+
+# Utilities (minimal)
+pathlib

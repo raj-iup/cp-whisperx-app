@@ -145,7 +145,7 @@ def run_vad_local(chunk_path: str, device: str = "cpu"):
             if hf_token:
                 run_vad_local._pipe = Pipeline.from_pretrained(
                     "pyannote/voice-activity-detection",
-                    use_auth_token=hf_token
+                    token=hf_token
                 )
             else:
                 print("[warn] No HF_TOKEN found - trying without authentication", file=sys.stderr)
@@ -231,8 +231,19 @@ def run_vad_remote(chunk_path: str, url: str, timeout: float = 60.0):
     return [(float(s["start"]), float(s["end"])) for s in js.get("segments", [])]
 
 def export_json(segments, path: str):
+    """Export segments in format expected by pipeline"""
+    import time
+    output = {
+        "segments": [{"start": round(s, 3), "end": round(e, 3)} for s, e in segments],
+        "metadata": {
+            "model": "pyannote/segmentation",
+            "num_segments": len(segments),
+            "total_duration": round(segments[-1][1], 3) if segments else 0.0,
+            "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        }
+    }
     with open(path, "w", encoding="utf-8") as f:
-        json.dump([{"start": round(s,3), "end": round(e,3)} for s,e in segments], f, ensure_ascii=False, indent=2)
+        json.dump(output, f, ensure_ascii=False, indent=2)
 
 def export_srt(segments, path: str):
     def fmt(t):

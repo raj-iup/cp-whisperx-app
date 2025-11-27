@@ -23,6 +23,16 @@ https://huggingface.co/ai4bharat/indictrans2-indic-en-1B
 import os
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
+import sys
+from pathlib import Path
+
+# Ensure toolkit is importable
+toolkit_path = Path(__file__).parent.parent / "venv/indictrans2" / "lib"
+python_version = f"python{sys.version_info.major}.{sys.version_info.minor}"
+site_packages = toolkit_path / python_version / "site-packages"
+if site_packages.exists():
+    sys.path.insert(0, str(site_packages))
+
 import torch
 import json
 import srt
@@ -96,6 +106,10 @@ def can_use_indictrans2(source_lang: str, target_lang: str) -> bool:
     """
     Check if IndicTrans2 should be used for translation.
     
+    Supports two modes:
+    1. Indic → English/non-Indic (using indictrans2-indic-en-1B model)
+    2. Indic → Indic (using indictrans2-indic-indic-1B model)
+    
     Args:
         source_lang: Whisper source language code
         target_lang: Whisper target language code
@@ -103,10 +117,38 @@ def can_use_indictrans2(source_lang: str, target_lang: str) -> bool:
     Returns:
         True if IndicTrans2 can handle this language pair
     """
-    return (
-        is_indic_language(source_lang) and 
-        target_lang in NON_INDIC_LANGUAGES
-    )
+    # Indic → English/non-Indic
+    if is_indic_language(source_lang) and target_lang in NON_INDIC_LANGUAGES:
+        return True
+    
+    # Indic → Indic  
+    if is_indic_language(source_lang) and is_indic_language(target_lang):
+        return True
+    
+    return False
+
+
+def get_indictrans2_model_name(source_lang: str, target_lang: str) -> str:
+    """
+    Get the appropriate IndicTrans2 model based on language pair.
+    
+    Args:
+        source_lang: Whisper source language code
+        target_lang: Whisper target language code
+        
+    Returns:
+        Model name for HuggingFace
+    """
+    if is_indic_language(source_lang):
+        if target_lang in NON_INDIC_LANGUAGES:
+            # Indic → English/non-Indic
+            return "ai4bharat/indictrans2-indic-en-1B"
+        elif is_indic_language(target_lang):
+            # Indic → Indic
+            return "ai4bharat/indictrans2-indic-indic-1B"
+    
+    # Fallback to indic-en model
+    return "ai4bharat/indictrans2-indic-en-1B"
 
 
 def get_indictrans2_lang_code(whisper_lang: str, default: str = None) -> str:
@@ -145,7 +187,12 @@ class TranslationConfig:
 
 class IndicTrans2Translator:
     """
-    Indic to English/non-Indic translator using IndicTrans2 model.
+    Indic language translator using IndicTrans2 models.
+    
+    Supports two translation modes:
+    1. Indic → English/non-Indic (using indictrans2-indic-en-1B)
+    2. Indic → Indic (using indictrans2-indic-indic-1B)
+    
     Supports all 22 scheduled Indian languages (Hindi, Tamil, Telugu, Bengali, etc.).
     Optimized for Apple Silicon (MPS) but works on CPU/CUDA too.
     
@@ -156,7 +203,9 @@ class IndicTrans2Translator:
     def __init__(
         self,
         config: Optional[TranslationConfig] = None,
-        logger = None
+        logger = None,
+        source_lang: Optional[str] = None,
+        target_lang: Optional[str] = None
     ):
         """
         Initialize the IndicTrans2 translator.
@@ -164,6 +213,8 @@ class IndicTrans2Translator:
         Args:
             config: Translation configuration
             logger: Logger instance for output
+            source_lang: Source language code (Whisper format) - auto-selects model
+            target_lang: Target language code (Whisper format) - auto-selects model
         """
         if not INDICTRANS2_AVAILABLE:
             raise ImportError(
@@ -173,6 +224,14 @@ class IndicTrans2Translator:
         
         self.config = config or TranslationConfig()
         self.logger = logger
+        
+        # Auto-select model based on language pair
+        if source_lang and target_lang:
+            model_name = get_indictrans2_model_name(source_lang, target_lang)
+            if model_name != self.config.model_name:
+                self._log(f"Auto-selecting model: {model_name}", level="info")
+                self.config.model_name = model_name
+        
         self.model = None
         self.tokenizer = None
         self.processor = None
@@ -190,6 +249,49 @@ class IndicTrans2Translator:
             getattr(self.logger, level)(message)
         else:
             print(f"[{level.upper()}] {message}")
+    
+    def _get_hf_token(self) -> Optional[str]:
+        """
+        Get HuggingFace token from multiple sources.
+        
+        Checks in order:
+        1. Environment variable HF_TOKEN
+        2. config/secrets.json file
+        3. ~/.cache/huggingface/token (huggingface-cli login location)
+        
+        Returns:
+            HuggingFace token or None if not found
+        """
+        # 1. Check environment variable
+        token = os.environ.get('HF_TOKEN')
+        if token:
+            return token
+        
+        # 2. Check secrets.json
+        try:
+            secrets_file = Path(__file__).parent.parent / 'config' / 'secrets.json'
+            if secrets_file.exists():
+                with open(secrets_file, 'r') as f:
+                    secrets = json.load(f)
+                    # Try multiple possible key names
+                    token = secrets.get('hf_token') or secrets.get('HF_TOKEN') or secrets.get('HUGGINGFACE_TOKEN')
+                    if token:
+                        return token
+        except Exception as e:
+            self._log(f"Could not load secrets.json: {e}", level="debug")
+        
+        # 3. Check huggingface-cli token location
+        try:
+            hf_token_file = Path.home() / '.cache' / 'huggingface' / 'token'
+            if hf_token_file.exists():
+                with open(hf_token_file, 'r') as f:
+                    token = f.read().strip()
+                    if token:
+                        return token
+        except Exception as e:
+            self._log(f"Could not load HF token from cache: {e}", level="debug")
+        
+        return None
     
     def _select_device(self) -> str:
         """Auto-detect best available device"""
@@ -210,17 +312,30 @@ class IndicTrans2Translator:
         self._log(f"Loading IndicTrans2 model: {self.config.model_name}")
         self._log(f"Using device: {self.device}")
         
+        # Load HuggingFace token from secrets.json or environment
+        hf_token = self._get_hf_token()
+        if hf_token:
+            self._log("✓ HuggingFace token found")
+        else:
+            self._log("⚠ No HuggingFace token found - may fail for gated models", level="warning")
+        
         try:
             self.tokenizer = AutoTokenizer.from_pretrained(
                 self.config.model_name,
-                trust_remote_code=True
+                trust_remote_code=True,
+                token=hf_token
             )
             self.model = AutoModelForSeq2SeqLM.from_pretrained(
                 self.config.model_name,
-                trust_remote_code=True
+                trust_remote_code=True,
+                token=hf_token
             )
             self.model.to(self.device)
             self.model.eval()
+            
+            # MPS cache workaround
+            if self.device == "mps":
+                self._log("⚠ Note: Disabling cache on MPS to avoid generation errors (slight performance impact)")
             
             # Initialize IndicTransToolkit processor if available
             if self.use_toolkit:
@@ -249,10 +364,19 @@ class IndicTrans2Translator:
                 self._log("", level="error")
                 self._log("To fix this issue:", level="error")
                 self._log("  1. Create HuggingFace account: https://huggingface.co/join", level="error")
-                self._log("  2. Request access: https://huggingface.co/ai4bharat/indictrans2-indic-en-1B", level="error")
+                
+                # Determine which model URL to show based on what's being loaded
+                if "indic-indic" in self.config.model_name:
+                    model_url = "https://huggingface.co/ai4bharat/indictrans2-indic-indic-1B"
+                else:
+                    model_url = "https://huggingface.co/ai4bharat/indictrans2-indic-en-1B"
+                
+                self._log(f"  2. Request access: {model_url}", level="error")
                 self._log("     (Click 'Agree and access repository' - instant approval)", level="error")
                 self._log("  3. Create access token: https://huggingface.co/settings/tokens", level="error")
-                self._log("  4. Authenticate: huggingface-cli login", level="error")
+                self._log("  4. Add token to config/secrets.json:", level="error")
+                self._log('     {"hf_token": "hf_..."} ', level="error")
+                self._log("     OR run: huggingface-cli login", level="error")
                 self._log("  5. Re-run the pipeline", level="error")
                 self._log("", level="error")
                 self._log("Pipeline will fall back to Whisper translation for now.", level="warning")
@@ -292,60 +416,177 @@ class IndicTrans2Translator:
         if not text:
             return text
         
+        # Skip only empty or single-character punctuation
+        # Note: Many meaningful Hindi words are 2-3 characters (आओ, जा, etc.)
+        if len(text) == 1 and not text.isalnum():
+            return text
+        
         # Skip translation if already mostly English (Hinglish handling)
         if skip_english and self._is_mostly_english(text):
             return text
         
         try:
             # Preprocess with IndicTransToolkit if available
-            if self.use_toolkit and self.processor:
-                batch = self.processor.preprocess_batch(
-                    [text],
-                    src_lang=self.config.src_lang,
-                    tgt_lang=self.config.tgt_lang,
-                )
-                input_text = batch[0]
-            else:
-                # Fallback: Basic prompt format
-                input_text = f"<2{self.config.tgt_lang}> {text}"
+            input_text = None
+            use_toolkit_for_this = self.use_toolkit and self.processor
+            
+            if use_toolkit_for_this:
+                try:
+                    batch = self.processor.preprocess_batch(
+                        [text],
+                        src_lang=self.config.src_lang,
+                        tgt_lang=self.config.tgt_lang,
+                    )
+                    # More robust validation of preprocessing output
+                    if batch and len(batch) > 0 and batch[0] is not None and str(batch[0]).strip():
+                        input_text = batch[0]
+                    else:
+                        input_text = None
+                except Exception as e:
+                    self._log(f"Preprocessing error for text: '{text[:50]}...' Error: {e}", level="warning")
+                    input_text = None
+                    use_toolkit_for_this = False  # Disable toolkit for this segment
+                
+                # Fallback if preprocessing returns None or fails
+                if input_text is None or not str(input_text).strip():
+                    self._log(f"Preprocessing returned empty/None for text: '{text[:50]}...', using basic format", level="debug")
+                    use_toolkit_for_this = False  # Disable toolkit
+                    input_text = None
+            
+            # Use basic format if toolkit failed or not available
+            if not use_toolkit_for_this or input_text is None:
+                # IndicTrans2 expects: "src_lang tgt_lang text" format
+                input_text = f"{self.config.src_lang} {self.config.tgt_lang} {text}"
+            
+            # Final validation - ensure input_text is never None or empty
+            if not input_text or not str(input_text).strip():
+                self._log(f"Input text is empty after preprocessing/fallback for: '{text[:50]}...', skipping", level="warning")
+                return text
             
             # Tokenize
-            encoded = self.tokenizer(
-                input_text,
-                truncation=True,
-                padding=True,
-                return_tensors="pt",
-            )
-            encoded = {k: v.to(self.device) for k, v in encoded.items()}
+            try:
+                encoded = self.tokenizer(
+                    input_text,
+                    truncation=True,
+                    padding=True,
+                    return_tensors="pt",
+                )
+            except Exception as e:
+                self._log(f"Tokenization exception for text: '{text[:50]}...' Error: {e}", level="warning")
+                return text
+            
+            # Validate encoded tensors
+            if not encoded or 'input_ids' not in encoded or encoded['input_ids'] is None:
+                self._log(f"Tokenization failed (no input_ids) for text: '{text[:50]}...'", level="warning")
+                return text
+            
+            # Check for empty input_ids
+            if encoded['input_ids'].numel() == 0:
+                self._log(f"Tokenization produced empty input_ids for text: '{text[:50]}...'", level="warning")
+                return text
+            
+            # Move tensors to device, filtering out None values
+            try:
+                encoded = {k: v.to(self.device) if v is not None else None for k, v in encoded.items()}
+                # Remove None values after moving
+                encoded = {k: v for k, v in encoded.items() if v is not None}
+            except Exception as e:
+                self._log(f"Failed to move tensors to device for text: '{text[:50]}...' Error: {e}", level="warning")
+                return text
+            
+            # Final validation before generation
+            if not encoded or 'input_ids' not in encoded or encoded['input_ids'] is None:
+                self._log(f"Encoded missing valid input_ids after device transfer for text: '{text[:50]}...'", level="warning")
+                return text
+            
+            # Validate tensor shapes
+            try:
+                if not hasattr(encoded['input_ids'], 'shape') or encoded['input_ids'].shape[0] == 0:
+                    self._log(f"Input_ids has invalid shape for text: '{text[:50]}...'", level="warning")
+                    return text
+            except Exception as e:
+                self._log(f"Shape validation failed for text: '{text[:50]}...' Error: {e}", level="warning")
+                return text
             
             # Generate translation
-            with torch.no_grad():
-                output = self.model.generate(
-                    **encoded,
-                    max_new_tokens=self.config.max_new_tokens,
-                    num_beams=self.config.num_beams,
-                    use_cache=True,
-                )
+            # NOTE: use_cache=True is broken on MPS for IndicTrans2, causing 'NoneType' errors
+            # We disable cache to fix this issue (slightly slower but works correctly)
+            use_cache_param = False if self.device == "mps" else True
+            
+            try:
+                # Debug: Log encoded keys and their shapes
+                if self.logger and hasattr(self.logger, 'debug'):
+                    for key, tensor in encoded.items():
+                        if tensor is not None and hasattr(tensor, 'shape'):
+                            self.logger.debug(f"  encoded['{key}'].shape = {tensor.shape}")
+                        else:
+                            self.logger.debug(f"  encoded['{key}'] = {tensor}")
+                
+                with torch.no_grad():
+                    output = self.model.generate(
+                        **encoded,
+                        max_new_tokens=self.config.max_new_tokens,
+                        num_beams=self.config.num_beams,
+                        use_cache=use_cache_param,  # Disable cache on MPS to avoid NoneType errors
+                    )
+                
+                # Validate output
+                if output is None or not hasattr(output, 'shape') or output.shape[0] == 0:
+                    self._log(f"Model generated invalid output for text: '{text[:50]}...'", level="warning")
+                    return text
+                    
+            except AttributeError as e:
+                # Specific handling for 'NoneType' object has no attribute 'shape' error
+                if "'NoneType' object has no attribute 'shape'" in str(e):
+                    self._log(f"Model generation failed (None tensor) for text: '{text[:50]}...'", level="warning")
+                    # Debug: Print what we're passing to generate
+                    self._log(f"  Encoded keys: {list(encoded.keys())}", level="debug")
+                    for key, tensor in encoded.items():
+                        if tensor is None:
+                            self._log(f"  encoded['{key}'] = None (THIS IS THE PROBLEM!)", level="warning")
+                        elif hasattr(tensor, 'shape'):
+                            self._log(f"  encoded['{key}'].shape = {tensor.shape}", level="debug")
+                    return text
+                else:
+                    self._log(f"Model generation failed for text: '{text[:50]}...' Error: {e}", level="warning")
+                    return text
+            except Exception as e:
+                self._log(f"Model generation failed for text: '{text[:50]}...' Error: {e}", level="warning")
+                return text
             
             # Decode
-            translation = self.tokenizer.batch_decode(
-                output,
-                skip_special_tokens=True,
-                clean_up_tokenization_spaces=True,
-            )[0]
+            try:
+                translation = self.tokenizer.batch_decode(
+                    output,
+                    skip_special_tokens=True,
+                    clean_up_tokenization_spaces=True,
+                )[0]
+            except Exception as e:
+                self._log(f"Decoding failed for text: '{text[:50]}...' Error: {e}", level="warning")
+                return text
             
-            # Postprocess with IndicTransToolkit if available
-            if self.use_toolkit and self.processor:
-                translations = self.processor.postprocess_batch(
-                    [translation],
-                    lang=self.config.tgt_lang
-                )
-                translation = translations[0]
+            # Validate decoded output
+            if not translation or not translation.strip():
+                self._log(f"Decoded translation is empty for text: '{text[:50]}...'", level="warning")
+                return text
+            
+            # Postprocess with IndicTransToolkit only if we used it for preprocessing
+            if use_toolkit_for_this and self.processor:
+                try:
+                    translations = self.processor.postprocess_batch(
+                        [translation],
+                        lang=self.config.tgt_lang
+                    )
+                    if translations and len(translations) > 0 and translations[0]:
+                        translation = translations[0]
+                except Exception as e:
+                    self._log(f"Postprocessing error, using raw translation: {e}", level="debug")
+                    # Keep the raw translation
             
             return translation.strip()
             
         except Exception as e:
-            self._log(f"Translation failed for text: {text[:50]}... Error: {e}", level="warning")
+            self._log(f"Translation failed for text: '{text[:50]}...' Error: {e}", level="warning")
             return text  # Return original on error
     
     def translate_segments(
@@ -483,26 +724,28 @@ def translate_whisperx_result(
     logger = None
 ) -> Dict[str, Any]:
     """
-    Translate WhisperX result from Indic language to English/non-Indic using IndicTrans2.
+    Translate WhisperX result using IndicTrans2.
     
-    Supports all 22 scheduled Indian languages (Hindi, Tamil, Telugu, Bengali, etc.)
-    translating to English or other non-Indic languages.
+    Supports:
+    - Indic → English (direct, single-step using indictrans2-indic-en-1B)
+    - Indic → Indic (direct, single-step using indictrans2-indic-indic-1B)
+    - Indic → non-Indic (direct, single-step)
     
     Args:
         source_result: WhisperX result dictionary with 'segments' key
         source_lang: Source language code (Whisper code, e.g., 'hi', 'ta', 'bn')
-        target_lang: Target language code (Whisper code, e.g., 'en')
+        target_lang: Target language code (Whisper code, e.g., 'en', 'gu')
         logger: Logger instance
         
     Returns:
         Translated result dictionary with same structure
     """
-    # Check if this language pair is supported
+    # Check if IndicTrans2 can handle this language pair
     if not can_use_indictrans2(source_lang, target_lang):
         if logger:
             logger.warning(
                 f"IndicTrans2 does not support {source_lang}→{target_lang}. "
-                f"Supported: Any Indic language → English/non-Indic"
+                f"Supported: Any Indic language → English/non-Indic, or Indic → Indic"
             )
         return source_result
     
@@ -517,13 +760,26 @@ def translate_whisperx_result(
             )
         return source_result
     
-    # Create translator with appropriate language codes
+    # Determine the correct model based on language pair
+    model_name = get_indictrans2_model_name(source_lang, target_lang)
+    
+    if logger:
+        logger.info(f"Using model: {model_name}")
+        logger.info(f"Translation: {source_lang} ({src_lang_code}) → {target_lang} ({tgt_lang_code})")
+    
+    # Create translator with appropriate model and language codes
     config = TranslationConfig(
+        model_name=model_name,
         device="auto",
         src_lang=src_lang_code,
         tgt_lang=tgt_lang_code
     )
-    translator = IndicTrans2Translator(config=config, logger=logger)
+    translator = IndicTrans2Translator(
+        config=config,
+        logger=logger,
+        source_lang=source_lang,
+        target_lang=target_lang
+    )
     
     try:
         # Translate segments
@@ -549,9 +805,12 @@ def translate_whisperx_result(
         if "authentication required" in str(e).lower():
             if logger:
                 logger.error("=" * 70)
-                logger.error("IndicTrans2 authentication required - falling back to Whisper")
+                logger.error("IndicTrans2 authentication required - falling back to source")
                 logger.error("=" * 70)
-                logger.warning("Translation will continue using Whisper (slower)")
+                logger.error("Please authenticate with HuggingFace:")
+                logger.error(f"  1. Visit: https://huggingface.co/{model_name}")
+                logger.error("  2. Request access to the model")
+                logger.error("  3. Run: huggingface-cli login")
             return source_result
         else:
             raise

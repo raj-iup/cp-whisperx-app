@@ -39,8 +39,24 @@ else
     COLOR_NC=''
 fi
 
-# Log level (can be overridden by setting LOG_LEVEL environment variable)
+# Log level (can be overridden by setting LOG_LEVEL environment variable or --log-level option)
+# Valid levels: DEBUG, INFO, WARN, ERROR, CRITICAL
 LOG_LEVEL=${LOG_LEVEL:-INFO}
+
+# Helper function to get numeric log level
+_get_log_level_value() {
+    case "$1" in
+        DEBUG) echo 0 ;;
+        INFO) echo 1 ;;
+        WARN) echo 2 ;;
+        ERROR) echo 3 ;;
+        CRITICAL) echo 4 ;;
+        *) echo 1 ;;  # Default to INFO
+    esac
+}
+
+# Get current log level numeric value
+CURRENT_LOG_LEVEL=$(_get_log_level_value "$LOG_LEVEL")
 
 # Auto-create log file if not explicitly set
 if [ -z "${LOG_FILE:-}" ]; then
@@ -56,7 +72,8 @@ _log_to_file() {
 
 # Debug logging (only shown if LOG_LEVEL=DEBUG)
 log_debug() {
-    if [ "$LOG_LEVEL" = "DEBUG" ]; then
+    local level_value=$(_get_log_level_value "DEBUG")
+    if [ $CURRENT_LOG_LEVEL -le $level_value ]; then
         local msg="[$(date '+%Y-%m-%d %H:%M:%S')] [DEBUG] $*"
         echo -e "${COLOR_BLUE}${msg}${COLOR_NC}"
         _log_to_file "$msg"
@@ -65,26 +82,35 @@ log_debug() {
 
 # Info logging
 log_info() {
-    local msg="[$(date '+%Y-%m-%d %H:%M:%S')] [INFO] $*"
-    echo -e "${COLOR_GREEN}${msg}${COLOR_NC}"
-    _log_to_file "$msg"
+    local level_value=$(_get_log_level_value "INFO")
+    if [ $CURRENT_LOG_LEVEL -le $level_value ]; then
+        local msg="[$(date '+%Y-%m-%d %H:%M:%S')] [INFO] $*"
+        echo -e "${COLOR_GREEN}${msg}${COLOR_NC}"
+        _log_to_file "$msg"
+    fi
 }
 
 # Warning logging
 log_warn() {
-    local msg="[$(date '+%Y-%m-%d %H:%M:%S')] [WARN] $*"
-    echo -e "${COLOR_YELLOW}${msg}${COLOR_NC}"
-    _log_to_file "$msg"
+    local level_value=$(_get_log_level_value "WARN")
+    if [ $CURRENT_LOG_LEVEL -le $level_value ]; then
+        local msg="[$(date '+%Y-%m-%d %H:%M:%S')] [WARN] $*"
+        echo -e "${COLOR_YELLOW}${msg}${COLOR_NC}"
+        _log_to_file "$msg"
+    fi
 }
 
 # Error logging (to stderr)
 log_error() {
-    local msg="[$(date '+%Y-%m-%d %H:%M:%S')] [ERROR] $*"
-    echo -e "${COLOR_RED}${msg}${COLOR_NC}" >&2
-    _log_to_file "$msg"
+    local level_value=$(_get_log_level_value "ERROR")
+    if [ $CURRENT_LOG_LEVEL -le $level_value ]; then
+        local msg="[$(date '+%Y-%m-%d %H:%M:%S')] [ERROR] $*"
+        echo -e "${COLOR_RED}${msg}${COLOR_NC}" >&2
+        _log_to_file "$msg"
+    fi
 }
 
-# Critical error logging (to stderr)
+# Critical error logging (to stderr) - always shown
 log_critical() {
     local msg="[$(date '+%Y-%m-%d %H:%M:%S')] [CRITICAL] $*"
     echo -e "${COLOR_RED}${msg}${COLOR_NC}" >&2

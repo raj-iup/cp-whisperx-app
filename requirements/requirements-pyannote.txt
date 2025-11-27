@@ -1,0 +1,28 @@
+# PyAnnote VAD Requirements
+# Separate environment to avoid conflicts with WhisperX
+
+# Core dependencies (shared with common)
+python-json-logger>=2.0.0
+python-dotenv>=1.0.0
+
+# Core PyAnnote
+pyannote.audio==3.1.1
+pyannote.core==5.0.0
+pyannote.pipeline==3.0.1
+
+# Required dependencies
+# Using torch 2.3.x for best compatibility with pyannote and MPS
+torch==2.3.1
+torchaudio==2.3.1
+speechbrain>=0.5.16
+
+# HuggingFace for model download
+# Important: Need <1.0.0 for compatibility with pyannote.audio 3.1.1
+huggingface-hub<1.0.0
+
+# Utilities
+# Important: NumPy must be <2.0.0 for compatibility
+numpy<2.0.0
+scipy
+pandas
+

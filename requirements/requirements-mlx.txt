@@ -1,0 +1,30 @@
+# MLX Environment Requirements
+# For Apple Silicon (M1/M2/M3) GPU-accelerated transcription
+# Uses MLX framework for Metal Performance Shaders (MPS)
+
+# Core dependencies (shared with common)
+python-json-logger>=2.0.0
+python-dotenv>=1.0.0
+
+# Core MLX framework
+mlx>=0.4.0
+
+# MLX-Whisper (Whisper implementation using MLX)
+mlx-whisper>=0.3.0
+
+# NumPy (compatible with MLX)
+numpy>=1.24.0,<2.0.0
+
+# Audio processing (lightweight, no PyTorch needed)
+soundfile>=0.12.1
+librosa>=0.10.0
+
+# Audio/Video processing (needed for file handling)
+ffmpeg-python>=0.2.0
+
+# Note: WhisperX is now OPTIONAL - only needed if using alignment
+# The MLX environment uses shared/audio_utils.py for audio loading
+# This keeps the environment lightweight (~150MB instead of ~500MB)
+#
+# To install WhisperX for alignment support:
+#   venv/mlx/bin/pip install git+https://github.com/m-bain/whisperX.git@v3.1.1

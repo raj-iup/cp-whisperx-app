@@ -1,0 +1,26 @@
+2c2
+< 00:00:23,402 --> 00:00:46,825
+---
+> 00:00:23,824 --> 00:00:47,094
+6c6
+< 00:00:53,304 --> 00:01:22,447
+---
+> 00:00:53,304 --> 00:01:11,227
+10,11c10,11
+< 00:01:45,635 --> 00:02:12,044
+< Present Present Present
+---
+> 00:01:45,635 --> 00:02:14,456
+> do it
+14c14
+< 00:02:45,118 --> 00:02:56,138
+---
+> 00:02:45,658 --> 00:02:56,543
+19c19
+< Tera mujhe hai pehli kanata khoi yuhi nahi dil bhata koi jaane tu or jaane na maane tu or maane na.
+---
+> Tera mujhse hai pehli kanata khoi yuhi nahi dil laavata koi jaane tu ya jaane na maane tu ya maane na
+23c23
+< Sorry, this is a very special song for our group. True, so you guys are singing from the Cuffe Parade. What lies? We started from the church. Right, there are local trains that sing like this. Jaane tu, ya jaane na. She's so funny, no? Hey, moms!
+---
+> Sorry, it's a very special song for our group. True, so you guys are singing while slitting your throat from the cuff pe rate. What lies? We started from the church. Right, there are local trains that sing like this too. Jaane tu, ya jaane nau. She's so funny, no?

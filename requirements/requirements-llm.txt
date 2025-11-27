@@ -1,0 +1,26 @@
+# LLM Translation Environment Requirements
+# For context-aware song/poetry translation in Hybrid Translation
+
+# Core dependencies (shared with common)
+python-json-logger>=2.0.0
+python-dotenv>=1.0.0
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+
+# Anthropic Claude (recommended for creative translation)
+anthropic>=0.18.0
+
+# OpenAI GPT (alternative)
+openai>=1.12.0
+
+# HTTP client
+httpx>=0.26.0
+
+# Async support
+aiohttp>=3.9.0
+
+# Rate limiting
+tenacity>=8.2.0
+
+# Token counting (for monitoring)
+tiktoken>=0.5.0

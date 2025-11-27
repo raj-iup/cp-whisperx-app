@@ -1,0 +1,24 @@
+# IndicTrans2 Environment Requirements
+# Compatible with torch >=2.5.0 and numpy >=2.1.0
+
+# IndicTrans2 Toolkit
+IndicTransToolkit>=1.0.0
+
+# PyTorch ecosystem (newer versions for IndicTrans2)
+torch>=2.5.0
+transformers>=4.51.0
+numpy>=2.1.0
+
+# Translation dependencies
+sentencepiece>=0.2.0
+sacremoses>=0.1.1
+pandas>=2.0.0
+
+# Subtitle handling
+srt>=3.5.0
+
+# Logging
+python-json-logger>=2.0.0
+
+# Utilities
+python-dotenv>=1.0.0

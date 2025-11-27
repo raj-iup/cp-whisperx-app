@@ -5,9 +5,9 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
-# Activate virtual environment if it exists
-if [ -d "$PROJECT_ROOT/.bollyenv" ]; then
-    source "$PROJECT_ROOT/.bollyenv/bin/activate"
+# Activate common virtual environment if it exists
+if [ -d "$PROJECT_ROOT/.venv-common" ]; then
+    source "$PROJECT_ROOT/.venv-common/bin/activate"
 fi
 
 # Run cache manager

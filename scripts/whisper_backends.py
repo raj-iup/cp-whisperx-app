@@ -12,9 +12,17 @@ Auto-selects best backend based on device availability.
 import os
 import json
 import warnings
+import sys
 from pathlib import Path
 from typing import List, Dict, Optional, Any, Tuple
 from abc import ABC, abstractmethod
+
+# Add project root to path for imports
+PROJECT_ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
+# Use lightweight audio loader
+from shared.audio_utils import load_audio
 
 warnings.filterwarnings('ignore', message='Model was trained with pyannote')
 warnings.filterwarnings('ignore', message='Model was trained with torch')
@@ -35,8 +43,7 @@ class WhisperBackend(ABC):
         language: Optional[str] = None,
         task: str = "transcribe",
         batch_size: int = 16,
-        initial_prompt: Optional[str] = None,
-        hotwords: Optional[str] = None
+        initial_prompt: Optional[str] = None
     ) -> Dict[str, Any]:
         """Transcribe audio file with optional bias prompting. Returns WhisperX-compatible result dict."""
         pass
@@ -80,7 +87,11 @@ class WhisperXBackend(WhisperBackend):
         model_name: str,
         device: str,
         compute_type: str,
-        logger
+        logger,
+        condition_on_previous_text: bool = False,  # False prevents hallucination loops
+        logprob_threshold: float = -1.0,
+        no_speech_threshold: float = 0.6,
+        compression_ratio_threshold: float = 2.4
     ):
         self.model_name = model_name
         self.device = device
@@ -89,6 +100,11 @@ class WhisperXBackend(WhisperBackend):
         self.model = None
         self.align_model = None
         self.align_metadata = None
+        # Anti-hallucination parameters
+        self.condition_on_previous_text = condition_on_previous_text
+        self.logprob_threshold = logprob_threshold
+        self.no_speech_threshold = no_speech_threshold
+        self.compression_ratio_threshold = compression_ratio_threshold
         
     @property
     def name(self) -> str:
@@ -115,34 +131,63 @@ class WhisperXBackend(WhisperBackend):
             self.device, self.compute_type, self.logger
         )
         
-        try:
-            self.model = whisperx.load_model(
-                self.model_name,
-                device=device_to_use,
-                compute_type=compute_type_to_use,
-                download_root=cache_dir
-            )
-            self.device = device_to_use
-            self.compute_type = compute_type_to_use
-            self.logger.info(f"  Model loaded successfully")
-            return True
-        except Exception as e:
-            if device_to_use != "cpu":
-                self.logger.warning(f"  Failed on {device_to_use}: {e}")
-                self.logger.warning("  Retrying with CPU...")
-                self.device = "cpu"
-                self.compute_type = "int8"
+        # Try with download_root first, fall back without it if not supported
+        for use_download_root in [True, False]:
+            try:
+                kwargs = {
+                    'device': device_to_use,
+                    'compute_type': compute_type_to_use
+                }
+                
+                if use_download_root:
+                    kwargs['download_root'] = cache_dir
+                
                 self.model = whisperx.load_model(
                     self.model_name,
-                    device="cpu",
-                    compute_type="int8",
-                    download_root=cache_dir
+                    **kwargs
                 )
-                self.logger.info("  Model loaded successfully on CPU")
+                self.device = device_to_use
+                self.compute_type = compute_type_to_use
+                self.logger.info(f"  Model loaded successfully")
                 return True
-            else:
-                self.logger.error(f"  Failed to load model: {e}")
-                return False
+                
+            except TypeError as e:
+                if use_download_root and "download_root" in str(e):
+                    # download_root not supported, try without it
+                    self.logger.debug(f"  download_root not supported, retrying without it")
+                    continue
+                else:
+                    raise
+            except Exception as e:
+                if device_to_use != "cpu":
+                    self.logger.warning(f"  Failed on {device_to_use}: {e}")
+                    self.logger.warning("  Retrying with CPU...")
+                    self.device = "cpu"
+                    self.compute_type = "int8"
+                    
+                    # Try CPU with and without download_root
+                    for use_dr in [True, False]:
+                        try:
+                            kwargs = {'device': 'cpu', 'compute_type': 'int8'}
+                            if use_dr:
+                                kwargs['download_root'] = cache_dir
+                            
+                            self.model = whisperx.load_model(self.model_name, **kwargs)
+                            self.logger.info("  Model loaded successfully on CPU")
+                            return True
+                        except TypeError as te:
+                            if use_dr and "download_root" in str(te):
+                                continue
+                            else:
+                                raise
+                    
+                    return True
+                else:
+                    self.logger.error(f"  Failed to load model: {e}")
+                    return False
+        
+        self.logger.error("  Failed to load model after all attempts")
+        return False
     
     def transcribe(
         self,
@@ -150,8 +195,7 @@ class WhisperXBackend(WhisperBackend):
         language: Optional[str] = None,
         task: str = "transcribe",
         batch_size: int = 16,
-        initial_prompt: Optional[str] = None,
-        hotwords: Optional[str] = None
+        initial_prompt: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Transcribe using WhisperX with optional bias prompting
@@ -169,7 +213,6 @@ class WhisperXBackend(WhisperBackend):
             task: 'transcribe' or 'translate'
             batch_size: Batch size for inference
             initial_prompt: Text prompt to guide transcription
-            hotwords: Comma-separated important terms to boost
             
         Returns:
             WhisperX-compatible result dict
@@ -179,7 +222,7 @@ class WhisperXBackend(WhisperBackend):
         if not self.model:
             raise RuntimeError("Model not loaded")
         
-        audio = whisperx.load_audio(audio_file)
+        audio = load_audio(audio_file)
         
         # Build transcribe parameters
         transcribe_params = {
@@ -194,16 +237,12 @@ class WhisperXBackend(WhisperBackend):
             transcribe_params['initial_prompt'] = initial_prompt
             self.logger.debug(f"  Using initial_prompt: {initial_prompt[:100]}...")
         
-        if hotwords:
-            transcribe_params['hotwords'] = hotwords
-            self.logger.debug(f"  Using hotwords: {len(hotwords.split(','))} terms")
-        
         try:
             result = self.model.transcribe(**transcribe_params)
         except TypeError as e:
             # If parameters not supported, fallback to basic transcription
-            if 'initial_prompt' in str(e) or 'hotwords' in str(e):
-                self.logger.warning("  Bias parameters not supported by this WhisperX version")
+            if 'initial_prompt' in str(e):
+                self.logger.warning("  initial_prompt not supported by this WhisperX version")
                 self.logger.warning("  Falling back to transcription without bias")
                 result = self.model.transcribe(
                     audio=audio,
@@ -244,7 +283,7 @@ class WhisperXBackend(WhisperBackend):
             self.logger.warning("Alignment model not loaded")
             return {"segments": segments}
         
-        audio = whisperx.load_audio(audio_file)
+        audio = load_audio(audio_file)
         
         result = whisperx.align(
             segments,
@@ -283,7 +322,11 @@ class MLXWhisperBackend(WhisperBackend):
         model_name: str,
         device: str,
         compute_type: str,
-        logger
+        logger,
+        condition_on_previous_text: bool = False,  # False prevents hallucination loops
+        logprob_threshold: float = -1.0,
+        no_speech_threshold: float = 0.6,
+        compression_ratio_threshold: float = 2.4
     ):
         self.model_name = model_name
         self.device = device
@@ -291,6 +334,11 @@ class MLXWhisperBackend(WhisperBackend):
         self.logger = logger
         self.model = None
         self.model_loaded = False
+        # Anti-hallucination parameters
+        self.condition_on_previous_text = condition_on_previous_text
+        self.logprob_threshold = logprob_threshold
+        self.no_speech_threshold = no_speech_threshold
+        self.compression_ratio_threshold = compression_ratio_threshold
         
     @property
     def name(self) -> str:
@@ -300,19 +348,33 @@ class MLXWhisperBackend(WhisperBackend):
         """MLX only works on Apple Silicon (MPS)"""
         return device.lower() == "mps"
     
-    def load_model(self) -> bool:
-        """Load MLX-Whisper model"""
+    def load_model(self):
+        """
+        Load MLX-Whisper model with graceful fallback support
+        
+        Returns:
+            True if model loaded successfully
+            "fallback_to_whisperx" if MLX unavailable and fallback needed
+            False for other errors
+        """
         try:
             import mlx_whisper
             self.mlx = mlx_whisper
         except ImportError:
-            self.logger.error("MLX-Whisper not installed. Install with: pip install mlx-whisper")
-            return False
+            self.logger.warning("MLX-Whisper not installed in current environment")
+            self.logger.warning("Install with: pip install mlx-whisper")
+            self.logger.info("Signaling fallback to WhisperX backend...")
+            return "fallback_to_whisperx"
         
         self.logger.info(f"Loading MLX-Whisper model: {self.model_name}")
         self.logger.info(f"  Backend: Apple MLX (Metal)")
         self.logger.info(f"  Device: MPS (Apple Silicon GPU)")
         self.logger.info(f"  → Using Metal Performance Shaders for GPU acceleration")
+        self.logger.info(f"  Anti-hallucination settings:")
+        self.logger.info(f"    condition_on_previous_text: {self.condition_on_previous_text}")
+        self.logger.info(f"    logprob_threshold: {self.logprob_threshold}")
+        self.logger.info(f"    no_speech_threshold: {self.no_speech_threshold}")
+        self.logger.info(f"    compression_ratio_threshold: {self.compression_ratio_threshold}")
         
         try:
             # MLX loads model on-demand, just validate it's available
@@ -331,8 +393,7 @@ class MLXWhisperBackend(WhisperBackend):
         language: Optional[str] = None,
         task: str = "transcribe",
         batch_size: int = 16,
-        initial_prompt: Optional[str] = None,
-        hotwords: Optional[str] = None
+        initial_prompt: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Transcribe using MLX-Whisper (native MPS acceleration)
@@ -351,7 +412,6 @@ class MLXWhisperBackend(WhisperBackend):
             task: 'transcribe' or 'translate'
             batch_size: Batch size (unused by MLX)
             initial_prompt: Ignored (bias in separate stage)
-            hotwords: Ignored (bias in separate stage)
             
         Returns:
             Transcription result
@@ -360,17 +420,21 @@ class MLXWhisperBackend(WhisperBackend):
             raise RuntimeError("MLX backend not loaded")
         
         # MPS Architecture: Bias handled in separate stage
-        if initial_prompt or hotwords:
+        if initial_prompt:
             self.logger.info("  ℹ️  MPS Architecture: Bias injection deferred to post-ASR stage")
             self.logger.info("     (MLX runs clean ASR on native MPS acceleration)")
         
         # Map model names to MLX format
         model_path = self._map_model_name(self.model_name)
         
-        # MLX transcribe parameters
+        # MLX transcribe parameters with anti-hallucination settings
         mlx_options = {
             "path_or_hf_repo": model_path,
             "verbose": False,
+            "condition_on_previous_text": self.condition_on_previous_text,
+            "logprob_threshold": self.logprob_threshold,
+            "no_speech_threshold": self.no_speech_threshold,
+            "compression_ratio_threshold": self.compression_ratio_threshold,
         }
         
         if language:
@@ -500,7 +564,11 @@ def create_backend(
     model_name: str,
     device: str,
     compute_type: str,
-    logger
+    logger,
+    condition_on_previous_text: bool = False,  # False prevents hallucination loops
+    logprob_threshold: float = -1.0,
+    no_speech_threshold: float = 0.6,
+    compression_ratio_threshold: float = 2.4
 ) -> Optional[WhisperBackend]:
     """
     Factory function to create appropriate backend
@@ -511,6 +579,10 @@ def create_backend(
         device: Target device (cpu, cuda, mps)
         compute_type: Compute type
         logger: Logger instance
+        condition_on_previous_text: Condition on previous text (anti-hallucination)
+        logprob_threshold: Log probability threshold (anti-hallucination)
+        no_speech_threshold: No speech threshold (anti-hallucination)
+        compression_ratio_threshold: Compression ratio threshold (anti-hallucination)
     
     Returns:
         WhisperBackend instance or None if creation failed
@@ -531,9 +603,17 @@ def create_backend(
     
     # Create backend
     if backend_type in ["whisperx", "ctranslate2"]:
-        return WhisperXBackend(model_name, device, compute_type, logger)
+        return WhisperXBackend(
+            model_name, device, compute_type, logger,
+            condition_on_previous_text, logprob_threshold,
+            no_speech_threshold, compression_ratio_threshold
+        )
     elif backend_type == "mlx":
-        return MLXWhisperBackend(model_name, device, compute_type, logger)
+        return MLXWhisperBackend(
+            model_name, device, compute_type, logger,
+            condition_on_previous_text, logprob_threshold,
+            no_speech_threshold, compression_ratio_threshold
+        )
     else:
         logger.error(f"Unknown backend type: {backend_type}")
         return None

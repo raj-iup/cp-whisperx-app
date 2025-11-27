@@ -410,11 +410,160 @@ class LyricsDetector:
         
         return detected_lyrics
     
+    def detect_from_music_separation(
+        self,
+        vocals_file: Path,
+        accompaniment_file: Path,
+        segments: List[Dict]
+    ) -> List[Dict]:
+        """
+        Detect lyrics using source-separated vocals and accompaniment tracks
+        
+        This method combines analysis of:
+        - accompaniment.wav: Pure music signal (no speech)
+        - vocals.wav: Clean vocals (no music)
+        
+        Args:
+            vocals_file: Path to vocals-only audio (clean speech/singing)
+            accompaniment_file: Path to music-only audio (no vocals)
+            segments: ASR segments with timing information
+            
+        Returns:
+            List of detected lyric segments with confidence scores
+        """
+        if not LIBROSA_AVAILABLE:
+            self.logger.warning("librosa not available, cannot perform music separation analysis")
+            return []
+        
+        detected_lyrics = []
+        
+        try:
+            # Load both audio files
+            self.logger.debug(f"Loading vocals from: {vocals_file}")
+            y_vocals, sr = librosa.load(str(vocals_file), sr=16000)
+            
+            self.logger.debug(f"Loading accompaniment from: {accompaniment_file}")
+            y_music, sr = librosa.load(str(accompaniment_file), sr=16000)
+            
+            # Analyze music energy from accompaniment (pure music signal)
+            hop_length = 512
+            music_energy = librosa.feature.rms(y=y_music, hop_length=hop_length)[0]
+            music_times = librosa.frames_to_time(
+                np.arange(len(music_energy)),
+                sr=sr,
+                hop_length=hop_length
+            )
+            
+            # Detect high music energy segments (likely songs)
+            music_threshold = np.mean(music_energy) + 0.5 * np.std(music_energy)
+            music_segments = []
+            
+            in_music = False
+            music_start = 0
+            
+            for i, (time, energy) in enumerate(zip(music_times, music_energy)):
+                if energy > music_threshold and not in_music:
+                    # Start of music segment
+                    in_music = True
+                    music_start = time
+                elif energy <= music_threshold and in_music:
+                    # End of music segment
+                    in_music = False
+                    duration = time - music_start
+                    if duration >= self.min_duration:
+                        music_segments.append({
+                            'start': music_start,
+                            'end': time,
+                            'music_energy': float(np.mean(music_energy[max(0, i-10):i]))
+                        })
+            
+            # Close final segment if still in music
+            if in_music:
+                duration = music_times[-1] - music_start
+                if duration >= self.min_duration:
+                    music_segments.append({
+                        'start': music_start,
+                        'end': music_times[-1],
+                        'music_energy': float(np.mean(music_energy[-10:]))
+                    })
+            
+            self.logger.debug(f"Detected {len(music_segments)} high-energy music segments")
+            
+            # Analyze vocals for singing patterns (pitch variance)
+            if len(music_segments) > 0:
+                # Extract pitch from vocals
+                pitches, magnitudes = librosa.piptrack(
+                    y=y_vocals,
+                    sr=sr,
+                    hop_length=hop_length
+                )
+                
+                # For each music segment, check if vocals show singing patterns
+                for music_seg in music_segments:
+                    start_frame = int(music_seg['start'] * sr / hop_length)
+                    end_frame = int(music_seg['end'] * sr / hop_length)
+                    
+                    if end_frame > pitches.shape[1]:
+                        end_frame = pitches.shape[1]
+                    
+                    if start_frame >= end_frame:
+                        continue
+                    
+                    # Get pitch contour for this segment
+                    segment_pitches = []
+                    for frame in range(start_frame, end_frame):
+                        # Get max magnitude pitch for this frame
+                        index = magnitudes[:, frame].argmax()
+                        pitch = pitches[index, frame]
+                        if pitch > 0:  # Valid pitch
+                            segment_pitches.append(pitch)
+                    
+                    if len(segment_pitches) < 10:
+                        continue
+                    
+                    # Calculate pitch variance (singing has high variance)
+                    pitch_variance = np.std(segment_pitches)
+                    pitch_mean = np.mean(segment_pitches)
+                    
+                    # Singing typically has:
+                    # - High pitch variance (melodic)
+                    # - Consistent pitch presence (not just noise)
+                    if pitch_variance > 50 and pitch_mean > 100:
+                        # This looks like singing!
+                        confidence = min(1.0, (pitch_variance / 200) * (music_seg['music_energy'] / music_threshold))
+                        
+                        if confidence > self.threshold:
+                            detected_lyrics.append({
+                                'start': music_seg['start'],
+                                'end': music_seg['end'],
+                                'confidence': float(confidence),
+                                'type': 'lyric',
+                                'detection_method': 'music_separation',
+                                'features': {
+                                    'music_energy': music_seg['music_energy'],
+                                    'pitch_variance': float(pitch_variance),
+                                    'pitch_mean': float(pitch_mean)
+                                }
+                            })
+            
+            self.logger.info(
+                f"Detected {len(detected_lyrics)} lyric segments using music separation "
+                f"(analyzed {len(music_segments)} music regions)"
+            )
+            
+        except Exception as e:
+            self.logger.error(f"Music separation analysis failed: {e}")
+            import traceback
+            self.logger.debug(traceback.format_exc())
+        
+        return detected_lyrics
+    
     def merge_detections(
         self,
         audio_detections: List[Dict],
         transcript_detections: List[Dict],
-        soundtrack_detections: List[Dict] = None
+        soundtrack_detections: List[Dict] = None,
+        music_separation_detections: List[Dict] = None
     ) -> List[Dict]:
         """
         Merge and consolidate detections from multiple methods
@@ -423,6 +572,7 @@ class LyricsDetector:
             audio_detections: Detections from audio features
             transcript_detections: Detections from transcript patterns
             soundtrack_detections: Detections from soundtrack duration matching (optional)
+            music_separation_detections: Detections from music separation analysis (optional)
             
         Returns:
             Merged list of lyric segments
@@ -430,6 +580,8 @@ class LyricsDetector:
         all_detections = audio_detections + transcript_detections
         if soundtrack_detections:
             all_detections += soundtrack_detections
+        if music_separation_detections:
+            all_detections += music_separation_detections
         
         if not all_detections:
             return []
