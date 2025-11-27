@@ -32,7 +32,8 @@ warnings.filterwarnings('ignore', message='.*torchaudio._backend.list_audio_back
 warnings.filterwarnings('ignore', message='.*has been deprecated.*', module='torchaudio')
 warnings.filterwarnings('ignore', message='.*has been deprecated.*', module='speechbrain')
 
-from device_selector import select_whisperx_device, validate_device_and_compute_type
+# Removed: device_selector imports (unused, causes cross-environment issues)
+# Backend selection now handled by whisper_backends.py (see line 47)
 from bias_window_generator import BiasWindow, get_window_for_time
 from mps_utils import cleanup_mps_memory, log_mps_memory, optimize_batch_size_for_mps
 from asr_chunker import ChunkedASRProcessor
@@ -46,16 +47,34 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from shared.logger import PipelineLogger
 from whisper_backends import create_backend, get_recommended_backend
 
-# Import IndicTrans2 translator for high-quality Indic→English translation
-try:
-    from indictrans2_translator import (
-        translate_whisperx_result, 
-        IndicTrans2Translator,
-        can_use_indictrans2
-    )
-    INDICTRANS2_AVAILABLE = True
-except ImportError:
-    INDICTRANS2_AVAILABLE = False
+# Import IndicTrans2 translator - LAZY LOADED
+# Note: Only imported when actually needed to avoid cross-environment dependencies
+# The MLX environment doesn't have transformers, so we can't import this at module level
+_indictrans2_translator = None
+_indictrans2_available = None
+
+def _get_indictrans2():
+    """Lazy load IndicTrans2 translator to avoid import issues in ASR-only environments"""
+    global _indictrans2_translator, _indictrans2_available
+    
+    if _indictrans2_translator is None:
+        try:
+            from indictrans2_translator import (
+                translate_whisperx_result, 
+                IndicTrans2Translator,
+                can_use_indictrans2
+            )
+            _indictrans2_translator = {
+                'translate_whisperx_result': translate_whisperx_result,
+                'IndicTrans2Translator': IndicTrans2Translator,
+                'can_use_indictrans2': can_use_indictrans2
+            }
+            _indictrans2_available = True
+        except ImportError as e:
+            _indictrans2_available = False
+            _indictrans2_translator = None
+    
+    return _indictrans2_translator, _indictrans2_available
 
 
 class WhisperXProcessor:
@@ -76,7 +95,7 @@ class WhisperXProcessor:
         no_speech_threshold: float = 0.6,
         logprob_threshold: float = -1.0,
         compression_ratio_threshold: float = 2.4,
-        condition_on_previous_text: bool = True,
+        condition_on_previous_text: bool = False,  # False prevents hallucination loops
         initial_prompt: str = "",
         logger: Optional[PipelineLogger] = None
     ):
@@ -162,15 +181,54 @@ class WhisperXProcessor:
             self.model_name,
             self.device,
             self.compute_type,
-            self.logger
+            self.logger,
+            self.condition_on_previous_text,
+            self.logprob_threshold,
+            self.no_speech_threshold,
+            self.compression_ratio_threshold
         )
         
         if not self.backend:
             raise RuntimeError(f"Failed to create backend: {backend_to_use}")
         
-        # Load model
+        # Load model with fallback support
         success = self.backend.load_model()
-        if not success:
+        
+        # Handle fallback from MLX to WhisperX
+        if success == "fallback_to_whisperx":
+            self.logger.info("=" * 60)
+            self.logger.info("MLX BACKEND FALLBACK")
+            self.logger.info("=" * 60)
+            self.logger.info("Recreating backend with WhisperX...")
+            
+            # Switch to WhisperX backend
+            backend_to_use = "whisperx"
+            self.backend_name = backend_to_use
+            
+            # Recreate backend (using module-level import)
+            self.backend = create_backend(
+                backend_to_use,
+                self.model_name,
+                self.device,
+                self.compute_type,
+                self.logger,
+                self.condition_on_previous_text,
+                self.logprob_threshold,
+                self.no_speech_threshold,
+                self.compression_ratio_threshold
+            )
+            
+            if not self.backend:
+                raise RuntimeError(f"Failed to create fallback backend: {backend_to_use}")
+            
+            # Try loading with WhisperX
+            success = self.backend.load_model()
+            
+            if not success:
+                raise RuntimeError(f"Failed to load model with fallback backend: {backend_to_use}")
+            
+            self.logger.info(f"  ✓ Successfully fell back to WhisperX backend")
+        elif not success:
             raise RuntimeError(f"Failed to load model with backend: {self.backend.name}")
         
         # Update device to actual device used (may have fallen back)
@@ -225,7 +283,7 @@ class WhisperXProcessor:
         
         Supports multiple bias strategies:
         - global: Phase 1 - Global prompts (fast, good accuracy)
-        - hybrid: Phase 2 - Global hotwords + contextual initial_prompt (best balance)
+        - hybrid: Phase 2 - Global bias + contextual initial_prompt (best balance)
         - chunked_windows: Phase 3 - Window-specific prompts (most accurate, slower)
         - chunked: Large file chunking with checkpointing (for stability)
 
@@ -323,8 +381,7 @@ class WhisperXProcessor:
     
     def _get_audio_duration(self, audio_file: str) -> float:
         """Get audio duration in seconds"""
-        import whisperx
-        audio = whisperx.load_audio(audio_file)
+        audio = load_audio(audio_file)
         return len(audio) / 16000  # 16kHz sample rate
     
     def _transcribe_whole(
@@ -339,7 +396,6 @@ class WhisperXProcessor:
         
         # Create global bias prompts from bias windows
         initial_prompt = None
-        hotwords = None
         
         if bias_windows:
             self.logger.info(f"  Bias windows available: {len(bias_windows)}")
@@ -353,15 +409,12 @@ class WhisperXProcessor:
             top_terms = list(all_terms)[:50]  # Limit to top 50 terms
             
             if top_terms:
-                # initial_prompt: first 20 terms as context (comma-separated sentence)
-                initial_prompt = ", ".join(top_terms[:20])
-                
-                # hotwords: all 50 terms (comma-separated, no spaces for faster-whisper)
-                hotwords = ",".join(top_terms)
+                # initial_prompt: up to 50 terms as context (comma-separated sentence)
+                # Note: WhisperX only supports initial_prompt, not hotwords
+                initial_prompt = ", ".join(top_terms)
                 
                 self.logger.info(f"  🎯 Active bias prompting enabled:")
-                self.logger.info(f"    Initial prompt: {len(top_terms[:20])} terms")
-                self.logger.info(f"    Hotwords: {len(top_terms)} terms")
+                self.logger.info(f"    Initial prompt: {len(top_terms)} terms")
                 self.logger.debug(f"    Preview: {', '.join(top_terms[:5])}...")
         
         # Log parameters
@@ -381,8 +434,7 @@ class WhisperXProcessor:
                 language=source_lang,
                 task=task,
                 batch_size=batch_size,
-                initial_prompt=initial_prompt,
-                hotwords=hotwords
+                initial_prompt=initial_prompt
             )
             self.logger.info(f"  ✓ Transcription complete: {len(result.get('segments', []))} segments")
         except Exception as e:
@@ -408,10 +460,10 @@ class WhisperXProcessor:
         batch_size: int
     ) -> Dict[str, Any]:
         """
-        PHASE 2: Hybrid Strategy - Global hotwords + dynamic initial_prompt
+        PHASE 2: Hybrid Strategy - Global bias + dynamic initial_prompt
         
         Best balance between speed and accuracy:
-        - Uses global hotwords for comprehensive coverage
+        - Uses global bias terms for comprehensive coverage
         - Uses first window's terms as initial context
         - Lets Whisper's condition_on_previous_text provide adaptation
         - Single transcription pass (fast like global, but more contextual)
@@ -437,24 +489,22 @@ class WhisperXProcessor:
         
         self.logger.info(f"  🎯 PHASE 2: Hybrid bias strategy")
         
-        # Create global hotwords from all unique terms across windows
+        # Create global bias terms from all unique terms across windows
         all_terms = set()
         for window in bias_windows:
             all_terms.update(window.bias_terms)
         
         top_terms = list(all_terms)[:50]
-        hotwords = ",".join(top_terms) if top_terms else None
         
         # Use first window's terms as initial prompt (provides early context)
         initial_prompt = None
         if bias_windows and bias_windows[0].bias_terms:
-            # Get up to 20 terms from first window for initial context
-            first_window_terms = list(bias_windows[0].bias_terms)[:20]
+            # Get up to 50 terms from first window for initial context
+            first_window_terms = list(bias_windows[0].bias_terms)[:50]
             initial_prompt = ", ".join(first_window_terms)
         
-        self.logger.info(f"    • Global hotwords: {len(top_terms)} terms")
         self.logger.info(f"    • Initial prompt: {len(first_window_terms) if initial_prompt else 0} terms from first window")
-        self.logger.info(f"    • Strategy: Global coverage + early context + Whisper's adaptation")
+        self.logger.info(f"    • Strategy: Early context + Whisper's adaptation")
         
         # Log memory before
         log_mps_memory(self.logger, "  Before hybrid transcription - ")
@@ -465,8 +515,7 @@ class WhisperXProcessor:
                 language=source_lang,
                 task=task,
                 batch_size=batch_size,
-                initial_prompt=initial_prompt,
-                hotwords=hotwords
+                initial_prompt=initial_prompt
             )
             
             self.logger.info(f"  ✓ Hybrid transcription complete: {len(result.get('segments', []))} segments")
@@ -527,8 +576,8 @@ class WhisperXProcessor:
         self.logger.info(f"    • Window-specific bias terms (adaptive)")
         
         # Load full audio
-        audio = whisperx.load_audio(audio_file)
-        sample_rate = 16000  # WhisperX standard sample rate
+        audio = load_audio(audio_file)
+        sample_rate = 16000  # Whisper standard sample rate
         
         all_segments = []
         total_windows = len(bias_windows)
@@ -548,9 +597,8 @@ class WhisperXProcessor:
                 continue
             
             # Create window-specific bias prompt
-            window_terms = list(window.bias_terms)[:20]  # Up to 20 terms
+            window_terms = list(window.bias_terms)[:50]  # Up to 50 terms
             initial_prompt = ", ".join(window_terms) if window_terms else None
-            hotwords = ",".join(list(window.bias_terms)[:50]) if window.bias_terms else None
             
             self.logger.info(f"    • Bias: {len(window_terms)} terms")
             self.logger.debug(f"    • Preview: {', '.join(window_terms[:3])}...")
@@ -564,8 +612,7 @@ class WhisperXProcessor:
                     language=source_lang,
                     task=task,
                     batch_size=batch_size,
-                    initial_prompt=initial_prompt,
-                    hotwords=hotwords
+                    initial_prompt=initial_prompt
                 )
                 
                 # Adjust timestamps to global timeline
@@ -1029,13 +1076,14 @@ def run_whisperx_pipeline(
             
             # Use IndicTrans2 for Indic→English/non-Indic translation (better quality than Whisper)
             # Supports all 22 scheduled Indian languages (Hindi, Tamil, Telugu, Bengali, etc.)
-            if INDICTRANS2_AVAILABLE and can_use_indictrans2(source_lang, target_lang):
+            indictrans2, available = _get_indictrans2()
+            if available and indictrans2['can_use_indictrans2'](source_lang, target_lang):
                 logger.info(f"  Using IndicTrans2 for {source_lang}→{target_lang} translation")
                 logger.info(f"  Source segments: {len(source_result.get('segments', []))}")
                 
                 try:
                     # Translate using IndicTrans2
-                    target_result = translate_whisperx_result(
+                    target_result = indictrans2['translate_whisperx_result'](
                         source_result,
                         source_lang=source_lang,
                         target_lang=target_lang,
@@ -1084,15 +1132,12 @@ def run_whisperx_pipeline(
                     
             else:
                 # Fallback to Whisper translation for other language pairs
-                if not INDICTRANS2_AVAILABLE:
+                indictrans2, available = _get_indictrans2()
+                if not available:
                     # Check if this would have been an Indic language pair
-                    try:
-                        from indictrans2_translator import can_use_indictrans2 as check_indic
-                        if check_indic(source_lang, target_lang):
-                            logger.warning("  IndicTrans2 not available, falling back to Whisper translation")
-                            logger.warning("  Install with: pip install 'transformers>=4.44' sentencepiece sacremoses")
-                    except ImportError:
-                        pass
+                    if available and indictrans2['can_use_indictrans2'](source_lang, target_lang):
+                        logger.warning("  IndicTrans2 not available, falling back to Whisper translation")
+                        logger.warning("  Install with: pip install 'transformers>=4.44' sentencepiece sacremoses")
                 
                 logger.info("  Using Whisper translation")
                 processor.load_align_model(target_lang)
@@ -1178,13 +1223,11 @@ def main():
     output_dir = stage_io.output_base
     
     # Load configuration
-    config_path_env = os.environ.get('CONFIG_PATH')
-    if config_path_env:
-        logger.debug(f"Loading configuration from: {config_path_env}")
-        config = load_config(config_path_env)
-    else:
-        logger.warning("No config path specified, using defaults")
-        config = None
+    try:
+        config = load_config()
+    except Exception as e:
+        logger.error(f"Failed to load configuration: {e}")
+        return 1
     
     # Get audio file from demux stage
     audio_file = stage_io.get_input_path("audio.wav", from_stage="demux")
@@ -1193,22 +1236,21 @@ def main():
         return 1
     
     logger.info(f"Input audio: {audio_file}")
-    logger.info(f"Input audio: {audio_file}")
     logger.info(f"Output directory: {output_dir}")
     
     # Get configuration parameters
-    model_name = getattr(config, 'whisper_model', 'large-v3') if config else 'large-v3'
-    source_lang = getattr(config, 'whisper_language', 'hi') if config else 'hi'
-    target_lang = getattr(config, 'target_language', 'en') if config else 'en'
-    device = os.environ.get('DEVICE_OVERRIDE', getattr(config, 'device', 'cpu') if config else 'cpu').lower()
-    compute_type = getattr(config, 'whisper_compute_type', 'float16') if config else 'float16'
+    model_name = getattr(config, 'whisper_model', 'large-v3')
+    source_lang = getattr(config, 'whisper_language', 'hi')
+    target_lang = getattr(config, 'target_language', 'en')
+    device = getattr(config, 'device', 'cpu').lower()
+    compute_type = getattr(config, 'whisper_compute_type', 'float16')
     
     # Get backend preference from config (whisperx, mlx, auto)
     # Default to 'whisperx' to ensure bias prompting support
-    backend = getattr(config, 'whisper_backend', 'whisperx') if config else 'whisperx'
+    backend = getattr(config, 'whisper_backend', 'whisperx')
     
     # Get workflow mode
-    workflow_mode = getattr(config, 'workflow_mode', 'subtitle-gen') if config else 'subtitle-gen'
+    workflow_mode = getattr(config, 'workflow_mode', 'subtitle-gen')
     
     # Get HF token from secrets or environment
     hf_token = None
@@ -1221,8 +1263,9 @@ def main():
         except Exception as e:
             logger.warning(f"Could not load HF token from secrets: {e}")
     
+    # Fallback to config if not in secrets
     if not hf_token:
-        hf_token = os.environ.get('HF_TOKEN')
+        hf_token = getattr(config, 'hf_token', None)
     
     logger.info(f"Model: {model_name}")
     logger.info(f"Source language: {source_lang}")
@@ -1238,22 +1281,22 @@ def main():
                                (source_lang == 'en' and target_lang == 'hi') or
                                (source_lang == target_lang and source_lang in ['hi', 'en']))
     
-    # Load Whisper parameters from environment or config
+    # Load Whisper parameters from config
     # Enhanced defaults for non-Hindi/English languages
     if use_enhanced_params:
-        temperature = os.environ.get('WHISPER_TEMPERATURE', '0.0')
-        beam_size = int(os.environ.get('WHISPER_BEAM_SIZE', '10'))
-        no_speech_threshold = float(os.environ.get('WHISPER_NO_SPEECH_THRESHOLD', '0.7'))
-        logprob_threshold = float(os.environ.get('WHISPER_LOGPROB_THRESHOLD', '-0.5'))
+        temperature = getattr(config, 'whisper_temperature', '0.0')
+        beam_size = getattr(config, 'whisper_beam_size', 10)
+        no_speech_threshold = getattr(config, 'whisper_no_speech_threshold', 0.7)
+        logprob_threshold = getattr(config, 'whisper_logprob_threshold', -0.5)
         logger.info("Using enhanced parameters for non-Hindi/English language pair")
     else:
         # Default parameters for Hindi/English
-        temperature = os.environ.get('WHISPER_TEMPERATURE', '0.0,0.2,0.4,0.6,0.8,1.0')
-        beam_size = int(os.environ.get('WHISPER_BEAM_SIZE', '5'))
-        no_speech_threshold = float(os.environ.get('WHISPER_NO_SPEECH_THRESHOLD', '0.6'))
-        logprob_threshold = float(os.environ.get('WHISPER_LOGPROB_THRESHOLD', '-1.0'))
+        temperature = getattr(config, 'whisper_temperature', '0.0,0.2,0.4,0.6,0.8,1.0')
+        beam_size = getattr(config, 'whisper_beam_size', 5)
+        no_speech_threshold = getattr(config, 'whisper_no_speech_threshold', 0.6)
+        logprob_threshold = getattr(config, 'whisper_logprob_threshold', -1.0)
     
-    compression_ratio_threshold = float(os.environ.get('WHISPER_COMPRESSION_RATIO_THRESHOLD', '2.4'))
+    compression_ratio_threshold = getattr(config, 'whisper_compression_ratio_threshold', 2.4)
     
     logger.info("Whisper parameters:")
     logger.info(f"  Temperature: {temperature}")

@@ -12,8 +12,8 @@ from datetime import timedelta, datetime
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from shared.stage_utils import StageIO
-from shared.logger import PipelineLogger
+from shared.stage_utils import StageIO, get_stage_logger
+from shared.config import load_config
 
 # Try to import glossary
 try:
@@ -82,50 +82,37 @@ def format_subtitle_text(segment, has_lyrics_data=False):
     return formatted_text
 
 def main():
-    # Get output directory from environment or command line
-    output_dir_env = os.environ.get('OUTPUT_DIR')
-    if output_dir_env:
-        output_dir = Path(output_dir_env)
-    elif len(sys.argv) > 1:
-        output_dir = Path(sys.argv[1])
-    else:
-        print("ERROR: No output directory specified", file=sys.stderr)
-        return 1
-    
     # Initialize StageIO
-    stage_io = StageIO("subtitle_gen", output_base=output_dir)
+    stage_io = StageIO("subtitle_generation")
     
     # Setup logger
-    log_file = stage_io.get_log_path()
-    logger = PipelineLogger("subtitle_gen", log_file)
+    logger = get_stage_logger("subtitle_generation", stage_io=stage_io)
     
-    logger.info("Running subtitle generation")
-    logger.info(f"Output directory: {output_dir}")
+    logger.info("=" * 60)
+    logger.info("SUBTITLE GENERATION STAGE")
+    logger.info("=" * 60)
     logger.info(f"Stage directory: {stage_io.stage_dir}")
+    
+    # Load configuration
+    try:
+        config = load_config()
+    except Exception as e:
+        logger.error(f"Failed to load configuration: {e}")
+        return 1
     
     # Load glossary if available and enabled
     glossary = None
-    config_path = os.environ.get('CONFIG_PATH')
     
-    if GLOSSARY_AVAILABLE and config_path:
+    if GLOSSARY_AVAILABLE:
         try:
-            # Read config
-            config = {}
-            with open(config_path, 'r', encoding='utf-8') as f:
-                for line in f:
-                    line = line.strip()
-                    if line and not line.startswith('#') and '=' in line:
-                        key, value = line.split('=', 1)
-                        config[key.strip()] = value.strip().strip('"')
-            
-            glossary_enabled = config.get('GLOSSARY_ENABLED', 'true').lower() == 'true'
+            glossary_enabled = getattr(config, 'glossary_enabled', True)
             
             if glossary_enabled:
-                glossary_path = PROJECT_ROOT / config.get('GLOSSARY_PATH', 'glossary/unified_glossary.tsv')
+                glossary_path = PROJECT_ROOT / getattr(config, 'glossary_path', 'glossary/unified_glossary.tsv')
                 
                 if glossary_path.exists():
-                    film_title = config.get('FILM_TITLE', '')
-                    film_year = config.get('FILM_YEAR', '')
+                    film_title = getattr(config, 'film_title', '')
+                    film_year = getattr(config, 'film_year', '')
                     film_name = f"{film_title}_{film_year}" if film_title and film_year else None
                     
                     glossary = load_glossary(glossary_path, film_name, logger)

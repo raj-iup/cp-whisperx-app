@@ -16,39 +16,40 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from shared.stage_utils import StageIO, get_stage_logger
-
-# Load environment variables from CONFIG_PATH if available
-if 'CONFIG_PATH' in os.environ:
-    try:
-        from dotenv import dotenv_values
-        config_values = dotenv_values(os.environ['CONFIG_PATH'])
-        for key, value in config_values.items():
-            if key not in os.environ and value is not None:
-                os.environ[key] = value
-    except Exception:
-        pass
+from shared.config import load_config
 
 if __name__ == "__main__":
     # Set up stage I/O and logging
     stage_io = StageIO("pyannote_vad")
-    logger = get_stage_logger("pyannote_vad", log_level="DEBUG", stage_io=stage_io)
+    logger = get_stage_logger("pyannote_vad", stage_io=stage_io)
     
     logger.info("=" * 60)
     logger.info("PYANNOTE VAD STAGE: Voice Activity Detection")
     logger.info("=" * 60)
     
-    # Get input audio from demux stage
+    # Load configuration
+    try:
+        config = load_config()
+    except Exception as e:
+        logger.error(f"Failed to load configuration: {e}")
+        sys.exit(1)
+    
+    # Get input audio using StageIO
     audio_input = stage_io.get_input_path("audio.wav", from_stage="demux")
+    
+    if not audio_input.exists():
+        logger.error(f"Audio file not found: {audio_input}")
+        sys.exit(1)
+    
     logger.info(f"Input audio: {audio_input}")
     
-    # Set output paths
+    # Get output path using StageIO
     output_json = stage_io.get_output_path("speech_segments.json")
     logger.info(f"Output JSON: {output_json}")
     
-    # Get device from environment (stage-specific or global)
-    device = os.environ.get("PYANNOTE_DEVICE", 
-                           os.environ.get("DEVICE_OVERRIDE", 
-                                        os.environ.get("DEVICE", "cpu"))).lower()
+    # Get device from config
+    device = getattr(config, 'pyannote_device', 
+                    getattr(config, 'device', 'cpu')).lower()
     logger.info(f"Device: {device}")
     
     # Construct arguments for VAD chunker

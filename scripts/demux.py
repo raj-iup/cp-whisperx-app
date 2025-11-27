@@ -27,11 +27,8 @@ def main():
     logger.info("=" * 60)
     
     # Load configuration
-    config_path = os.environ.get('CONFIG_PATH', 'config/.env.pipeline')
-    logger.debug(f"Loading configuration from: {config_path}")
-    
     try:
-        config = load_config(config_path)
+        config = load_config()
     except Exception as e:
         logger.error(f"Failed to load configuration: {e}")
         return 1
@@ -44,21 +41,47 @@ def main():
     
     logger.info(f"Input media: {input_file}")
     
+    # Check if we're processing a clip or full media
+    media_mode = getattr(config, 'media_processing_mode', 'full')
+    start_time = getattr(config, 'media_start_time', None)
+    end_time = getattr(config, 'media_end_time', None)
+    
+    if media_mode == "clip" and (start_time or end_time):
+        logger.info(f"Processing mode: CLIP")
+        if start_time:
+            logger.info(f"  Start time: {start_time}")
+        if end_time:
+            logger.info(f"  End time: {end_time}")
+    else:
+        logger.info(f"Processing mode: FULL")
+    
     # Output audio file
     audio_file = stage_io.get_output_path("audio.wav")
     logger.info(f"Output audio: {audio_file}")
     
-    # Extract audio using ffmpeg
-    cmd = [
-        "ffmpeg",
-        "-i", str(input_file),
+    # Build ffmpeg command
+    cmd = ["ffmpeg"]
+    
+    # Add start time if specified (must come before -i)
+    if start_time:
+        cmd.extend(["-ss", start_time])
+    
+    # Input file
+    cmd.extend(["-i", str(input_file)])
+    
+    # Add end time if specified (more accurate when after -i)
+    if end_time:
+        cmd.extend(["-to", end_time])
+    
+    # Audio extraction parameters
+    cmd.extend([
         "-vn",  # No video
         "-acodec", "pcm_s16le",  # 16-bit PCM
         "-ar", "16000",  # 16kHz sample rate (required by Whisper)
         "-ac", "1",  # Mono
         "-y",  # Overwrite
         str(audio_file)
-    ]
+    ])
     
     logger.debug(f"Running ffmpeg: {' '.join(cmd)}")
     logger.info("Extracting audio...")
@@ -80,7 +103,10 @@ def main():
         'audio_file': str(audio_file),
         'sample_rate': 16000,
         'channels': 1,
-        'format': 'pcm_s16le'
+        'format': 'pcm_s16le',
+        'processing_mode': media_mode,
+        'start_time': start_time,
+        'end_time': end_time
     }
     
     metadata_path = stage_io.save_metadata(metadata)

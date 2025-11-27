@@ -19,8 +19,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from shared.logger import PipelineLogger
-from shared.stage_utils import StageIO
+from shared.stage_utils import StageIO, get_stage_logger
 from shared.config import load_config
 from lyrics_detection_core import LyricsDetector
 
@@ -31,9 +30,8 @@ def main():
     # Setup stage I/O
     stage_io = StageIO("lyrics_detection")
     
-    # Setup logger
-    log_file = stage_io.get_log_path()
-    logger = PipelineLogger("lyrics_detection", log_file)
+    # Setup logger using get_stage_logger
+    logger = get_stage_logger("lyrics_detection", stage_io=stage_io)
     
     logger.info("=" * 70)
     logger.info("LYRICS DETECTION STAGE - Song Segment Identification")
@@ -42,15 +40,14 @@ def main():
     logger.info(f"Stage directory: {stage_io.stage_dir}")
     
     # Load configuration
-    config_path = stage_io.output_base / f".{stage_io.output_base.name}.env"
-    if not config_path.exists():
-        config_path = Path("config/.env.pipeline")
-    
-    logger.info(f"Loading config from: {config_path}")
-    config = load_config(config_path)
+    try:
+        config = load_config()
+    except Exception as e:
+        logger.error(f"Failed to load configuration: {e}")
+        return 1
     
     # Check if lyrics detection is enabled
-    lyrics_detection_enabled = config.get('LYRICS_DETECTION_ENABLED', 'true').lower() == 'true'
+    lyrics_detection_enabled = getattr(config, 'lyrics_detection_enabled', True)
     if not lyrics_detection_enabled:
         logger.info("Lyrics detection is disabled - skipping")
         # Copy segments as-is
@@ -84,9 +81,9 @@ def main():
         return 0
     
     # Initialize lyrics detector
-    device = config.get('DEVICE', 'cpu')
-    threshold = float(config.get('LYRICS_DETECTION_THRESHOLD', '0.5'))
-    min_duration = float(config.get('LYRICS_MIN_DURATION', '30.0'))
+    device = getattr(config, 'device', 'cpu')
+    threshold = getattr(config, 'lyrics_detection_threshold', 0.5)
+    min_duration = getattr(config, 'lyrics_min_duration', 30.0)
     
     detector = LyricsDetector(
         threshold=threshold,
@@ -97,10 +94,28 @@ def main():
     
     # Method 1: Audio feature analysis (if audio file available)
     audio_lyrics = []
-    audio_file = stage_io.output_base / "01_demux" / "audio.wav"
+    
+    # Check for source-separated audio first (vocals only - better for analysis)
+    sep_audio_numbered = stage_io.output_base / "99_source_separation" / "audio.wav"
+    sep_audio_plain = stage_io.output_base / "source_separation" / "audio.wav"
+    
+    if sep_audio_numbered.exists():
+        audio_file = sep_audio_numbered
+        logger.info("Method 1: Analyzing audio features (using source-separated vocals)...")
+        logger.info(f"  Input: {audio_file}")
+    elif sep_audio_plain.exists():
+        audio_file = sep_audio_plain
+        logger.info("Method 1: Analyzing audio features (using source-separated vocals)...")
+        logger.info(f"  Input: {audio_file}")
+    else:
+        # Fallback to original audio
+        audio_file = stage_io.output_base / "media" / "audio.wav"
+        if not audio_file.exists():
+            audio_file = stage_io.output_base / "01_demux" / "audio.wav"
+        logger.info("Method 1: Analyzing audio features (using original audio)...")
+        logger.info(f"  Input: {audio_file}")
     
     if audio_file.exists():
-        logger.info("Method 1: Analyzing audio features...")
         try:
             audio_lyrics = detector.detect_from_audio_features(audio_file, segments)
             logger.info(f"  Found {len(audio_lyrics)} lyric segments from audio analysis")
@@ -144,9 +159,49 @@ def main():
     else:
         logger.info("Method 3: No TMDB enrichment file found, skipping soundtrack matching")
     
-    # Merge detections (now includes soundtrack detections)
+    # Method 4: Music separation analysis (NEW - uses accompaniment.wav)
+    music_separation_lyrics = []
+    
+    # Check for accompaniment.wav from source separation
+    accompaniment_numbered = stage_io.output_base / "99_source_separation" / "accompaniment.wav"
+    accompaniment_plain = stage_io.output_base / "source_separation" / "accompaniment.wav"
+    
+    accompaniment_file = None
+    if accompaniment_numbered.exists():
+        accompaniment_file = accompaniment_numbered
+    elif accompaniment_plain.exists():
+        accompaniment_file = accompaniment_plain
+    
+    if accompaniment_file and accompaniment_file.exists():
+        logger.info("Method 4: Analyzing music separation (accompaniment + vocals)...")
+        logger.info(f"  Accompaniment: {accompaniment_file}")
+        logger.info(f"  Vocals: {audio_file}")
+        try:
+            # Get vocals file (already determined above)
+            vocals_file = audio_file if (sep_audio_numbered.exists() or sep_audio_plain.exists()) else None
+            
+            if vocals_file:
+                music_separation_lyrics = detector.detect_from_music_separation(
+                    vocals_file,
+                    accompaniment_file,
+                    segments
+                )
+                logger.info(f"  Found {len(music_separation_lyrics)} lyric segments from music separation analysis")
+            else:
+                logger.warning("  Vocals file not available, skipping music separation analysis")
+        except Exception as e:
+            logger.warning(f"  Music separation analysis failed: {e}")
+    else:
+        logger.info("Method 4: No accompaniment file found, skipping music separation analysis")
+    
+    # Merge detections (now includes music separation detections)
     logger.info("Merging detection results...")
-    all_lyrics = detector.merge_detections(audio_lyrics, transcript_lyrics, soundtrack_lyrics)
+    all_lyrics = detector.merge_detections(
+        audio_lyrics, 
+        transcript_lyrics, 
+        soundtrack_lyrics,
+        music_separation_lyrics
+    )
     logger.info(f"✓ Total unique lyric segments detected: {len(all_lyrics)}")
     
     # Log detection method breakdown

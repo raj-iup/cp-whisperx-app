@@ -13,6 +13,7 @@ PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from shared.stage_utils import StageIO, get_stage_logger
+from shared.config import load_config
 
 # Try to import MPS utils for future-proofing
 try:
@@ -23,28 +24,22 @@ except:
 
 def main():
     # Initialize StageIO and logging
-    stage_io = StageIO("glossary_builder")
-    logger = get_stage_logger("glossary_builder", log_level="DEBUG", stage_io=stage_io)
+    stage_io = StageIO("glossary_load")
+    logger = get_stage_logger("glossary_load", stage_io=stage_io)
     
     logger.info("=" * 60)
-    logger.info("GLOSSARY BUILDER STAGE")
+    logger.info("GLOSSARY LOAD STAGE")
     logger.info("=" * 60)
     
     # Load configuration
-    config_path_env = os.environ.get('CONFIG_PATH')
-    config = {}
-    if config_path_env:
-        logger.debug(f"Loading configuration from: {config_path_env}")
-        config_path = Path(config_path_env)
-        with open(config_path, 'r', encoding='utf-8', errors='replace') as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith('#') and '=' in line:
-                    key, value = line.split('=', 1)
-                    config[key.strip()] = value.strip().strip('"')
+    try:
+        config = load_config()
+    except Exception as e:
+        logger.error(f"Failed to load configuration: {e}")
+        return 1
     
     # Check if glossary building is needed
-    glossary_strategy = config.get('GLOSSARY_STRATEGY', 'none')
+    glossary_strategy = getattr(config, 'glossary_strategy', 'none')
     logger.info(f"Glossary strategy: {glossary_strategy}")
     
     if glossary_strategy == 'none':
