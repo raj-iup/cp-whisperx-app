@@ -24,7 +24,7 @@ from typing import List, Dict
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from shared.logger import PipelineLogger
+from shared.stage_utils import StageIO
 from shared.config import Config, load_config
 
 # Import core lyrics detection
@@ -34,12 +34,12 @@ from scripts.lyrics_detection_core import LyricsDetector
 def main():
     """Main entry point for lyrics detection pipeline stage"""
     
-    # Setup logger
-    log_dir = Path(os.environ.get("LYRICS_OUTPUT_DIR", "out"))
-    log_file = log_dir.parent / "logs" / "lyrics_detection.log"
-    log_file.parent.mkdir(parents=True, exist_ok=True)
+    # Get OUTPUT_DIR from environment
+    output_base = Path(os.environ.get("OUTPUT_DIR", "out"))
     
-    logger = PipelineLogger("lyrics_detection", log_file)
+    # Setup StageIO with proper logging
+    stage_io = StageIO("lyrics_detection", output_base=output_base)
+    logger = stage_io.get_stage_logger("INFO")
     
     logger.info("=" * 70)
     logger.info("LYRICS DETECTION STAGE - Song Segment Identification")
