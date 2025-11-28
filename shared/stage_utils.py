@@ -5,39 +5,50 @@ Provides standardized I/O patterns and directory structure.
 import os
 import json
 import sys
+import logging
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 
 # Import centralized stage ordering
 from shared.stage_order import get_stage_number, get_stage_dir, STAGE_NUMBERS
+from shared.stage_manifest import StageManifest
 
 
 class StageIO:
     """
     Standardized input/output handling for pipeline stages.
     
+    Enhanced with:
+    - Dual logging (stage.log + main pipeline log)
+    - Manifest tracking (inputs, outputs, intermediate files)
+    - Automatic resource tracking
+    
     Directory structure:
         output_base/
             01_demux/
+                stage.log              # NEW: Detailed stage log
+                manifest.json          # NEW: I/O tracking
                 audio.wav
                 metadata.json
             02_tmdb/
+                stage.log
+                manifest.json
                 tmdb_data.json
                 metadata.json
-            03_glossary_load/
-                glossary_snapshot.json
-                metadata.json
-            ...
+            logs/
+                99_pipeline_*.log      # Main orchestration log
     """
     
-    def __init__(self, stage_name: str, output_base: Optional[Path] = None):
+    def __init__(self, stage_name: str, output_base: Optional[Path] = None, 
+                 enable_manifest: bool = True):
         """
         Initialize stage I/O handler.
         
         Args:
             stage_name: Name of the current stage
             output_base: Base output directory (defaults to OUTPUT_DIR env var or 'out')
+            enable_manifest: Whether to enable manifest tracking (default: True)
         """
         self.stage_name = stage_name
         
@@ -62,9 +73,127 @@ class StageIO:
         
         self.stage_dir.mkdir(parents=True, exist_ok=True)
         
-        # Logs directory
+        # Stage log file
+        self.stage_log = self.stage_dir / "stage.log"
+        
+        # Logs directory (for main pipeline log)
         self.logs_dir = self.output_base / "logs"
         self.logs_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Initialize manifest
+        self.enable_manifest = enable_manifest
+        self.manifest_path = self.stage_dir / "manifest.json"
+        self.manifest = None
+        
+        if enable_manifest:
+            self.manifest = StageManifest(stage_name, self.stage_number)
+            # Load existing manifest if resuming
+            if self.manifest_path.exists():
+                self.manifest.load(self.manifest_path)
+    
+    def get_stage_logger(self, log_level: str = "INFO") -> logging.Logger:
+        """
+        Get dual logger that writes to both stage.log and main pipeline log.
+        
+        The logger writes:
+        - ALL levels (including DEBUG) to stage.log
+        - INFO and above to main pipeline log
+        - INFO and above to console
+        
+        Args:
+            log_level: Minimum log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+        
+        Returns:
+            Configured logger instance
+        
+        Example:
+            >>> io = StageIO("asr")
+            >>> logger = io.get_stage_logger()
+            >>> logger.debug("Detailed step")  # Only in stage.log
+            >>> logger.info("Progress update")  # In stage.log + pipeline.log + console
+        """
+        from shared.logger import setup_dual_logger
+        return setup_dual_logger(
+            self.stage_name,
+            stage_log_file=self.stage_log,
+            main_log_dir=self.logs_dir,
+            log_level=log_level
+        )
+    
+    def track_input(self, file_path: Path, file_type: str = "file", **metadata):
+        """
+        Track input file in manifest.
+        
+        Args:
+            file_path: Path to input file
+            file_type: Type of file (e.g., "audio", "transcript", "metadata")
+            **metadata: Additional metadata (format, checksum, etc.)
+        """
+        if self.manifest:
+            self.manifest.add_input(file_path, file_type, **metadata)
+    
+    def track_output(self, file_path: Path, file_type: str = "file", **metadata):
+        """
+        Track output file in manifest.
+        
+        Args:
+            file_path: Path to output file
+            file_type: Type of file (e.g., "audio", "transcript", "metadata")
+            **metadata: Additional metadata (format, size, etc.)
+        """
+        if self.manifest:
+            self.manifest.add_output(file_path, file_type, **metadata)
+    
+    def track_intermediate(self, file_path: Path, retained: bool = False, reason: str = ""):
+        """
+        Track intermediate/cache file in manifest.
+        
+        Args:
+            file_path: Path to intermediate file
+            retained: Whether file is kept after stage completion
+            reason: Explanation for why file was created/retained
+        """
+        if self.manifest:
+            self.manifest.add_intermediate(file_path, retained, reason)
+    
+    def add_config(self, key: str, value: Any):
+        """Add configuration parameter to manifest"""
+        if self.manifest:
+            self.manifest.add_config(key, value)
+    
+    def set_config(self, config_dict: Dict[str, Any]):
+        """Set multiple configuration parameters in manifest"""
+        if self.manifest:
+            self.manifest.set_config(config_dict)
+    
+    def add_warning(self, message: str):
+        """Add warning to manifest"""
+        if self.manifest:
+            self.manifest.add_warning(message)
+    
+    def add_error(self, message: str, exception: Optional[Exception] = None):
+        """Add error to manifest"""
+        if self.manifest:
+            self.manifest.add_error(message, exception)
+    
+    def set_resources(self, **resources):
+        """Set resource usage in manifest"""
+        if self.manifest:
+            self.manifest.set_resources(**resources)
+    
+    def finalize(self, status: str = "success", save_manifest: bool = True, **kwargs):
+        """
+        Finalize stage execution.
+        
+        Args:
+            status: Final status (success, failed, skipped)
+            save_manifest: Whether to save manifest to disk
+            **kwargs: Additional metadata for manifest
+        """
+        if self.manifest:
+            self.manifest.finalize(status, **kwargs)
+            if save_manifest:
+                self.manifest.save(self.manifest_path)
     
     def get_input_path(self, filename: str, from_stage: Optional[str] = None) -> Path:
         """
@@ -261,32 +390,33 @@ def get_stage_logger(stage_name: str, log_level: str = "DEBUG", stage_io: Option
     Returns:
         Configured logger
     """
-    import logging
-    
-    logger = logging.getLogger(stage_name)
-    logger.setLevel(getattr(logging, log_level.upper()))
-    
-    # Remove existing handlers
-    logger.handlers = []
-    
-    # Create console handler with formatting
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setLevel(getattr(logging, log_level.upper()))
-    
-    formatter = logging.Formatter(
-        "[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S"
-    )
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
-    
-    # Add file handler if StageIO is provided
     if stage_io is not None:
-        log_file = stage_io.get_log_path()
-        file_handler = logging.FileHandler(log_file)
-        file_handler.setLevel(getattr(logging, log_level.upper()))
-        file_handler.setFormatter(formatter)
-        logger.addHandler(file_handler)
-        logger.debug(f"Logging to file: {log_file}")
-    
-    return logger
+        # Use dual logger with stage.log + main pipeline log
+        from shared.logger import setup_dual_logger
+        return setup_dual_logger(
+            stage_name,
+            stage_log_file=stage_io.stage_log,
+            main_log_dir=stage_io.logs_dir,
+            log_level=log_level
+        )
+    else:
+        # Fallback to simple console logger
+        import logging
+        logger = logging.getLogger(stage_name)
+        logger.setLevel(getattr(logging, log_level.upper()))
+        
+        # Remove existing handlers
+        logger.handlers = []
+        
+        # Create console handler with formatting
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setLevel(getattr(logging, log_level.upper()))
+        
+        formatter = logging.Formatter(
+            "[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S"
+        )
+        console_handler.setFormatter(formatter)
+        logger.addHandler(console_handler)
+        
+        return logger

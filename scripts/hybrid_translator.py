@@ -22,7 +22,6 @@ from dataclasses import dataclass
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from shared.logger import PipelineLogger
 from shared.stage_utils import StageIO
 from shared.config import load_config
 
@@ -51,7 +50,7 @@ class HybridTranslator:
         glossary_path: Optional[Path] = None,
         use_llm_for_songs: bool = True,
         llm_provider: str = "anthropic",  # 'anthropic', 'openai'
-        logger: Optional[PipelineLogger] = None,
+        logger = None,
         confidence_threshold: float = 0.7,  # Min confidence for primary translation
         enable_fallback: bool = True  # Enable confidence-based fallback
     ):
@@ -100,9 +99,17 @@ class HybridTranslator:
             'errors': 0
         }
     
-    def _create_default_logger(self) -> PipelineLogger:
+    def _create_default_logger(self):
         """Create default logger"""
-        return PipelineLogger("hybrid_translator")
+        import logging
+        logger = logging.getLogger("hybrid_translator")
+        if not logger.handlers:
+            handler = logging.StreamHandler()
+            formatter = logging.Formatter('[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s')
+            handler.setFormatter(formatter)
+            logger.addHandler(handler)
+            logger.setLevel(logging.INFO)
+        return logger
     
     def load_indictrans2(self):
         """Load IndicTrans2 model"""
@@ -662,7 +669,7 @@ def main():
     
     # Setup stage I/O
     stage_io = StageIO("hybrid_translation")
-    logger = PipelineLogger("hybrid_translation", stage_io.get_log_path())
+    logger = stage_io.get_stage_logger("INFO")
     
     logger.info("=" * 70)
     logger.info("HYBRID TRANSLATION STAGE")
