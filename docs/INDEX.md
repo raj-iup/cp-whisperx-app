@@ -1,203 +1,171 @@
 # Documentation Index
 
-Welcome to the CP-WhisperX-App documentation. This index organizes all documentation by category for easy navigation.
+Welcome to the CP-WhisperX-App documentation. This index provides a clear navigation structure for operators (users) and developers.
 
-## 🚀 Quick Start
+---
 
-Start here if you're new to the project:
+## 🚀 Getting Started
 
-- **[README.md](../README.md)** - Main project overview and quick start
-- **[QUICK_REFERENCE_TWO_STEP.md](QUICK_REFERENCE_TWO_STEP.md)** - Quick reference for two-step transcription
-- **[WORKFLOW_MODES_GUIDE.md](WORKFLOW_MODES_GUIDE.md)** - Complete guide to workflow modes
+New to CP-WhisperX? Start here:
 
-## 🎯 Core Features
+| Document | Description |
+|----------|-------------|
+| [README.md](../README.md) | Project overview, installation, and quick start |
+| [QUICKSTART.md](QUICKSTART.md) | Detailed step-by-step setup guide |
+| [WORKFLOW_MODES_GUIDE.md](WORKFLOW_MODES_GUIDE.md) | Guide to all 4 workflow modes |
 
-### IndicTrans2 Hindi→English Translation (NEW!)
+---
 
-High-quality, fast translation for Hindi content:
+## 📖 User Guide (For Operators)
 
-- **[INDICTRANS2_QUICKSTART.md](INDICTRANS2_QUICKSTART.md)** ⭐ - Quick start guide (start here!)
-- **[INDICTRANS2_IMPLEMENTATION.md](INDICTRANS2_IMPLEMENTATION.md)** - Complete technical documentation
-- **[INDICTRANS2_REFERENCE.md](INDICTRANS2_REFERENCE.md)** - Quick reference card
-- **[INDICTRANS2_CHANGES.md](INDICTRANS2_CHANGES.md)** - Change summary and testing
-- **[INDICTRANS2_FINAL_SUMMARY.txt](INDICTRANS2_FINAL_SUMMARY.txt)** - Implementation summary
+Documentation for running and configuring the pipeline.
 
-### Language-Specific Parameter Tuning (NEW!)
+### Quick References
 
-Automatic Whisper parameter optimization for all languages:
+Keep these handy for day-to-day use:
 
-- **[LANGUAGE_TUNING_QUICKREF.md](LANGUAGE_TUNING_QUICKREF.md)** ⭐ - Quick reference (start here!)
-- **[LANGUAGE_PARAMETER_TUNING.md](LANGUAGE_PARAMETER_TUNING.md)** - Complete tuning guide
+- **[QUICK_REFERENCE_TWO_STEP.md](QUICK_REFERENCE_TWO_STEP.md)** - Two-step transcription workflow
+- **[QUICK_REFERENCE_ROOT.md](QUICK_REFERENCE_ROOT.md)** - Root-level quick reference
+- **[QUICK_FIX_REFERENCE.md](QUICK_FIX_REFERENCE.md)** - Common issues and fixes
+- **[CACHING_QUICK_REF.md](CACHING_QUICK_REF.md)** - Caching system reference
 
-### Two-Step Transcription
+### Configuration Guides
 
-Separate transcription and translation for efficiency:
+- **[user-guide/CONFIGURATION.md](user-guide/CONFIGURATION.md)** - Pipeline configuration options
+- **[user-guide/BOOTSTRAP.md](user-guide/BOOTSTRAP.md)** - Bootstrap and setup
+- **[BOOTSTRAP_DEBUG_MODE.md](BOOTSTRAP_DEBUG_MODE.md)** - Debug mode setup
 
-- **[TWO_STEP_TRANSCRIPTION.md](TWO_STEP_TRANSCRIPTION.md)** - Two-step workflow overview
-- **[QUICK_REFERENCE_TWO_STEP.md](QUICK_REFERENCE_TWO_STEP.md)** - Quick reference
+### Platform-Specific
+
+- **[user-guide/APPLE_SILICON_QUICK_REF.md](user-guide/APPLE_SILICON_QUICK_REF.md)** - Apple Silicon M1/M2/M3 optimization
+- **[HARDWARE_CONFIGURATION_FLOW.md](HARDWARE_CONFIGURATION_FLOW.md)** - Hardware configuration
 
 ### Workflow Modes
 
-Four optimized workflow modes for different use cases:
-
 - **[WORKFLOW_MODES_GUIDE.md](WORKFLOW_MODES_GUIDE.md)** - Complete workflow modes guide
-- **[WORKFLOW_MODES_SUMMARY.txt](WORKFLOW_MODES_SUMMARY.txt)** - Summary
-- **[TRANSCRIBE_MODE_ENHANCEMENTS.md](TRANSCRIBE_MODE_ENHANCEMENTS.md)** - Transcribe mode details
+- **[TWO_STEP_TRANSCRIPTION.md](TWO_STEP_TRANSCRIPTION.md)** - Two-step transcription details
+- **[TRANSCRIBE_MODE_ENHANCEMENTS.md](TRANSCRIBE_MODE_ENHANCEMENTS.md)** - Transcribe-only mode
+- **[SRT_RETRANSLATION.md](SRT_RETRANSLATION.md)** - Retranslation workflow
 
-## 📚 References & Citations
+---
 
-- **[CITATIONS.md](CITATIONS.md)** - Academic citations for IndicTrans2, WhisperX, etc.
-- **[hinglish-srt-implementation-plan.md](hinglish-srt-implementation-plan.md)** - Original implementation plan
+## 👨‍💻 Developer Guide (For Developers)
 
-## 🏗️ Architecture & Implementation
+Technical documentation for contributing to the project.
 
-### System Architecture
+### Essential Reading
 
+- **[developer-guide.md](developer-guide.md)** - Complete developer guide (M1 Pro specific)
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - System architecture overview
-- **[PIPELINE_ORCHESTRATION_ANALYSIS.md](PIPELINE_ORCHESTRATION_ANALYSIS.md)** - Pipeline orchestration details
-- **[HARDWARE_CONFIGURATION_FLOW.md](HARDWARE_CONFIGURATION_FLOW.md)** - Hardware configuration
+- **[technical/PIPELINE_ARCHITECTURE.md](technical/PIPELINE_ARCHITECTURE.md)** - Pipeline architecture
 
-### Implementation Details
+### Technical Implementation
 
-- **[IMPLEMENTATION_STRATEGY.md](IMPLEMENTATION_STRATEGY.md)** - Implementation strategy
-- **[IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md)** - Implementation summary
-- **[COMPLETE_FEATURE_SUMMARY.txt](COMPLETE_FEATURE_SUMMARY.txt)** - Complete feature summary
-- **[COMPLETE_IMPLEMENTATION_SUMMARY.txt](COMPLETE_IMPLEMENTATION_SUMMARY.txt)** - Complete implementation
+- **[IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md)** - Implementation overview
+- **[IMPLEMENTATION_STRATEGY.md](IMPLEMENTATION_STRATEGY.md)** - Implementation approach
+- **[PIPELINE_ORCHESTRATION_ANALYSIS.md](PIPELINE_ORCHESTRATION_ANALYSIS.md)** - Orchestration details
+- **[DOCUMENTATION_ORGANIZATION.md](DOCUMENTATION_ORGANIZATION.md)** - Documentation structure
 
-### Phase Completions
+### Code Standards
 
-- **[PHASE1_IMPLEMENTATION_COMPLETE.md](PHASE1_IMPLEMENTATION_COMPLETE.md)** - Phase 1 complete
-- **[PHASE1_COMPLETE.md](PHASE1_COMPLETE.md)** - Phase 1 details
-- **[PHASES_2-6_COMPLETE.md](PHASES_2-6_COMPLETE.md)** - Phases 2-6 complete
-- **[PRIORITY1_IMPLEMENTATION.md](PRIORITY1_IMPLEMENTATION.md)** - Priority 1 implementation
+- **[developer-guide.md](developer-guide.md)** → Code Standards section
+- **[CITATIONS.md](CITATIONS.md)** - Academic citations and references
 
-## 🔧 Specific Features
+---
+
+## 🎯 Features
+
+### IndicTrans2 (Hindi→English Translation)
+
+High-quality, fast translation for Hindi and 22 Indic languages:
+
+| Document | Purpose |
+|----------|---------|
+| [INDICTRANS2_QUICKSTART.md](INDICTRANS2_QUICKSTART.md) ⭐ | Quick start guide |
+| [INDICTRANS2_IMPLEMENTATION.md](INDICTRANS2_IMPLEMENTATION.md) | Technical documentation |
+| [INDICTRANS2_REFERENCE.md](INDICTRANS2_REFERENCE.md) | Quick reference card |
+| [INDICTRANS2_CHANGES.md](INDICTRANS2_CHANGES.md) | Change history |
+
+### Language Parameter Tuning
+
+Automatic Whisper optimization for 96+ languages:
+
+- **[LANGUAGE_TUNING_QUICKREF.md](LANGUAGE_TUNING_QUICKREF.md)** ⭐ - Quick reference
+- **[LANGUAGE_PARAMETER_TUNING.md](LANGUAGE_PARAMETER_TUNING.md)** - Complete guide
 
 ### Glossary System
 
-Multi-stage glossary system for name consistency:
+Multi-stage glossary for name consistency:
 
-- **[GLOSSARY_README.md](GLOSSARY_README.md)** - Glossary system overview
-- **[GLOSSARY_IMPLEMENTATION_COMPLETE.md](GLOSSARY_IMPLEMENTATION_COMPLETE.md)** - Implementation complete
+- **[GLOSSARY_README.md](GLOSSARY_README.md)** - System overview
 - **[GLOSSARY_SUMMARY.md](GLOSSARY_SUMMARY.md)** - Summary
-- **[GLOSSARY_ANALYSIS_STRATEGY.md](GLOSSARY_ANALYSIS_STRATEGY.md)** - Analysis strategy
-- **[GLOSSARY_QUICKWIN_MERGE.md](GLOSSARY_QUICKWIN_MERGE.md)** - Quick win merge
+- **[GLOSSARY_IMPLEMENTATION_COMPLETE.md](GLOSSARY_IMPLEMENTATION_COMPLETE.md)** - Implementation details
+- **[GLOSSARY_ANALYSIS_STRATEGY.md](GLOSSARY_ANALYSIS_STRATEGY.md)** - Analysis approach
 
 ### Lyrics Detection
 
 Music detection and subtitle enhancement:
 
-- **[LYRICS_DETECTION_ENHANCEMENT.md](LYRICS_DETECTION_ENHANCEMENT.md)** - Lyrics detection overview
-- **[LYRICS_ENHANCEMENT_COMPLETE.md](LYRICS_ENHANCEMENT_COMPLETE.md)** - Implementation complete
+- **[LYRICS_DETECTION_ENHANCEMENT.md](LYRICS_DETECTION_ENHANCEMENT.md)** - Feature overview
+- **[LYRICS_ENHANCEMENT_COMPLETE.md](LYRICS_ENHANCEMENT_COMPLETE.md)** - Implementation details
 
-### Caching System
+### Subtitle Enhancement
 
-Intelligent caching for faster processing:
+- **[SUBTITLE_ENHANCEMENT_ANALYSIS.md](SUBTITLE_ENHANCEMENT_ANALYSIS.md)** - Analysis
+- **[SUBTITLE_ENHANCEMENT_COMPLETE.md](SUBTITLE_ENHANCEMENT_COMPLETE.md)** - Implementation
+- **[SUBTITLE_GEN_LANGUAGE_UPDATE.txt](SUBTITLE_GEN_LANGUAGE_UPDATE.txt)** - Language updates
 
-- **[CACHING_QUICK_REF.md](CACHING_QUICK_REF.md)** - Caching quick reference
+### Model Management
 
-## 📝 Change Logs & Fixes
+- **[MODEL_MANAGEMENT.md](MODEL_MANAGEMENT.md)** - Model management guide
+- **[MODEL_QUICK_REF.md](MODEL_QUICK_REF.md)** - Quick reference
+- **[IMPLEMENTATION_MODEL_MANAGEMENT.md](IMPLEMENTATION_MODEL_MANAGEMENT.md)** - Implementation details
 
-### Recent Updates
+---
 
-- **[NOVEMBER_14_FIXES_SUMMARY.txt](NOVEMBER_14_FIXES_SUMMARY.txt)** - November 14 fixes
-- **[SUBTITLE_GEN_LANGUAGE_UPDATE.txt](SUBTITLE_GEN_LANGUAGE_UPDATE.txt)** - Subtitle generation updates
-- **[RETRANSLATION_FIX_SUMMARY.md](RETRANSLATION_FIX_SUMMARY.md)** - Retranslation fix
+## 📚 Reference
 
-### Refactoring
+### Technical Specifications
 
-- **[DOCUMENTATION_REFACTOR.md](DOCUMENTATION_REFACTOR.md)** - Documentation refactor
-- **[REFACTOR_COMPLETE.txt](REFACTOR_COMPLETE.txt)** - Refactor complete
-- **[REFACTOR_SUMMARY.txt](REFACTOR_SUMMARY.txt)** - Refactor summary
-- **[FINALIZE_STAGE_REMOVAL.md](FINALIZE_STAGE_REMOVAL.md)** - Stage removal
+- **[technical/](technical/)** - Technical documentation directory
+- **[FINALIZE_STAGE_REMOVAL.md](FINALIZE_STAGE_REMOVAL.md)** - Pipeline stage changes
+- **[DOCUMENTATION_REFACTOR.md](DOCUMENTATION_REFACTOR.md)** - Documentation updates
+- **[RETRANSLATION_FIX_SUMMARY.md](RETRANSLATION_FIX_SUMMARY.md)** - Retranslation improvements
 
-## 🧪 Testing
+### Original Plans
 
-- **[FINAL_TEST_REPORT.txt](FINAL_TEST_REPORT.txt)** - Final test report
-- **[IMPLEMENTATION_COMPLETE_INDICTRANS2.txt](IMPLEMENTATION_COMPLETE_INDICTRANS2.txt)** - IndicTrans2 test report
+- **[PRIORITY_IMPLEMENTATION_PLAN.md](PRIORITY_IMPLEMENTATION_PLAN.md)** - Priority planning
+- **[PRIORITY1_IMPLEMENTATION.md](PRIORITY1_IMPLEMENTATION.md)** - Priority 1 details
+- **[hinglish-srt-implementation-plan.md](hinglish-srt-implementation-plan.md)** - Hinglish implementation
+- **[FUTURE_ENHANCEMENTS.md](FUTURE_ENHANCEMENTS.md)** - Roadmap
 
-## 🔮 Future Plans
+### Archive
 
-- **[FUTURE_ENHANCEMENTS.md](FUTURE_ENHANCEMENTS.md)** - Planned enhancements
+Historical documents moved to archive for reference:
 
-## 📂 Document Categories
+- **[archive/phase-completion/](archive/phase-completion/)** - Phase completion documents
+- **[archive/refactor-history/](archive/refactor-history/)** - Refactor history
+- **[archive/](archive/)** - Other archived documents
 
-### By Purpose
-
-**Getting Started** (Read these first):
-1. [README.md](../README.md)
-2. [WORKFLOW_MODES_GUIDE.md](WORKFLOW_MODES_GUIDE.md)
-3. [INDICTRANS2_QUICKSTART.md](INDICTRANS2_QUICKSTART.md)
-4. [LANGUAGE_TUNING_QUICKREF.md](LANGUAGE_TUNING_QUICKREF.md)
-
-**Quick References** (Keep handy):
-- [QUICK_REFERENCE_TWO_STEP.md](QUICK_REFERENCE_TWO_STEP.md)
-- [INDICTRANS2_REFERENCE.md](INDICTRANS2_REFERENCE.md)
-- [LANGUAGE_TUNING_QUICKREF.md](LANGUAGE_TUNING_QUICKREF.md)
-- [CACHING_QUICK_REF.md](CACHING_QUICK_REF.md)
-
-**Technical Documentation** (For developers):
-- [ARCHITECTURE.md](ARCHITECTURE.md)
-- [INDICTRANS2_IMPLEMENTATION.md](INDICTRANS2_IMPLEMENTATION.md)
-- [LANGUAGE_PARAMETER_TUNING.md](LANGUAGE_PARAMETER_TUNING.md)
-- [GLOSSARY_README.md](GLOSSARY_README.md)
-
-**Implementation History** (For reference):
-- [COMPLETE_FEATURE_SUMMARY.txt](COMPLETE_FEATURE_SUMMARY.txt)
-- [COMPLETE_IMPLEMENTATION_SUMMARY.txt](COMPLETE_IMPLEMENTATION_SUMMARY.txt)
-- Phase completion documents
-
-### By Feature
-
-**IndicTrans2 Translation**:
-- Quick Start: [INDICTRANS2_QUICKSTART.md](INDICTRANS2_QUICKSTART.md)
-- Full Docs: [INDICTRANS2_IMPLEMENTATION.md](INDICTRANS2_IMPLEMENTATION.md)
-- Reference: [INDICTRANS2_REFERENCE.md](INDICTRANS2_REFERENCE.md)
-- Changes: [INDICTRANS2_CHANGES.md](INDICTRANS2_CHANGES.md)
-
-**Language Parameter Tuning**:
-- Quick Ref: [LANGUAGE_TUNING_QUICKREF.md](LANGUAGE_TUNING_QUICKREF.md)
-- Full Guide: [LANGUAGE_PARAMETER_TUNING.md](LANGUAGE_PARAMETER_TUNING.md)
-
-**Workflow Modes**:
-- Complete Guide: [WORKFLOW_MODES_GUIDE.md](WORKFLOW_MODES_GUIDE.md)
-- Two-Step: [TWO_STEP_TRANSCRIPTION.md](TWO_STEP_TRANSCRIPTION.md)
-- Transcribe: [TRANSCRIBE_MODE_ENHANCEMENTS.md](TRANSCRIBE_MODE_ENHANCEMENTS.md)
-
-**Glossary System**:
-- Overview: [GLOSSARY_README.md](GLOSSARY_README.md)
-- Complete: [GLOSSARY_IMPLEMENTATION_COMPLETE.md](GLOSSARY_IMPLEMENTATION_COMPLETE.md)
-
-**Lyrics Detection**:
-- Overview: [LYRICS_DETECTION_ENHANCEMENT.md](LYRICS_DETECTION_ENHANCEMENT.md)
-- Complete: [LYRICS_ENHANCEMENT_COMPLETE.md](LYRICS_ENHANCEMENT_COMPLETE.md)
+---
 
 ## 🔍 Quick Find
 
-Looking for something specific? Use this quick finder:
-
-- **Installation**: [README.md](../README.md) → Installation section
-- **Quick Start**: [README.md](../README.md) → Quick Start section
-- **Hindi→English**: [INDICTRANS2_QUICKSTART.md](INDICTRANS2_QUICKSTART.md)
-- **Other Languages**: [LANGUAGE_TUNING_QUICKREF.md](LANGUAGE_TUNING_QUICKREF.md)
-- **Workflow Modes**: [WORKFLOW_MODES_GUIDE.md](WORKFLOW_MODES_GUIDE.md)
-- **Citations**: [CITATIONS.md](CITATIONS.md)
-- **Architecture**: [ARCHITECTURE.md](ARCHITECTURE.md)
-- **Glossary**: [GLOSSARY_README.md](GLOSSARY_README.md)
-- **Troubleshooting**: [INDICTRANS2_IMPLEMENTATION.md](INDICTRANS2_IMPLEMENTATION.md) → Troubleshooting section
-
-## 📊 Documentation Statistics
-
-- Total Documents: ~50
-- Quick Start Guides: 4
-- Quick References: 4
-- Technical Docs: 15+
-- Implementation Summaries: 10+
-- Feature Guides: 8
-- Change Logs: 5
+| Looking for... | Go to... |
+|----------------|----------|
+| Installation | [README.md](../README.md) → Quick Start |
+| Hindi→English | [INDICTRANS2_QUICKSTART.md](INDICTRANS2_QUICKSTART.md) |
+| Other Languages | [LANGUAGE_TUNING_QUICKREF.md](LANGUAGE_TUNING_QUICKREF.md) |
+| Workflow Modes | [WORKFLOW_MODES_GUIDE.md](WORKFLOW_MODES_GUIDE.md) |
+| Architecture | [ARCHITECTURE.md](ARCHITECTURE.md) |
+| Developer Setup | [developer-guide.md](developer-guide.md) |
+| Apple Silicon | [user-guide/APPLE_SILICON_QUICK_REF.md](user-guide/APPLE_SILICON_QUICK_REF.md) |
+| Glossary | [GLOSSARY_README.md](GLOSSARY_README.md) |
+| Troubleshooting | [QUICK_FIX_REFERENCE.md](QUICK_FIX_REFERENCE.md) |
+| Citations | [CITATIONS.md](CITATIONS.md) |
 
 ---
 
 **Navigation**: [Back to Main README](../README.md) | [Project Root](../)
 
-*Last Updated: November 16, 2025*
+*Last Updated: November 2025*
