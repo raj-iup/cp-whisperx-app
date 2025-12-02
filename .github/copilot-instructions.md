@@ -1,6 +1,19 @@
 # Copilot Instructions — CP-WhisperX-App
 
-**Version:** 3.1 (Phase 2) | **Baseline:** 56.4% → **Target:** 90%+
+**Version:** 3.2 (Phase 3) | **Baseline:** 56.4% → **Validated:** 100% → **Target:** 90%+
+
+---
+
+## ⚡ Before You Respond
+
+**Run this mental checklist:**
+1. Will I use `logger` instead of `print()`? (§ 2.3)
+2. Are imports organized Standard/Third-party/Local? (§ 6.1)
+3. If stage: Does it use StageIO with `enable_manifest=True`? (§ 2.6)
+4. Are outputs going to `io.stage_dir` only? (§ 1.1)
+5. Am I using `load_config()` not `os.getenv()`? (§ 4.2)
+
+**If NO to any → Check the relevant § section below**
 
 ---
 
@@ -322,6 +335,8 @@ output = io.stage_dir / "file.ext"  # Correct: stage dir only
 
 ## 📋 Pre-Commit Checklist
 
+**Before proposing code, verify:**
+
 **ALL code:**
 - [ ] Logger, not print (§ 2.3)
 - [ ] Imports organized (§ 6.1)
@@ -344,6 +359,11 @@ output = io.stage_dir / "file.ext"  # Correct: stage dir only
 
 **Dependencies:**
 - [ ] Added to `requirements/*.txt` (§ 1.3)
+
+**Run automated checker:**
+```bash
+./scripts/validate-compliance.py your_file.py
+```
 
 ---
 
@@ -411,15 +431,36 @@ logger.info(f"Completed in {time.time()-start:.2f}s")
 
 ---
 
+## 🤖 Automated Validation
+
+**Check compliance before committing:**
+```bash
+# Single file
+./scripts/validate-compliance.py scripts/your_stage.py
+
+# Multiple files
+./scripts/validate-compliance.py scripts/*.py
+
+# Strict mode (exit 1 on violations)
+./scripts/validate-compliance.py --strict scripts/*.py
+
+# Check staged files
+./scripts/validate-compliance.py --staged
+```
+
+**Integrates with pre-commit hooks (optional)**
+
+---
+
 ## 📊 Status
 
-**Baseline:** 56.4% → **Validated:** 100% test pass → **Target:** 90%+
+**Baseline:** 56.4% → **Phase 1 Validated:** 100% → **Target:** 90%+
 
 **Strong (100%):** Type hints, docstrings, config, error handling
 
 **Improving:**
-- Logger: 40% → 90%+ (Phase 1 validated)
-- Imports: 0% → 80%+ (Phase 1 validated)
+- Logger: 40% → 90%+ (validated)
+- Imports: 0% → 80%+ (validated)
 
 ---
 
@@ -432,6 +473,10 @@ logger.info(f"Completed in {time.time()-start:.2f}s")
 
 ---
 
-**When in doubt, use decision trees above or check § reference in DEVELOPER_STANDARDS.md**
+**When in doubt:**
+1. Run the mental checklist at the top
+2. Use decision trees above
+3. Check § reference in DEVELOPER_STANDARDS.md
+4. Run `validate-compliance.py` on your code
 
-**Version:** 3.1 (Phase 2) | **Lines:** 409 | **Validated:** 100%
+**Version:** 3.2 (Phase 3) | **Lines:** 465 | **Validated:** 100% | **Checker:** ✅
