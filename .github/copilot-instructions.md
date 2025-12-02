@@ -425,6 +425,7 @@ logger.info(f"Completed in {time.time()-start:.2f}s")
 - § 7: Testing
 
 **Guides:**
+- **`docs/CODE_EXAMPLES.md`** - ⭐ Good vs Bad code examples (941 lines)
 - `docs/developer-guide.md` - Onboarding
 - `docs/BASELINE_COMPLIANCE_METRICS.md` - Current state
 - `docs/AI_MODEL_ROUTING.md` - Model selection
@@ -476,7 +477,8 @@ logger.info(f"Completed in {time.time()-start:.2f}s")
 **When in doubt:**
 1. Run the mental checklist at the top
 2. Use decision trees above
-3. Check § reference in DEVELOPER_STANDARDS.md
-4. Run `validate-compliance.py` on your code
+3. **Check CODE_EXAMPLES.md for visual examples** ⭐ NEW
+4. Check § reference in DEVELOPER_STANDARDS.md
+5. Run `validate-compliance.py` on your code
 
-**Version:** 3.2 (Phase 3) | **Lines:** 465 | **Validated:** 100% | **Checker:** ✅
+**Version:** 3.3 (Phase 5) | **Lines:** 487 | **Validated:** 100% | **Examples:** ✅
