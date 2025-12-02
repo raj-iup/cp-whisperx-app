@@ -4,8 +4,8 @@
 Before choosing a Copilot Chat model or starting Agent mode, consult:
 - `docs/AI_MODEL_ROUTING.md`
 
-Follow that document’s routing algorithm (task size + risk) to select the model and workflow (Plan → Patch → Review).
-If there’s any conflict, `docs/AI_MODEL_ROUTING.md` is the source of truth.
+Follow that document's routing algorithm (task size + risk) to select the model and workflow (Plan → Patch → Review).
+If there's any conflict, `docs/AI_MODEL_ROUTING.md` is the source of truth.
 
 ## Tech stack
 - Python 3.11+, Bash
@@ -18,7 +18,7 @@ If there’s any conflict, `docs/AI_MODEL_ROUTING.md` is the source of truth.
   - use StageIO(stage_name, job_dir, enable_manifest=True)
   - track inputs/outputs in the stage manifest
   - write logs to stage.log via StageIO.get_stage_logger()
-- Keep CLI flags consistent with existing scripts (don’t invent new flags without updating docs).
+- Keep CLI flags consistent with existing scripts (don't invent new flags without updating docs).
 - Do not introduce new dependencies without updating the correct requirements/requirements-*.txt file.
 - Never print or commit secrets. Secrets come from config/secrets.json or env vars.
 
@@ -29,4 +29,4 @@ If there’s any conflict, `docs/AI_MODEL_ROUTING.md` is the source of truth.
 
 ## Testing expectations
 - Update/extend tests under tests/
-- Ensure quick “unit-only” test path exists (avoid GPU-heavy steps in CI)
+- Ensure quick "unit-only" test path exists (avoid GPU-heavy steps in CI)
