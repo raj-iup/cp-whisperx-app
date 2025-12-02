@@ -2,10 +2,10 @@
 
 ## Model routing policy (READ FIRST)
 Before choosing a Copilot Chat model or starting Agent mode, consult:
-- `docs/COPILOT_MODEL_ROUTING_GUIDE.md`
+- `docs/AI_MODEL_ROUTING.md`
 
 Follow that document’s routing algorithm (task size + risk) to select the model and workflow (Plan → Patch → Review).
-If there’s any conflict, `docs/COPILOT_MODEL_ROUTING_GUIDE.md` is the source of truth.
+If there’s any conflict, `docs/AI_MODEL_ROUTING.md` is the source of truth.
 
 ## Tech stack
 - Python 3.11+, Bash
