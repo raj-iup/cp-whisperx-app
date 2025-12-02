@@ -1,6 +1,6 @@
 # Copilot Instructions — CP-WhisperX-App
 
-**Version:** 3.0 | **Baseline:** 56.4% → **Target:** 90%+
+**Version:** 3.1 (Phase 2) | **Baseline:** 56.4% → **Target:** 90%+
 
 ---
 
@@ -10,7 +10,7 @@
 
 ---
 
-## 🗺️ Navigation: When to Consult DEVELOPER_STANDARDS.md
+## 🗺️ Quick Navigation Table
 
 | Task | Section | Topics |
 |------|---------|--------|
@@ -24,6 +24,136 @@
 | Docstrings | § 6.3 | Documentation |
 
 **Full standards:** `docs/developer/DEVELOPER_STANDARDS.md`
+
+---
+
+## 🌲 Decision Trees
+
+### Should I Create a New Stage?
+
+```
+Start here:
+├─ Is this a distinct transformation step? 
+│  ├─ NO → Add to existing stage
+│  └─ YES → Continue
+│
+├─ Can it run independently?
+│  ├─ NO → Consider combining with related stage
+│  └─ YES → Continue
+│
+├─ Does it need separate logging/manifest?
+│  ├─ NO → Might be a helper function
+│  └─ YES → Continue
+│
+├─ Would it create excessive I/O overhead?
+│  ├─ YES → Consider combining stages
+│  └─ NO → ✅ CREATE NEW STAGE
+│
+└─ If YES to all: Follow § 3.1 pattern
+```
+
+### What Type of Error Handling Do I Need?
+
+```
+Error type:
+├─ File not found → FileNotFoundError + logger.error()
+├─ Permission denied → PermissionError + logger.error()
+├─ Invalid config → ValueError + logger.error()
+├─ Network/API → OSError/RequestException + retry logic
+├─ Data validation → ValueError + descriptive message
+└─ Unknown → Exception + exc_info=True
+
+Always:
+├─ Log with logger.error(..., exc_info=True)
+├─ Provide context in message
+└─ Re-raise or return error code
+```
+
+### Where Should This Output Go?
+
+```
+Output destination:
+├─ Stage processing result?
+│  └─ ✅ io.stage_dir / "filename.ext"
+│
+├─ Temporary/scratch file?
+│  └─ ✅ io.stage_dir / "temp" / "file.ext"
+│
+├─ Final pipeline output?
+│  └─ ❌ Write to io.stage_dir, pipeline copies to out/
+│
+├─ Shared between stages?
+│  └─ ❌ Each stage writes own copy, use manifests
+│
+└─ NEVER:
+    ├─ job_dir / "file" (breaks isolation)
+    ├─ /tmp/ (unreliable)
+    └─ other_stage_dir/ (breaks data lineage)
+```
+
+---
+
+## 📚 Topical Index
+
+### By Component
+
+**Configuration (§ 4)**
+- Adding parameters → § 4.1, § 4.2
+- Loading config → § 4.2
+- Type conversion → § 4.3, § 4.4
+- Secrets handling → § 4.6
+- Validation → § 4.7
+
+**Logging (§ 2)**
+- Basic logging → § 2.3
+- Stage logs → § 2.4
+- Log levels → § 2.3.2
+- Performance logging → § 2.3.4
+- Error logging → § 2.3.5
+
+**Stages (§ 3)**
+- Creating new stage → § 3.1
+- StageIO pattern → § 2.6
+- Input handling → § 3.2
+- Output tracking → § 3.3
+- Dependencies → § 3.4
+
+**Data Tracking (§ 2)**
+- Manifests → § 2.5
+- Input tracking → § 2.5.3
+- Output tracking → § 2.5.4
+- Data lineage → § 2.8
+- Hash computation → § 2.5.2
+
+**Code Quality (§ 6)**
+- Import organization → § 6.1
+- Type hints → § 6.2
+- Docstrings → § 6.3
+- Function patterns → § 6.4
+- Testing → § 7
+
+### By Task
+
+**I need to...**
+- ...add a stage → § 3.1, Decision Tree #1
+- ...log something → § 2.3, Critical Rule #1
+- ...handle errors → § 5, Decision Tree #2
+- ...add config → § 4.1, § 4.2
+- ...track files → § 2.5
+- ...organize imports → § 6.1, Critical Rule #2
+- ...write outputs → § 1.1, Decision Tree #3
+- ...validate data → § 5, § 7.2
+
+### By Problem
+
+**Common Issues:**
+- "Print not working" → Use logger (§ 2.3)
+- "Output not found" → Check io.stage_dir (§ 1.1)
+- "Manifest error" → enable_manifest=True (§ 2.6)
+- "Config not loading" → Use load_config() (§ 4.2)
+- "Import error" → Organize properly (§ 6.1)
+- "Permission denied" → Error handling (§ 5)
+- "File not tracked" → add_input/output (§ 2.5)
 
 ---
 
@@ -49,7 +179,7 @@ logger = get_logger(__name__)
 logger.debug("Diagnostic info")
 logger.info("General info")
 logger.warning("Unexpected situation")
-logger.error("Error occurred", exc_info=True)  # Include traceback
+logger.error("Error occurred", exc_info=True)
 logger.critical("Severe error")
 ```
 
@@ -112,7 +242,6 @@ def run_stage(job_dir: Path, stage_name: str = "stage") -> int:
         
         # 5. Process
         logger.info("Processing...")
-        # your logic here
         
         # 6. Track output
         io.manifest.add_output(output_file, io.compute_hash(output_file))
@@ -130,10 +259,9 @@ def run_stage(job_dir: Path, stage_name: str = "stage") -> int:
 **Must have:**
 - `enable_manifest=True`
 - `io.get_stage_logger()` (not print)
-- Track inputs: `io.manifest.add_input()`
-- Track outputs: `io.manifest.add_output()`
+- Track inputs/outputs
 - Write to `io.stage_dir` ONLY
-- Finalize: `io.finalize_stage_manifest()`
+- Finalize manifest
 
 ---
 
@@ -146,7 +274,7 @@ def run_stage(job_dir: Path, stage_name: str = "stage") -> int:
 from shared.config_loader import load_config
 
 config = load_config()
-value = int(config.get("PARAM_NAME", default))  # Always provide default
+value = int(config.get("PARAM_NAME", default))
 ```
 
 **Steps:**
@@ -269,7 +397,7 @@ logger.info(f"Completed in {time.time()-start:.2f}s")
 
 **Sections:**
 - § 1: Project structure
-- § 2: Logging
+- § 2: Logging & manifests
 - § 3: Stages
 - § 4: Configuration
 - § 5: Error handling
@@ -285,15 +413,13 @@ logger.info(f"Completed in {time.time()-start:.2f}s")
 
 ## 📊 Status
 
-**Baseline:** 56.4% compliance
+**Baseline:** 56.4% → **Validated:** 100% test pass → **Target:** 90%+
 
-**Strong (100%):** Type hints, docstrings, config usage, error handling
+**Strong (100%):** Type hints, docstrings, config, error handling
 
-**Needs work:**
-- Logger usage: 40% → 100%
-- Import org: 0% → 80%
-
-**Target:** 90%+
+**Improving:**
+- Logger: 40% → 90%+ (Phase 1 validated)
+- Imports: 0% → 80%+ (Phase 1 validated)
 
 ---
 
@@ -301,11 +427,11 @@ logger.info(f"Completed in {time.time()-start:.2f}s")
 
 - Tests in `tests/`
 - Run: `pytest tests/`
-- Unit tests: fast (no GPU)
+- Unit: fast (no GPU)
 - Coverage: `pytest --cov`
 
 ---
 
-**When in doubt, check § reference in DEVELOPER_STANDARDS.md**
+**When in doubt, use decision trees above or check § reference in DEVELOPER_STANDARDS.md**
 
-**Version:** 3.0 (Phase 1) | **Lines:** 290
+**Version:** 3.1 (Phase 2) | **Lines:** 409 | **Validated:** 100%
