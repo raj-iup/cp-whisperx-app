@@ -245,3 +245,132 @@ class PipelineLogger:
     def critical(self, msg: str):
         """Log critical message."""
         self.logger.critical(msg)
+
+
+def setup_dual_logger(
+    stage_name: str,
+    stage_log_file: Path,
+    main_log_dir: Path,
+    log_level: str = "INFO"
+) -> logging.Logger:
+    """
+    Setup dual logger that writes to:
+    1. Stage-specific log file (detailed) - ALL levels
+    2. Main pipeline log (summary) - INFO and above only
+    3. Console output - INFO and above
+    
+    This enables:
+    - Detailed debugging in stage-specific logs
+    - High-level progress tracking in main pipeline log
+    - Clear separation of concerns
+    
+    Args:
+        stage_name: Name of the stage (e.g., "asr", "alignment")
+        stage_log_file: Path to stage.log file
+        main_log_dir: Directory containing main pipeline log
+        log_level: Minimum log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+    
+    Returns:
+        Configured logger instance
+    
+    Example:
+        >>> from shared.logger import setup_dual_logger
+        >>> from pathlib import Path
+        >>> logger = setup_dual_logger(
+        ...     "asr",
+        ...     Path("out/job1/06_asr/stage.log"),
+        ...     Path("out/job1/logs")
+        ... )
+        >>> logger.debug("Detailed processing step")  # Only in stage.log
+        >>> logger.info("Stage progress")  # In stage.log + pipeline.log + console
+    """
+    logger = logging.getLogger(f"stage.{stage_name}")
+    logger.setLevel(getattr(logging, log_level.upper()))
+    logger.handlers = []  # Clear existing handlers
+    logger.propagate = False  # Don't propagate to root logger
+    
+    # Formatter for detailed logs (stage.log)
+    detailed_formatter = logging.Formatter(
+        "[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S"
+    )
+    
+    # Formatter for main pipeline log (simplified)
+    simple_formatter = logging.Formatter(
+        "[%(asctime)s] [pipeline] [%(levelname)s] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S"
+    )
+    
+    # Handler 1: Stage-specific log (ALL levels including DEBUG)
+    stage_log_file.parent.mkdir(parents=True, exist_ok=True)
+    stage_handler = logging.FileHandler(stage_log_file, mode='a', encoding='utf-8')
+    stage_handler.setFormatter(detailed_formatter)
+    stage_handler.setLevel(logging.DEBUG)  # Capture everything
+    logger.addHandler(stage_handler)
+    
+    # Handler 2: Main pipeline log (INFO and above only)
+    main_log_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Find or create main pipeline log
+    today = datetime.now().strftime("%Y%m%d")
+    existing_pipeline_logs = list(main_log_dir.glob(f"99_pipeline_{today}_*.log"))
+    
+    if existing_pipeline_logs:
+        # Reuse most recent pipeline log
+        main_log_file = sorted(existing_pipeline_logs)[-1]
+    else:
+        # Create new pipeline log
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        main_log_file = main_log_dir / f"99_pipeline_{timestamp}.log"
+    
+    main_handler = logging.FileHandler(main_log_file, mode='a', encoding='utf-8')
+    main_handler.setFormatter(simple_formatter)
+    main_handler.setLevel(logging.INFO)  # Only important messages to main log
+    logger.addHandler(main_handler)
+    
+    # Handler 3: Console (INFO and above)
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(detailed_formatter)
+    console_handler.setLevel(logging.INFO)
+    logger.addHandler(console_handler)
+    
+    return logger
+
+
+def get_stage_logger(
+    stage_name: str,
+    stage_dir: Optional[Path] = None,
+    log_level: str = "INFO"
+) -> logging.Logger:
+    """
+    Convenience function to get a dual logger for a stage.
+    Automatically determines paths from stage directory.
+    
+    Args:
+        stage_name: Name of the stage
+        stage_dir: Path to stage directory (if None, uses OUTPUT_DIR env var)
+        log_level: Minimum log level
+    
+    Returns:
+        Configured dual logger
+    
+    Example:
+        >>> from shared.logger import get_stage_logger
+        >>> logger = get_stage_logger("asr")
+        >>> logger.info("Processing audio")
+    """
+    if stage_dir is None:
+        # Determine stage directory from OUTPUT_DIR
+        output_dir = Path(os.environ.get('OUTPUT_DIR', 'out'))
+        from shared.stage_order import get_stage_dir
+        try:
+            stage_dir_name = get_stage_dir(stage_name).split('/')[-1]
+            stage_dir = output_dir / stage_dir_name
+        except ValueError:
+            # Fallback for unknown stages
+            stage_dir = output_dir / f"99_{stage_name}"
+    
+    stage_log_file = stage_dir / "stage.log"
+    main_log_dir = stage_dir.parent / "logs"
+    
+    return setup_dual_logger(stage_name, stage_log_file, main_log_dir, log_level)

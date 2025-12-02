@@ -1,20 +1,52 @@
 """
-Hinglish Glossary System
+Hinglish Glossary System - DEPRECATED
+
+⚠️ DEPRECATION NOTICE:
+This module is deprecated and will be removed in v2.0.0.
+Use UnifiedGlossaryManager from shared.glossary_manager instead.
+
+Migration Guide:
+    Old:
+        from shared.glossary import HinglishGlossary
+        glossary = HinglishGlossary(tsv_path, strategy='adaptive')
+    
+    New:
+        from shared.glossary_manager import UnifiedGlossaryManager
+        manager = UnifiedGlossaryManager(
+            project_root=project_root,
+            strategy='cascade'
+        )
+        manager.load_all_sources()
+
+See shared/GLOSSARY_ARCHITECTURE.md for complete migration guide.
 
 Provides terminology management for Hinglish→English subtitle translation.
 Loads TSV glossary and applies term substitutions with context awareness.
 Supports advanced strategies: context-aware, character-based, regional, ML-based.
 """
 
+import warnings
 import re
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Any
 import logging
 
+# Issue deprecation warning when module is imported
+warnings.warn(
+    "shared.glossary is deprecated and will be removed in v2.0.0. "
+    "Use UnifiedGlossaryManager from shared.glossary_manager instead. "
+    "See shared/GLOSSARY_ARCHITECTURE.md for migration guide.",
+    DeprecationWarning,
+    stacklevel=2
+)
+
 
 class HinglishGlossary:
     """
-    Hinglish→English glossary manager
+    DEPRECATED: Hinglish→English glossary manager
+    
+    ⚠️ This class is deprecated. Use UnifiedGlossaryManager from
+    shared.glossary_manager instead.
     
     Loads terminology mappings from TSV and applies substitutions
     to subtitle text while preserving context.
@@ -40,6 +72,8 @@ class HinglishGlossary:
         """
         Initialize glossary from TSV file
         
+        DEPRECATED: Use UnifiedGlossaryManager instead.
+        
         Args:
             tsv_path: Path to glossary TSV file
             logger: Optional logger instance
@@ -47,6 +81,13 @@ class HinglishGlossary:
             prompt_path: Path to movie-specific prompt (for character/regional)
             frequency_data_path: Path to learned frequency data
         """
+        warnings.warn(
+            "HinglishGlossary is deprecated. Use UnifiedGlossaryManager from "
+            "shared.glossary_manager instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        
         self.logger = logger or logging.getLogger(__name__)
         self.term_map: Dict[str, Dict] = {}
         self.terms_applied = 0

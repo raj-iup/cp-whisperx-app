@@ -20,8 +20,8 @@ The glossary-builder runs automatically after ASR transcription:
 ./run_pipeline.sh --job <job-id>
 
 # Check the generated glossary
-cat out/<job-id>/glossary/film_glossary.tsv
-cat out/<job-id>/glossary/film_profile.json | jq .
+cat out/<job-id>/03_glossary_load/film_glossary.tsv
+cat out/<job-id>/03_glossary_load/film_profile.json | jq .
 ```
 
 ### With TMDB Integration
@@ -41,16 +41,30 @@ Get a free API key at: https://www.themoviedb.org/settings/api
 
 ### Standalone Execution
 
-Run glossary-builder independently:
+Run glossary-builder stage independently using the pipeline script:
 
 ```bash
-docker compose run --rm glossary-builder \
-  --job-dir /app/out/2025/11/10/1/20251110-0001 \
-  --title "Jaane Tu Ya Jaane Na" \
-  --year 2008 \
-  --tmdb-id 86627 \
-  --master /app/glossary/hinglish_master.tsv \
-  --prompts /app/prompts
+# Run only the glossary_load stage
+./run-pipeline.sh --job <job-id> --stages glossary_load
+
+# Or run via Python directly
+cd /Users/rpatel/Projects/cp-whisperx-app
+python3 scripts/glossary_builder.py
+
+# Note: Stage requires prior completion of:
+#   - Stage 2 (tmdb) for TMDB enrichment data
+#   - Stage 6 (asr) for transcript data
+```
+
+**Environment Variables:**
+
+The stage uses configuration from `config/.env.pipeline`. You can override specific values:
+
+```bash
+# Run with custom configuration
+GLOSSARY_SEED_SOURCES=tmdb,master \
+GLOSSARY_MIN_CONF=0.75 \
+./run-pipeline.sh --job <job-id> --stages glossary_load
 ```
 
 ## Configuration
@@ -75,7 +89,7 @@ GLOSSARY_CACHE_DIR=glossary/cache
 
 ## Outputs
 
-Three files are generated in `out/<job-id>/glossary/`:
+Three files are generated in `out/<job-id>/03_glossary_load/`:
 
 ### 1. film_glossary.tsv
 
@@ -140,20 +154,22 @@ Glossaries are cached for reuse:
 
 ```bash
 # First run generates glossary
-./run_pipeline.sh --job job1  # Same film
-# Cache created at: glossary/cache/jaane-tu-ya-jaane-na-2008.tsv
+./run-pipeline.sh --job job1  # Same film
+# Cache created at: glossary/cache/jaane-tu-ya-jaane-na-2008.json
 
 # Second run reuses cache
-./run_pipeline.sh --job job2  # Same film, different take
+./run-pipeline.sh --job job2  # Same film, different take
 # Loads from cache (faster)
 
-# Force rebuild
-docker compose run --rm glossary-builder \
-  --job-dir /app/out/job3 \
-  --title "Film" \
-  --year 2008 \
-  --force-rebuild
+# Force rebuild by clearing cache
+rm glossary/cache/jaane-tu-ya-jaane-na-2008.json
+./run-pipeline.sh --job job3
+
+# Or disable caching in config
+GLOSSARY_CACHE_ENABLED=false ./run-pipeline.sh --job job3
 ```
+
+**Note:** The glossary-builder stage runs inline as part of the pipeline (stage 3), not as a separate Docker service.
 
 ## Disable Glossary Builder
 
@@ -163,25 +179,36 @@ To skip the stage:
 # In config/.env.pipeline
 GLOSSARY_ENABLE=false
 
-# Or temporarily
-./run_pipeline.sh --job <job-id> --stages asr subtitle_gen mux
+# Or temporarily via command line
+./run-pipeline.sh --job <job-id> --stages demux,tmdb,asr,subtitle_gen,mux
+
+# The pipeline will skip stage 3 (glossary_load)
 ```
 
 ## Troubleshooting
 
 ### No terms extracted from ASR
 - Check that ASR stage completed successfully
-- Verify ASR JSON files exist in `out/<job-id>/asr/`
+- Verify ASR JSON files exist in `out/<job-id>/06_asr/`
+- Check stage log: `out/<job-id>/03_glossary_load/stage.log`
 - Lower min confidence: `GLOSSARY_MIN_CONF=0.3`
 
 ### TMDB integration not working
-- Set `TMDB_API_KEY` environment variable
-- Check TMDB ID is correct (from TMDB stage output)
+- Set `TMDB_API_KEY` in environment or `config/secrets.json`
+- Check TMDB stage completed: `out/<job-id>/02_tmdb/enrichment.json`
 - Verify network connectivity
+- Check TMDB ID is correct from TMDB stage output
 
 ### Glossary not being used in translation
-- Future feature: Glossary enforcement in subtitle-gen
-- Currently generates glossary only (enforcement coming soon)
+- The glossary-builder generates the glossary (stage 3)
+- Glossary enforcement in subtitle-gen (stage 11) is a future feature
+- Currently generates reference glossary for manual use
+
+### Stage fails or skips
+- Check prerequisites: ASR stage must complete first
+- Verify configuration: `GLOSSARY_ENABLE=true`
+- Check stage manifest: `out/<job-id>/03_glossary_load/manifest.json`
+- Review error messages in stage log
 
 ## Advanced Usage
 
@@ -203,14 +230,24 @@ The builder will load and process these prompts.
 Edit `glossary/hinglish_master.tsv` to add permanent terms:
 
 ```tsv
-term	script	rom	hi	type	english	do_not_translate	capitalize	...
-naya_term	rom	naya_term		idiom	new meaning	false	false	...
+source	preferred_english	notes	context
+yaar	dude|man|buddy	Use "dude" for young male	casual
+naya_term	new meaning	Description of usage	category
 ```
 
-Rebuild to apply:
+**Format:** Tab-separated values with 4 columns:
+- `source`: Hindi/Hinglish term
+- `preferred_english`: Translation options (pipe-separated)
+- `notes`: Usage guidance
+- `context`: Category/context tag
+
+**Apply changes:**
 ```bash
-rm glossary/cache/*  # Clear cache
-./run_pipeline.sh --job <job-id>
+# Clear cache to pick up new terms
+rm glossary/cache/*.json
+
+# Run pipeline to regenerate glossary
+./run-pipeline.sh --job <job-id>
 ```
 
 ## Integration with Other Stages
@@ -226,16 +263,36 @@ Integration code coming in future updates.
 
 ## Next Steps
 
-1. Build the image: `./scripts/build-all-images.sh`
+1. Ensure prerequisites: `./bootstrap.sh` (sets up environment)
 2. Process a film: `./prepare-job.sh in/movie.mp4`
-3. Check the glossary: `cat out/<job>/glossary/film_glossary.tsv`
-4. Review coverage: `cat out/<job>/glossary/coverage_report.json`
-5. Refine master glossary based on candidates
-6. Repeat for more films (caching speeds up reruns)
+3. Run pipeline: `./run-pipeline.sh --job <job-id>`
+4. Check the glossary: `cat out/<job-id>/03_glossary_load/film_glossary.tsv`
+5. Review coverage: `cat out/<job-id>/03_glossary_load/coverage_report.json | jq .`
+6. Refine master glossary based on candidates from coverage report
+7. Re-run for better results with updated glossary
+
+## Pipeline Architecture
+
+The glossary-builder runs as **Stage 3 (glossary_load)** in the pipeline:
+
+```
+Stage 1: demux              → Extract audio
+Stage 2: tmdb               → Get film metadata
+Stage 3: glossary_load      → ⭐ Build glossary
+Stage 4: source_separation  → Separate vocals
+Stage 5: pyannote_vad       → Voice detection
+Stage 6: asr                → Speech recognition
+...
+Stage 11: subtitle_generation → Generate subtitles
+Stage 12: mux               → Embed subtitles
+```
+
+**Note:** The stage is executed inline by `run-pipeline.py`, not as a separate Docker service.
 
 ## Support
 
-See full documentation:
-- `docker/glossary-builder/README.md` - Detailed usage
-- `GLOSSARY-INTEGRATION.md` - Architecture design
-- `GLOSSARY_BUILDER_IMPLEMENTATION.md` - Implementation details
+See related documentation:
+- `docs/DEVELOPER_STANDARDS.md` - Development standards
+- `docs/GLOSSARY_BUILDER_REC1_IMPLEMENTATION.md` - Implementation details
+- `docs/GLOSSARY_CONFIG_ALIGNMENT_REC3.md` - Configuration guide
+- `glossary/hinglish_master.tsv` - Master glossary file

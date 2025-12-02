@@ -26,8 +26,43 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 
 class HallucinationRemover:
-    """Detect and remove Whisper hallucinations from transcripts"""
-    
+    """
+    Detect and remove Whisper hallucinations from transcripts (Phase 2 Enhanced).
+
+    Enhancements:
+    - Extended hallucination pattern library
+    - Compression ratio analysis
+    - Improved sequential duplicate detection
+    - Better statistics and reporting
+    """
+
+    # Phase 2: Enhanced hallucination patterns (case-insensitive)
+    COMMON_PATTERNS = [
+        r'^thank you\.?$',
+        r'^thanks\.?$',
+        r'^thank you for watching\.?$',
+        r"^what did you do\??$",
+        r"^i'?m sorry\.?$",
+        r'^sorry\.?$',
+        r'^(uh|um|ah|eh)\.?$',
+        r'^subscribe',
+        r'^please subscribe',
+        r'^like and subscribe',
+        r'^click the bell',
+        r'^thank you for watching',
+        r'^so\.?$',
+        r'^okay\.?$',
+        r'^बलल',  # Hindi artifacts
+        r'^ना ना( ना)*$',  # Repetitive Hindi
+        r'^हा हा( हा)*$',  # Repetitive Hindi
+    ]
+
+    # Very short segments (likely noise)
+    MIN_TEXT_LENGTH = 3
+
+    # Max consecutive repeats (Phase 2 default)
+    MAX_CONSECUTIVE_REPEATS = 2
+
     def __init__(
         self,
         loop_threshold: int = 3,
@@ -36,7 +71,7 @@ class HallucinationRemover:
     ):
         """
         Initialize hallucination remover
-        
+
         Args:
             loop_threshold: Min consecutive identical segments to consider loop
             max_repeats: Max allowed consecutive identical segments
@@ -45,6 +80,19 @@ class HallucinationRemover:
         self.loop_threshold = loop_threshold
         self.max_repeats = max_repeats
         self.logger = logger or logging.getLogger(__name__)
+
+        # Phase 2: Compile regex patterns
+        import re
+        self.patterns = [re.compile(p, re.IGNORECASE) for p in self.COMMON_PATTERNS]
+
+        # Phase 2: Statistics tracking
+        self.stats = {
+            'total_segments': 0,
+            'removed_by_pattern': 0,
+            'removed_by_length': 0,
+            'removed_by_repetition': 0,
+            'removed_by_compression': 0,
+        }
         
     def detect_looping_hallucinations(
         self,
@@ -194,7 +242,167 @@ class HallucinationRemover:
                 cleaned.append(seg)
         
         return cleaned
-    
+
+    def is_hallucination_pattern(self, text: str) -> bool:
+        """
+        Check if text matches known hallucination patterns (Phase 2).
+
+        Args:
+            text: Text to check
+
+        Returns:
+            True if text matches a hallucination pattern
+        """
+        text_clean = text.strip().lower()
+
+        for pattern in self.patterns:
+            if pattern.match(text_clean):
+                return True
+
+        return False
+
+    def is_too_short(self, text: str) -> bool:
+        """
+        Check if text is suspiciously short (Phase 2).
+
+        Args:
+            text: Text to check
+
+        Returns:
+            True if text is too short to be legitimate
+        """
+        import re
+        # Remove punctuation and whitespace
+        clean_text = re.sub(r'[^\w\s]', '', text).strip()
+        return len(clean_text) < self.MIN_TEXT_LENGTH
+
+    def calculate_compression_ratio(self, text: str) -> float:
+        """
+        Calculate compression ratio to detect repetitive text (Phase 2).
+
+        High ratio = likely hallucination/repetition.
+
+        Args:
+            text: Text to analyze
+
+        Returns:
+            Compression ratio (higher = more repetitive)
+        """
+        import zlib
+
+        if not text:
+            return 0
+
+        # Compress the text
+        try:
+            compressed = zlib.compress(text.encode('utf-8'))
+            ratio = len(text) / len(compressed) if len(compressed) > 0 else 0
+            return ratio
+        except:
+            return 0
+
+    def remove_sequential_duplicates(self, segments: List[Dict]) -> List[Dict]:
+        """
+        Remove segments that repeat more than MAX_CONSECUTIVE_REPEATS times (Phase 2).
+
+        Args:
+            segments: List of segments
+
+        Returns:
+            Filtered segments with duplicates removed
+        """
+        if not segments:
+            return segments
+
+        result = []
+        repeat_count = 1
+        last_text = None
+
+        for seg in segments:
+            text = seg.get('text', '').strip().lower()
+
+            # Empty text - skip
+            if not text:
+                continue
+
+            # Same as previous
+            if text == last_text:
+                repeat_count += 1
+                if repeat_count <= self.MAX_CONSECUTIVE_REPEATS:
+                    result.append(seg)
+                else:
+                    self.stats['removed_by_repetition'] += 1
+                    self.logger.debug(f"Removed duplicate #{repeat_count}: {text[:50]}")
+            else:
+                repeat_count = 1
+                result.append(seg)
+                last_text = text
+
+        return result
+
+    def remove_hallucinations_enhanced(self, segments: List[Dict]) -> Tuple[List[Dict], Dict]:
+        """
+        Enhanced hallucination removal pipeline (Phase 2).
+
+        Applies multiple detection strategies:
+        1. Pattern matching for common phrases
+        2. Length filtering
+        3. Compression ratio analysis
+        4. Sequential duplicate removal
+
+        Args:
+            segments: List of segments with 'text' field
+
+        Returns:
+            Tuple of (filtered segments, statistics)
+        """
+        if not segments:
+            return segments, self.stats
+
+        self.stats['total_segments'] = len(segments)
+        filtered = []
+
+        # Step 1: Remove known patterns and short segments
+        for seg in segments:
+            text = seg.get('text', '').strip()
+
+            # Check for hallucination patterns
+            if self.is_hallucination_pattern(text):
+                self.stats['removed_by_pattern'] += 1
+                self.logger.debug(f"Removed by pattern: {text[:50]}")
+                continue
+
+            # Check if too short
+            if self.is_too_short(text):
+                self.stats['removed_by_length'] += 1
+                self.logger.debug(f"Removed by length: {text[:50]}")
+                continue
+
+            # Check compression ratio (repetitive text)
+            compression = self.calculate_compression_ratio(text)
+            if compression > 2.2:  # Threshold from config
+                self.stats['removed_by_compression'] += 1
+                self.logger.debug(f"Removed by compression ({compression:.2f}): {text[:50]}")
+                continue
+
+            filtered.append(seg)
+
+        # Step 2: Remove sequential duplicates
+        filtered = self.remove_sequential_duplicates(filtered)
+
+        # Log statistics
+        removed = self.stats['total_segments'] - len(filtered)
+        if removed > 0:
+            self.logger.info(f"🧹 Enhanced hallucination removal: {removed}/{self.stats['total_segments']} segments removed")
+            self.logger.info(f"   - By pattern: {self.stats['removed_by_pattern']}")
+            self.logger.info(f"   - By length: {self.stats['removed_by_length']}")
+            self.logger.info(f"   - By compression: {self.stats['removed_by_compression']}")
+            self.logger.info(f"   - By repetition: {self.stats['removed_by_repetition']}")
+        else:
+            self.logger.debug(f"Enhanced hallucination removal: All {self.stats['total_segments']} segments passed")
+
+        return filtered, self.stats
+
     def analyze_segments(
         self,
         segments: List[Dict]
@@ -237,53 +445,88 @@ class HallucinationRemover:
     
     def process_segments(
         self,
-        segments: List[Dict]
+        segments: List[Dict],
+        use_enhanced: bool = True
     ) -> Tuple[List[Dict], Dict]:
         """
-        Process segments to remove hallucinations
-        
+        Process segments to remove hallucinations.
+
         Args:
             segments: List of transcript segments
-            
+            use_enhanced: Use Phase 2 enhanced detection (default: True)
+
         Returns:
             Tuple of (cleaned_segments, stats)
         """
         if not segments:
             return segments, {'removed': 0, 'loops_detected': 0}
-        
+
         original_count = len(segments)
-        
+
         # Analyze before cleaning
         before_stats = self.analyze_segments(segments)
         self.logger.info(f"Before cleaning: {original_count} segments")
         self.logger.info(f"  Unique texts: {before_stats['unique_texts']}")
         self.logger.info(f"  Repetition rate: {before_stats['repetition_rate']:.2%}")
-        
-        # Detect looping hallucinations
-        loops = self.detect_looping_hallucinations(segments)
-        
-        # Remove loops
-        cleaned = self.remove_looping_hallucinations(segments, loops)
-        
-        # Analyze after cleaning
-        after_stats = self.analyze_segments(cleaned)
-        removed_count = original_count - len(cleaned)
-        
-        self.logger.info(f"After cleaning: {len(cleaned)} segments")
-        self.logger.info(f"  Removed: {removed_count} hallucinated segments")
-        self.logger.info(f"  Unique texts: {after_stats['unique_texts']}")
-        self.logger.info(f"  Repetition rate: {after_stats['repetition_rate']:.2%}")
-        
-        stats = {
-            'original_count': original_count,
-            'cleaned_count': len(cleaned),
-            'removed_count': removed_count,
-            'loops_detected': len(loops),
-            'loops_removed': loops,
-            'before_stats': before_stats,
-            'after_stats': after_stats
-        }
-        
+
+        # Phase 2: Use enhanced removal if enabled
+        if use_enhanced:
+            self.logger.info("Using Phase 2 enhanced hallucination removal")
+            cleaned, enhanced_stats = self.remove_hallucinations_enhanced(segments)
+
+            # Also detect loops for backward compatibility
+            loops = self.detect_looping_hallucinations(segments)
+
+            # Analyze after cleaning
+            after_stats = self.analyze_segments(cleaned)
+            removed_count = original_count - len(cleaned)
+
+            self.logger.info(f"After cleaning: {len(cleaned)} segments")
+            self.logger.info(f"  Removed: {removed_count} hallucinated segments")
+            self.logger.info(f"  Unique texts: {after_stats['unique_texts']}")
+            self.logger.info(f"  Repetition rate: {after_stats['repetition_rate']:.2%}")
+
+            stats = {
+                'original_count': original_count,
+                'cleaned_count': len(cleaned),
+                'removed_count': removed_count,
+                'loops_detected': len(loops),
+                'before_stats': before_stats,
+                'after_stats': after_stats,
+                'enhanced_stats': enhanced_stats,
+                'method': 'enhanced'
+            }
+
+        else:
+            # Original method (backward compatibility)
+            self.logger.info("Using original hallucination removal")
+
+            # Detect looping hallucinations
+            loops = self.detect_looping_hallucinations(segments)
+
+            # Remove loops
+            cleaned = self.remove_looping_hallucinations(segments, loops)
+
+            # Analyze after cleaning
+            after_stats = self.analyze_segments(cleaned)
+            removed_count = original_count - len(cleaned)
+
+            self.logger.info(f"After cleaning: {len(cleaned)} segments")
+            self.logger.info(f"  Removed: {removed_count} hallucinated segments")
+            self.logger.info(f"  Unique texts: {after_stats['unique_texts']}")
+            self.logger.info(f"  Repetition rate: {after_stats['repetition_rate']:.2%}")
+
+            stats = {
+                'original_count': original_count,
+                'cleaned_count': len(cleaned),
+                'removed_count': removed_count,
+                'loops_detected': len(loops),
+                'loops_removed': loops,
+                'before_stats': before_stats,
+                'after_stats': after_stats,
+                'method': 'original'
+            }
+
         return cleaned, stats
 
 

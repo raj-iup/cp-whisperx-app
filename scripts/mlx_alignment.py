@@ -64,13 +64,21 @@ def align_mlx_segments(
     with open(segments_file) as f:
         data = json.load(f)
     
-    segments = data.get("segments", [])
+    # Handle both dict {"segments": [...]} and list [...] formats
+    if isinstance(data, list):
+        segments = data
+    elif isinstance(data, dict):
+        segments = data.get("segments", [])
+    else:
+        logger.error(f"Unexpected segments format: {type(data)}")
+        return False
+    
     if not segments:
         logger.error("No segments found in input file")
         return False
     
     # Check if already aligned
-    has_words = segments[0].get("words") if segments else []
+    has_words = segments[0].get("words", []) if segments and isinstance(segments[0], dict) else []
     if has_words and len(has_words) > 0:
         logger.info(f"✓ Segments already have word-level timestamps ({len(has_words)} words in first segment)")
         logger.info("Skipping alignment - copying input to output")
@@ -164,9 +172,9 @@ def main():
             print("Either provide file arguments or ensure shared modules are accessible", file=sys.stderr)
             sys.exit(1)
         
-        # Pipeline mode: Use StageIO
-        stage_io = StageIO("alignment")
-        logger = get_stage_logger("alignment", stage_io=stage_io)
+        # Pipeline mode: Use StageIO with manifest tracking
+        stage_io = StageIO("alignment", enable_manifest=True)
+        logger = stage_io.get_stage_logger("DEBUG" if args.debug else "INFO")
         
         logger.info("=" * 60)
         logger.info("MLX ALIGNMENT STAGE: Word-level Timestamp Alignment")
@@ -184,14 +192,27 @@ def main():
         
         # Get paths from StageIO
         audio_file = stage_io.get_input_path("audio.wav", from_stage="demux")
-        segments_file = stage_io.get_input_path("transcript.json", from_stage="asr")
-        output_file = stage_io.get_output_path("aligned_transcript.json")
+        # Check transcripts/ directory first (after hallucination removal), then ASR output
+        transcripts_file = stage_io.output_base / "transcripts" / "segments.json"
+        asr_file = stage_io.get_input_path("segments.json", from_stage="asr")
+        segments_file = transcripts_file if transcripts_file.exists() else asr_file
+        output_file = stage_io.get_output_path("aligned_segments.json")
         
         logger.info(f"Input audio: {audio_file}")
         logger.info(f"Input segments: {segments_file}")
         logger.info(f"Output aligned: {output_file}")
         logger.info(f"Model: {model}")
         logger.info(f"Language: {language}")
+        
+        # Track inputs in manifest
+        stage_io.track_input(audio_file, "audio", format="wav")
+        stage_io.track_input(segments_file, "transcript", format="json")
+        
+        # Track configuration in manifest
+        stage_io.set_config({
+            "model": model,
+            "language": language
+        })
         
     else:
         # CLI mode: Use provided arguments
@@ -236,24 +257,64 @@ def main():
         
         if use_pipeline:
             if success:
+                # Track output in manifest
+                stage_io.track_output(output_file, "transcript",
+                                     format="json",
+                                     aligned=True,
+                                     language=language)
+                
+                # Finalize manifest with success
+                stage_io.finalize(status="success",
+                                 model=model,
+                                 alignment_method="mlx_whisper")
+                
                 logger.info("=" * 60)
                 logger.info("MLX ALIGNMENT STAGE COMPLETED SUCCESSFULLY")
                 logger.info("=" * 60)
+                logger.info(f"Stage log: {stage_io.stage_log.relative_to(stage_io.output_base)}")
+                logger.info(f"Stage manifest: {stage_io.manifest_path.relative_to(stage_io.output_base)}")
             else:
+                stage_io.add_error("Alignment failed")
+                stage_io.finalize(status="failed")
                 logger.error("=" * 60)
                 logger.error("MLX ALIGNMENT STAGE FAILED")
                 logger.error("=" * 60)
         
         sys.exit(0 if success else 1)
         
+    except FileNotFoundError as e:
+        logger.error(f"File not found: {e}", exc_info=True)
+        if use_pipeline:
+            stage_io.add_error(f"File not found: {e}")
+            stage_io.finalize(status="failed", error=str(e))
+        sys.exit(1)
+    
+    except IOError as e:
+        logger.error(f"I/O error: {e}", exc_info=True)
+        if use_pipeline:
+            stage_io.add_error(f"I/O error: {e}")
+            stage_io.finalize(status="failed", error=str(e))
+        sys.exit(1)
+    
+    except RuntimeError as e:
+        logger.error(f"MLX runtime error: {e}", exc_info=True)
+        if use_pipeline:
+            stage_io.add_error(f"MLX alignment error: {e}")
+            stage_io.finalize(status="failed", error=str(e))
+        sys.exit(1)
+    
     except KeyboardInterrupt:
         logger.warning("✗ Alignment interrupted by user")
+        if use_pipeline:
+            stage_io.add_error("Interrupted by user")
+            stage_io.finalize(status="failed", error="KeyboardInterrupt")
         sys.exit(130)
+    
     except Exception as e:
-        logger.error(f"✗ Alignment failed with unexpected error: {e}")
-        if args.debug:
-            import traceback
-            logger.error(traceback.format_exc())
+        logger.error(f"✗ Unexpected error: {e}", exc_info=True)
+        if use_pipeline:
+            stage_io.add_error(f"Unexpected error: {e}")
+            stage_io.finalize(status="failed", error=str(e))
         sys.exit(1)
 
 

@@ -1,6 +1,26 @@
 #!/usr/bin/env python3
 """
-Unified Glossary Manager - Single Source of Truth
+Unified Glossary Manager - DEPRECATED
+
+⚠️ DEPRECATION NOTICE:
+This module is deprecated and will be removed in v2.0.0.
+Use UnifiedGlossaryManager from shared.glossary_manager instead.
+
+Migration Guide:
+    Old:
+        from shared.glossary_unified import UnifiedGlossary
+        glossary = UnifiedGlossary(glossary_path=path, film_name=name)
+    
+    New:
+        from shared.glossary_manager import UnifiedGlossaryManager
+        manager = UnifiedGlossaryManager(
+            project_root=project_root,
+            film_title=title,
+            film_year=year
+        )
+        manager.load_all_sources()
+
+See shared/GLOSSARY_ARCHITECTURE.md for complete migration guide.
 
 Combines:
 - Master glossary (manual, authoritative)
@@ -11,6 +31,7 @@ Combines:
 Priority: Manual > Film-specific > Learned > Cached
 """
 
+import warnings
 import re
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Any
@@ -18,10 +39,22 @@ import logging
 from collections import defaultdict
 import pandas as pd
 
+# Issue deprecation warning when module is imported
+warnings.warn(
+    "shared.glossary_unified is deprecated and will be removed in v2.0.0. "
+    "Use UnifiedGlossaryManager from shared.glossary_manager instead. "
+    "See shared/GLOSSARY_ARCHITECTURE.md for migration guide.",
+    DeprecationWarning,
+    stacklevel=2
+)
+
 
 class UnifiedGlossary:
     """
-    Single source of truth for glossary management
+    DEPRECATED: Single source of truth for glossary management
+    
+    ⚠️ This class is deprecated. Use UnifiedGlossaryManager from
+    shared.glossary_manager instead.
     
     Manages all glossary sources with priority cascade:
     1. Film-specific overrides (highest priority)
@@ -40,12 +73,21 @@ class UnifiedGlossary:
         """
         Initialize unified glossary
         
+        DEPRECATED: Use UnifiedGlossaryManager instead.
+        
         Args:
             glossary_path: Path to unified glossary TSV
             film_name: Film name for film-specific overrides
             logger: Optional logger
             enable_learning: Enable frequency-based learning
         """
+        warnings.warn(
+            "UnifiedGlossary is deprecated. Use UnifiedGlossaryManager from "
+            "shared.glossary_manager instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        
         self.logger = logger or logging.getLogger(__name__)
         self.film_name = film_name
         self.enable_learning = enable_learning

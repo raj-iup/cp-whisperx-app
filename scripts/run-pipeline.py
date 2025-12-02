@@ -42,6 +42,28 @@ def format_timestamp_srt(seconds: float) -> str:
     return f"{hours:02d}:{minutes:02d}:{secs:02d},{millis:03d}"
 
 
+def normalize_segments_data(data):
+    """
+    Normalize segments data to consistent dict format.
+    Handles both list [...] and dict {"segments": [...]} formats.
+    
+    Args:
+        data: Either a list of segments or a dict containing segments
+        
+    Returns:
+        Tuple of (data_dict, segments_list)
+    """
+    if isinstance(data, list):
+        segments = data
+        data = {"segments": segments}
+    elif isinstance(data, dict):
+        segments = data.get("segments", [])
+    else:
+        segments = []
+    
+    return data, segments
+
+
 def generate_srt_from_segments(segments: List[Dict], output_path: Path) -> bool:
     """Generate SRT subtitle file from segments"""
     try:
@@ -95,18 +117,29 @@ class IndicTrans2Pipeline:
         self.debug = self.job_config.get("debug", False)
         log_level = "DEBUG" if self.debug else "INFO"
         
-        # Setup logging
+        # Setup logging - DUAL logging architecture:
+        # 1. Main pipeline log: High-level orchestration
+        # 2. Stage logs: Detailed logs in each stage subdirectory
         log_dir = job_dir / "logs"
         log_dir.mkdir(exist_ok=True)
         
-        # Create log file path
-        log_file = log_dir / "pipeline.log"
+        # Create main pipeline log file (99_pipeline_*.log for clarity)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        log_file = log_dir / f"99_pipeline_{timestamp}.log"
         
         self.logger = PipelineLogger(
             module_name="pipeline",
             log_file=log_file,
             log_level=log_level
         )
+        
+        self.logger.info("=" * 80)
+        self.logger.info("PIPELINE LOGGING ARCHITECTURE")
+        self.logger.info("=" * 80)
+        self.logger.info(f"📋 Main pipeline log: {log_file.relative_to(job_dir)}")
+        self.logger.info(f"📋 Stage logs: Each stage writes to its own subdirectory")
+        self.logger.info(f"📋 Stage manifests: Track inputs/outputs/intermediate files")
+        self.logger.info("")
         
         if self.debug:
             self.logger.info("🐛 DEBUG MODE ENABLED - Verbose logging active")
@@ -632,15 +665,24 @@ class IndicTrans2Pipeline:
     def _stage_demux(self) -> bool:
         """Stage 1: Extract audio from video (full or clipped)"""
         
+        # Initialize stage I/O and manifest
+        from shared.stage_utils import StageIO
+        stage_io = StageIO("demux", self.job_dir, enable_manifest=True)
+        stage_logger = stage_io.get_stage_logger("DEBUG" if self.debug else "INFO")
+        
         # Input/output setup
         input_media = Path(self.job_config["input_media"])
-        stage_dir = self.job_dir / "01_demux"
-        stage_dir.mkdir(parents=True, exist_ok=True)
-        audio_output = stage_dir / "audio.wav"
+        stage_dir = stage_io.stage_dir
+        audio_output = stage_io.get_output_path("audio.wav")
         
-        # Log input/output
+        # Track input in manifest
+        stage_io.track_input(input_media, "video", format=input_media.suffix[1:])
+        
+        # Log input/output (to both stage log and pipeline log)
         self.logger.info(f"📥 Input: {input_media.relative_to(PROJECT_ROOT) if input_media.is_relative_to(PROJECT_ROOT) else input_media}")
         self.logger.info(f"📤 Output: {audio_output.relative_to(self.job_dir)}")
+        stage_logger.info(f"Input media: {input_media}")
+        stage_logger.info(f"Output directory: {stage_dir}")
         
         # Get media processing configuration
         media_config = self.job_config.get("media_processing", {})
@@ -648,10 +690,21 @@ class IndicTrans2Pipeline:
         start_time = media_config.get("start_time", "")
         end_time = media_config.get("end_time", "")
         
+        # Add config to manifest
+        stage_io.set_config({
+            "processing_mode": processing_mode,
+            "start_time": start_time,
+            "end_time": end_time,
+            "sample_rate": "16000",
+            "channels": "1"
+        })
+        
         if processing_mode == "clip":
             self.logger.info(f"Extracting audio clip (from {start_time} to {end_time})...")
+            stage_logger.info(f"Clip mode: {start_time} to {end_time}")
         else:
             self.logger.info("Extracting audio from full media...")
+            stage_logger.info("Full media extraction")
         
         # Build ffmpeg command
         cmd = ["ffmpeg", "-y"]
@@ -696,18 +749,62 @@ class IndicTrans2Pipeline:
             
             if self.debug and result.stderr:
                 self.logger.debug(f"FFmpeg output: {result.stderr}")
+                stage_logger.debug(f"FFmpeg stderr:\n{result.stderr}")
             
             if audio_output.exists():
                 size_mb = audio_output.stat().st_size / (1024 * 1024)
                 mode_str = f"clip ({start_time} to {end_time})" if processing_mode == "clip" else "full media"
+                
+                # Track output in manifest
+                stage_io.track_output(audio_output, "audio", 
+                                     format="wav", 
+                                     sample_rate=16000,
+                                     channels=1,
+                                     size_mb=round(size_mb, 2))
+                
+                # Finalize manifest with success
+                stage_io.finalize(status="success", 
+                                 output_size_mb=round(size_mb, 2),
+                                 processing_mode=processing_mode)
+                
                 self.logger.info(f"✓ Audio extracted from {mode_str}: {audio_output.name} ({size_mb:.1f} MB)")
+                stage_logger.info(f"Successfully extracted audio: {size_mb:.1f} MB")
+                stage_logger.info(f"Stage log: {stage_io.stage_log.relative_to(self.job_dir)}")
+                stage_logger.info(f"Stage manifest: {stage_io.manifest_path.relative_to(self.job_dir)}")
                 return True
             else:
+                stage_io.add_error("Audio extraction failed - no output file")
+                stage_io.finalize(status="failed")
                 self.logger.error("Audio extraction failed")
+                stage_logger.error("Audio extraction failed - no output file")
                 return False
                 
         except subprocess.CalledProcessError as e:
-            self.logger.error(f"FFmpeg error: {e.stderr}")
+            self.logger.error(f"FFmpeg failed: {e}")
+            stage_logger.error(f"FFmpeg command failed: {e.stderr if e.stderr else str(e)}", exc_info=True)
+            stage_io.add_error(f"FFmpeg command failed: {e}")
+            stage_io.finalize(status="failed", error="Demux failed")
+            return False
+        
+        except FileNotFoundError as e:
+            self.logger.error(f"Input file not found: {e}")
+            stage_logger.error(f"Input file not found: {e}", exc_info=True)
+            stage_io.add_error(f"Input file not found: {e}")
+            stage_io.finalize(status="failed", error=str(e))
+            return False
+        
+        except IOError as e:
+            self.logger.error(f"I/O error: {e}")
+            stage_logger.error(f"I/O error during demux: {e}", exc_info=True)
+            stage_io.add_error(f"I/O error: {e}")
+            stage_io.finalize(status="failed", error=str(e))
+            return False
+        
+        except Exception as e:
+            self.logger.error(f"Unexpected error: {e}", exc_info=True)
+            stage_logger.error(f"Unexpected error during demux: {e}", exc_info=True)
+            stage_io.add_error(f"Unexpected error: {e}")
+            stage_io.finalize(status="failed", error=str(e))
             return False
     
     def _stage_tmdb_enrichment(self) -> bool:
@@ -1275,7 +1372,47 @@ class IndicTrans2Pipeline:
                 self.logger.error(f"Error output: {result.stderr}")
             return False
         
-        return True
+        # Add retry logic for file detection with exponential backoff
+        import time
+        segments_file = output_dir / "segments.json"
+        
+        # Retry up to 5 times with exponential backoff
+        for attempt in range(5):
+            if segments_file.exists():
+                break
+            if attempt < 4:
+                wait_time = 0.1 * (2 ** attempt)  # 0.1, 0.2, 0.4, 0.8, 1.6 seconds
+                self.logger.debug(f"segments.json not found, retrying in {wait_time}s (attempt {attempt+1}/5)")
+                time.sleep(wait_time)
+            else:
+                self.logger.error(f"Transcription failed - segments.json not found after 5 attempts")
+                self.logger.error(f"  Checked: {segments_file}")
+                self.logger.error(f"  Directory contents: {list(output_dir.glob('*'))}")
+                return False
+        
+        # File exists, proceed with verification and copy
+        file_size = segments_file.stat().st_size
+        self.logger.info(f"✓ Transcription completed: {segments_file.relative_to(self.job_dir)}")
+        self.logger.info(f"  File size: {file_size} bytes")
+        
+        # Copy to transcripts/ for compatibility
+        import shutil
+        transcripts_dir = self.job_dir / "transcripts"
+        transcripts_dir.mkdir(parents=True, exist_ok=True)
+        dest_file = transcripts_dir / "segments.json"
+        shutil.copy2(segments_file, dest_file)
+        
+        # Verify copy
+        if dest_file.exists() and dest_file.stat().st_size == file_size:
+            self.logger.info(f"✓ Copied to: transcripts/segments.json ({file_size} bytes)")
+            return True
+        else:
+            self.logger.error(f"Copy verification failed")
+            self.logger.error(f"  Source: {segments_file} ({file_size} bytes)")
+            self.logger.error(f"  Dest exists: {dest_file.exists()}")
+            if dest_file.exists():
+                self.logger.error(f"  Dest size: {dest_file.stat().st_size} bytes")
+            return False
     
     def _stage_asr_mlx(self, audio_file: Path, output_dir: Path, 
                        source_lang: str, model: str, vad_segments: list = None) -> bool:
@@ -1487,9 +1624,11 @@ print(f"Transcription completed: {{len(segments)}} segments")
         
         # Load segments
         with open(segments_file) as f:
-            data = json.load(f)
+            raw_data = json.load(f)
         
-        segments = data.get("segments", [])
+        # Normalize to consistent format
+        data, segments = normalize_segments_data(raw_data)
+        
         if not segments:
             self.logger.error("No segments found in transcript")
             return False
@@ -1608,9 +1747,9 @@ print(f"Transcription completed: {{len(segments)}} segments")
             # Verify output
             if output_file.exists():
                 with open(output_file) as f:
-                    data = json.load(f)
+                    raw_data = json.load(f)
                 
-                segments = data.get("segments", [])
+                data, segments = normalize_segments_data(raw_data)
                 total_words = sum(len(seg.get("words", [])) for seg in segments)
                 
                 self.logger.info(f"✓ Alignment completed: {len(segments)} segments, {total_words} words")
@@ -1672,26 +1811,38 @@ print(f"Transcription completed: {{len(segments)}} segments")
     def _stage_load_transcript(self) -> bool:
         """Stage: Load transcript from ASR stage"""
         
-        # Read from ASR stage output (also available in transcripts/)
+        # Prefer cleaned transcript from transcripts/ (after hallucination removal)
+        # Fall back to raw ASR output if not available
+        transcript_file = self.job_dir / "transcripts" / "segments.json"
         segments_file = self._stage_path("asr") / "segments.json"
         
-        # Log input
-        self.logger.info(f"📥 Input: {segments_file.relative_to(self.job_dir)}")
-        self.logger.info("Loading transcript...")
-        
-        if not segments_file.exists():
-            self.logger.error(f"Transcript not found: {segments_file}")
+        # Use cleaned transcript if available, otherwise raw ASR output
+        if transcript_file.exists():
+            load_file = transcript_file
+            self.logger.info("Using cleaned transcript (after hallucination removal)")
+        elif segments_file.exists():
+            load_file = segments_file
+            self.logger.info("Using raw ASR transcript")
+        else:
+            self.logger.error("Transcript not found in transcripts/ or asr stage!")
             self.logger.error("Run transcribe workflow first!")
             return False
         
-        with open(segments_file) as f:
-            data = json.load(f)
+        # Log input
+        self.logger.info(f"📥 Input: {load_file.relative_to(self.job_dir)}")
+        self.logger.info("Loading transcript...")
         
-        if "segments" not in data or len(data["segments"]) == 0:
+        with open(load_file) as f:
+            raw_data = json.load(f)
+        
+        # Normalize data format (handles both list and dict formats)
+        data, segments = normalize_segments_data(raw_data)
+        
+        if not segments or len(segments) == 0:
             self.logger.error("No segments in transcript")
             return False
         
-        self.logger.info(f"Loaded {len(data['segments'])} segments")
+        self.logger.info(f"Loaded {len(segments)} segments")
         return True
     
     def _stage_hybrid_translation(self) -> bool:
@@ -1816,7 +1967,9 @@ print(f"Transcription completed: {{len(segments)}} segments")
             if output_file.exists():
                 # Load and report statistics
                 with open(output_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
+                    raw_data = json.load(f)
+                
+                data, segments = normalize_segments_data(raw_data)
                 
                 stats = data.get('translation_stats', {})
                 if stats:
@@ -1831,7 +1984,7 @@ print(f"Transcription completed: {{len(segments)}} segments")
                 if hasattr(self, 'glossary_manager') and self.glossary_manager:
                     try:
                         glossary_applied_count = 0
-                        for segment in data.get('segments', []):
+                        for segment in segments:
                             if 'text' in segment:
                                 original_text = segment['text']
                                 polished_text = self.glossary_manager.apply_to_text(
@@ -1978,10 +2131,12 @@ print(f"Translated {{len(translated['segments'])}} segments")
                 if hasattr(self, 'glossary_manager') and self.glossary_manager:
                     try:
                         with open(output_file, 'r', encoding='utf-8') as f:
-                            data = json.load(f)
+                            raw_data = json.load(f)
+                        
+                        data, segments = normalize_segments_data(raw_data)
                         
                         glossary_applied_count = 0
-                        for segment in data.get('segments', []):
+                        for segment in segments:
                             if 'text' in segment:
                                 original_text = segment['text']
                                 polished_text = self.glossary_manager.apply_to_text(
@@ -2049,8 +2204,8 @@ print(f"Translated {{len(translated['segments'])}} segments")
         # Load translated segments
         try:
             with open(segments_file, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                segments = data.get('segments', [])
+                raw_data = json.load(f)
+                data, segments = normalize_segments_data(raw_data)
         except Exception as e:
             self.logger.error(f"Failed to load segments: {e}")
             return False
@@ -2106,8 +2261,8 @@ print(f"Translated {{len(translated['segments'])}} segments")
         # Load segments
         try:
             with open(segments_file, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                segments = data.get('segments', [])
+                raw_data = json.load(f)
+                data, segments = normalize_segments_data(raw_data)
         except Exception as e:
             self.logger.error(f"Failed to load segments: {e}")
             return False
@@ -2438,8 +2593,8 @@ print(f"Translated {{len(translated['segments'])}} segments to {target_lang}")
         # Load translated segments
         try:
             with open(segments_file, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                segments = data.get('segments', [])
+                raw_data = json.load(f)
+                data, segments = normalize_segments_data(raw_data)
         except Exception as e:
             self.logger.error(f"Failed to load {target_lang} segments: {e}")
             return False
@@ -2466,8 +2621,8 @@ print(f"Translated {{len(translated['segments'])}} segments to {target_lang}")
         # Load translated segments
         try:
             with open(segments_file, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                segments = data.get('segments', [])
+                raw_data = json.load(f)
+                data, segments = normalize_segments_data(raw_data)
         except Exception as e:
             self.logger.error(f"Failed to load segments: {e}")
             return False

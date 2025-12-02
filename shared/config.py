@@ -200,7 +200,25 @@ class PipelineConfig(BaseSettings):
     subtitle_min_duration: float = Field(default=1.0, env="SUBTITLE_MIN_DURATION")
     subtitle_merge_short: bool = Field(default=True, env="SUBTITLE_MERGE_SHORT")
     
-    # Glossary system (Advanced strategies)
+    # ========================================================================
+    # Glossary System Configuration
+    # ========================================================================
+    
+    # Glossary Builder Configuration (Stage 3)
+    glossary_enable: bool = Field(default=True, env="GLOSSARY_ENABLE")
+    glossary_seed_sources: str = Field(default="asr,tmdb,master", env="GLOSSARY_SEED_SOURCES")
+    glossary_min_conf: float = Field(default=0.55, env="GLOSSARY_MIN_CONF")
+    glossary_master: str = Field(default="glossary/hinglish_master.tsv", env="GLOSSARY_MASTER")
+    glossary_prompts_dir: str = Field(default="glossary/prompts", env="GLOSSARY_PROMPTS_DIR")
+    glossary_cache_dir: str = Field(default="glossary/cache", env="GLOSSARY_CACHE_DIR")
+    glossary_cache_enabled: bool = Field(default=True, env="GLOSSARY_CACHE_ENABLED")
+    glossary_cache_ttl_days: int = Field(default=30, env="GLOSSARY_CACHE_TTL_DAYS")
+    glossary_learning_enabled: bool = Field(default=False, env="GLOSSARY_LEARNING_ENABLED")
+    glossary_auto_learn: bool = Field(default=True, env="GLOSSARY_AUTO_LEARN")
+    glossary_min_occurrences: int = Field(default=2, env="GLOSSARY_MIN_OCCURRENCES")
+    glossary_confidence_threshold: int = Field(default=3, env="GLOSSARY_CONFIDENCE_THRESHOLD")
+    
+    # Legacy Glossary Configuration (for subtitle-gen stage)
     glossary_enabled: bool = Field(default=True, env="GLOSSARY_ENABLED")
     glossary_path: str = Field(default="glossary/hinglish_master.tsv", env="GLOSSARY_PATH")
     glossary_strategy: str = Field(default="adaptive", env="GLOSSARY_STRATEGY")

@@ -47,6 +47,17 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from shared.logger import PipelineLogger
 from whisper_backends import create_backend, get_recommended_backend
 
+# Audio loading utility
+try:
+    from whisperx.audio import load_audio
+except ImportError:
+    # Fallback for MLX environment without whisperx
+    import librosa
+    def load_audio(file: str, sr: int = 16000):
+        """Load audio file and resample to target sample rate"""
+        audio, _ = librosa.load(file, sr=sr, mono=True)
+        return audio
+
 # Import IndicTrans2 translator - LAZY LOADED
 # Note: Only imported when actually needed to avoid cross-environment dependencies
 # The MLX environment doesn't have transformers, so we can't import this at module level
@@ -267,6 +278,78 @@ class WhisperXProcessor:
         except:
             pass
 
+    def filter_low_confidence_segments(
+        self,
+        segments: List[Dict[str, Any]],
+        min_logprob: float = -0.7,
+        min_duration: float = 0.1
+    ) -> List[Dict[str, Any]]:
+        """
+        Filter out low-confidence and zero-duration segments (Phase 1 optimization).
+
+        This implements confidence-based filtering to remove:
+        - Segments with low average log probability (likely hallucinations)
+        - Zero-duration or very short segments (timing errors)
+        - Empty text segments
+
+        Args:
+            segments: List of transcription segments
+            min_logprob: Minimum average log probability (-0.7 recommended)
+            min_duration: Minimum segment duration in seconds (0.1s recommended)
+
+        Returns:
+            Filtered segments list
+        """
+        if not segments:
+            return segments
+
+        filtered = []
+        removed_count = 0
+        removed_by_confidence = 0
+        removed_by_duration = 0
+        removed_by_empty = 0
+
+        for seg in segments:
+            # Check for empty text
+            text = seg.get('text', '').strip()
+            if not text:
+                removed_by_empty += 1
+                removed_count += 1
+                continue
+
+            # Check confidence (avg_logprob)
+            avg_logprob = seg.get('avg_logprob', 0)
+            if avg_logprob < min_logprob:
+                removed_by_confidence += 1
+                removed_count += 1
+                self.logger.debug(f"  Filtered low confidence ({avg_logprob:.2f}): {text[:50]}")
+                continue
+
+            # Check duration
+            start = seg.get('start', 0)
+            end = seg.get('end', 0)
+            duration = end - start
+
+            if duration < min_duration:
+                removed_by_duration += 1
+                removed_count += 1
+                self.logger.debug(f"  Filtered short duration ({duration:.3f}s): {text[:50]}")
+                continue
+
+            # Passed all filters
+            filtered.append(seg)
+
+        # Log filtering statistics
+        if removed_count > 0:
+            self.logger.info(f"  📊 Confidence filtering: Removed {removed_count}/{len(segments)} segments")
+            self.logger.info(f"     - By confidence: {removed_by_confidence}")
+            self.logger.info(f"     - By duration: {removed_by_duration}")
+            self.logger.info(f"     - By empty text: {removed_by_empty}")
+        else:
+            self.logger.debug(f"  Confidence filtering: All {len(segments)} segments passed")
+
+        return filtered
+
     def transcribe_with_bias(
         self,
         audio_file: str,
@@ -381,8 +464,22 @@ class WhisperXProcessor:
     
     def _get_audio_duration(self, audio_file: str) -> float:
         """Get audio duration in seconds"""
-        audio = load_audio(audio_file)
-        return len(audio) / 16000  # 16kHz sample rate
+        # Use librosa to get duration directly (more efficient than loading full audio)
+        try:
+            import librosa
+            duration = librosa.get_duration(path=audio_file)
+            return duration
+        except Exception as e:
+            # Fallback: load and calculate duration
+            try:
+                audio = load_audio(audio_file)
+                return len(audio) / 16000  # 16kHz sample rate
+            except:
+                # Last resort: use file size estimate (very rough)
+                import os
+                file_size = os.path.getsize(audio_file)
+                # Rough estimate: 32-bit float at 16kHz stereo = ~128KB/sec
+                return file_size / 128000
     
     def _transcribe_whole(
         self,
@@ -444,6 +541,13 @@ class WhisperXProcessor:
             # Always cleanup MPS memory
             cleanup_mps_memory(self.logger)
             log_mps_memory(self.logger, "  After transcription - ")
+
+        # Phase 1: Apply confidence-based filtering
+        segments = result.get('segments', [])
+        min_logprob = float(os.getenv('WHISPER_LOGPROB_THRESHOLD', -0.7))
+        min_duration = float(os.getenv('WHISPER_MIN_DURATION', 0.1))
+        filtered_segments = self.filter_low_confidence_segments(segments, min_logprob, min_duration)
+        result['segments'] = filtered_segments
 
         # Apply bias window metadata to segments (for reference)
         if bias_windows:
@@ -517,19 +621,26 @@ class WhisperXProcessor:
                 batch_size=batch_size,
                 initial_prompt=initial_prompt
             )
-            
+
             self.logger.info(f"  ✓ Hybrid transcription complete: {len(result.get('segments', []))} segments")
-            
+
         except Exception as e:
             self.logger.error(f"  ✗ Hybrid transcription failed: {e}")
             raise
         finally:
             cleanup_mps_memory(self.logger)
             log_mps_memory(self.logger, "  After hybrid transcription - ")
-        
+
+        # Phase 1: Apply confidence-based filtering
+        segments = result.get('segments', [])
+        min_logprob = float(os.getenv('WHISPER_LOGPROB_THRESHOLD', -0.7))
+        min_duration = float(os.getenv('WHISPER_MIN_DURATION', 0.1))
+        filtered_segments = self.filter_low_confidence_segments(segments, min_logprob, min_duration)
+        result['segments'] = filtered_segments
+
         # Add window-specific metadata post-processing
         result = self._apply_bias_context(result, bias_windows)
-        
+
         return result
     
     def _transcribe_windowed_chunks(
@@ -562,6 +673,15 @@ class WhisperXProcessor:
         import whisperx
         import numpy as np
         
+        # Import load_audio with fallback
+        try:
+            from whisperx.audio import load_audio as _load_audio
+        except ImportError:
+            import librosa
+            def _load_audio(file: str, sr: int = 16000):
+                audio, _ = librosa.load(file, sr=sr, mono=True)
+                return audio
+        
         if not bias_windows:
             # Fall back to regular transcription
             return self.backend.transcribe(
@@ -576,7 +696,7 @@ class WhisperXProcessor:
         self.logger.info(f"    • Window-specific bias terms (adaptive)")
         
         # Load full audio
-        audio = load_audio(audio_file)
+        audio = _load_audio(audio_file)
         sample_rate = 16000  # Whisper standard sample rate
         
         all_segments = []
@@ -635,14 +755,19 @@ class WhisperXProcessor:
                 cleanup_mps_memory(self.logger)
         
         self.logger.info(f"  Merging {len(all_segments)} segments from {total_windows} windows...")
-        
+
         # Merge overlapping segments from adjacent windows
         merged_segments = self._merge_overlapping_segments(all_segments)
-        
-        self.logger.info(f"  ✓ Chunked transcription complete: {len(merged_segments)} merged segments")
-        
+
+        # Phase 1: Apply confidence-based filtering
+        min_logprob = float(os.getenv('WHISPER_LOGPROB_THRESHOLD', -0.7))
+        min_duration = float(os.getenv('WHISPER_MIN_DURATION', 0.1))
+        filtered_segments = self.filter_low_confidence_segments(merged_segments, min_logprob, min_duration)
+
+        self.logger.info(f"  ✓ Chunked transcription complete: {len(filtered_segments)} merged segments")
+
         return {
-            "segments": merged_segments,
+            "segments": filtered_segments,
             "language": source_lang,
             "bias_strategy": "chunked_windows",
             "num_windows": total_windows
@@ -761,7 +886,14 @@ class WhisperXProcessor:
         # Merge all chunks
         self.logger.info(f"  Merging {len(chunk_results)} processed chunks...")
         merged_result = chunker.merge_chunk_results(chunk_results)
-        
+
+        # Phase 1: Apply confidence-based filtering
+        segments = merged_result.get('segments', [])
+        min_logprob = float(os.getenv('WHISPER_LOGPROB_THRESHOLD', -0.7))
+        min_duration = float(os.getenv('WHISPER_MIN_DURATION', 0.1))
+        filtered_segments = self.filter_low_confidence_segments(segments, min_logprob, min_duration)
+        merged_result['segments'] = filtered_segments
+
         return merged_result
     
     def _process_chunk_with_retry(
@@ -924,10 +1056,16 @@ class WhisperXProcessor:
         standard_json = output_dir / "transcript.json"
         with open(standard_json, "w", encoding="utf-8") as f:
             json.dump(result, f, indent=2, ensure_ascii=False)
+            f.flush()
+            os.fsync(f.fileno())  # Ensure data is written to disk
+        self.logger.info(f"  Saved with sync: {standard_json}")
         
         standard_segments = output_dir / "segments.json"
         with open(standard_segments, "w", encoding="utf-8") as f:
             json.dump(segments, f, indent=2, ensure_ascii=False)
+            f.flush()
+            os.fsync(f.fileno())  # Ensure data is written to disk
+        self.logger.info(f"  Saved with sync: {standard_segments}")
 
     def _save_as_srt(self, segments: List[Dict], srt_file: Path):
         """
@@ -1208,12 +1346,12 @@ def main():
     import os
     import json
     from pathlib import Path
-    from shared.stage_utils import StageIO, get_stage_logger
+    from shared.stage_utils import StageIO
     from shared.config import load_config
     
-    # Set up stage I/O and logging
-    stage_io = StageIO("asr")
-    logger = get_stage_logger("asr", log_level="DEBUG", stage_io=stage_io)
+    # Set up stage I/O with manifest tracking
+    stage_io = StageIO("asr", enable_manifest=True)
+    logger = stage_io.get_stage_logger("DEBUG")
     
     logger.info("=" * 60)
     logger.info("ASR STAGE: Automatic Speech Recognition")
@@ -1233,7 +1371,12 @@ def main():
     audio_file = stage_io.get_input_path("audio.wav", from_stage="demux")
     if not audio_file.exists():
         logger.error(f"Audio file not found: {audio_file}")
+        stage_io.add_error(f"Audio file not found: {audio_file}")
+        stage_io.finalize(status="failed", error="Input file not found")
         return 1
+    
+    # Track input in manifest
+    stage_io.track_input(audio_file, "audio", format="wav")
     
     logger.info(f"Input audio: {audio_file}")
     logger.info(f"Output directory: {output_dir}")
@@ -1274,6 +1417,17 @@ def main():
     logger.info(f"Compute type: {compute_type}")
     logger.info(f"Backend: {backend}")
     logger.info(f"Workflow mode: {workflow_mode}")
+    
+    # Track configuration in manifest
+    stage_io.set_config({
+        "model": model_name,
+        "source_language": source_lang,
+        "target_language": target_lang,
+        "device": device,
+        "compute_type": compute_type,
+        "backend": backend,
+        "workflow_mode": workflow_mode
+    })
     
     # Language-specific parameter tuning
     # For non-Hindi/English pairs, use stricter parameters for better quality
@@ -1439,16 +1593,64 @@ def main():
         
         logger.info(f"✓ ASR completed successfully")
         logger.info(f"  Segments: {len(result.get('segments', []))}")
+        
+        # Track outputs in manifest
+        segments_file = output_dir / f"{basename}.json"
+        if segments_file.exists():
+            stage_io.track_output(segments_file, "transcript",
+                                 format="json",
+                                 segments=len(result.get('segments', [])),
+                                 language=source_lang)
+        
+        # Track translation if it exists
+        translation_file = output_dir / f"{basename}.{target_lang}.json"
+        if translation_file.exists():
+            stage_io.track_output(translation_file, "transcript",
+                                 format="json",
+                                 language=target_lang)
+        
+        # Finalize manifest with success
+        stage_io.finalize(status="success",
+                         segments_count=len(result.get('segments', [])),
+                         model=model_name,
+                         backend=backend)
+        
         logger.info("=" * 60)
         logger.info("ASR STAGE COMPLETED")
         logger.info("=" * 60)
+        logger.info(f"Stage log: {stage_io.stage_log.relative_to(stage_io.output_base)}")
+        logger.info(f"Stage manifest: {stage_io.manifest_path.relative_to(stage_io.output_base)}")
         
         return 0
         
+    except FileNotFoundError as e:
+        logger.error(f"File not found: {e}", exc_info=True)
+        stage_io.add_error(f"File not found: {e}")
+        stage_io.finalize(status="failed", error=str(e))
+        return 1
+    
+    except IOError as e:
+        logger.error(f"I/O error: {e}", exc_info=True)
+        stage_io.add_error(f"I/O error: {e}")
+        stage_io.finalize(status="failed", error=str(e))
+        return 1
+    
+    except RuntimeError as e:
+        logger.error(f"WhisperX runtime error: {e}", exc_info=True)
+        stage_io.add_error(f"WhisperX error: {e}")
+        stage_io.finalize(status="failed", error=str(e))
+        return 1
+    
+    except KeyboardInterrupt:
+        logger.warning("Interrupted by user")
+        stage_io.add_error("User interrupted")
+        stage_io.finalize(status="failed", error="Interrupted")
+        return 130
+    
     except Exception as e:
-        logger.error(f"WhisperX pipeline failed: {e}")
-        import traceback
-        logger.error(traceback.format_exc())
+        logger.error(f"Unexpected error: {e}", exc_info=True)
+        stage_io.add_error(f"Unexpected error: {e}")
+        stage_io.finalize(status="failed", error=str(e))
         return 1
 
 

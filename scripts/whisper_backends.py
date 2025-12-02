@@ -553,8 +553,8 @@ class MLXWhisperBackend(WhisperBackend):
         gc.collect()
         try:
             import mlx.core as mx
-            # Clear MLX memory cache
-            mx.metal.clear_cache()
+            # Clear MLX memory cache (use mx.clear_cache instead of deprecated mx.metal.clear_cache)
+            mx.clear_cache()
         except:
             pass
 

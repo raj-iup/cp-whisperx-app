@@ -275,4 +275,112 @@ ls -lh out/meeting/
 
 ---
 
+# Quickstart Guide — Glossary System
+
+This quickstart demonstrates how to run the project's three main phases (baseline, glossary, cache) with the provided example media.
+
+Default sample media:
+- /Users/rpatel/Projects/cp-whisperx-app/in/Jaane Tu Ya Jaane Na 2008.mp4
+
+Prerequisites:
+- Ensure Python and required venvs are installed.
+- Optionally run the Demucs bootstrap (if you request source separation):
+  - ./scripts/bootstrap.sh venv/demucs mps
+
+Quickstart steps (interactive or auto mode):
+
+1) Auto-run:
+   - ./test-glossary-quickstart.sh --auto
+   - This runs baseline, glossary, and cache phases automatically with default clip times (00:00:00-00:05:00).
+
+2) Run as CI (fail on cache verification):
+   - ./test-glossary-quickstart.sh --auto --ci
+
+3) Run with explicit device/device detection:
+   - For MPS (Apple Silicon): --device mps
+   - For CPU: --device cpu
+   - If omitted, the script auto-detects env based on host.
+
+4) Override defaults:
+   - Use --video /path/to/video to test a different media.
+   - Use --start-time / --end-time to test a time slice.
+
+5) Debugging & verification:
+   - Logs and manifests are under out/YYYY/MM/DD/quickstart/device_<device>/
+   - SKIPPED stages are signaled via:
+     - Human logs containing "SKIPPED"
+     - Structured logs containing event "stage_skipped"
+   - Manifests include timestamps; the quickstart script validates heavy stage manifests for equality across baseline/cache runs.
+
+Tips:
+- Use small clip durations for CI runs to keep time short (e.g., --start-time 00:00:00 --end-time 00:00:10).
+- For stable runs with Demucs and PyTorch MPS, prefer using pre-built wheels and a cached venv (scripts/bootstrap.sh + CI cache).
+- Use `--auto-install-demucs` to attempt installing Demucs into `venv/demucs` when a Demucs runtime isn't preinstalled (best effort; may still require platform-specific wheels).
+
+Example:
+- ./test-glossary-quickstart.sh --auto --clip 00:00:00-00:00:10 --device mps --ci
+
+### Examples: Using the quickstart script with in/ media
+
+- Basic auto-run (default sample)
+  - Command:
+    ./test-glossary-quickstart.sh --auto
+  - What it does:
+    - Runs baseline → glossary → cache phases for the default sample under in/
+    - Produces per-slice outputs under test-results/<phase>/slice-<n> and pipeline job output under out/YYYY/MM/DD/quickstart/device_<device>/
+
+- Process a specific media (positional arg)
+  - Command:
+    ./test-glossary-quickstart.sh in/Jaane\ Tu\ Ya\ Jaane\ Na\ 2008.mp4 --auto
+  - Notes:
+    - Uses the file in/in/ and auto-detects device (MPS on Apple Silicon when available).
+    - If you want to specify log-level, chunk-size or device: add flags like `--log-level DEBUG --chunk-size 15m --device mps`.
+
+- Process a small time slice (quick CI run)
+  - Command:
+    ./test-glossary-quickstart.sh in/Jaane\ Tu\ Ya\ Jaane\ Na\ 2008.mp4 --start-time 00:00:00 --end-time 00:00:10 --auto --ci --chunk-size 30s
+  - What it does:
+    - Auto-runs baseline → glossary → cache for a short 10-second clip.
+    - CI mode causes the script to exit non-zero if cache verification fails (useful in pipelines).
+
+- Process entire media in 15 minute chunks (default chunking)
+  - Command:
+    ./test-glossary-quickstart.sh in/your-video.mp4 --auto --chunk-size 15m
+  - What it does:
+    - The script slices the media into 15-minute ranges and sequentially runs baseline, glossary, and cache for each slice.
+    - Results (subtitles/logs/manifests) are saved per slice in test-results/<phase>/slice-<n>.
+
+- Run with TMDB enrichment (use TMDB title/year instead of derived title)
+  - Command (TMDB ID approach):
+    ./test-glossary-quickstart.sh in/your-video.mp4 --tmdb-id 14467 --tmdb-api-key YOUR_API_KEY --auto
+  - Command (TMDB search query approach):
+    ./test-glossary-quickstart.sh in/your-video.mp4 --tmdb-query "Jaane Tu Ya Jaane Na" --tmdb-api-key YOUR_API_KEY --auto
+  - What it does:
+    - The script queries TMDB (with the key) to get the film title/year and populates job.json accordingly.
+
+- Force stages to re-run and bypass cache (useful to regenerate)
+  - Command:
+    ./test-glossary-quickstart.sh in/your-video.mp4 --auto --stages demux,tmdb --force
+  - Notes:
+    - Depending on run-pipeline.sh support, the script might fallback to env vars if the runner doesn't accept CLI flags.
+
+- Enable Demucs auto-installation (best-effort)
+  - Command:
+    ./test-glossary-quickstart.sh in/your-video.mp4 --auto --auto-install-demucs --demucs-venv venv/demucs --device mps
+  - Notes:
+    - Use only when CI or your environment doesn't have Demucs pre-installed. Prefer bootstrap approach for CI (prebuilt wheel cache).
+
+### Quick verification commands
+
+- Check SKIPPED events (structured logs) for cache hits:
+  - grep -r '"event":"stage_skipped"' out/YYYY/MM/DD/quickstart/device_* || true
+  - This returns JSON lines with event=stage_skipped for cached stages.
+
+- Validate manifest timestamps didn't change between baseline and cache phase for heavy stages (e.g., source_separation):
+  - jq -r '.timestamp' out/YYYY/MM/DD/quickstart/*/01_demux/manifest.json
+  - jq -r '.timestamp' out/YYYY/MM/DD/quickstart/*/04_source_separation/manifest.json
+  - Compare timestamps across runs; if identical and SKIPPED messages are present, the cache was effective.
+
+---
+
 **Navigation**: [Home](../README.md) | [Documentation Index](INDEX.md) | [User Guide](user-guide/README.md)

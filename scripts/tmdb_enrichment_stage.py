@@ -65,26 +65,30 @@ class TMDBEnrichmentStage:
         # Support both legacy job_dir and new StageIO
         if stage_io:
             self.stage_io = stage_io
+            # Ensure manifest is enabled
+            if not hasattr(stage_io, 'manifest') or stage_io.manifest is None:
+                # Re-initialize with manifest if not enabled
+                from shared.stage_utils import StageIO as StageIOClass
+                self.stage_io = StageIOClass("tmdb", stage_io.output_base, enable_manifest=True)
             self.job_dir = stage_io.output_base
             self.output_dir = stage_io.stage_dir
         elif job_dir:
             self.job_dir = Path(job_dir)
-            self.output_dir = self.job_dir / "02_tmdb"
-            self.output_dir.mkdir(parents=True, exist_ok=True)
-            self.stage_io = None
+            # Create StageIO with manifest for consistency
+            from shared.stage_utils import StageIO as StageIOClass
+            self.stage_io = StageIOClass("tmdb", self.job_dir, enable_manifest=True)
+            self.output_dir = self.stage_io.stage_dir
         else:
             raise ValueError("Either job_dir or stage_io must be provided")
         
         self.title = title
         self.year = year
         
-        # Setup logger
+        # Setup logger with manifest support
         if logger:
             self.logger = logger
-        elif self.stage_io:
-            self.logger = get_stage_logger("tmdb_enrichment", stage_io=self.stage_io)
         else:
-            self.logger = self._create_logger()
+            self.logger = self.stage_io.get_stage_logger("INFO")
         
         # Initialize TMDB client
         self.api_key = load_api_key()
@@ -144,11 +148,19 @@ class TMDBEnrichmentStage:
         self.logger.info("STAGE: TMDB Enrichment")
         self.logger.info("=" * 60)
         
+        # Track configuration
+        self.stage_io.set_config({
+            "title": self.title or "auto-detect",
+            "year": self.year,
+            "api_configured": self.client is not None
+        })
+        
         # Check if API key is available
         if not self.client:
             self.logger.warning("TMDB API key not configured")
             self.logger.info("Skipping TMDB enrichment stage")
             self._create_empty_outputs()
+            self.stage_io.finalize(status="skipped", reason="No API key configured")
             return True  # Not a failure, just skipped
         
         # Auto-detect title if not provided
@@ -156,11 +168,13 @@ class TMDBEnrichmentStage:
             self.title = self.auto_detect_title()
             if self.title:
                 self.logger.info(f"Auto-detected title: {self.title}")
+                self.stage_io.set_config({"title": self.title})
         
         if not self.title:
             self.logger.warning("No movie title provided or detected")
             self.logger.info("Skipping TMDB enrichment stage")
             self._create_empty_outputs()
+            self.stage_io.finalize(status="skipped", reason="No title available")
             return True
         
         try:
@@ -174,6 +188,8 @@ class TMDBEnrichmentStage:
             if not movie:
                 self.logger.warning(f"Movie not found on TMDB: {self.title}")
                 self._create_empty_outputs()
+                self.stage_io.add_warning(f"Movie not found: {self.title}")
+                self.stage_io.finalize(status="success", movie_found=False)
                 return True
             
             self.logger.info(f"✓ Found: {movie['title']} ({movie['year']})")
@@ -185,6 +201,8 @@ class TMDBEnrichmentStage:
             
             if not metadata:
                 self.logger.error("Failed to fetch metadata")
+                self.stage_io.add_error("Failed to fetch metadata from TMDB")
+                self.stage_io.finalize(status="failed")
                 return False
             
             self.logger.info(f"✓ Metadata retrieved:")
@@ -198,16 +216,66 @@ class TMDBEnrichmentStage:
             # Generate glossaries
             self._generate_glossaries(metadata)
             
+            # Track outputs in manifest
+            enrichment_file = self.output_dir / "enrichment.json"
+            if enrichment_file.exists():
+                self.stage_io.track_output(enrichment_file, "metadata",
+                                          format="json",
+                                          tmdb_id=metadata.get('id'),
+                                          cast_count=len(metadata.get('cast', [])),
+                                          crew_count=len(metadata.get('crew', [])))
+            
+            # Track glossary outputs
+            for glossary_file in self.output_dir.glob("glossary*.json"):
+                self.stage_io.track_output(glossary_file, "glossary", format="json")
+            
+            glossary_yaml = self.output_dir / "glossary.yaml"
+            if glossary_yaml.exists():
+                self.stage_io.track_output(glossary_yaml, "glossary", format="yaml")
+            
+            # Finalize with success
+            self.stage_io.finalize(status="success",
+                                  movie_found=True,
+                                  tmdb_id=movie['id'],
+                                  cast_count=len(metadata['cast']),
+                                  crew_count=len(metadata['crew']))
+            
             self.logger.info("=" * 60)
             self.logger.info("✓ TMDB Enrichment Complete")
             self.logger.info("=" * 60)
+            self.logger.info(f"Stage log: {self.stage_io.stage_log.relative_to(self.job_dir)}")
+            self.logger.info(f"Stage manifest: {self.stage_io.manifest_path.relative_to(self.job_dir)}")
             
             return True
             
+        except FileNotFoundError as e:
+            self.logger.error(f"File not found: {e}", exc_info=True)
+            self.stage_io.add_error(f"File not found: {e}")
+            self.stage_io.finalize(status="failed", error=str(e))
+            return False
+        
+        except IOError as e:
+            self.logger.error(f"I/O error: {e}", exc_info=True)
+            self.stage_io.add_error(f"I/O error: {e}")
+            self.stage_io.finalize(status="failed", error=str(e))
+            return False
+        
+        except KeyError as e:
+            self.logger.error(f"Missing config: {e}", exc_info=True)
+            self.stage_io.add_error(f"Missing configuration: {e}")
+            self.stage_io.finalize(status="failed", error=str(e))
+            return False
+        
+        except KeyboardInterrupt:
+            self.logger.warning("Interrupted by user")
+            self.stage_io.add_error("User interrupted")
+            self.stage_io.finalize(status="failed", error="Interrupted")
+            return False
+        
         except Exception as e:
-            self.logger.error(f"TMDB enrichment failed: {e}")
-            import traceback
-            traceback.print_exc()
+            self.logger.error(f"Unexpected error: {e}", exc_info=True)
+            self.stage_io.add_error(f"Unexpected error: {e}")
+            self.stage_io.finalize(status="failed", error=str(e))
             return False
     
     def _save_enrichment(self, metadata: Dict[str, Any]):

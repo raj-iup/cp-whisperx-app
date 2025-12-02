@@ -1,0 +1,43 @@
+{
+  "timestamp": "2025-11-28T21:09:27.319452",
+  "film_title": "Jaane Tu Ya Jaane Na",
+  "film_year": 2008,
+  "loaded": true,
+  "enable_cache": true,
+  "enable_learning": false,
+  "strategy": "cascade",
+  "statistics": {
+    "master_terms": 82,
+    "tmdb_terms": 42,
+    "film_specific_terms": 0,
+    "learned_terms": 0,
+    "usage_stats": {}
+  },
+  "sample_terms": {
+    "master": [
+      "yaar",
+      "bhai",
+      "ji",
+      "acha",
+      "arey",
+      "yeh",
+      "woh",
+      "bas",
+      "abey",
+      "arre"
+    ],
+    "tmdb": [
+      "Imran Khan",
+      "Jai Rathod",
+      "Genelia D'Souza",
+      "Aditi Wadia",
+      "Manjari Fadnnis",
+      "Meghna",
+      "Prateik Smita Patil",
+      "Amit",
+      "Sugandha Garg",
+      "Shaleen 'Shali'"
+    ],
+    "film": []
+  }
+}
