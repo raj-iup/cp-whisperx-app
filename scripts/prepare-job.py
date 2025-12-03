@@ -732,16 +732,16 @@ def main() -> None:
     create_manifest(job_dir, job_id, args.workflow)
     
     # Success
-    logger.info()
+    logger.info("")
     logger.info(f"✅ Job preparation complete!")
-    logger.info()
+    logger.info("")
     logger.info(f"Job created: {job_id}")
     logger.info(f"Job directory: {job_dir}")
-    logger.info()
+    logger.info("")
     logger.info(f"Next steps:")
     logger.info(f"  1. Run pipeline: ./run-pipeline.sh -j {job_id}")
     logger.info(f"  2. Monitor logs: tail -f {job_dir}/logs/*.log")
-    logger.info()
+    logger.info("")
     
     return 0
 

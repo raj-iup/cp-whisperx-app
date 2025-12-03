@@ -377,6 +377,12 @@ class IndicTrans2Pipeline:
         # Build stages list
         stages = [("demux", self._stage_demux)]
         
+        # Add TMDB enrichment if enabled (BEFORE ASR for metadata context)
+        if self.job_config.get("tmdb_enrichment", {}).get("enabled", False):
+            stages.append(("tmdb", self._stage_tmdb_enrichment))
+            # Add glossary load after TMDB (to use enrichment data)
+            stages.append(("glossary_load", self._stage_glossary_load))
+        
         # Add source separation if enabled
         sep_config = self.job_config.get("source_separation", {})
         if sep_config.get("enabled", False):
@@ -794,21 +800,21 @@ class IndicTrans2Pipeline:
         
         except FileNotFoundError as e:
             self.logger.error(f"Input file not found: {e}", exc_info=True)
-            stage_logger.error(f"Input file not found: {e}", exc_info=True, exc_info=True)
+            stage_logger.error(f"Input file not found: {e}", exc_info=True)
             stage_io.add_error(f"Input file not found: {e}")
             stage_io.finalize(status="failed", error=str(e))
             return False
         
         except IOError as e:
             self.logger.error(f"I/O error: {e}", exc_info=True)
-            stage_logger.error(f"I/O error during demux: {e}", exc_info=True, exc_info=True)
+            stage_logger.error(f"I/O error during demux: {e}", exc_info=True)
             stage_io.add_error(f"I/O error: {e}")
             stage_io.finalize(status="failed", error=str(e))
             return False
         
         except Exception as e:
-            self.logger.error(f"Unexpected error: {e}", exc_info=True, exc_info=True)
-            stage_logger.error(f"Unexpected error during demux: {e}", exc_info=True, exc_info=True)
+            self.logger.error(f"Unexpected error: {e}", exc_info=True)
+            stage_logger.error(f"Unexpected error during demux: {e}", exc_info=True)
             stage_io.add_error(f"Unexpected error: {e}")
             stage_io.finalize(status="failed", error=str(e))
             return False
@@ -944,7 +950,7 @@ class IndicTrans2Pipeline:
                 tmdb_enrichment_path=tmdb_enrichment_path,
                 enable_cache=enable_cache,
                 enable_learning=enable_learning,
-                logger: logging.Logger=self.logger
+                logger=self.logger
             )
             
             # Load all glossary sources
@@ -2101,7 +2107,7 @@ os.environ['INDICTRANS2_NUM_BEAMS'] = '{num_beams}'
 os.environ['INDICTRANS2_MAX_NEW_TOKENS'] = '{max_tokens}'
 
 # translate_whisperx_result will auto-select the right model based on language pair
-translated = translate_whisperx_result(segments, '{source_lang}', '{target_lang}', logger: logging.Logger)
+translated = translate_whisperx_result(segments, '{source_lang}', '{target_lang}', logger)
 
 # Save
 with open('{output_file}', 'w') as f:
@@ -2377,7 +2383,7 @@ os.environ['INDICTRANS2_NUM_BEAMS'] = '{num_beams}'
 os.environ['INDICTRANS2_MAX_NEW_TOKENS'] = '{max_tokens}'
 
 # translate_whisperx_result will auto-select the right model based on language pair
-translated = translate_whisperx_result(segments, '{source_lang}', '{target_lang}', logger: logging.Logger)
+translated = translate_whisperx_result(segments, '{source_lang}', '{target_lang}', logger)
 
 # Save
 with open('{output_file}', 'w') as f:
@@ -3031,7 +3037,7 @@ logger.info(f"Translated {{len(translated['segments'])}} segments to {target_lan
             remover = HallucinationRemover(
                 loop_threshold=loop_threshold,
                 max_repeats=max_repeats,
-                logger: logging.Logger=None  # Use pipeline logger instead
+                logger=None  # Use pipeline logger instead
             )
             
             # Detect loops manually (for logging)

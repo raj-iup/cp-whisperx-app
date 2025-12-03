@@ -28,6 +28,14 @@ from shared.logger import get_logger
 logger = get_logger(__name__)
 
 
+class PathEncoder(json.JSONEncoder):
+    """Custom JSON encoder to handle Path objects."""
+    def default(self, obj):
+        if isinstance(obj, Path):
+            return str(obj)
+        return super().default(obj)
+
+
 class StageManifest:
     """
     Manifest manager for individual pipeline stages.
@@ -102,9 +110,25 @@ class StageManifest:
         if self.job_env_file:
             data["job_env_file"] = self.job_env_file
         
-        # Ensure stages dict exists
+        # Ensure stages dict exists and convert from array if needed
         if "stages" not in data:
             data["stages"] = {}
+        elif isinstance(data["stages"], list):
+            # Convert array format to dict format for compatibility
+            stages_dict = {}
+            for stage in data["stages"]:
+                if isinstance(stage, dict) and "name" in stage:
+                    stages_dict[stage["name"]] = stage
+            data["stages"] = stages_dict
+        
+        # Ensure pipeline structure exists
+        if "pipeline" not in data:
+            data["pipeline"] = {
+                "status": "running",
+                "current_stage": None,
+                "completed_stages": [],
+                "failed_stages": []
+            }
         
         return data
     
@@ -151,12 +175,50 @@ class StageManifest:
         """Add stage-specific metadata."""
         self.metadata[key] = value
     
+    def set_config(self, config_dict: Dict[str, Any]) -> None:
+        """
+        Store stage configuration in metadata.
+        
+        Args:
+            config_dict: Dictionary of configuration key-value pairs
+        """
+        for key, value in config_dict.items():
+            self.add_metadata(f"config_{key}", value)
+    
     def set_error(self, error: str) -> None:
         """Record an error for this stage."""
         self.error = error
         self.status = "failed"
         if self.logger:
             self.logger.error(f"Stage error recorded: {error}")
+    
+    def add_error(self, message: str, exception: Optional[Exception] = None) -> None:
+        """
+        Add error message to manifest.
+        
+        Args:
+            message: Error message
+            exception: Optional exception object
+        """
+        if exception:
+            self.set_error(f"{message}: {str(exception)}")
+        else:
+            self.set_error(message)
+    
+    def finalize(self, status: str = "success", **kwargs: Any) -> None:
+        """
+        Finalize stage and save manifest.
+        
+        Args:
+            status: Final status (success, failed, skipped)
+            **kwargs: Additional metadata to store
+        """
+        # Add any additional metadata
+        for key, value in kwargs.items():
+            self.add_metadata(key, value)
+        
+        # Save with final status
+        self.save(status)
     
     def save(self, status: Optional[str] = None) -> None:
         """
@@ -220,7 +282,7 @@ class StageManifest:
         # Write to disk
         self.manifest_file.parent.mkdir(parents=True, exist_ok=True)
         with open(self.manifest_file, 'w') as f:
-            json.dump(self.data, f, indent=2)
+            json.dump(self.data, f, indent=2, cls=PathEncoder)
         
         if self.logger:
             self.logger.info(f"Manifest updated: {self.manifest_file}")

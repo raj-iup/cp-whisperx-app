@@ -89,7 +89,7 @@ class StageIO:
         self.manifest = None
         
         if enable_manifest:
-            self.manifest = StageManifest(stage_name, self.stage_number)
+            self.manifest = StageManifest(stage_name, self.output_base)
             # Load existing manifest if resuming
             if self.manifest_path.exists():
                 self.manifest.load(self.manifest_path)
@@ -133,7 +133,10 @@ class StageIO:
             **metadata: Additional metadata (format, checksum, etc.)
         """
         if self.manifest:
-            self.manifest.add_input(file_path, file_type, **metadata)
+            # StageManifest.add_input expects: key, filepath, description
+            # We use file_type as the key and format metadata as description
+            description = metadata.get('format', file_type)
+            self.manifest.add_input(file_type, file_path, description)
     
     def track_output(self, file_path: Path, file_type: str = "file", **metadata: Any) -> None:
         """
@@ -145,7 +148,10 @@ class StageIO:
             **metadata: Additional metadata (format, size, etc.)
         """
         if self.manifest:
-            self.manifest.add_output(file_path, file_type, **metadata)
+            # StageManifest.add_output expects: key, filepath, description
+            # We use file_type as the key and format metadata as description
+            description = metadata.get('format', file_type)
+            self.manifest.add_output(file_type, file_path, description)
     
     def track_intermediate(self, file_path: Path, retained: bool = False, reason: str = "") -> None:
         """

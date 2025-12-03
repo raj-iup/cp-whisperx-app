@@ -269,9 +269,9 @@ class PipelineLogger:
         """Log warning message."""
         self.logger.warning(msg)
     
-    def error(self, msg: str) -> None:
+    def error(self, msg: str, exc_info: bool = False) -> None:
         """Log error message."""
-        self.logger.error(msg)
+        self.logger.error(msg, exc_info=exc_info)
     
     def critical(self, msg: str) -> None:
         """Log critical message."""
