@@ -25,6 +25,7 @@ import os
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
 import sys
+import logging
 from pathlib import Path
 
 # Ensure toolkit is importable
@@ -208,7 +209,7 @@ class IndicTrans2Translator:
     def __init__(
         self,
         config: Optional[TranslationConfig] = None,
-        logger = None,
+        logger: logging.Logger = None,
         source_lang: Optional[str] = None,
         target_lang: Optional[str] = None
     ):
@@ -248,7 +249,7 @@ class IndicTrans2Translator:
             INDICTRANS_TOOLKIT_AVAILABLE
         )
         
-    def _log(self, message: str, level: str = "info"):
+    def _log(self, message: str, level: str = "info") -> None:
         """Log message if logger available"""
         if self.logger:
             getattr(self.logger, level)(message)
@@ -309,7 +310,7 @@ class IndicTrans2Translator:
                 return "cpu"
         return self.config.device
     
-    def load_model(self):
+    def load_model(self) -> Any:
         """Load IndicTrans2 model and tokenizer"""
         if self.model is not None:
             return  # Already loaded
@@ -706,7 +707,7 @@ class IndicTrans2Translator:
         self._log("✓ SRT translation complete")
         return len(subtitles)
     
-    def cleanup(self):
+    def cleanup(self) -> None:
         """Clean up model resources"""
         if self.model is not None:
             del self.model
@@ -726,7 +727,7 @@ def translate_whisperx_result(
     source_result: Dict[str, Any],
     source_lang: str = "hi",
     target_lang: str = "en",
-    logger = None
+    logger: logging.Logger = None
 ) -> Dict[str, Any]:
     """
     Translate WhisperX result using IndicTrans2.
@@ -781,7 +782,7 @@ def translate_whisperx_result(
     )
     translator = IndicTrans2Translator(
         config=config,
-        logger=logger,
+        logger: logging.Logger=logger,
         source_lang=source_lang,
         target_lang=target_lang
     )
@@ -831,7 +832,7 @@ def translate_whisperx_result(
 
 
 # CLI interface for standalone testing
-def main():
+def main() -> None:
     """CLI entry point for testing IndicTrans2 translation"""
     import argparse
     

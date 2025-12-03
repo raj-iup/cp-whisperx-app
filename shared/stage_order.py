@@ -201,9 +201,6 @@ def get_stage_dir(stage_name: str, job_dir: Optional[str] = None) -> str:
     
     if job_dir:
         from pathlib import Path
-
-# Local
-from shared.logger import get_logger
         return str(Path(job_dir) / stage_dir)
     
     return stage_dir
@@ -219,7 +216,7 @@ def get_all_stage_dirs() -> List[str]:
     return STAGE_DIRECTORIES.copy()
 
 
-def print_stage_order():
+def print_stage_order() -> None:
     """Print the stage order for debugging/documentation."""
     logger.info("\n" + "=" * 70)
     logger.info("PIPELINE STAGE ORDER")
@@ -249,7 +246,7 @@ def print_stage_order():
 # VALIDATION
 # ============================================================================
 
-def validate_stage_order():
+def validate_stage_order() -> None:
     """
     Validate that stage order is consistent and has no conflicts.
     

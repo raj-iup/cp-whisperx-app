@@ -280,12 +280,7 @@ def load_audio_segment(
         raise RuntimeError(f"Failed to load audio segment from {file_path} [{start}s-{end}s]: {e}")
 
 
-def stream_audio(
-    file_path: Union[str, Path],
-    chunk_duration: float = 1.0,
-    overlap: float = 0.1,
-    sample_rate: int = 16000
-):
+def stream_audio(audio_file: Path, chunk_size: int = 1024) -> Any:
     """
     Stream audio file in chunks without loading entire file into memory
     
@@ -458,9 +453,6 @@ def validate_audio_file(file_path: Union[str, Path]) -> Dict[str, Any]:
     """
     import soundfile as sf
     from typing import Dict, List, Any
-
-# Local
-from shared.logger import get_logger
     
     file_path = Path(file_path)
     

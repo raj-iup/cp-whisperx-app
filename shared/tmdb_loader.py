@@ -8,6 +8,7 @@ Eliminates code duplication and provides consistent error handling.
 
 # Standard library
 import json
+import logging
 from pathlib import Path
 from typing import Optional, Dict, List, Any
 from dataclasses import dataclass
@@ -31,7 +32,7 @@ class TMDBData:
     found: bool
     
     @classmethod
-    def empty(cls) -> 'TMDBData':
+    def empty(cls: type['TMDBData']) -> 'TMDBData':
         """Return empty TMDB data"""
         return cls(
             title="",
@@ -49,7 +50,7 @@ class TMDBData:
 class TMDBLoader:
     """Centralized loader for TMDB enrichment data"""
     
-    def __init__(self, output_base: Path, logger=None):
+    def __init__(self, output_base: Path, logger: Optional[logging.Logger] = None):
         """
         Initialize TMDB loader
         

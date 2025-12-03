@@ -50,7 +50,7 @@ class MusicBrainzCache:
         except Exception:
             return {}
     
-    def _save_search_cache(self):
+    def _save_search_cache(self) -> None:
         """Save search cache to file"""
         try:
             with open(self.search_cache_file, 'w', encoding='utf-8') as f:
@@ -94,7 +94,7 @@ class MusicBrainzCache:
         
         return entry.get('release_id')
     
-    def cache_search_result(self, title: str, year: Optional[int], release_id: str):
+    def cache_search_result(self, title: str, year: Optional[int], release_id: str) -> None:
         """
         Cache a search result (title+year -> release_id mapping)
         
@@ -153,7 +153,7 @@ class MusicBrainzCache:
             # If error, treat as cache miss
             return None
     
-    def set_release(self, release_id: str, data: Dict):
+    def set_release(self, release_id: str, data: Dict) -> None:
         """
         Cache release data
         
@@ -196,7 +196,7 @@ class MusicBrainzCache:
         except:
             return None
     
-    def clear(self, release_id: Optional[str] = None):
+    def clear(self, release_id: Optional[str] = None) -> None:
         """
         Clear cache
         
@@ -217,7 +217,7 @@ class MusicBrainzCache:
             self.search_cache = {}
             self._save_search_cache()
     
-    def clear_expired(self):
+    def clear_expired(self) -> None:
         """Clear all expired cache entries"""
         # Clear expired releases
         for cache_file in self.releases_dir.glob("mb_*.json"):

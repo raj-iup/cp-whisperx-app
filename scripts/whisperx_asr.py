@@ -26,7 +26,7 @@ from whisperx_integration import main as whisperx_main
 from shared.logger import get_logger
 
 
-def main():
+def main() -> int:
     """
     Main entry point for ASR stage.
     

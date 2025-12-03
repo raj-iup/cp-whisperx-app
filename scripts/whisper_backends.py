@@ -17,6 +17,7 @@ import os
 import json
 import warnings
 import sys
+import logging
 from pathlib import Path
 from typing import List, Dict, Optional, Any, Tuple
 
@@ -80,7 +81,7 @@ class WhisperBackend(ABC):
         """Backend name."""
         pass
     
-    def cleanup(self):
+    def cleanup(self) -> None:
         """Clean up resources (optional, can be overridden)."""
         pass
 
@@ -93,7 +94,7 @@ class WhisperXBackend(WhisperBackend):
         model_name: str,
         device: str,
         compute_type: str,
-        logger,
+        logger: logging.Logger,
         condition_on_previous_text: bool = False,  # False prevents hallucination loops
         logprob_threshold: float = -1.0,
         no_speech_threshold: float = 0.6,
@@ -114,6 +115,7 @@ class WhisperXBackend(WhisperBackend):
         
     @property
     def name(self) -> str:
+        """Name."""
         return "whisperx-ctranslate2"
     
     def supports_device(self, device: str) -> bool:
@@ -302,7 +304,7 @@ class WhisperXBackend(WhisperBackend):
         
         return result
     
-    def cleanup(self):
+    def cleanup(self) -> None:
         """Clean up WhisperX resources"""
         import gc
         if self.model is not None:
@@ -328,12 +330,25 @@ class MLXWhisperBackend(WhisperBackend):
         model_name: str,
         device: str,
         compute_type: str,
-        logger,
+        logger: logging.Logger,
         condition_on_previous_text: bool = False,  # False prevents hallucination loops
         logprob_threshold: float = -1.0,
         no_speech_threshold: float = 0.6,
         compression_ratio_threshold: float = 2.4
     ):
+        """
+        Initialize MLX Whisper backend.
+        
+        Args:
+            model_name: Name of the Whisper model to use
+            device: Device to run on (mps)
+            compute_type: Compute precision type
+            logger: Logger instance for logging
+            condition_on_previous_text: Whether to condition on previous text
+            logprob_threshold: Log probability threshold
+            no_speech_threshold: No speech detection threshold
+            compression_ratio_threshold: Compression ratio threshold
+        """
         self.model_name = model_name
         self.device = device
         self.compute_type = compute_type
@@ -348,13 +363,14 @@ class MLXWhisperBackend(WhisperBackend):
         
     @property
     def name(self) -> str:
+        """Name."""
         return "mlx-whisper"
     
     def supports_device(self, device: str) -> bool:
         """MLX only works on Apple Silicon (MPS)"""
         return device.lower() == "mps"
     
-    def load_model(self):
+    def load_model(self) -> Any:
         """
         Load MLX-Whisper model with graceful fallback support
         
@@ -552,7 +568,7 @@ class MLXWhisperBackend(WhisperBackend):
             self.logger.warning(f"  Word-level alignment failed: {e}")
             return {"segments": segments}
     
-    def cleanup(self):
+    def cleanup(self) -> None:
         """Clean up MLX resources"""
         import gc
         # MLX uses lazy loading, just force garbage collection
@@ -570,7 +586,7 @@ def create_backend(
     model_name: str,
     device: str,
     compute_type: str,
-    logger,
+    logger: logging.Logger,
     condition_on_previous_text: bool = False,  # False prevents hallucination loops
     logprob_threshold: float = -1.0,
     no_speech_threshold: float = 0.6,
@@ -610,13 +626,13 @@ def create_backend(
     # Create backend
     if backend_type in ["whisperx", "ctranslate2"]:
         return WhisperXBackend(
-            model_name, device, compute_type, logger,
+            model_name, device, compute_type, logger: logging.Logger,
             condition_on_previous_text, logprob_threshold,
             no_speech_threshold, compression_ratio_threshold
         )
     elif backend_type == "mlx":
         return MLXWhisperBackend(
-            model_name, device, compute_type, logger,
+            model_name, device, compute_type, logger: logging.Logger,
             condition_on_previous_text, logprob_threshold,
             no_speech_threshold, compression_ratio_threshold
         )
@@ -625,7 +641,7 @@ def create_backend(
         return None
 
 
-def get_recommended_backend(device: str, logger) -> str:
+def get_recommended_backend(device: str, logger: logging.Logger) -> str:
     """
     Get recommended backend for the given device
     
@@ -649,9 +665,6 @@ def get_recommended_backend(device: str, logger) -> str:
     if device_lower == "mps":
         try:
             import mlx_whisper
-
-# Local
-from shared.logger import get_logger
             logger.info("✓ MPS: Using MLX-Whisper (native GPU acceleration)")
             logger.info("  → ASR runs clean on MPS (2-4x faster than CPU)")
             logger.info("  → Bias injection: post-ASR stage (bias_injection)")

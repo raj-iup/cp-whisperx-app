@@ -25,6 +25,7 @@ class ContextAnalyzer:
     """Analyzes surrounding text context for intelligent term selection"""
     
     def __init__(self, logger: Optional[logging.Logger] = None):
+        """  Init  ."""
         self.logger = logger or logging.getLogger(__name__)
         
         # Context patterns for different situations
@@ -118,10 +119,11 @@ class CharacterProfiler:
     """Per-character speaking style profiles"""
     
     def __init__(self, logger: Optional[logging.Logger] = None):
+        """  Init  ."""
         self.logger = logger or logging.getLogger(__name__)
         self.profiles: Dict[str, Dict[str, Any]] = {}
     
-    def load_profiles_from_prompt(self, prompt_path: Path):
+    def load_profiles_from_prompt(self, prompt_path: Path) -> None:
         """
         Load character profiles from movie-specific prompt file
         
@@ -160,7 +162,7 @@ class CharacterProfiler:
         except Exception as e:
             self.logger.warning(f"Error loading character profiles: {e}")
     
-    def _parse_character_line(self, line: str):
+    def _parse_character_line(self, line: str) -> None:
         """Parse a character definition line"""
         # Format: - Name (gender): Description
         match = re.match(r'- ([^(]+)\s*\(([^)]+)\):\s*(.+)', line)
@@ -232,6 +234,7 @@ class RegionalVariantSelector:
     """Regional variant support (Mumbai, Delhi, Punjab, etc.)"""
     
     def __init__(self, logger: Optional[logging.Logger] = None):
+        """  Init  ."""
         self.logger = logger or logging.getLogger(__name__)
         
         # Regional term preferences
@@ -268,7 +271,7 @@ class RegionalVariantSelector:
         
         self.current_region: Optional[str] = None
     
-    def detect_region_from_prompt(self, prompt_path: Path):
+    def detect_region_from_prompt(self, prompt_path: Path) -> None:
         """Detect regional setting from movie prompt file"""
         if not prompt_path.exists():
             return
@@ -313,11 +316,12 @@ class FrequencyLearner:
     """Learns term frequency and selection patterns"""
     
     def __init__(self, logger: Optional[logging.Logger] = None):
+        """  Init  ."""
         self.logger = logger or logging.getLogger(__name__)
         self.term_usage: Dict[str, Counter] = defaultdict(Counter)
         self.selection_history: List[Tuple[str, str, str]] = []
     
-    def record_selection(self, source_term: str, selected_option: str, context: str):
+    def record_selection(self, source_term: str, selected_option: str, context: str) -> None:
         """Record a term selection for learning"""
         self.term_usage[source_term][selected_option] += 1
         self.selection_history.append((source_term, selected_option, context))
@@ -349,7 +353,7 @@ class FrequencyLearner:
             }
         }
     
-    def save_to_file(self, filepath: Path):
+    def save_to_file(self, filepath: Path) -> None:
         """Save learned patterns to file"""
         try:
             import json
@@ -369,7 +373,7 @@ class FrequencyLearner:
         except Exception as e:
             self.logger.warning(f"Error saving frequency data: {e}")
     
-    def load_from_file(self, filepath: Path):
+    def load_from_file(self, filepath: Path) -> None:
         """Load learned patterns from file"""
         if not filepath.exists():
             return
@@ -437,7 +441,7 @@ class AdvancedGlossaryStrategy:
             'emotional': ['friend', 'dear'],
         }
     
-    def initialize_from_prompt(self, prompt_path: Optional[Path]):
+    def initialize_from_prompt(self, prompt_path: Optional[Path]) -> None:
         """Initialize strategy components from movie prompt file"""
         if not prompt_path or not prompt_path.exists():
             return
@@ -456,7 +460,7 @@ class AdvancedGlossaryStrategy:
             if ml_model_path.exists():
                 self.ml_selector.load_model(ml_model_path)
     
-    def load_frequency_data(self, frequency_file: Path):
+    def load_frequency_data(self, frequency_file: Path) -> None:
         """Load learned frequency data"""
         self.frequency_learner.load_from_file(frequency_file)
         
@@ -657,7 +661,7 @@ class AdvancedGlossaryStrategy:
             self.logger.warning(f"ML selection error: {e}, using adaptive fallback")
             return self._select_adaptive(source_term, options, context)
     
-    def save_learned_data(self, output_dir: Path):
+    def save_learned_data(self, output_dir: Path) -> None:
         """Save all learned data"""
         output_dir.mkdir(exist_ok=True, parents=True)
         

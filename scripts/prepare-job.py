@@ -264,9 +264,6 @@ def create_job_config(job_dir: Path, job_id: str, workflow: str,
     
     # Load configuration to get source_separation settings
     from shared.config import Config
-
-# Local
-from shared.logger import get_logger
     config = Config(PROJECT_ROOT)
     sep_enabled = config.get('SOURCE_SEPARATION_ENABLED', 'true').lower() == 'true'
     sep_quality = config.get('SOURCE_SEPARATION_QUALITY', 'balanced')
@@ -549,7 +546,8 @@ def create_manifest(job_dir: Path, job_id: str, workflow: str) -> None:
         json.dump(manifest, f, indent=2)
 
 
-def main():
+def main() -> None:
+    """Main."""
     parser = argparse.ArgumentParser(
         description="IndicTrans2 Job Preparation Script"
     )

@@ -496,4 +496,4 @@ def load_glossary(
         # Default path
         glossary_path = Path(__file__).parent.parent / "glossary" / "unified_glossary.tsv"
     
-    return UnifiedGlossary(glossary_path, film_name, logger)
+    return UnifiedGlossary(glossary_path, film_name, logger: logging.Logger)

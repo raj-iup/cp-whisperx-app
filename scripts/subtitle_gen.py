@@ -95,24 +95,24 @@ def main():
         stage_io = StageIO("subtitle_generation", enable_manifest=True)
         logger = stage_io.get_stage_logger("INFO")
     
-    logger.info("=" * 60)
-    logger.info("SUBTITLE GENERATION STAGE")
-    logger.info("=" * 60)
-    logger.info(f"Stage directory: {stage_io.stage_dir}")
+        logger.info("=" * 60)
+        logger.info("SUBTITLE GENERATION STAGE")
+        logger.info("=" * 60)
+        logger.info(f"Stage directory: {stage_io.stage_dir}")
     
-    # Load configuration
-    try:
-        config = load_config()
+            # Load configuration
+        try:
+            config = load_config()
     except Exception as e:
-        logger.error(f"Failed to load configuration: {e}", exc_info=True)
-        stage_io.add_error(f"Config load failed: {e}", e)
-        stage_io.finalize(status="failed", error=str(e))
-        return 1
+            logger.error(f"Failed to load configuration: {e}", exc_info=True)
+            stage_io.add_error(f"Config load failed: {e}", e)
+            stage_io.finalize(status="failed", error=str(e))
+            return 1
     
-    # Load glossary if available and enabled
-    glossary = None
+        # Load glossary if available and enabled
+        glossary = None
     
-    if GLOSSARY_AVAILABLE:
+        if GLOSSARY_AVAILABLE:
         try:
             glossary_enabled = getattr(config, 'glossary_enabled', True)
             
@@ -138,60 +138,60 @@ def main():
                         logger.warning("Glossary object is None after loading")
                 else:
                     logger.warning(f"Glossary not found: {glossary_path}")
-        except Exception as e:
+    except Exception as e:
             logger.warning(f"Failed to load glossary: {e}")
     
-    if glossary is None:
+        if glossary is None:
         logger.info("Glossary not loaded (disabled or unavailable)")
     
     # Track configuration
-    stage_io.set_config({
+        stage_io.set_config({
         "glossary_enabled": getattr(config, 'glossary_enabled', True),
         "format": "srt",
         "has_lyrics_detection": False  # Will be updated
-    })
+        })
     
     # Try to read from lyrics detection (includes song metadata)
     # Fall back to ASR if lyrics detection not available
-    transcript_file = stage_io.get_input_path("segments.json", from_stage="lyrics_detection")
+        transcript_file = stage_io.get_input_path("segments.json", from_stage="lyrics_detection")
     
-    if not transcript_file.exists():
+        if not transcript_file.exists():
         logger.info("Lyrics detection output not found, falling back to ASR")
         transcript_file = stage_io.get_input_path("transcript.json", from_stage="asr")
         has_lyrics_data = False
-    else:
+        else:
         logger.info("Using lyrics detection output (includes song metadata)")
         has_lyrics_data = True
     
     # Update config with actual lyrics detection status
-    stage_io.set_config({"has_lyrics_detection": has_lyrics_data})
+        stage_io.set_config({"has_lyrics_detection": has_lyrics_data})
     
-    if not transcript_file.exists():
+        if not transcript_file.exists():
         logger.error(f"Transcript not found: {transcript_file}")
         stage_io.add_error(f"Transcript not found: {transcript_file}")
         stage_io.finalize(status="failed", error="Input file missing")
         return 1
     
     # Track input
-    stage_io.track_input(transcript_file, "transcript", format="json")
+        stage_io.track_input(transcript_file, "transcript", format="json")
     
-    logger.info(f"Reading transcript from: {transcript_file}")
+        logger.info(f"Reading transcript from: {transcript_file}")
     
-    with open(transcript_file, 'r', encoding='utf-8', errors='replace') as f:
+        with open(transcript_file, 'r', encoding='utf-8', errors='replace') as f:
         transcript = json.load(f)
     
     # Generate SRT file using StageIO
-    srt_file = stage_io.get_output_path("subtitles.srt")
+        srt_file = stage_io.get_output_path("subtitles.srt")
     
-    logger.info(f"Generating subtitles: {srt_file}")
-    if has_lyrics_data:
+        logger.info(f"Generating subtitles: {srt_file}")
+        if has_lyrics_data:
         logger.info("Enhanced mode: Including song metadata and lyrics formatting")
     
-    subtitle_count = 0
-    lyrics_count = 0
-    last_song_title = None  # Track last song to avoid duplicate metadata
+        subtitle_count = 0
+        lyrics_count = 0
+        last_song_title = None  # Track last song to avoid duplicate metadata
     
-    with open(srt_file, 'w', encoding='utf-8') as f:
+        with open(srt_file, 'w', encoding='utf-8') as f:
         if isinstance(transcript, dict) and 'segments' in transcript:
             for i, segment in enumerate(transcript['segments'], 1):
                 start = segment.get('start', 0)
@@ -227,43 +227,43 @@ def main():
                         lyrics_count += 1
     
     # Save metadata
-    metadata = {
+        metadata = {
         "status": "completed",
         "subtitle_count": subtitle_count,
         "lyrics_count": lyrics_count if has_lyrics_data else 0,
         "has_lyrics_formatting": has_lyrics_data,
         "format": "srt",
         "subtitle_file": str(srt_file)
-    }
-    metadata_file = stage_io.save_metadata(metadata)
-    stage_io.track_intermediate(metadata_file, retained=True,
+        }
+        metadata_file = stage_io.save_metadata(metadata)
+        stage_io.track_intermediate(metadata_file, retained=True,
                                reason="Stage metadata")
     
     # Track output
-    stage_io.track_output(srt_file, "subtitles",
+        stage_io.track_output(srt_file, "subtitles",
                          format="srt",
                          subtitle_count=subtitle_count,
                          lyrics_count=lyrics_count,
                          dialogue_count=subtitle_count - lyrics_count)
     
     # Finalize with success
-    stage_io.finalize(status="success",
+        stage_io.finalize(status="success",
                      subtitle_count=subtitle_count,
                      lyrics_count=lyrics_count,
                      has_lyrics=has_lyrics_data)
     
-    logger.info(f"✓ Subtitles generated successfully")
-    logger.info(f"  Subtitle count: {subtitle_count}")
-    if has_lyrics_data:
+        logger.info(f"✓ Subtitles generated successfully")
+        logger.info(f"  Subtitle count: {subtitle_count}")
+        if has_lyrics_data:
         logger.info(f"  Lyrics subtitles: {lyrics_count}")
         logger.info(f"  Dialogue subtitles: {subtitle_count - lyrics_count}")
-    logger.info(f"  Output file: {srt_file}")
+        logger.info(f"  Output file: {srt_file}")
     
-    logger.info("=" * 60)
-    logger.info("SUBTITLE GENERATION COMPLETE")
-    logger.info("=" * 60)
-    logger.info(f"Stage log: {stage_io.stage_log.relative_to(stage_io.output_base)}")
-    logger.info(f"Stage manifest: {stage_io.manifest_path.relative_to(stage_io.output_base)}")
+        logger.info("=" * 60)
+        logger.info("SUBTITLE GENERATION COMPLETE")
+        logger.info("=" * 60)
+        logger.info(f"Stage log: {stage_io.stage_log.relative_to(stage_io.output_base)}")
+        logger.info(f"Stage manifest: {stage_io.manifest_path.relative_to(stage_io.output_base)}")
     
         return 0
     
@@ -317,5 +317,5 @@ def main():
             stage_io.finalize(status="failed", error=f"Unexpected: {type(e).__name__}")
         return 1
 
-if __name__ == "__main__":
-    sys.exit(main())
+        if __name__ == "__main__":
+        sys.exit(main())

@@ -72,7 +72,7 @@ class TMDBCache:
             # If error, treat as cache miss
             return None
     
-    def set(self, tmdb_id: int, data: Dict):
+    def set(self, tmdb_id: int, data: Dict) -> None:
         """
         Cache TMDB data
         
@@ -115,7 +115,7 @@ class TMDBCache:
         except:
             return None
     
-    def clear(self, tmdb_id: Optional[int] = None):
+    def clear(self, tmdb_id: Optional[int] = None) -> None:
         """
         Clear cache
         
@@ -132,7 +132,7 @@ class TMDBCache:
             for cache_file in self.cache_dir.glob("tmdb_*.json"):
                 cache_file.unlink()
     
-    def clear_expired(self):
+    def clear_expired(self) -> None:
         """Clear all expired cache entries"""
         for cache_file in self.cache_dir.glob("tmdb_*.json"):
             try:

@@ -19,6 +19,7 @@ Output: Multiple transcript formats
 # Standard library
 import sys
 import json
+import logging
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 from datetime import timedelta
@@ -71,7 +72,7 @@ def format_timestamp_vtt(seconds: float) -> str:
     return f"{hours:02d}:{minutes:02d}:{secs:02d}.{millis:03d}"
 
 
-def export_json(transcript_data: Dict[str, Any], output_path: Path, logger) -> bool:
+def export_json(transcript_data: Dict[str, Any], output_path: Path, logger: logging.Logger) -> bool:
     """
     Export to JSON format (pass-through, already in JSON)
     
@@ -93,7 +94,7 @@ def export_json(transcript_data: Dict[str, Any], output_path: Path, logger) -> b
         return False
 
 
-def export_txt(transcript_data: Dict[str, Any], output_path: Path, logger) -> bool:
+def export_txt(transcript_data: Dict[str, Any], output_path: Path, logger: logging.Logger) -> bool:
     """
     Export to plain text format (no timestamps)
     
@@ -121,7 +122,7 @@ def export_txt(transcript_data: Dict[str, Any], output_path: Path, logger) -> bo
         return False
 
 
-def export_srt(transcript_data: Dict[str, Any], output_path: Path, logger) -> bool:
+def export_srt(transcript_data: Dict[str, Any], output_path: Path, logger: logging.Logger) -> bool:
     """
     Export to SRT format (SubRip)
     
@@ -157,7 +158,7 @@ def export_srt(transcript_data: Dict[str, Any], output_path: Path, logger) -> bo
         return False
 
 
-def export_vtt(transcript_data: Dict[str, Any], output_path: Path, logger) -> bool:
+def export_vtt(transcript_data: Dict[str, Any], output_path: Path, logger: logging.Logger) -> bool:
     """
     Export to WebVTT format
     
@@ -194,7 +195,7 @@ def export_vtt(transcript_data: Dict[str, Any], output_path: Path, logger) -> bo
         return False
 
 
-def export_tsv(transcript_data: Dict[str, Any], output_path: Path, logger) -> bool:
+def export_tsv(transcript_data: Dict[str, Any], output_path: Path, logger: logging.Logger) -> bool:
     """
     Export to TSV format (tab-separated values)
     
@@ -232,7 +233,7 @@ def export_tsv(transcript_data: Dict[str, Any], output_path: Path, logger) -> bo
         return False
 
 
-def main():
+def main() -> Any:
     """
     Main entry point for transcript export stage
     
@@ -307,7 +308,7 @@ def main():
             
             output_file = stage_io.get_output_path(f"transcript.{fmt_lower}")
             
-            if exporters[fmt_lower](transcript_data, output_file, logger):
+            if exporters[fmt_lower](transcript_data, output_file, logger: logging.Logger):
                 success_count += 1
         
         # Summary

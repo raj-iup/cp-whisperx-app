@@ -156,7 +156,7 @@ class ChunkedASRProcessor:
     def process_chunk_with_bias(
         self,
         chunk: AudioChunk,
-        backend,
+        backend: Any,
         language: str,
         task: str,
         batch_size: int
@@ -286,12 +286,7 @@ class ChunkedASRProcessor:
         
         return merged
     
-    def save_checkpoint(
-        self,
-        chunk_id: int,
-        result: Dict[str, Any],
-        checkpoint_dir: Path
-    ):
+    def save_checkpoint(checkpoint_file: Path, checkpoint_data: Dict[str, Any]) -> None:
         """
         Save chunk result as checkpoint.
         

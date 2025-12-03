@@ -13,6 +13,7 @@ Usage:
 
 # Standard library
 import json
+import logging
 from pathlib import Path
 from typing import Optional, Dict, List, Any
 from datetime import datetime
@@ -34,7 +35,7 @@ class TMDBClient:
         api_key: str,
         cache_ttl: int = 86400,  # 24 hours
         language: str = "en-US",
-        logger=None
+        logger: Optional[logging.Logger] = None
     ):
         """
         Initialize TMDB client
@@ -286,7 +287,7 @@ class TMDBClient:
             'vote_average': getattr(movie, 'vote_average', 0)
         }
     
-    def clear_cache(self):
+    def clear_cache(self) -> None:
         """Clear API result cache"""
         self._cache.clear()
         if self.logger:

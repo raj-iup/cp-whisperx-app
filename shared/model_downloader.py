@@ -24,6 +24,14 @@ class ModelDownloader:
     """Handles parallel downloading of ML models with progress tracking"""
     
     def __init__(self, cache_dir: Path, hf_token: Optional[str] = None, max_workers: int = 3):
+        """
+        Initialize model downloader.
+        
+        Args:
+            cache_dir: Directory to cache downloaded models
+            hf_token: Optional HuggingFace API token for gated models
+            max_workers: Maximum number of parallel download workers
+        """
         self.cache_dir = cache_dir
         self.hf_token = hf_token
         self.max_workers = max_workers
@@ -118,9 +126,6 @@ class ModelDownloader:
         """Test MLX-Whisper availability (models download on first use)"""
         try:
             import mlx_whisper
-
-# Local
-from shared.logger import get_logger
             
             # MLX models are downloaded on first use, just verify library works
             version = getattr(mlx_whisper, '__version__', 'installed')
@@ -175,14 +180,14 @@ from shared.logger import get_logger
         return self.results
 
 
-def print_section(title: str):
+def print_section(title: str) -> None:
     """Print a section header"""
     logger.info(f"\n{'='*70}")
     logger.info(f"  {title}")
     logger.info(f"{'='*70}")
 
 
-def print_model_status(model_name: str, success: bool, message: str):
+def print_model_status(model_name: str, success: bool, message: str) -> None:
     """Print model download status"""
     status_icon = "✓" if success else "✗"
     
@@ -206,7 +211,8 @@ def load_hardware_cache(project_root: Path) -> Dict:
     return {}
 
 
-def main():
+def main() -> None:
+    """Main entry point for model downloader CLI."""
     parser = argparse.ArgumentParser(description='Pre-download ML models for CP-WhisperX-App')
     parser.add_argument('--hf-token', type=str, help='HuggingFace API token')
     parser.add_argument('--max-workers', type=int, default=3, help='Max parallel downloads')

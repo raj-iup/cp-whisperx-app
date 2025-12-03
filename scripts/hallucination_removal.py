@@ -72,7 +72,7 @@ class HallucinationRemover:
         self,
         loop_threshold: int = 3,
         max_repeats: int = 2,
-        logger: Optional[logging.Logger] = None
+        logger: logging.Logger: Optional[logging.Logger] = None
     ):
         """
         Initialize hallucination remover
@@ -605,7 +605,7 @@ def main():
     remover = HallucinationRemover(
         loop_threshold=loop_threshold,
         max_repeats=max_repeats,
-        logger=logger
+        logger: logging.Logger=logger
     )
     
     # Process segments

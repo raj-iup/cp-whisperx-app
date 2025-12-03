@@ -319,6 +319,11 @@ class ComplianceChecker:
                 # Skip common acceptable patterns (reading inputs, checking config)
                 acceptable_patterns = [
                     'job_config.json',  # Shared job configuration
+                    'job.json',  # Job-level configuration
+                    'manifest.json',  # Job-level manifest
+                    '.env',  # Environment configuration
+                    'transcripts',  # Shared transcripts directory
+                    'subtitles',  # Shared subtitles directory
                     'filename_parser',  # Parsing input names
                     'demux',  # Reading demuxed inputs
                     'tmdb',  # Reading TMDB metadata

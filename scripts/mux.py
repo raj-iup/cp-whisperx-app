@@ -25,25 +25,25 @@ def main():
         stage_io = StageIO("mux", enable_manifest=True)
         logger = stage_io.get_stage_logger("INFO")
     
-    logger.info("=" * 60)
-    logger.info("MUX STAGE: Combine Video with Subtitles")
-    logger.info("=" * 60)
+        logger.info("=" * 60)
+        logger.info("MUX STAGE: Combine Video with Subtitles")
+        logger.info("=" * 60)
     
-    # Load configuration
-    try:
-        config = load_config()
-    except Exception as e:
-        logger.error(f"Failed to load configuration: {e}", exc_info=True)
-        stage_io.add_error(f"Config load failed: {e}", e)
-        stage_io.finalize(status="failed", error=str(e))
-        return 1
+        # Load configuration
+        try:
+            config = load_config()
+        except Exception as e:
+            logger.error(f"Failed to load configuration: {e}", exc_info=True)
+            stage_io.add_error(f"Config load failed: {e}", e)
+            stage_io.finalize(status="failed", error=str(e))
+            return 1
     
-    logger.info(f"Output directory: {stage_io.output_base}")
-    logger.info(f"Stage directory: {stage_io.stage_dir}")
+        logger.info(f"Output directory: {stage_io.output_base}")
+        logger.info(f"Stage directory: {stage_io.stage_dir}")
     
-    # Get input file from config
-    input_file = getattr(config, 'in_root', getattr(config, 'input_media', ''))
-    if not input_file or not Path(input_file).exists():
+        # Get input file from config
+        input_file = getattr(config, 'in_root', getattr(config, 'input_media', ''))
+        if not input_file or not Path(input_file).exists():
         logger.error(f"Input media not found: {input_file}")
         stage_io.add_error(f"Input media not found: {input_file}")
         stage_io.finalize(status="failed", error="Input file missing")

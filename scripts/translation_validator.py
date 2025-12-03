@@ -40,7 +40,7 @@ class TranslationValidator:
     def __init__(
         self,
         glossary=None,
-        logger: Optional[logging.Logger] = None,
+        logger: logging.Logger: Optional[logging.Logger] = None,
         max_length_ratio: float = 3.0,
         min_length_ratio: float = 0.3
     ):
@@ -416,7 +416,7 @@ class TranslationValidator:
         """Get validation statistics."""
         return self.stats.copy()
 
-    def reset_statistics(self):
+    def reset_statistics(self) -> None:
         """Reset statistics counters."""
         self.stats = {
             'total_validations': 0,

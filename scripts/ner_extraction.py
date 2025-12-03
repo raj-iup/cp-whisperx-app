@@ -11,6 +11,7 @@ Handles:
 
 # Standard library
 import json
+import logging
 from pathlib import Path
 from typing import List, Dict, Optional, Set, Tuple
 from collections import Counter
@@ -40,7 +41,7 @@ class NERProcessor:
         self,
         model_name: str = "en_core_web_trf",
         device: str = "cpu",
-        logger: Optional[PipelineLogger] = None
+        logger: logging.Logger: Optional[PipelineLogger] = None
     ):
         """
         Initialize NER processor
@@ -60,7 +61,7 @@ class NERProcessor:
         from shared.logger import PipelineLogger
         return PipelineLogger("ner")
 
-    def load_model(self):
+    def load_model(self) -> None:
         """Load spaCy NER model"""
         self.logger.info(f"Loading spaCy NER model: {self.model_name}")
         self.logger.info(f"  Device: {self.device}")
@@ -287,7 +288,7 @@ def run_ner_pipeline(
     basename: str,
     model_name: str,
     device: str,
-    logger: Optional[PipelineLogger] = None
+    logger: logging.Logger: Optional[PipelineLogger] = None
 ) -> Tuple[List[Dict], Dict[str, Dict[str, int]]]:
     """
     Run complete NER pipeline
@@ -306,7 +307,7 @@ def run_ner_pipeline(
     processor = NERProcessor(
         model_name=model_name,
         device=device,
-        logger=logger
+        logger: logging.Logger=logger
     )
 
     # Load model
@@ -324,7 +325,7 @@ def run_ner_pipeline(
     return annotated_segments, frequency_table
 
 
-def main():
+def main() -> None:
     """Main entry point for NER extraction stage."""
     import sys
     import os
@@ -450,7 +451,7 @@ def main():
             basename=basename,
             model_name=model_name,
             device=device,
-            logger=logger
+            logger: logging.Logger=logger
         )
         
         # Save metadata

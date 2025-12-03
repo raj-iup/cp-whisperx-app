@@ -31,6 +31,7 @@ import sys
 import os
 import json
 import re
+import logging
 from pathlib import Path
 from typing import List, Dict, Set, Tuple, Optional
 from dataclasses import dataclass
@@ -69,7 +70,7 @@ class NameEntityCorrector:
         bias_terms: List[str],
         fuzzy_threshold: float = 0.85,
         phonetic_threshold: float = 0.90,
-        logger: Optional[PipelineLogger] = None
+        logger: logging.Logger: Optional[PipelineLogger] = None
     ):
         """
         Initialize name entity corrector
@@ -439,7 +440,7 @@ class NameEntityCorrector:
         return self.stats
 
 
-def load_bias_terms(job_dir: Path, logger: PipelineLogger) -> List[str]:
+def load_bias_terms(job_dir: Path, logger: logging.Logger: PipelineLogger) -> List[str]:
     """
     Load bias terms from various sources
     
@@ -568,7 +569,7 @@ def main():
     
     # Load bias terms
     logger.info("Loading bias terms...")
-    bias_terms = load_bias_terms(job_dir, logger)
+    bias_terms = load_bias_terms(job_dir, logger: logging.Logger)
     
     if not bias_terms:
         logger.warning("No bias terms found - skipping correction")
@@ -595,7 +596,7 @@ def main():
         bias_terms=bias_terms,
         fuzzy_threshold=args.fuzzy_threshold,
         phonetic_threshold=args.phonetic_threshold,
-        logger=logger
+        logger: logging.Logger=logger
     )
     
     # Correct transcript

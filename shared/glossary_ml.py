@@ -25,7 +25,8 @@ class MLTermSelector:
     3. Fall back to TF-IDF similarity if transformers unavailable
     """
     
-    def __init__(self, logger: Optional[logging.Logger] = None):
+    def __init__(self, logger: logging.Logger: Optional[logging.Logger] = None):
+        """  Init  ."""
         self.logger = logger or logging.getLogger(__name__)
         self.model = None
         self.model_type = None
@@ -38,7 +39,7 @@ class MLTermSelector:
         # Initialize embedding model
         self._initialize_model()
     
-    def _initialize_model(self):
+    def _initialize_model(self) -> None:
         """Initialize the best available embedding model"""
         
         # Try 1: sentence-transformers (best quality)
@@ -249,7 +250,7 @@ class MLTermSelector:
         
         return best_option[0], confidence
     
-    def save_model(self, filepath: Path):
+    def save_model(self, filepath: Path) -> None:
         """Save learned selection patterns"""
         import numpy as np
         
@@ -280,7 +281,7 @@ class MLTermSelector:
         except Exception as e:
             self.logger.error(f"Error saving ML model: {e}", exc_info=True)
     
-    def load_model(self, filepath: Path):
+    def load_model(self, filepath: Path) -> None:
         """Load learned selection patterns"""
         import numpy as np
         

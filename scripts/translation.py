@@ -19,6 +19,7 @@ Can also translate existing SRT files for retranslation workflows.
 # Standard library
 import sys
 import json
+import logging
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 
@@ -38,7 +39,7 @@ def translate_with_indictrans2(
     segments: List[Dict[str, Any]],
     source_lang: str,
     target_lang: str,
-    logger
+    logger: logging.Logger
 ) -> List[Dict[str, Any]]:
     """
     Translate segments using IndicTrans2
@@ -64,7 +65,7 @@ def translate_with_indictrans2(
             texts,
             source_lang=source_lang,
             target_lang=target_lang,
-            logger=logger
+            logger: logging.Logger=logger
         )
         
         # Add translations to segments
@@ -88,7 +89,7 @@ def translate_with_nllb(
     segments: List[Dict[str, Any]],
     source_lang: str,
     target_lang: str,
-    logger
+    logger: logging.Logger
 ) -> List[Dict[str, Any]]:
     """
     Translate segments using NLLB
@@ -138,7 +139,7 @@ def translate_with_nllb(
 def translate_with_whisper(
     segments: List[Dict[str, Any]],
     audio_file: Path,
-    logger
+    logger: logging.Logger
 ) -> List[Dict[str, Any]]:
     """
     Translate segments using Whisper's built-in translation
@@ -164,7 +165,7 @@ def translate_with_whisper(
     )
 
 
-def main():
+def main() -> None:
     """
     Main entry point for translation stage
     
@@ -240,17 +241,17 @@ def main():
         try:
             if translator == 'indictrans2':
                 translated_segments = translate_with_indictrans2(
-                    segments, source_lang, target_lang, logger
+                    segments, source_lang, target_lang, logger: logging.Logger
                 )
             elif translator == 'nllb':
                 translated_segments = translate_with_nllb(
-                    segments, source_lang, target_lang, logger
+                    segments, source_lang, target_lang, logger: logging.Logger
                 )
             elif translator == 'whisper':
                 # Need audio file for Whisper translation
                 audio_file = stage_io.get_input_path("audio.wav", from_stage="demux")
                 translated_segments = translate_with_whisper(
-                    segments, audio_file, logger
+                    segments, audio_file, logger: logging.Logger
                 )
             else:
                 logger.error(f"Unknown translator: {translator}")

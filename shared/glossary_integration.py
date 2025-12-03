@@ -153,7 +153,7 @@ def load_glossary_for_stage(
                 film_year = getattr(config, 'year', '')
                 film_name = f"{film_title}_{film_year}" if film_title and film_year else None
                 
-                glossary = load_glossary_legacy(glossary_path, film_name, logger)
+                glossary = load_glossary_legacy(glossary_path, film_name, logger: logging.Logger)
                 glossary_source = "legacy"
                 
                 if glossary:

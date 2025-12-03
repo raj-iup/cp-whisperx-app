@@ -20,6 +20,7 @@ Previously called "bias_injection", now serves as "bias_correction" (Stage 9).
 import sys
 import os
 import json
+import logging
 from pathlib import Path
 from typing import List, Dict, Optional
 
@@ -37,7 +38,7 @@ from shared.logger import get_logger
 logger = get_logger(__name__)
 
 
-def load_bias_terms(stage_io: StageIO, logger: PipelineLogger) -> List[str]:
+def load_bias_terms(stage_io: StageIO, logger: logging.Logger: PipelineLogger) -> List[str]:
     """
     Load bias terms from TMDB and pre-NER stages
     
@@ -112,7 +113,7 @@ def load_bias_terms(stage_io: StageIO, logger: PipelineLogger) -> List[str]:
     return unique_terms
 
 
-def load_bias_windows(stage_io: StageIO, logger: PipelineLogger) -> List[Dict]:
+def load_bias_windows(stage_io: StageIO, logger: logging.Logger: PipelineLogger) -> List[Dict]:
     """
     Load temporal bias windows if available
     
@@ -150,7 +151,7 @@ def load_bias_windows(stage_io: StageIO, logger: PipelineLogger) -> List[Dict]:
     return []
 
 
-def should_run_bias_injection(device: str, enabled: str, logger: PipelineLogger) -> bool:
+def should_run_bias_injection(device: str, enabled: str, logger: logging.Logger: PipelineLogger) -> bool:
     """
     Determine if bias injection should run based on device and config
     
@@ -243,7 +244,7 @@ def main(stage_name: Optional[str] = None):
     logger.info(f"  Context windows: {use_context}")
     
     # Check if should run
-    if not should_run_bias_injection(device, enabled, logger):
+    if not should_run_bias_injection(device, enabled, logger: logging.Logger):
         logger.info("Skipping bias correction stage")
         # Copy lyrics detection output as-is
         try:
@@ -284,7 +285,7 @@ def main(stage_name: Optional[str] = None):
     
     # Load bias terms (character names, places, etc.)
     logger.info("Loading bias terms for correction...")
-    bias_terms = load_bias_terms(stage_io, logger)
+    bias_terms = load_bias_terms(stage_io, logger: logging.Logger)
     
     if not bias_terms:
         logger.warning("No bias terms found - skipping correction")
@@ -297,7 +298,7 @@ def main(stage_name: Optional[str] = None):
     bias_windows = []
     if use_context:
         logger.info("Loading bias windows for context-aware correction...")
-        bias_windows = load_bias_windows(stage_io, logger)
+        bias_windows = load_bias_windows(stage_io, logger: logging.Logger)
     
     # Initialize corrector
     logger.info("Initializing bias corrector...")
@@ -309,7 +310,7 @@ def main(stage_name: Optional[str] = None):
             fuzzy_threshold=fuzzy_threshold,
             phonetic_threshold=phonetic_threshold,
             min_word_length=min_word_length,
-            logger=logger
+            logger: logging.Logger=logger
         )
         logger.info("  Using context-aware corrector")
     else:
@@ -318,7 +319,7 @@ def main(stage_name: Optional[str] = None):
             fuzzy_threshold=fuzzy_threshold,
             phonetic_threshold=phonetic_threshold,
             min_word_length=min_word_length,
-            logger=logger
+            logger: logging.Logger=logger
         )
         logger.info("  Using standard corrector")
     
@@ -331,7 +332,7 @@ def main(stage_name: Optional[str] = None):
     except Exception as e:
         logger.error(f"Bias correction failed: {e}", exc_info=True)
         import traceback
-        logger.error(traceback.format_exc(, exc_info=True))
+        logger.error(traceback.format_exc(), exc_info=True)
         return 1
     
     # Log statistics

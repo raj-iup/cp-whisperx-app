@@ -23,6 +23,7 @@ class ModelChecker:
     """Checks status of cached models and availability of updates"""
     
     def __init__(self, cache_dir: Path, hf_token: Optional[str] = None):
+        """  Init  ."""
         self.cache_dir = cache_dir
         self.hf_token = hf_token
         self.torch_cache = cache_dir / 'torch'
@@ -173,14 +174,14 @@ class ModelChecker:
         return f"{size:.1f}TB"
 
 
-def print_section(title: str):
+def print_section(title: str) -> None:
     """Print a section header"""
     logger.info(f"\n{'='*70}")
     logger.info(f"  {title}")
     logger.info(f"{'='*70}")
 
 
-def print_model_status(model_name: str, cached: bool, status: str, note: Optional[str] = None):
+def print_model_status(model_name: str, cached: bool, status: str, note: Optional[str] = None) -> None:
     """Print model status"""
     status_icon = "✓" if cached else "✗"
     
@@ -208,11 +209,9 @@ def load_hardware_cache(project_root: Path) -> Dict:
     return {}
 
 
-def main():
+def main() -> None:
+    """Main."""
     import argparse
-
-# Local
-from shared.logger import get_logger
     
     parser = argparse.ArgumentParser(description='Check ML model status for CP-WhisperX-App')
     parser.add_argument('--hf-token', type=str, help='HuggingFace API token')

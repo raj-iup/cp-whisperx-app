@@ -304,7 +304,8 @@ def generate_coverage_report(
     return report
 
 
-def main():
+def main() -> None:
+    """Main."""
     stage_io = None
     logger = None
     

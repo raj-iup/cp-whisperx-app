@@ -11,8 +11,9 @@ Handles:
 # Standard library
 import json
 import re
+import logging
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 import sys
 from pathlib import Path
 
@@ -36,7 +37,7 @@ class CanonicalProcessor:
     def __init__(
         self,
         canon_map_file: Optional[str] = None,
-        logger: Optional[PipelineLogger] = None
+        logger: logging.Logger: Optional[PipelineLogger] = None
     ):
         """
         Initialize canonical processor
@@ -49,12 +50,12 @@ class CanonicalProcessor:
         self.logger = logger or self._create_default_logger()
         self.canon_map = {}
 
-    def _create_default_logger(self):
+    def _create_default_logger(self) -> Any:
         """Create default logger if none provided"""
         from shared.logger import PipelineLogger
         return PipelineLogger("canonicalization")
 
-    def load_canon_map(self):
+    def load_canon_map(self) -> None:
         """Load canonical name mapping from YAML file"""
         if not self.canon_map_file:
             self.logger.info("No canonical map file specified, skipping...")
@@ -318,7 +319,7 @@ def run_canonicalization_pipeline(
     output_dir: Path,
     basename: str,
     canon_map_file: Optional[str] = None,
-    logger: Optional[PipelineLogger] = None
+    logger: logging.Logger: Optional[PipelineLogger] = None
 ) -> List[Dict]:
     """
     Run complete canonicalization and polish pipeline
@@ -335,7 +336,7 @@ def run_canonicalization_pipeline(
     """
     processor = CanonicalProcessor(
         canon_map_file=canon_map_file,
-        logger=logger
+        logger: logging.Logger=logger
     )
 
     # Load canonical map

@@ -10,6 +10,7 @@ Handles:
 
 # Standard library
 import json
+import logging
 from pathlib import Path
 from typing import List, Dict, Optional, Any
 
@@ -45,7 +46,7 @@ class TranslationRefiner:
         source_lang: str = "hi",
         target_lang: str = "en",
         device: str = "cpu",
-        logger: Optional[PipelineLogger] = None
+        logger: logging.Logger: Optional[PipelineLogger] = None
     ):
         """
         Initialize translation refiner
@@ -71,7 +72,7 @@ class TranslationRefiner:
         from shared.logger import PipelineLogger
         return PipelineLogger("translation")
 
-    def load_model(self):
+    def load_model(self) -> None:
         """Load translation model based on backend"""
         self.logger.info(f"Loading translation model: {self.backend}")
         self.logger.info(f"  Source: {self.source_lang}, Target: {self.target_lang}")
@@ -99,7 +100,7 @@ class TranslationRefiner:
             self.logger.error(f"  Failed to load model: {e}", exc_info=True)
             raise
 
-    def _load_opus_mt(self):
+    def _load_opus_mt(self) -> None:
         """Load Helsinki-NLP OPUS-MT model"""
         # Map language codes to OPUS-MT format
         lang_map = {"hi": "hi", "en": "en"}
@@ -114,7 +115,7 @@ class TranslationRefiner:
         self.model.to(self.device)
         self.model.eval()
 
-    def _load_mbart50(self):
+    def _load_mbart50(self) -> None:
         """Load Facebook mBART-50 model"""
         model_name = "facebook/mbart-large-50-many-to-many-mmt"
         self.logger.info(f"  Loading: {model_name}")
@@ -128,7 +129,7 @@ class TranslationRefiner:
         lang_code_map = {"hi": "hi_IN", "en": "en_XX"}
         self.tokenizer.src_lang = lang_code_map.get(self.source_lang, "hi_IN")
 
-    def _load_nllb200(self):
+    def _load_nllb200(self) -> None:
         """Load Meta NLLB-200 model"""
         model_name = "facebook/nllb-200-distilled-600M"
         self.logger.info(f"  Loading: {model_name}")
@@ -360,7 +361,7 @@ def run_translation_refine_pipeline(
     target_lang: str,
     device: str,
     refine_all: bool = False,
-    logger: Optional[PipelineLogger] = None
+    logger: logging.Logger: Optional[PipelineLogger] = None
 ) -> List[Dict]:
     """
     Run complete translation refinement pipeline
@@ -384,7 +385,7 @@ def run_translation_refine_pipeline(
         source_lang=source_lang,
         target_lang=target_lang,
         device=device,
-        logger=logger
+        logger: logging.Logger=logger
     )
 
     # Load model
@@ -399,7 +400,7 @@ def run_translation_refine_pipeline(
     return refined_segments
 
 
-def main():
+def main() -> None:
     """Main entry point for translation refinement stage."""
     import sys
     import os
@@ -507,7 +508,7 @@ def main():
             target_lang=target_lang,
             device=device,
             refine_all=refine_all,
-            logger=logger
+            logger: logging.Logger=logger
         )
         
         # Save metadata
@@ -530,7 +531,7 @@ def main():
     except Exception as e:
         logger.error(f"Translation refinement failed: {e}", exc_info=True)
         import traceback
-        logger.error(traceback.format_exc(, exc_info=True))
+        logger.error(traceback.format_exc(), exc_info=True)
         logger.warning("Continuing without translation refinement")
         return 0  # Non-critical, don't fail pipeline
 

@@ -257,23 +257,23 @@ class PipelineLogger:
                 log_dir=log_dir
             )
     
-    def debug(self, msg: str):
+    def debug(self, msg: str) -> None:
         """Log debug message."""
         self.logger.debug(msg)
     
-    def info(self, msg: str):
+    def info(self, msg: str) -> None:
         """Log info message."""
         self.logger.info(msg)
     
-    def warning(self, msg: str):
+    def warning(self, msg: str) -> None:
         """Log warning message."""
         self.logger.warning(msg)
     
-    def error(self, msg: str):
+    def error(self, msg: str) -> None:
         """Log error message."""
         self.logger.error(msg)
     
-    def critical(self, msg: str):
+    def critical(self, msg: str) -> None:
         """Log critical message."""
         self.logger.critical(msg)
 

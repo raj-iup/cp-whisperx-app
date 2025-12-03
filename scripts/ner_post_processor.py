@@ -26,6 +26,7 @@ Usage:
 import sys
 import json
 import argparse
+import logging
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 from datetime import datetime
@@ -49,7 +50,7 @@ class NERPostProcessor:
     def __init__(
         self,
         job_dir: Path,
-        logger: Optional[PipelineLogger] = None
+        logger: logging.Logger: Optional[PipelineLogger] = None
     ):
         """
         Initialize NER post-processor
@@ -62,7 +63,7 @@ class NERPostProcessor:
         self.logger = logger or self._create_logger()
         
         # Load TMDB metadata
-        self.tmdb_loader = TMDBLoader(self.job_dir, logger=self.logger)
+        self.tmdb_loader = TMDBLoader(self.job_dir, logger: logging.Logger=self.logger)
         self.tmdb_data = self.tmdb_loader.load()
         
         # Initialize NER corrector
@@ -71,7 +72,7 @@ class NERPostProcessor:
             self.corrector = NERCorrector(
                 tmdb_metadata=metadata,
                 model_name="en_core_web_sm",
-                logger=self.logger
+                logger: logging.Logger=self.logger
             )
             try:
                 self.corrector.load_model()

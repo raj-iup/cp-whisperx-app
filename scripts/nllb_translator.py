@@ -11,6 +11,7 @@ https://huggingface.co/facebook/nllb-200-distilled-600M
 # Standard library
 import os
 import json
+import logging
 from pathlib import Path
 from typing import List, Dict, Optional, Any
 from dataclasses import dataclass
@@ -121,7 +122,7 @@ class NLLBTranslator:
     def __init__(
         self,
         config: Optional[NLLBConfig] = None,
-        logger = None,
+        logger: logging.Logger = None,
         source_lang: Optional[str] = None,
         target_lang: Optional[str] = None
     ):
@@ -306,7 +307,7 @@ def translate_whisperx_result(
     whisperx_result: Dict,
     source_lang: str,
     target_lang: str,
-    logger = None,
+    logger: logging.Logger = None,
     config: Optional[NLLBConfig] = None
 ) -> Dict:
     """
@@ -330,7 +331,7 @@ def translate_whisperx_result(
     # Initialize translator
     translator = NLLBTranslator(
         config=config,
-        logger=logger,
+        logger: logging.Logger=logger,
         source_lang=source_lang,
         target_lang=target_lang
     )

@@ -14,6 +14,7 @@ Key features:
 
 # Standard library
 import re
+import logging
 from typing import Dict, List, Set, Tuple, Optional
 from pathlib import Path
 from collections import Counter
@@ -33,7 +34,7 @@ class NERCorrector:
         self,
         tmdb_metadata: Optional[Dict] = None,
         model_name: str = "en_core_web_sm",
-        logger=None
+        logger: logging.Logger=None
     ):
         """
         Initialize NER corrector
@@ -54,7 +55,7 @@ class NERCorrector:
         # Entity mapping cache
         self._entity_cache = {}
     
-    def load_model(self):
+    def load_model(self) -> None:
         """Load spaCy NER model"""
         if self.nlp is not None:
             return

@@ -316,12 +316,9 @@ class EnvironmentManager:
         return env_info.get("stages", [])
 
 
-def main():
+def main() -> None:
     """CLI interface for environment manager"""
     import argparse
-
-# Local
-from shared.logger import get_logger
     
     parser = argparse.ArgumentParser(description="Environment Manager CLI")
     parser.add_argument("command", choices=[

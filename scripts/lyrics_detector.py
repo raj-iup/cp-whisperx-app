@@ -17,6 +17,7 @@ Expected Impact: +2-3% accuracy on overall content
 # Standard library
 import sys
 import json
+import logging
 from pathlib import Path
 from typing import List, Dict, Tuple, Optional
 from dataclasses import dataclass
@@ -66,7 +67,7 @@ class LyricsDetector:
     - LYRICS_ALLOW_REPETITION: Allow repetition in lyrics (default: true)
     """
     
-    def __init__(self, config: Config, logger: PipelineLogger):
+    def __init__(self, config: Config, logger: logging.Logger: PipelineLogger):
         """Initialize lyrics detector."""
         self.config = config
         self.logger = logger
@@ -372,7 +373,7 @@ def main():
     logger = PipelineLogger(job_dir, "lyrics", "detection")
     config = Config(PROJECT_ROOT)
     
-    detector = LyricsDetector(config, logger)
+    detector = LyricsDetector(config, logger: logging.Logger)
     
     # Load transcript
     transcript_file = None

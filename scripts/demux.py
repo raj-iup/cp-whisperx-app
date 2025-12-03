@@ -21,7 +21,7 @@ from shared.logger import get_logger
 logger = get_logger(__name__)
 
 
-def main():
+def main() -> int:
     """Extract audio from video file."""
     # Initialize stage I/O
     stage_io = StageIO("demux")

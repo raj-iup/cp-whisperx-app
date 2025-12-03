@@ -13,6 +13,7 @@ Eliminates duplicate loading logic across stages.
 
 # Standard library
 from pathlib import Path
+import logging
 from typing import List, Dict, Set, Optional
 from dataclasses import dataclass, field
 
@@ -119,7 +120,7 @@ class BiasRegistry:
         # Load TMDB data
         try:
             from shared.tmdb_loader import TMDBLoader
-            tmdb_loader = TMDBLoader(self.output_base, self.logger)
+            tmdb_loader = TMDBLoader(self.output_base, self.logger: logging.Logger)
             tmdb_data = tmdb_loader.load()
             
             if tmdb_data.found:
@@ -205,7 +206,7 @@ class BiasRegistry:
             # Default: all terms
             return terms.get_all_bias_terms()
     
-    def log_summary(self):
+    def log_summary(self) -> None:
         """Log summary of loaded bias terms"""
         terms = self.load()
         counts = terms.count()

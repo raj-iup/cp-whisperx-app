@@ -189,7 +189,7 @@ class JobManager:
         with open(self.job_env_file, 'w') as f:
             f.writelines(updated_lines)
     
-    def cleanup_job_env(self):
+    def cleanup_job_env(job_dir: Path) -> None:
         """Clean up job-specific environment file after completion."""
         if self.job_env_file and self.job_env_file.exists():
             # Keep backup in output directory, remove from config

@@ -16,6 +16,7 @@ DEVELOPER STANDARDS COMPLIANCE:
 """
 
 # Standard library
+import logging
 from typing import Tuple, Literal, Optional
 
 # Third-party
@@ -310,7 +311,7 @@ def get_device_memory_info(device: str) -> Optional[dict]:
     return None
 
 
-def validate_device_and_compute_type(device: str, compute_type: Optional[str] = None, logger=None) -> Tuple[str, Optional[str]]:
+def validate_device_and_compute_type(device: str, compute_type: Optional[str] = None, logger: logging.Logger=None) -> Tuple[str, Optional[str]]:
     """
     Validate device and compute_type compatibility for ML stages.
     

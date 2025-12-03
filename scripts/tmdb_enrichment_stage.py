@@ -27,6 +27,7 @@ Usage:
 import sys
 import json
 import argparse
+import logging
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, Dict, Any
@@ -55,7 +56,7 @@ class TMDBEnrichmentStage:
         stage_io: Optional[StageIO] = None,
         title: Optional[str] = None,
         year: Optional[int] = None,
-        logger: Optional[PipelineLogger] = None
+        logger: logging.Logger: Optional[PipelineLogger] = None
     ):
         """
         Initialize TMDB enrichment stage
@@ -101,7 +102,7 @@ class TMDBEnrichmentStage:
             self.logger.warning("TMDB API key not found - stage will be skipped")
             self.client = None
         else:
-            self.client = TMDBClient(self.api_key, logger=self.logger)
+            self.client = TMDBClient(self.api_key, logger: logging.Logger=self.logger)
     
     def _create_logger(self) -> PipelineLogger:
         """Create default logger"""
@@ -314,7 +315,7 @@ class TMDBEnrichmentStage:
         """Generate glossaries from metadata"""
         self.logger.info("Generating glossaries...")
         
-        generator = GlossaryGenerator(metadata, logger=self.logger)
+        generator = GlossaryGenerator(metadata, logger: logging.Logger=self.logger)
         
         # Generate ASR glossary (flat list)
         asr_terms = generator.generate_for_asr()

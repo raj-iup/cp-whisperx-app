@@ -15,7 +15,9 @@ import os
 import subprocess
 import shutil
 import json
+import logging
 from pathlib import Path
+from typing import Optional
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -28,7 +30,7 @@ from shared.logger import get_logger
 logger = get_logger(__name__)
 
 
-def check_demucs_installed():
+def check_demucs_installed() -> bool:
     """Check if Demucs is installed"""
     try:
         result = subprocess.run(
@@ -42,7 +44,7 @@ def check_demucs_installed():
         return False
 
 
-def install_demucs(logger):
+def install_demucs(logger: logging.Logger) -> bool:
     """Install Demucs using pip"""
     logger.info("Demucs not found. Installing...")
     try:
@@ -63,7 +65,7 @@ def install_demucs(logger):
         return False
 
 
-def separate_vocals(input_audio, output_dir, quality="balanced", logger=None):
+def separate_vocals(input_audio: Path, output_dir: Path, quality: str = "balanced", logger: Optional[logging.Logger] = None) -> None:
     """
     Separate vocals from background music using Demucs
     
@@ -180,7 +182,7 @@ def separate_vocals(input_audio, output_dir, quality="balanced", logger=None):
         return None
 
 
-def main():
+def main() -> int:
     """Extract vocals from audio using source separation."""
     stage_io = None
     logger = None

@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 """
+import logging
+from typing import Dict, List, Any
+
 # Local
 from shared.logger import get_logger
 
@@ -30,7 +33,7 @@ class SubtitleSegmentMerger:
     - Break at natural phrase boundaries
     """
 
-    def __init__(self, config=None, logger=None):
+    def __init__(self, config: Optional[Dict[str, Any]] = None, logger: logging.Logger = None):
         """Initialize segment merger with configuration."""
         self.logger = logger
 
@@ -63,7 +66,7 @@ class SubtitleSegmentMerger:
             'adjusted_count': 0
         }
 
-    def should_merge(self, seg1, seg2):
+    def should_merge(self, seg1: Dict[str, Any], seg2: Dict[str, Any]) -> bool:
         """Determine if two consecutive segments should be merged."""
         if seg1.get('is_lyrics') or seg2.get('is_lyrics'):
             return False
@@ -85,7 +88,7 @@ class SubtitleSegmentMerger:
             return False
         return True
 
-    def break_lines(self, text, max_chars=None):
+    def break_lines(self, text: str, max_chars: int = None) -> Any:
         """Break text into multiple lines at natural boundaries."""
         if max_chars is None:
             max_chars = self.max_chars_per_line
@@ -108,7 +111,7 @@ class SubtitleSegmentMerger:
         line2 = text[max_chars:max_chars * 2].strip()
         return f"{line1}\n{line2}" if line2 else line1
 
-    def adjust_timing(self, segment):
+    def adjust_timing(self, segment: Dict[str, Any]) -> Any:
         """Adjust segment timing for optimal reading speed."""
         text = segment.get('text', '').strip()
         if not text:
@@ -126,7 +129,7 @@ class SubtitleSegmentMerger:
             self.stats['adjusted_count'] += 1
         return segment
 
-    def merge_segments(self, segments):
+    def merge_segments(self, segments: List[Dict[str, Any]]) -> Any:
         """Main merging pipeline: merge short segments for optimal readability."""
         if not segments:
             return segments

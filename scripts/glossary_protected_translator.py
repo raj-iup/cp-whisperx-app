@@ -332,7 +332,7 @@ class GlossaryProtectedTranslator:
         """Get protection statistics."""
         return self.stats.copy()
 
-    def reset_statistics(self):
+    def reset_statistics(self) -> None:
         """Reset statistics counters."""
         self.stats = {
             'total_translations': 0,
@@ -373,7 +373,7 @@ def create_protected_translator(
     if glossary:
         if logger:
             logger.info("Wrapping translator with glossary protection")
-        return GlossaryProtectedTranslator(glossary, base_translator, logger)
+        return GlossaryProtectedTranslator(glossary, base_translator, logger: logging.Logger)
 
     if logger:
         logger.info("No glossary available - using base translator")

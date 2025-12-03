@@ -19,9 +19,10 @@ import json
 import argparse
 import subprocess
 import traceback
+import logging
 from pathlib import Path
 from datetime import datetime
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Any
 
 # Add paths for imports
 SCRIPT_DIR = Path(__file__).parent
@@ -46,7 +47,7 @@ def format_timestamp_srt(seconds: float) -> str:
     return f"{hours:02d}:{minutes:02d}:{secs:02d},{millis:03d}"
 
 
-def normalize_segments_data(data):
+def normalize_segments_data(data: Dict[str, Any]) -> Any:
     """
     Normalize segments data to consistent dict format.
     Handles both list [...] and dict {"segments": [...]} formats.
@@ -98,6 +99,7 @@ class IndicTrans2Pipeline:
     """Pipeline orchestrator for IndicTrans2 workflows"""
     
     def __init__(self, job_dir: Path, resume: bool = False):
+        """  Init  ."""
         self.job_dir = job_dir
         self.resume = resume
         
@@ -230,7 +232,7 @@ class IndicTrans2Pipeline:
         with open(config_file) as f:
             return json.load(f)
     
-    def _save_manifest(self):
+    def _save_manifest(self) -> None:
         """Save manifest to file"""
         manifest_file = self.job_dir / "manifest.json"
         self.manifest["updated_at"] = datetime.now().isoformat()
@@ -649,7 +651,7 @@ class IndicTrans2Pipeline:
                 duration = (datetime.now() - start_time).total_seconds()
                 self.logger.error(f"❌ Stage {stage_name}: EXCEPTION: {e}", exc_info=True)
                 if self.debug:
-                    self.logger.error(f"Traceback: {traceback.format_exc(, exc_info=True)}")
+                    self.logger.error(f"Traceback: {traceback.format_exc()}", exc_info=True)
                 self._update_stage_status(stage_name, "failed", duration)
                 return False
         
@@ -942,7 +944,7 @@ class IndicTrans2Pipeline:
                 tmdb_enrichment_path=tmdb_enrichment_path,
                 enable_cache=enable_cache,
                 enable_learning=enable_learning,
-                logger=self.logger
+                logger: logging.Logger=self.logger
             )
             
             # Load all glossary sources
@@ -2099,7 +2101,7 @@ os.environ['INDICTRANS2_NUM_BEAMS'] = '{num_beams}'
 os.environ['INDICTRANS2_MAX_NEW_TOKENS'] = '{max_tokens}'
 
 # translate_whisperx_result will auto-select the right model based on language pair
-translated = translate_whisperx_result(segments, '{source_lang}', '{target_lang}', logger)
+translated = translate_whisperx_result(segments, '{source_lang}', '{target_lang}', logger: logging.Logger)
 
 # Save
 with open('{output_file}', 'w') as f:
@@ -2375,7 +2377,7 @@ os.environ['INDICTRANS2_NUM_BEAMS'] = '{num_beams}'
 os.environ['INDICTRANS2_MAX_NEW_TOKENS'] = '{max_tokens}'
 
 # translate_whisperx_result will auto-select the right model based on language pair
-translated = translate_whisperx_result(segments, '{source_lang}', '{target_lang}', logger)
+translated = translate_whisperx_result(segments, '{source_lang}', '{target_lang}', logger: logging.Logger)
 
 # Save
 with open('{output_file}', 'w') as f:
@@ -2460,7 +2462,7 @@ config = NLLBConfig(
 )
 
 # Translate
-translated = translate_whisperx_result(segments, '{source_lang}', '{target_lang}', logger, config)
+translated = translate_whisperx_result(segments, '{source_lang}', '{target_lang}', logger: logging.Logger, config)
 
 # Save
 with open('{output_file}', 'w') as f:
@@ -2548,7 +2550,7 @@ config = NLLBConfig(
 )
 
 # Translate
-translated = translate_whisperx_result(segments, '{source_lang}', '{target_lang}', logger, config)
+translated = translate_whisperx_result(segments, '{source_lang}', '{target_lang}', logger: logging.Logger, config)
 
 # Save
 with open('{output_file}', 'w') as f:
@@ -3029,7 +3031,7 @@ logger.info(f"Translated {{len(translated['segments'])}} segments to {target_lan
             remover = HallucinationRemover(
                 loop_threshold=loop_threshold,
                 max_repeats=max_repeats,
-                logger=None  # Use pipeline logger instead
+                logger: logging.Logger=None  # Use pipeline logger instead
             )
             
             # Detect loops manually (for logging)
@@ -3100,14 +3102,15 @@ logger.info(f"Translated {{len(translated['segments'])}} segments to {target_lan
             self.logger.error(f"Error in hallucination removal: {e}", exc_info=True)
             if self.main_config.debug_mode:
                 import traceback
-                self.logger.error(f"Traceback: {traceback.format_exc(, exc_info=True)}")
+                self.logger.error(f"Traceback: {traceback.format_exc()}", exc_info=True)
             
             # Graceful degradation - continue with original segments
             self.logger.warning("Continuing with original segments (graceful degradation)")
             return True  # Don't fail pipeline, just skip cleaning
 
 
-def main():
+def main() -> Any:
+    """Main."""
     parser = argparse.ArgumentParser(
         description="IndicTrans2 Pipeline Orchestrator"
     )

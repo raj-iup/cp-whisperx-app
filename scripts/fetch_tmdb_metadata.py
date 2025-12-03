@@ -236,7 +236,7 @@ class TMDBFetcher:
         
         return glossary
     
-    def save_metadata(self, metadata: Dict[str, Any], output_path: Path, format: str = 'json'):
+    def save_metadata(self, metadata: Dict[str, Any], output_path: Path, format: str = 'json') -> None:
         """
         Save metadata to file
         
@@ -257,7 +257,7 @@ class TMDBFetcher:
         self.logger.info(f"✓ Saved to: {output_path}")
 
 
-def main():
+def main() -> None:
     """Main entry point"""
     parser = argparse.ArgumentParser(
         description='Fetch movie metadata from TMDB and generate glossary',

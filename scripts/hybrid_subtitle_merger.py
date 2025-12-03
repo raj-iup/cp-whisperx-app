@@ -224,7 +224,8 @@ def merge_translations(
     logger.info("  ✓ Best of both worlds!")
 
 
-def main():
+def main() -> None:
+    """Main."""
     parser = argparse.ArgumentParser(
         description='Merge WhisperX and IndICTrans2 translations into hybrid',
         formatter_class=argparse.RawDescriptionHelpFormatter,

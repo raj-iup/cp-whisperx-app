@@ -116,7 +116,7 @@ class HybridTranslator:
             logger.setLevel(logging.INFO)
         return logger
     
-    def load_indictrans2(self):
+    def load_indictrans2(self) -> None:
         """Load IndicTrans2 model"""
         try:
             from indictrans2_translator import IndicTrans2Translator, TranslationConfig
@@ -131,7 +131,7 @@ class HybridTranslator:
             
             self.indictrans2 = IndicTrans2Translator(
                 config=config,
-                logger=self.logger,
+                logger: logging.Logger=self.logger,
                 source_lang=self.source_lang,
                 target_lang=self.target_lang
             )
@@ -143,7 +143,7 @@ class HybridTranslator:
             self.logger.error(f"Failed to load IndicTrans2: {e}", exc_info=True)
             raise
     
-    def load_llm_client(self):
+    def load_llm_client(self) -> None:
         """Load LLM client for creative translation"""
         if not self.use_llm_for_songs:
             return
@@ -163,7 +163,7 @@ class HybridTranslator:
             self.logger.warning("Will fallback to IndicTrans2 for all translations")
             self.use_llm_for_songs = False
     
-    def _load_anthropic(self):
+    def _load_anthropic(self) -> None:
         """Load Anthropic Claude client"""
         try:
             import anthropic
@@ -181,7 +181,7 @@ class HybridTranslator:
                 "Install with: pip install anthropic"
             )
     
-    def _load_openai(self):
+    def _load_openai(self) -> None:
         """Load OpenAI client"""
         try:
             import openai
@@ -669,7 +669,7 @@ class HybridTranslator:
         return self.stats.copy()
 
 
-def main():
+def main() -> None:
     """Main entry point for hybrid translation stage"""
     
     # Setup stage I/O
@@ -769,7 +769,7 @@ def main():
         glossary_path=glossary_path if glossary_path.exists() else None,
         use_llm_for_songs=use_llm,
         llm_provider=llm_provider,
-        logger=logger,
+        logger: logging.Logger=logger,
         confidence_threshold=confidence_threshold,
         enable_fallback=enable_fallback
     )

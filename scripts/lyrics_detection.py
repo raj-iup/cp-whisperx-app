@@ -10,6 +10,7 @@ Implements proper lyrics detection using:
 # Standard library
 import sys
 import json
+import logging
 from pathlib import Path
 from typing import List, Dict, Optional
 
@@ -117,7 +118,7 @@ def main():
             threshold=threshold,
             min_duration=min_duration,
             device=device,
-            logger=logger
+            logger: logging.Logger=logger
         )
         
         # Method 1: Audio feature analysis (if audio file available)

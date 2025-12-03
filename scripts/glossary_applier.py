@@ -12,6 +12,7 @@ Applies unified glossary to translation output with:
 import sys
 import os
 import json
+import logging
 from pathlib import Path
 from datetime import datetime
 
@@ -66,7 +67,7 @@ def detect_context(segment: dict) -> str:
 def apply_glossary_to_segments(
     segments: list,
     glossary,
-    logger
+    logger: logging.Logger
 ) -> tuple:
     """
     Apply glossary to all segments
@@ -119,7 +120,7 @@ def apply_glossary_to_segments(
     return modified_segments, stats
 
 
-def main():
+def main() -> None:
     """Main glossary applier stage"""
     
     # Initialize StageIO and logging
@@ -169,7 +170,7 @@ def main():
         return 0
     
     logger.info(f"Loading glossary: {glossary_path}")
-    glossary = load_glossary(glossary_path, film_name, logger)
+    glossary = load_glossary(glossary_path, film_name, logger: logging.Logger)
     
     glossary_stats = glossary.get_statistics()
     logger.info(f"Loaded glossary: {glossary_stats['total_terms']} terms")
@@ -198,7 +199,7 @@ def main():
     
     # Apply glossary
     logger.info("Applying glossary...")
-    modified_segments, stats = apply_glossary_to_segments(segments, glossary, logger)
+    modified_segments, stats = apply_glossary_to_segments(segments, glossary, logger: logging.Logger)
     
     # Update data
     data['segments'] = modified_segments

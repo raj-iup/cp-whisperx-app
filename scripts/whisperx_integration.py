@@ -22,6 +22,7 @@ os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 import json
 import warnings
 from pathlib import Path
+import logging
 from typing import List, Dict, Optional, Any
 from tqdm import tqdm
 
@@ -59,7 +60,7 @@ try:
 except ImportError:
     # Fallback for MLX environment without whisperx
     import librosa
-    def load_audio(file: str, sr: int = 16000):
+    def load_audio(file: str, sr: int = 16000) -> Any:
         """Load audio file and resample to target sample rate"""
         audio, _ = librosa.load(file, sr=sr, mono=True)
         return audio
@@ -70,7 +71,7 @@ except ImportError:
 _indictrans2_translator = None
 _indictrans2_available = None
 
-def _get_indictrans2():
+def _get_indictrans2() -> Any:
     """Lazy load IndicTrans2 translator to avoid import issues in ASR-only environments"""
     global _indictrans2_translator, _indictrans2_available
     
@@ -173,12 +174,12 @@ class WhisperXProcessor:
             return [float(t.strip()) for t in temperature.split(',')]
         return [float(temperature)]
 
-    def _create_default_logger(self):
+    def _create_default_logger(self) -> Any:
         """Create default logger if none provided"""
         from shared.logger import PipelineLogger
         return PipelineLogger("whisperx")
 
-    def load_model(self):
+    def load_model(self) -> None:
         """Load Whisper model using appropriate backend"""
         self.logger.info(f"Loading Whisper model: {self.model_name}")
         self.logger.info(f"  Device requested: {self.device}")
@@ -186,7 +187,7 @@ class WhisperXProcessor:
         
         # Get recommended backend if auto
         if self.backend_type == "auto":
-            recommended = get_recommended_backend(self.device, self.logger)
+            recommended = get_recommended_backend(self.device, self.logger: logging.Logger)
             self.logger.info(f"  Auto-detected backend: {recommended}")
             backend_to_use = recommended
         else:
@@ -253,7 +254,7 @@ class WhisperXProcessor:
         self.logger.info(f"  ✓ Model loaded with backend: {self.backend.name}")
         self.logger.info(f"  ✓ Active device: {self.device}")
 
-    def load_align_model(self, language: str):
+    def load_align_model(self, language: str) -> None:
         """
         Load alignment model for word-level timestamps
 
@@ -271,7 +272,7 @@ class WhisperXProcessor:
         else:
             self.logger.warning("  ⚠ Alignment model not available")
     
-    def cleanup(self):
+    def cleanup(self) -> None:
         """Clean up resources"""
         if self.backend:
             self.backend.cleanup()
@@ -545,7 +546,7 @@ class WhisperXProcessor:
             raise
         finally:
             # Always cleanup MPS memory
-            cleanup_mps_memory(self.logger)
+            cleanup_mps_memory(self.logger: logging.Logger)
             log_mps_memory(self.logger, "  After transcription - ")
 
         # Phase 1: Apply confidence-based filtering
@@ -634,7 +635,7 @@ class WhisperXProcessor:
             self.logger.error(f"  ✗ Hybrid transcription failed: {e}", exc_info=True)
             raise
         finally:
-            cleanup_mps_memory(self.logger)
+            cleanup_mps_memory(self.logger: logging.Logger)
             log_mps_memory(self.logger, "  After hybrid transcription - ")
 
         # Phase 1: Apply confidence-based filtering
@@ -684,7 +685,8 @@ class WhisperXProcessor:
             from whisperx.audio import load_audio as _load_audio
         except ImportError:
             import librosa
-            def _load_audio(file: str, sr: int = 16000):
+            def _load_audio(file: str, sr: int = 16000) -> Any:
+                """ Load Audio."""
                 audio, _ = librosa.load(file, sr=sr, mono=True)
                 return audio
         
@@ -758,7 +760,7 @@ class WhisperXProcessor:
                 # Continue with other windows - partial results better than none
                 continue
             finally:
-                cleanup_mps_memory(self.logger)
+                cleanup_mps_memory(self.logger: logging.Logger)
         
         self.logger.info(f"  Merging {len(all_segments)} segments from {total_windows} windows...")
 
@@ -882,7 +884,7 @@ class WhisperXProcessor:
                     chunk_results.append(result)
                     
                     # Memory cleanup after each chunk
-                    cleanup_mps_memory(self.logger)
+                    cleanup_mps_memory(self.logger: logging.Logger)
                     
                 except Exception as e:
                     self.logger.error(f"    ✗ Chunk {chunk.chunk_id} failed: {e}", exc_info=True)
@@ -928,7 +930,7 @@ class WhisperXProcessor:
                     # Reduce batch size for retry
                     batch_size = max(batch_size // 2, 4)
                     self.logger.warning(f"    🔄 Retrying with batch_size={batch_size}")
-                    cleanup_mps_memory(self.logger)
+                    cleanup_mps_memory(self.logger: logging.Logger)
                 else:
                     raise
         
@@ -1073,7 +1075,7 @@ class WhisperXProcessor:
             os.fsync(f.fileno())  # Ensure data is written to disk
         self.logger.info(f"  Saved with sync: {standard_segments}")
 
-    def _save_as_srt(self, segments: List[Dict], srt_file: Path):
+    def _save_as_srt(self, segments: List[Dict], srt_file: Path) -> None:
         """
         Save segments as SRT subtitle file
 
@@ -1346,7 +1348,7 @@ def run_whisperx_pipeline(
         processor.cleanup()
 
 
-def main():
+def main() -> Any:
     """Main entry point for WhisperX ASR stage."""
     import sys
     import os

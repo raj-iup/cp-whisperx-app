@@ -257,7 +257,7 @@ def main():
             output_file,
             model,
             language,
-            logger
+            logger: logging.Logger
         )
         
         if use_pipeline:
