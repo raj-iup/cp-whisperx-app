@@ -1,11 +1,17 @@
 # Architecture Implementation Roadmap
 
-**Document Version:** 3.0  
+**Document Version:** 3.1  
 **Date:** 2025-12-03  
 **Status:** ✅ Active Development  
 **Current System:** v2.0 (Simplified Pipeline - 55% Complete)  
 **Target System:** v3.0 (Context-Aware Modular Pipeline - 100% Complete)  
 **Overall Progress:** 55% → 95% (21 weeks / ~250 hours)
+
+**Key Updates Since v3.0 (December 3, 2025):**
+- 🐛 **Bug Fixes Applied**: Source language, TMDB, StageManifest, script paths
+- 🐛 **TMDB Workflow-Aware**: Only enabled for subtitle workflow (movies/TV)
+- 🐛 **Transcribe Enhanced**: Auto-detects language when not specified
+- 🐛 **StageManifest Complete**: add_intermediate() method implemented
 
 **Key Updates Since v2.0:**
 - ✅ Code quality: 100% compliance achieved
@@ -202,16 +208,18 @@ in/
 
 **Purpose:** Generate context-aware, high-accuracy multilingual subtitles for Bollywood/Indic media with soft-embedding.
 
-**Input:** Indic/Hinglish movie media source  
+**Input:** Indic/Hinglish movie/TV media source  
 **Output:** Original media + soft-embedded subtitle tracks in dedicated subdirectory
+**TMDB:** ✅ Enabled (fetches cast, crew, character names) 🆕 v3.1
 
 **Pipeline Flow:**
 ```
-Input Media (e.g., jaane_tu_test_clip.mp4)
+Input Media (e.g., jaane_tu_test_clip.mp4, Bollywood movie)
     ↓
 01_demux          → Extract audio
     ↓
-02_tmdb           → Fetch movie metadata for context
+02_tmdb           → Fetch movie metadata for context ✅ Enabled
+    │               (Cast, crew, character names)
     ↓
 03_glossary_load  → Load character names, cultural terms
     ↓
@@ -279,16 +287,15 @@ Output: out/{date}/{user}/{job}/10_mux/{media_name}/
 
 **Purpose:** Create high-accuracy text transcript in source language with context awareness.
 
-**Input:** Any media source (English, Hindi, Indic, non-English)  
+**Input:** Any media source (YouTube, podcasts, lectures, general content)
 **Output:** Text transcript in SAME language as source audio
+**Source Language:** Optional (auto-detects if not specified) 🆕 v3.1
 
 **Pipeline Flow:**
 ```
-Input Media (e.g., Energy Demand in AI.mp4)
+Input Media (e.g., Energy Demand in AI.mp4, YouTube video)
     ↓
 01_demux          → Extract audio
-    ↓
-02_tmdb           → Fetch metadata if applicable (optional)
     ↓
 03_glossary_load  → Load domain-specific terms
     ↓
@@ -301,6 +308,7 @@ Input Media (e.g., Energy Demand in AI.mp4)
     │               - Hindi media → Hindi transcript
     │               - Indic media → Same Indic language
     │               - Spanish media → Spanish transcript
+    │               - Auto-detects if -s not specified 🆕
     ↓
 07_alignment      → Word-level timestamp refinement
     ↓
@@ -343,16 +351,16 @@ Output: out/{date}/{user}/{job}/07_alignment/
 
 **Purpose:** Create high-accuracy text transcript in TARGET language with context preservation.
 
-**Input:** Any media source  
+**Input:** Indian language media (IndicTrans2 constraint) 🆕 v3.1
 **Output:** Text transcript in SPECIFIED target language
+**Source Language:** Required (must be Indian language) 🆕 v3.1
+**TMDB:** ❌ Disabled (not needed for non-movie content) 🆕 v3.1
 
 **Pipeline Flow:**
 ```
-Input Media
+Input Media (Hindi/Tamil/Telugu/etc. → Any target language)
     ↓
 01_demux          → Extract audio
-    ↓
-02_tmdb           → Fetch metadata for cultural context
     ↓
 03_glossary_load  → Load bilingual glossary
     ↓
@@ -365,10 +373,10 @@ Input Media
 07_alignment      → Refine timestamps
     ↓
 08_translate      → Translate to target language:
-    │               - Hindi → English
-    │               - Hindi → Spanish/Russian/Chinese/Arabic
-    │               - Hindi → Gujarati/Tamil (Indic-to-Indic)
-    │               - English → Hindi/Gujarati
+    │               - Hindi → English ✅
+    │               - Hindi → Spanish/Russian/Chinese/Arabic ✅
+    │               - Hindi → Gujarati/Tamil (Indic-to-Indic) ✅
+    │               - English → Hindi ❌ (NOT supported - use transcribe)
     │               - Preserve context, idioms, cultural nuances
     ↓
 Output: out/{date}/{user}/{job}/08_translate/
@@ -699,7 +707,7 @@ Subtitle:    demux → asr → translation → subtitle_gen (inline) → mux
 
 | Stage | Current File | Should Be | Pattern | Manifest |
 |-------|-------------|-----------|---------|----------|
-| 02 TMDB | `tmdb_enrichment_stage.py` | `02_tmdb_enrichment.py` | ✅ **StageIO** | ✅ **Yes** |
+| 02 TMDB | ~~`tmdb_enrichment_stage.py`~~ | `02_tmdb_enrichment.py` ✅ | ✅ **StageIO** | ✅ **Yes** |
 | 03 Glossary | `glossary_builder.py` | `03_glossary_loader.py` | ❌ Legacy | ❌ None |
 | 05 NER | `ner_extraction.py` | `05_ner_extraction.py` | ❌ Legacy | ❌ None |
 | 06 Lyrics | `lyrics_detector.py` | `06_lyrics_detection.py` | ❌ Legacy | ❌ None |
