@@ -21,6 +21,10 @@ import logging
 import re
 from typing import Dict, List, Tuple, Optional, Any
 
+# Local
+from shared.logger import get_logger
+logger = get_logger(__name__)
+
 
 class TranslationValidator:
     """

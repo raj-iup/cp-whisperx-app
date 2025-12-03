@@ -29,6 +29,10 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from shared.stage_utils import StageIO, get_stage_logger
 from shared.config import load_config
 
+# Local
+from shared.logger import get_logger
+logger = get_logger(__name__)
+
 
 def format_timestamp_srt(seconds: float) -> str:
     """

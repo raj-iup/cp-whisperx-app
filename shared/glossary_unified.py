@@ -39,6 +39,10 @@ import logging
 from collections import defaultdict
 import pandas as pd
 
+# Local
+from shared.logger import get_logger
+logger = get_logger(__name__)
+
 # Issue deprecation warning when module is imported
 warnings.warn(
     "shared.glossary_unified is deprecated and will be removed in v2.0.0. "

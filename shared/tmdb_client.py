@@ -18,6 +18,10 @@ from datetime import datetime
 from tmdbv3api import TMDb, Movie, Person
 from cachetools import TTLCache
 
+# Local
+from shared.logger import get_logger
+logger = get_logger(__name__)
+
 
 class TMDBClient:
     """TMDB API client wrapper"""

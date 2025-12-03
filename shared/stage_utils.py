@@ -14,6 +14,10 @@ from datetime import datetime
 from shared.stage_order import get_stage_number, get_stage_dir, STAGE_NUMBERS
 from shared.stage_manifest import StageManifest
 
+# Local
+from shared.logger import get_logger
+logger = get_logger(__name__)
+
 
 class StageIO:
     """

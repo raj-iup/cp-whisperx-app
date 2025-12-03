@@ -28,6 +28,10 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from shared.logger import PipelineLogger
 
+# Local
+from shared.logger import get_logger
+logger = get_logger(__name__)
+
 
 class TranslationRefiner:
     """Second-pass translation refiner"""

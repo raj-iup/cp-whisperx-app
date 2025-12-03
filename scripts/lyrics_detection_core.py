@@ -14,6 +14,10 @@ from pathlib import Path
 from typing import List, Dict, Tuple, Optional
 import logging
 
+# Local
+from shared.logger import get_logger
+logger = get_logger(__name__)
+
 # Optional librosa for audio analysis
 try:
     import librosa

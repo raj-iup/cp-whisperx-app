@@ -22,6 +22,10 @@ import logging
 from typing import Dict, List, Tuple, Optional, Any
 from pathlib import Path
 
+# Local
+from shared.logger import get_logger
+logger = get_logger(__name__)
+
 
 class GlossaryProtectedTranslator:
     """

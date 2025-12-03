@@ -49,6 +49,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 
+# Local
+from shared.logger import get_logger
+logger = get_logger(__name__)
+
 # Fix Unicode encoding issues on Windows
 if sys.platform == 'win32':
     import io
@@ -617,15 +621,15 @@ def detect_hardware_full() -> Dict:
     Returns:
         Dict with all hardware info and recommended settings optimized for Hinglish
     """
-    print("🔍 Detecting hardware capabilities (enhanced)...")
+    logger.info("🔍 Detecting hardware capabilities (enhanced)...")
     
     # CPU detection
     cpu_info = detect_cpu_info()
-    print(f"  ✓ CPU: {cpu_info['cores']} cores, {cpu_info['threads']} threads")
+    logger.info(f"  ✓ CPU: {cpu_info['cores']} cores, {cpu_info['threads']} threads")
     
     # Memory detection
     mem_info = detect_memory_info()
-    print(f"  ✓ RAM: {mem_info['total_gb']} GB total, {mem_info['available_gb']} GB available")
+    logger.info(f"  ✓ RAM: {mem_info['total_gb']} GB total, {mem_info['available_gb']} GB available")
     
     # GPU detection (enhanced - always check nvidia-smi first)
     physical_gpu_detected = False
@@ -642,42 +646,42 @@ def detect_hardware_full() -> Dict:
         nvidia_gpu_memory = gpu_mem_nvidia
         nvidia_compute_cap = compute_cap_nvidia
         nvidia_cuda_version = cuda_ver
-        print(f"  ✓ Physical GPU: {nvidia_gpu_name}")
-        print(f"  ✓ VRAM: {nvidia_gpu_memory} GB")
-        print(f"  ✓ CUDA Driver: {nvidia_cuda_version or 'unknown'}")
-        print(f"  ✓ Compute Capability: {nvidia_compute_cap}")
+        logger.info(f"  ✓ Physical GPU: {nvidia_gpu_name}")
+        logger.info(f"  ✓ VRAM: {nvidia_gpu_memory} GB")
+        logger.info(f"  ✓ CUDA Driver: {nvidia_cuda_version or 'unknown'}")
+        logger.info(f"  ✓ Compute Capability: {nvidia_compute_cap}")
     
     # Then check PyTorch GPU availability
     gpu_type, gpu_name, gpu_memory_gb, compute_cap, pytorch_compatible = detect_gpu_with_torch()
     
     # Report PyTorch status
     if gpu_type == 'cuda':
-        print(f"  ✓ PyTorch CUDA: Available")
-        print(f"  ✓ PyTorch Compatibility: Full support (modern GPU)")
+        logger.info(f"  ✓ PyTorch CUDA: Available")
+        logger.info(f"  ✓ PyTorch Compatibility: Full support (modern GPU)")
             
     elif gpu_type == 'mps':
-        print(f"  ✓ Apple Silicon: {gpu_name}")
-        print(f"  ✓ Unified Memory: ~{gpu_memory_gb} GB available for GPU")
-        print(f"  ✓ PyTorch MPS: Available")
+        logger.info(f"  ✓ Apple Silicon: {gpu_name}")
+        logger.info(f"  ✓ Unified Memory: ~{gpu_memory_gb} GB available for GPU")
+        logger.info(f"  ✓ PyTorch MPS: Available")
         
     else:
         # CPU mode - but we might have detected a physical GPU
         if physical_gpu_detected:
-            print(f"  ⚠ PyTorch: CPU-only build (cannot use {nvidia_gpu_name})")
+            logger.warning(f"  ⚠ PyTorch: CPU-only build (cannot use {nvidia_gpu_name})")
             
             # Determine why PyTorch can't use the GPU
             if nvidia_compute_cap:
                 major_cc = int(float(nvidia_compute_cap))
                 if major_cc >= 7:
-                    print(f"  ℹ GPU is modern (CC {nvidia_compute_cap}) but PyTorch is CPU-only build")
-                    print(f"  → Install CUDA-enabled PyTorch to use GPU")
+                    logger.info(f"  ℹ GPU is modern (CC {nvidia_compute_cap}) but PyTorch is CPU-only build")
+                    logger.info(f"  → Install CUDA-enabled PyTorch to use GPU")
                 elif major_cc >= 5:
-                    print(f"  ℹ GPU is legacy (CC {nvidia_compute_cap}) - requires PyTorch 1.13")
-                    print(f"  → Current PyTorch 2.x doesn't support CC < 7.0")
+                    logger.info(f"  ℹ GPU is legacy (CC {nvidia_compute_cap}) - requires PyTorch 1.13")
+                    logger.info(f"  → Current PyTorch 2.x doesn't support CC < 7.0")
                 else:
-                    print(f"  ℹ GPU too old (CC {nvidia_compute_cap}) - not supported by modern PyTorch")
+                    logger.info(f"  ℹ GPU too old (CC {nvidia_compute_cap}) - not supported by modern PyTorch")
         else:
-            print(f"  ✓ GPU: Not available (CPU mode)")
+            logger.info(f"  ✓ GPU: Not available (CPU mode)")
     
     # Build hardware info - use physical GPU info if available
     hw_info = {
@@ -756,7 +760,7 @@ def save_hardware_cache(hw_info: Dict, cache_file: Path = None) -> None:
     with open(cache_file, 'w') as f:
         json.dump(hw_info, f, indent=2)
     
-    print(f"  ✓ Hardware cache saved: {cache_file}")
+    logger.info(f"  ✓ Hardware cache saved: {cache_file}")
 
 
 def update_pipeline_config(hw_info: Dict, config_file: Path = None) -> bool:
@@ -777,7 +781,7 @@ def update_pipeline_config(hw_info: Dict, config_file: Path = None) -> bool:
         config_file = Path('config/.env.pipeline')
     
     if not config_file.exists():
-        print(f"  ⚠ Config file not found: {config_file}")
+        logger.warning(f"  ⚠ Config file not found: {config_file}")
         return False
     
     try:
@@ -855,24 +859,24 @@ def update_pipeline_config(hw_info: Dict, config_file: Path = None) -> bool:
         with open(config_file, 'w') as f:
             f.writelines(updated_lines)
         
-        print(f"  ✓ Updated pipeline config: {config_file}")
+        logger.info(f"  ✓ Updated pipeline config: {config_file}")
         if updated_device:
-            print(f"    • DEVICE={gpu_type}")
+            logger.info(f"    • DEVICE={gpu_type}")
         if updated_batch:
-            print(f"    • BATCH_SIZE={batch_size}")
+            logger.info(f"    • BATCH_SIZE={batch_size}")
         if updated_whisperx_device:
-            print(f"    • WHISPERX_DEVICE={gpu_type}")
+            logger.info(f"    • WHISPERX_DEVICE={gpu_type}")
         if updated_model:
-            print(f"    • WHISPER_MODEL={whisper_model}")
+            logger.info(f"    • WHISPER_MODEL={whisper_model}")
         if updated_compute:
-            print(f"    • WHISPER_COMPUTE_TYPE={compute_type}")
+            logger.info(f"    • WHISPER_COMPUTE_TYPE={compute_type}")
         if is_mps and not found_mps_section:
-            print(f"    • MPS environment variables added")
+            logger.info(f"    • MPS environment variables added")
         
         return True
         
     except Exception as e:
-        print(f"  ⚠ Failed to update config: {e}")
+        logger.error(f"  ⚠ Failed to update config: {e}", exc_info=True)
         return False
 
 
@@ -905,11 +909,11 @@ def load_hardware_cache(cache_file: Path = None, max_age_hours: float = 1.0) -> 
         with open(cache_file) as f:
             hw_info = json.load(f)
         
-        print(f"  ✓ Using cached hardware info (age: {age_hours:.1f}h)")
+        logger.info(f"  ✓ Using cached hardware info (age: {age_hours:.1f}h)")
         return hw_info
         
     except (json.JSONDecodeError, Exception) as e:
-        print(f"  ⚠ Failed to load hardware cache: {e}")
+        logger.error(f"  ⚠ Failed to load hardware cache: {e}", exc_info=True)
         return None
 
 
@@ -948,27 +952,27 @@ def display_hardware_summary(hw_info: Dict) -> None:
     """Display hardware info summary."""
     settings = hw_info.get('recommended_settings', {})
     
-    print("\n" + "="*70)
-    print("HARDWARE PROFILE")
-    print("="*70)
-    print(f"CPU: {hw_info['cpu_cores']} cores ({hw_info['cpu_threads']} threads)")
-    print(f"RAM: {hw_info['memory_gb']} GB")
+    logger.info("\n" + "="*70)
+    logger.info("HARDWARE PROFILE")
+    logger.info("="*70)
+    logger.info(f"CPU: {hw_info['cpu_cores']} cores ({hw_info['cpu_threads']} threads)")
+    logger.info(f"RAM: {hw_info['memory_gb']} GB")
     
     if hw_info['gpu_available']:
-        print(f"GPU: {hw_info['gpu_name']} ({hw_info['gpu_type'].upper()})")
-        print(f"VRAM: {hw_info['gpu_memory_gb']} GB")
+        logger.info(f"GPU: {hw_info['gpu_name']} ({hw_info['gpu_type'].upper()})")
+        logger.info(f"VRAM: {hw_info['gpu_memory_gb']} GB")
     else:
-        print("GPU: Not available (CPU mode)")
+        logger.info("GPU: Not available (CPU mode)")
     
-    print("\nRECOMMENDED SETTINGS:")
-    print(f"  Whisper Model: {settings['whisper_model']}")
-    print(f"    → {settings['whisper_model_reason']}")
-    print(f"  Batch Size: {settings['batch_size']}")
-    print(f"    → {settings['batch_size_reason']}")
-    print(f"  Compute Type: {settings['compute_type']}")
-    print(f"    → {settings['compute_type_reason']}")
-    print(f"  Docker: {settings['docker_recommendation']}")
-    print("="*70 + "\n")
+    logger.info("\nRECOMMENDED SETTINGS:")
+    logger.info(f"  Whisper Model: {settings['whisper_model']}")
+    logger.info(f"    → {settings['whisper_model_reason']}")
+    logger.info(f"  Batch Size: {settings['batch_size']}")
+    logger.info(f"    → {settings['batch_size_reason']}")
+    logger.info(f"  Compute Type: {settings['compute_type']}")
+    logger.info(f"    → {settings['compute_type_reason']}")
+    logger.info(f"  Docker: {settings['docker_recommendation']}")
+    logger.info("="*70 + "\n")
 
 
 if __name__ == "__main__":
@@ -986,7 +990,7 @@ if __name__ == "__main__":
     
     if args.json:
         # JSON output only
-        print(json.dumps(hw_info, indent=2))
+        logger.info(json.dumps(hw_info, indent=2))
     else:
         # Human-readable summary
         display_hardware_summary(hw_info)

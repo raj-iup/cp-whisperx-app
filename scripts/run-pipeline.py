@@ -27,10 +27,13 @@ SCRIPT_DIR = Path(__file__).parent
 PROJECT_ROOT = SCRIPT_DIR.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from shared.logger import PipelineLogger
+from shared.logger import PipelineLogger, get_logger
 from shared.environment_manager import EnvironmentManager
 from scripts.config_loader import Config
 from shared.stage_order import get_stage_dir
+
+# Initialize logger
+logger = get_logger(__name__)
 
 
 def format_timestamp_srt(seconds: float) -> str:
@@ -1447,8 +1450,8 @@ audio_file = "{audio_file}"
 output_dir = Path("{output_dir}")
 output_dir.mkdir(exist_ok=True)
 
-print("Loading MLX-Whisper model: {mlx_model}")
-print("Using MPS (Apple Silicon GPU) acceleration")
+logger.info("Loading MLX-Whisper model: {mlx_model}")
+logger.info("Using MPS (Apple Silicon GPU) acceleration")
 
 # Transcribe with MLX-Whisper
 # This automatically uses MPS for acceleration
@@ -1481,7 +1484,7 @@ segments_file = output_dir / "segments.json"
 with open(segments_file, 'w', encoding='utf-8') as f:
     json.dump(output, f, indent=2, ensure_ascii=False)
 
-print(f"Transcription completed: {{len(segments)}} segments")
+logger.info(f"Transcription completed: {{len(segments)}} segments")
 """
         
         # Write script to temp file
@@ -2101,7 +2104,7 @@ translated = translate_whisperx_result(segments, '{source_lang}', '{target_lang}
 with open('{output_file}', 'w') as f:
     json.dump(translated, f, indent=2)
 
-print(f"Translated {{len(translated['segments'])}} segments")
+logger.info(f"Translated {{len(translated['segments'])}} segments")
 """
         ]
         
@@ -2377,7 +2380,7 @@ translated = translate_whisperx_result(segments, '{source_lang}', '{target_lang}
 with open('{output_file}', 'w') as f:
     json.dump(translated, f, indent=2)
 
-print(f"Translated {{len(translated['segments'])}} segments to {target_lang}")
+logger.info(f"Translated {{len(translated['segments'])}} segments to {target_lang}")
 """
         ]
         
@@ -2462,7 +2465,7 @@ translated = translate_whisperx_result(segments, '{source_lang}', '{target_lang}
 with open('{output_file}', 'w') as f:
     json.dump(translated, f, indent=2, ensure_ascii=False)
 
-print(f"Translated {{len(translated['segments'])}} segments")
+logger.info(f"Translated {{len(translated['segments'])}} segments")
 """
         ]
         
@@ -2550,7 +2553,7 @@ translated = translate_whisperx_result(segments, '{source_lang}', '{target_lang}
 with open('{output_file}', 'w') as f:
     json.dump(translated, f, indent=2, ensure_ascii=False)
 
-print(f"Translated {{len(translated['segments'])}} segments to {target_lang}")
+logger.info(f"Translated {{len(translated['segments'])}} segments to {target_lang}")
 """
         ]
         
@@ -3124,7 +3127,7 @@ def main():
     args = parser.parse_args()
     
     if not args.job_dir.exists():
-        print(f"❌ Error: Job directory not found: {args.job_dir}")
+        logger.info(f"❌ Error: Job directory not found: {args.job_dir}")
         return 1
     
     # Create and run pipeline

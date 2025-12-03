@@ -21,6 +21,10 @@ from datetime import datetime
 from typing import Dict, Any, Optional, List
 from contextlib import contextmanager
 
+# Local
+from shared.logger import get_logger
+logger = get_logger(__name__)
+
 
 class StageManifest:
     """

@@ -16,6 +16,10 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 import logging
 
+# Local
+from shared.logger import get_logger
+logger = get_logger(__name__)
+
 # Add project root for StageIO import
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))

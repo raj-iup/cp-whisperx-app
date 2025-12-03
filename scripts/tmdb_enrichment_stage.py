@@ -40,6 +40,10 @@ from shared.config import load_config
 from shared.tmdb_client import TMDBClient, load_api_key
 from shared.glossary_generator import GlossaryGenerator
 
+# Local
+from shared.logger import get_logger
+logger = get_logger(__name__)
+
 
 class TMDBEnrichmentStage:
     """TMDB enrichment pipeline stage"""

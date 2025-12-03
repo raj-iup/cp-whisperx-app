@@ -9,6 +9,10 @@ from typing import Dict, List, Optional, Tuple, Any
 import json
 from collections import defaultdict
 
+# Local
+from shared.logger import get_logger
+logger = get_logger(__name__)
+
 
 class MLTermSelector:
     """

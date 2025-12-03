@@ -18,6 +18,10 @@ from pathlib import Path
 import spacy
 from collections import Counter
 
+# Local
+from shared.logger import get_logger
+logger = get_logger(__name__)
+
 
 class NERCorrector:
     """NER-based entity corrector"""

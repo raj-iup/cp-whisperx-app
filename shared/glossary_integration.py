@@ -25,6 +25,10 @@ import logging
 from pathlib import Path
 from typing import Optional, Dict, Any
 
+# Local
+from shared.logger import get_logger
+logger = get_logger(__name__)
+
 try:
     from shared.glossary_manager import UnifiedGlossaryManager
     MANAGER_AVAILABLE = True

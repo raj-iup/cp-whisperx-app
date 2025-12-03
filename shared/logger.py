@@ -13,6 +13,10 @@ from datetime import datetime
 from typing import Optional
 from pythonjsonlogger import jsonlogger
 
+# Local
+from shared.logger import get_logger
+logger = get_logger(__name__)
+
 
 # Stage order mapping for log file prefixes
 # NOTE: ASR (stage 6) must execute before bias_injection (stage 7) before Diarization (stage 8)

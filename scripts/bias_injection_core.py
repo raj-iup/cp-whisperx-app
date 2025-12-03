@@ -17,6 +17,10 @@ from typing import List, Dict, Tuple, Optional, Set
 from difflib import SequenceMatcher
 import logging
 
+# Local
+from shared.logger import get_logger
+logger = get_logger(__name__)
+
 
 class BiasCorrector:
     """

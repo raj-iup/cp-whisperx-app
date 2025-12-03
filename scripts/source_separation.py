@@ -22,6 +22,10 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from shared.stage_utils import StageIO, get_stage_logger
 
+# Local
+from shared.logger import get_logger
+logger = get_logger(__name__)
+
 
 def check_demucs_installed():
     """Check if Demucs is installed"""

@@ -18,6 +18,10 @@ DEVELOPER STANDARDS COMPLIANCE:
 import platform
 from typing import Tuple, Literal, Optional
 
+# Local
+from shared.logger import get_logger
+logger = get_logger(__name__)
+
 DeviceType = Literal["cpu", "cuda", "mps"]
 
 # Lazy-loaded torch module

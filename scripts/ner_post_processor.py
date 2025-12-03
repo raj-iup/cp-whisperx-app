@@ -37,6 +37,10 @@ from shared.logger import PipelineLogger
 from shared.ner_corrector import NERCorrector
 from shared.tmdb_loader import TMDBLoader
 
+# Local
+from shared.logger import get_logger
+logger = get_logger(__name__)
+
 
 class NERPostProcessor:
     """NER-based post-processing for transcripts"""

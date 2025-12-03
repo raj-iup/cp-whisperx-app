@@ -31,6 +31,10 @@ from shared.stage_utils import StageIO
 from shared.config import load_config
 from bias_injection_core import BiasCorrector, ContextAwareBiasCorrector
 
+# Local
+from shared.logger import get_logger
+logger = get_logger(__name__)
+
 
 def load_bias_terms(stage_io: StageIO, logger: PipelineLogger) -> List[str]:
     """

@@ -47,6 +47,10 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from shared.logger import PipelineLogger
 from whisper_backends import create_backend, get_recommended_backend
 
+# Local
+from shared.logger import get_logger
+logger = get_logger(__name__)
+
 # Audio loading utility
 try:
     from whisperx.audio import load_audio

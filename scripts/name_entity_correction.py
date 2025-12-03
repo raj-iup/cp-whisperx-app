@@ -43,6 +43,10 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from shared.logger import PipelineLogger, get_stage_log_filename
 
+# Local
+from shared.logger import get_logger
+logger = get_logger(__name__)
+
 
 @dataclass
 class CorrectionCandidate:

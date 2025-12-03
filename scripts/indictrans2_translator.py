@@ -40,6 +40,10 @@ from pathlib import Path
 from typing import List, Dict, Optional, Any
 from dataclasses import dataclass
 
+# Local
+from shared.logger import get_logger
+logger = get_logger(__name__)
+
 try:
     from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
     INDICTRANS2_AVAILABLE = True

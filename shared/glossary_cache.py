@@ -15,6 +15,10 @@ from typing import Dict, Optional, Any
 from datetime import datetime, timedelta
 import logging
 
+# Local
+from shared.logger import get_logger
+logger = get_logger(__name__)
+
 
 class GlossaryCache:
     """

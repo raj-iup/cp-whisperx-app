@@ -25,6 +25,10 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from shared.stage_utils import StageIO
 from shared.config import load_config
 
+# Local
+from shared.logger import get_logger
+logger = get_logger(__name__)
+
 
 @dataclass
 class TranslationResult:

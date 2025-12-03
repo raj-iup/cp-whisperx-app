@@ -32,6 +32,10 @@ from shared.stage_utils import StageIO, get_stage_logger
 from shared.config import load_config
 from shared.glossary_manager import UnifiedGlossaryManager
 
+# Local
+from shared.logger import get_logger
+logger = get_logger(__name__)
+
 # Try to import MPS utils for future-proofing
 try:
     from mps_utils import cleanup_mps_memory

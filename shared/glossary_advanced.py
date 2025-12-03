@@ -9,6 +9,10 @@ from typing import Dict, List, Optional, Tuple, Any
 import logging
 from collections import defaultdict, Counter
 
+# Local
+from shared.logger import get_logger
+logger = get_logger(__name__)
+
 try:
     from .glossary_ml import MLTermSelector
     ML_AVAILABLE = True

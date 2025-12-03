@@ -17,6 +17,10 @@ from pathlib import Path
 from typing import List, Dict, Optional, Tuple
 from collections import Counter
 
+# Local
+from shared.logger import get_logger
+logger = get_logger(__name__)
+
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent))
 

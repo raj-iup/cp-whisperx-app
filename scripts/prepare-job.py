@@ -31,10 +31,13 @@ sys.path.insert(0, str(PROJECT_ROOT))
 # Import centralized stage ordering
 from shared.stage_order import get_all_stage_dirs
 
-from shared.logger import PipelineLogger
+from shared.logger import PipelineLogger, get_logger
 from shared.environment_manager import EnvironmentManager
 from scripts.filename_parser import parse_filename
 from scripts.config_loader import Config
+
+# Initialize logger
+logger = get_logger(__name__)
 
 
 def validate_device_backend_compatibility(device: str, backend: str) -> tuple[str, str]:
@@ -61,20 +64,20 @@ def validate_device_backend_compatibility(device: str, backend: str) -> tuple[st
     
     # MLX backend requires MPS device
     if backend_lower == 'mlx' and device_lower != 'mps':
-        print(f"[WARNING] MLX backend requires MPS device, but {device} specified")
-        print(f"[INFO] Auto-correcting: Setting device to MPS")
+        logger.warning(f"MLX backend requires MPS device, but {device} specified")
+        logger.info(f"Auto-correcting: Setting device to MPS")
         return 'mps', backend_lower
     
     # CPU device with MLX backend is inefficient
     if device_lower == 'cpu' and backend_lower == 'mlx':
-        print(f"[WARNING] MLX backend not optimal for CPU")
-        print(f"[INFO] Auto-correcting: Switching to WhisperX backend")
+        logger.warning(f"MLX backend not optimal for CPU")
+        logger.info(f"Auto-correcting: Switching to WhisperX backend")
         return device_lower, 'whisperx'
     
     # MPS device without MLX should warn (suboptimal)
     if device_lower == 'mps' and backend_lower != 'mlx':
-        print(f"[WARNING] WhisperX on MPS is slower than MLX backend")
-        print(f"[INFO] Consider using MLX backend for 2-4x speedup")
+        logger.warning(f"WhisperX on MPS is slower than MLX backend")
+        logger.info(f"Consider using MLX backend for 2-4x speedup")
     
     return device_lower, backend_lower
 
@@ -208,8 +211,8 @@ def prepare_media(input_media: Path, job_dir: Path,
     shutil.copy2(input_media, output_media)
     
     if start_time or end_time:
-        print(f"   Note: Clipping configured ({start_time} to {end_time})")
-        print(f"   Full media copied - clipping will happen during pipeline execution")
+        logger.info(f"   Note: Clipping configured ({start_time} to {end_time})")
+        logger.info(f"   Full media copied - clipping will happen during pipeline execution")
     
     return output_media
 
@@ -336,8 +339,8 @@ def create_env_file(job_dir: Path, job_id: str, workflow: str,
         with open(hardware_cache) as f:
             hardware_config = json.load(f)
     else:
-        print(f"⚠️  Hardware cache not found: {hardware_cache}")
-        print(f"   Run bootstrap script to detect hardware capabilities")
+        logger.warning(f" Hardware cache not found: {hardware_cache}")
+        logger.info(f"   Run bootstrap script to detect hardware capabilities")
     
     # Extract user_id from job_id if not provided
     if user_id is None:
@@ -394,12 +397,12 @@ def create_env_file(job_dir: Path, job_id: str, workflow: str,
         compute_type = "int8"
     
     # Display hardware configuration
-    print(f"✓ Hardware detection:")
-    print(f"  Device: {gpu_type}")
-    print(f"  Backend: {whisper_backend}")
-    print(f"  Model: {whisper_model}")
-    print(f"  Compute: {compute_type}")
-    print(f"  Batch: {batch_size}")
+    logger.info(f"✓ Hardware detection:")
+    logger.info(f"  Device: {gpu_type}")
+    logger.info(f"  Backend: {whisper_backend}")
+    logger.info(f"  Model: {whisper_model}")
+    logger.info(f"  Compute: {compute_type}")
+    logger.info(f"  Batch: {batch_size}")
     
     # Create replacements dictionary
     replacements = {
@@ -608,21 +611,21 @@ def main():
     
     # Validate input
     if not args.input_media.exists():
-        print(f"❌ Error: Input media not found: {args.input_media}")
+        logger.error(f"❌ Error: Input media not found: {args.input_media}")
         sys.exit(1)
     
     # Validate languages
     if not validate_language(args.source_language, is_source=True):
-        print(f"❌ Error: Unsupported source language: {args.source_language}")
-        print(f"   Supported languages: {', '.join(INDIAN_LANGUAGES.keys())}")
+        logger.error(f"❌ Error: Unsupported source language: {args.source_language}")
+        logger.info(f"   Supported languages: {', '.join(INDIAN_LANGUAGES.keys())}")
         sys.exit(1)
     
     if args.workflow == "translate" and not args.target_language:
-        print("❌ Error: Target language required for translate workflow")
+        logger.error("❌ Error: Target language required for translate workflow")
         sys.exit(1)
     
     if args.workflow == "subtitle" and not args.target_language:
-        print("❌ Error: Target language required for subtitle workflow")
+        logger.error("❌ Error: Target language required for subtitle workflow")
         sys.exit(1)
     
     # Parse and validate target languages (can be comma-separated)
@@ -632,57 +635,57 @@ def main():
         
         # Validate maximum 5 target languages
         if len(target_languages) > 5:
-            print(f"❌ Error: Maximum 5 target languages allowed, got {len(target_languages)}")
+            logger.error(f"❌ Error: Maximum 5 target languages allowed, got {len(target_languages)}")
             sys.exit(1)
         
         # Validate each target language
         for lang in target_languages:
             if not validate_language(lang, is_source=False):
-                print(f"❌ Error: Unsupported target language: {lang}")
-                print(f"   Supported languages: en, {', '.join(INDIAN_LANGUAGES.keys())}")
+                logger.error(f"❌ Error: Unsupported target language: {lang}")
+                logger.info(f"   Supported languages: en, {', '.join(INDIAN_LANGUAGES.keys())}")
                 sys.exit(1)
         
-        print(f"✓ Target language(s): {', '.join(target_languages)}")
+        logger.info(f"✓ Target language(s): {', '.join(target_languages)}")
     
     # Validate required environments are installed
-    print(f"🔍 Validating environments...")
+    logger.info(f"🔍 Validating environments...")
     try:
         env_manager = EnvironmentManager(PROJECT_ROOT)
         valid, missing = env_manager.validate_environments_for_workflow(args.workflow)
         
         if not valid:
-            print(f"❌ Error: Missing required environments: {', '.join(missing)}")
-            print(f"   Run: ./bootstrap.sh to install all environments")
-            print(f"   Or:  ./bootstrap.sh --env <name> for specific environment")
+            logger.error(f"❌ Error: Missing required environments: {', '.join(missing)}")
+            logger.info(f"   Run: ./bootstrap.sh to install all environments")
+            logger.info(f"   Or:  ./bootstrap.sh --env <name> for specific environment")
             sys.exit(1)
         
-        print(f"✓ All required environments installed")
+        logger.info(f"✓ All required environments installed")
     except FileNotFoundError as e:
-        print(f"❌ Error: {e}")
-        print(f"   Run: ./bootstrap.sh to setup environments")
+        logger.error(f"❌ Error: {e}")
+        logger.info(f"   Run: ./bootstrap.sh to setup environments")
         sys.exit(1)
     
     # Create job directory
-    print(f"📁 Creating job directory...")
+    logger.info(f"📁 Creating job directory...")
     job_dir, job_id = create_job_directory(args.input_media, args.workflow, user_id=args.user_id)
-    print(f"   Job ID: {job_id}")
-    print(f"   Job directory: {job_dir}")
+    logger.info(f"   Job ID: {job_id}")
+    logger.info(f"   Job directory: {job_dir}")
     
     # Extract user_id from job_id for use in config
     user_id = job_id.split('-')[2]  # job-YYYYMMDD-USERID-nnnn
     
     # Prepare media
-    print(f"🎬 Preparing media...")
+    logger.info(f"🎬 Preparing media...")
     prepared_media = prepare_media(
         args.input_media,
         job_dir,
         args.start_time,
         args.end_time
     )
-    print(f"   Media: {prepared_media.name}")
+    logger.info(f"   Media: {prepared_media.name}")
     
     # Create job configuration
-    print(f"⚙️  Creating job configuration...")
+    logger.info(f"⚙️  Creating job configuration...")
     # Determine log level
     log_level_value = args.log_level if args.log_level else ("DEBUG" if args.debug else "INFO")
     
@@ -702,7 +705,7 @@ def main():
     )
     
     # Create environment file
-    print(f"📝 Creating environment file...")
+    logger.info(f"📝 Creating environment file...")
     target_lang_str = ','.join(target_languages) if target_languages else None
     
     # Determine log level
@@ -723,20 +726,20 @@ def main():
     )
     
     # Create manifest
-    print(f"📋 Creating manifest...")
+    logger.info(f"📋 Creating manifest...")
     create_manifest(job_dir, job_id, args.workflow)
     
     # Success
-    print()
-    print(f"✅ Job preparation complete!")
-    print()
-    print(f"Job created: {job_id}")
-    print(f"Job directory: {job_dir}")
-    print()
-    print(f"Next steps:")
-    print(f"  1. Run pipeline: ./run-pipeline.sh -j {job_id}")
-    print(f"  2. Monitor logs: tail -f {job_dir}/logs/*.log")
-    print()
+    logger.info()
+    logger.info(f"✅ Job preparation complete!")
+    logger.info()
+    logger.info(f"Job created: {job_id}")
+    logger.info(f"Job directory: {job_dir}")
+    logger.info()
+    logger.info(f"Next steps:")
+    logger.info(f"  1. Run pipeline: ./run-pipeline.sh -j {job_id}")
+    logger.info(f"  2. Monitor logs: tail -f {job_dir}/logs/*.log")
+    logger.info()
     
     return 0
 

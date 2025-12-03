@@ -16,6 +16,10 @@ from collections import defaultdict
 from datetime import datetime
 import logging
 
+# Local
+from shared.logger import get_logger
+logger = get_logger(__name__)
+
 
 class UnifiedGlossaryManager:
     """

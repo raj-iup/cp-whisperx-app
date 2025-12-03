@@ -29,6 +29,10 @@ from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 import logging
 
+# Local
+from shared.logger import get_logger
+logger = get_logger(__name__)
+
 
 @dataclass
 class AudioChunk:

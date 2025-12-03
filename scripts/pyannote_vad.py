@@ -18,6 +18,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from shared.stage_utils import StageIO, get_stage_logger
 from shared.config import load_config
 
+# Local
+from shared.logger import get_logger
+logger = get_logger(__name__)
+
 if __name__ == "__main__":
     # Set up stage I/O with manifest tracking
     stage_io = StageIO("pyannote_vad", enable_manifest=True)

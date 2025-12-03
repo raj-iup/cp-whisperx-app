@@ -23,6 +23,10 @@ from shared.stage_utils import StageIO, get_stage_logger
 from shared.config import load_config
 from lyrics_detection_core import LyricsDetector
 
+# Local
+from shared.logger import get_logger
+logger = get_logger(__name__)
+
 
 def main():
     """Main entry point for lyrics detection stage"""

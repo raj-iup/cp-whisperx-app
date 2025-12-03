@@ -15,6 +15,10 @@ from pathlib import Path
 from typing import List, Dict, Set, Optional
 from dataclasses import dataclass, field
 
+# Local
+from shared.logger import get_logger
+logger = get_logger(__name__)
+
 
 @dataclass
 class BiasTerms:

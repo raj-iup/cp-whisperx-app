@@ -11,6 +11,10 @@ from pathlib import Path
 from typing import Optional, Dict, List, Any
 from dataclasses import dataclass
 
+# Local
+from shared.logger import get_logger
+logger = get_logger(__name__)
+
 
 @dataclass
 class TMDBData:
