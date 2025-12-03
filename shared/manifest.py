@@ -175,6 +175,30 @@ class StageManifest:
         """Add stage-specific metadata."""
         self.metadata[key] = value
     
+    def add_intermediate(self, file_path: Path, retained: bool = False, reason: str = "") -> None:
+        """
+        Track intermediate/cache file in manifest.
+        
+        Args:
+            file_path: Path to intermediate file
+            retained: Whether file is kept after stage completion
+            reason: Explanation for why file was created/retained
+        """
+        if not hasattr(self, 'intermediate_files'):
+            self.intermediate_files = []
+        
+        self.intermediate_files.append({
+            "path": str(file_path.resolve()),
+            "exists": file_path.exists(),
+            "size_bytes": file_path.stat().st_size if file_path.exists() else 0,
+            "retained": retained,
+            "reason": reason
+        })
+        
+        if self.logger:
+            status = "retained" if retained else "temporary"
+            self.logger.debug(f"Recorded intermediate file ({status}): {file_path}")
+    
     def set_config(self, config_dict: Dict[str, Any]) -> None:
         """
         Store stage configuration in metadata.

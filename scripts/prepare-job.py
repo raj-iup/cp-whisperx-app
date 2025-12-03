@@ -310,7 +310,7 @@ def create_job_config(job_dir: Path, job_id: str, workflow: str,
             "quality": sep_quality
         },
         "tmdb_enrichment": {
-            "enabled": True,
+            "enabled": workflow == "subtitle",  # Only enable for subtitle workflow (movie/TV content)
             "title": parsed.title if parsed.title else input_media.stem,
             "year": parsed.year if parsed.year else None
         },

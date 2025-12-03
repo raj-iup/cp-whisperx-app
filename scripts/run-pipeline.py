@@ -852,7 +852,7 @@ class IndicTrans2Pipeline:
         self.logger.info(f"Fetching TMDB metadata for: {title}" + (f" ({year})" if year else ""))
         
         # Run the TMDB enrichment script
-        script_path = self.scripts_dir / "tmdb_enrichment_stage.py"
+        script_path = self.scripts_dir / "02_tmdb_enrichment.py"
         
         try:
             # Set up environment
