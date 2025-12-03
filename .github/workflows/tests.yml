@@ -1,0 +1,170 @@
+name: Tests and Coverage
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.11']
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+      
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+      
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements/requirements-common.txt
+          pip install -r requirements/requirements-test.txt
+      
+      - name: Create test directories
+        run: |
+          mkdir -p test-results/coverage
+          mkdir -p logs
+          mkdir -p config
+      
+      - name: Run unit tests
+        run: |
+          pytest tests/unit -v \
+            --cov=scripts \
+            --cov=shared \
+            --cov-report=html:test-results/coverage \
+            --cov-report=term-missing \
+            --cov-report=json:test-results/coverage.json \
+            --junit-xml=test-results/junit-unit.xml \
+            -m "unit and not slow"
+        continue-on-error: false
+      
+      - name: Run integration tests (smoke only)
+        run: |
+          pytest tests/integration -v \
+            --cov-append \
+            --cov-report=html:test-results/coverage \
+            --cov-report=term-missing \
+            --junit-xml=test-results/junit-integration.xml \
+            -m "smoke"
+        continue-on-error: true
+      
+      - name: Run test helpers validation
+        run: |
+          pytest tests/utils -v \
+            --junit-xml=test-results/junit-utils.xml
+        continue-on-error: true
+      
+      - name: Generate coverage badge
+        if: always()
+        run: |
+          if [ -f test-results/coverage.json ]; then
+            COVERAGE=$(python -c "import json; data=json.load(open('test-results/coverage.json')); print(f\"{data['totals']['percent_covered']:.1f}\")")
+            echo "Coverage: ${COVERAGE}%"
+            echo "COVERAGE=${COVERAGE}" >> $GITHUB_ENV
+          fi
+      
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.python-version }}
+          path: test-results/
+      
+      - name: Upload coverage to Codecov
+        if: always()
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./test-results/coverage.json
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+      
+      - name: Comment PR with coverage
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            if (fs.existsSync('test-results/coverage.json')) {
+              const coverage = JSON.parse(fs.readFileSync('test-results/coverage.json'));
+              const percent = coverage.totals.percent_covered.toFixed(1);
+              const message = `## Test Coverage Report\n\n` +
+                `- **Coverage**: ${percent}%\n` +
+                `- **Covered Lines**: ${coverage.totals.covered_lines}\n` +
+                `- **Total Lines**: ${coverage.totals.num_statements}\n\n` +
+                `See detailed report in artifacts.`;
+              
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: message
+              });
+            }
+      
+      - name: Test Summary
+        if: always()
+        run: |
+          echo "## Test Results Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -f test-results/junit-unit.xml ]; then
+            echo "✅ Unit tests completed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Unit tests failed or did not run" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ -f test-results/coverage.json ]; then
+            COVERAGE=$(python -c "import json; data=json.load(open('test-results/coverage.json')); print(f\"{data['totals']['percent_covered']:.1f}\")")
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Coverage**: ${COVERAGE}%" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  lint:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pylint mypy black isort
+      
+      - name: Run compliance validator
+        run: |
+          python scripts/validate-compliance.py scripts/*.py shared/*.py
+        continue-on-error: true
+      
+      - name: Check code formatting with black
+        run: |
+          black --check scripts/ shared/ tests/ || true
+        continue-on-error: true
+      
+      - name: Check import sorting with isort
+        run: |
+          isort --check-only scripts/ shared/ tests/ || true
+        continue-on-error: true
