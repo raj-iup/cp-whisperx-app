@@ -39,7 +39,16 @@ RESET = "\033[0m"
 class ComplianceViolation:
     """Represents a compliance violation."""
     
-    def __init__(self, rule: str, severity: str, line: int, message: str, section: str):
+    def __init__(self, rule: str, severity: str, line: int, message: str, section: str) -> None:
+        """Initialize a compliance violation.
+        
+        Args:
+            rule: The rule that was violated
+            severity: Severity level ('critical', 'error', 'warning')
+            line: Line number of violation
+            message: Violation description
+            section: Section reference (e.g., '§ 2.3')
+        """
         self.rule = rule
         self.severity = severity  # 'critical', 'error', 'warning'
         self.line = line
@@ -47,6 +56,7 @@ class ComplianceViolation:
         self.section = section  # § reference
     
     def __str__(self) -> str:
+        """Format violation as colored string for terminal output."""
         color = RED if self.severity == 'critical' else YELLOW if self.severity == 'warning' else RED
         return f"{color}Line {self.line}: [{self.severity.upper()}] {self.rule}{RESET}\n  {self.message} (See {self.section})"
 
@@ -65,7 +75,12 @@ class ComplianceChecker:
         }
     }
     
-    def __init__(self, file_path: Path):
+    def __init__(self, file_path: Path) -> None:
+        """Initialize compliance checker for a file.
+        
+        Args:
+            file_path: Path to Python file to check
+        """
         self.file_path = file_path
         self.violations: List[ComplianceViolation] = []
         self.content = ""
@@ -114,7 +129,7 @@ class ComplianceChecker:
         
         return self.violations
     
-    def check_print_statements(self):
+    def check_print_statements(self) -> None:
         """Check for print() usage instead of logger (§ 2.3)"""
         # Skip if this file has an exception for Logger Usage
         relative_path = str(self.file_path).replace(str(Path.cwd()) + '/', '')
@@ -138,7 +153,7 @@ class ComplianceChecker:
                     section="§ 2.3"
                 ))
     
-    def check_logger_import(self):
+    def check_logger_import(self) -> None:
         """Check if logger is imported when needed"""
         has_logging_call = any('logger.' in line for line in self.lines)
         
@@ -160,7 +175,7 @@ class ComplianceChecker:
                 section="§ 2.3"
             ))
     
-    def check_import_organization(self):
+    def check_import_organization(self) -> None:
         """Check import organization: Standard/Third-party/Local (§ 6.1)"""
         import_lines = []
         for i, line in enumerate(self.lines, 1):
@@ -196,7 +211,7 @@ class ComplianceChecker:
                     section="§ 6.1"
                 ))
     
-    def check_stageio_pattern(self):
+    def check_stageio_pattern(self) -> None:
         """Check StageIO usage in stage files (§ 2.6)"""
         # Check if this looks like a stage file
         is_stage = any('def run_' in line and 'stage' in line.lower() for line in self.lines)
@@ -263,7 +278,7 @@ class ComplianceChecker:
                         section="§ 2.6"
                     ))
     
-    def check_config_usage(self):
+    def check_config_usage(self) -> None:
         """Check for proper config usage (§ 4)"""
         # Skip if this file has an exception for Config Access
         relative_path = str(self.file_path).replace(str(Path.cwd()) + '/', '')
@@ -294,7 +309,7 @@ class ComplianceChecker:
                         section="§ 4.2"
                     ))
     
-    def check_stage_directory_usage(self):
+    def check_stage_directory_usage(self) -> None:
         """Check for proper stage directory usage (§ 1.1)"""
         for i, line in enumerate(self.lines, 1):
             # Check for output to job_dir instead of stage_dir
@@ -330,7 +345,7 @@ class ComplianceChecker:
                     section="§ 1.1"
                 ))
     
-    def check_type_hints(self):
+    def check_type_hints(self) -> None:
         """Check for type hints on functions (§ 6.2)"""
         if not self.tree:
             return
@@ -366,7 +381,7 @@ class ComplianceChecker:
                         section="§ 6.2"
                     ))
     
-    def check_docstrings(self):
+    def check_docstrings(self) -> None:
         """Check for docstrings on public functions (§ 6.3)"""
         if not self.tree:
             return
@@ -388,7 +403,7 @@ class ComplianceChecker:
                         section="§ 6.3"
                     ))
     
-    def check_error_handling(self):
+    def check_error_handling(self) -> None:
         """Check for error handling with logging (§ 5)"""
         if not self.tree:
             return
@@ -475,7 +490,12 @@ def get_staged_files() -> List[Path]:
         return []
 
 
-def main():
+def main() -> int:
+    """Main entry point for compliance validation.
+    
+    Returns:
+        Exit code (0 for success, 1 for violations in strict mode)
+    """
     parser = argparse.ArgumentParser(
         description="Validate Python files against DEVELOPER_STANDARDS.md",
         formatter_class=argparse.RawDescriptionHelpFormatter,

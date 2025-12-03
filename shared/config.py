@@ -6,7 +6,7 @@ Reads configuration from .env file and provides typed access.
 import os
 import json
 from pathlib import Path
-from typing import Optional, Any
+from typing import Optional, Any, Type
 
 # Try to import pydantic_settings, fall back to simple implementation if not available
 try:
@@ -17,11 +17,17 @@ except ImportError:
     PYDANTIC_AVAILABLE = False
     # Provide dummy implementations
     class BaseSettings:
+        """Fallback BaseSettings when pydantic not available."""
         pass
-    def Field(*args, **kwargs):
+    
+    def Field(*args: Any, **kwargs: Any) -> None:
+        """Dummy Field implementation for when pydantic not available."""
         return None
-    def field_validator(*args, **kwargs):
-        def decorator(func):
+    
+    def field_validator(*args: Any, **kwargs: Any) -> Any:
+        """Dummy field_validator implementation for when pydantic not available."""
+        def decorator(func: Any) -> Any:
+            """Pass-through decorator."""
             return func
         return decorator
 
@@ -47,7 +53,7 @@ class PipelineConfig(BaseSettings):
     
     @field_validator('title', mode='before')
     @classmethod
-    def empty_str_to_none_title(cls, v):
+    def empty_str_to_none_title(cls: Type['PipelineConfig'], v: Any) -> Optional[str]:
         """Convert empty string to None for optional title."""
         if v == '' or v is None:
             return None
@@ -55,7 +61,7 @@ class PipelineConfig(BaseSettings):
     
     @field_validator('year', mode='before')
     @classmethod
-    def empty_str_to_none_year(cls, v):
+    def empty_str_to_none_year(cls: Type['PipelineConfig'], v: Any) -> Optional[int]:
         """Convert empty string to None for optional year."""
         if v == '' or v is None:
             return None
@@ -63,7 +69,7 @@ class PipelineConfig(BaseSettings):
     
     @field_validator('media_start_time', 'media_end_time', mode='before')
     @classmethod
-    def empty_str_to_none_time(cls, v):
+    def empty_str_to_none_time(cls: Type['PipelineConfig'], v: Any) -> Optional[str]:
         """Convert empty string to None for optional time values."""
         if v == '' or v is None:
             return None
@@ -291,10 +297,16 @@ class PipelineConfig(BaseSettings):
         return getattr(self, key.lower(), default)
 
 
-def load_config(env_file: Optional[str] = None):
+def load_config(env_file: Optional[str] = None) -> Any:
     """
     Load pipeline configuration.
     Returns PipelineConfig if pydantic_settings is available, otherwise returns simple Config.
+    
+    Args:
+        env_file: Optional path to .env file
+        
+    Returns:
+        Configuration object (PipelineConfig or Config)
     """
     if not PYDANTIC_AVAILABLE:
         # Fallback to simple Config when pydantic_settings not available

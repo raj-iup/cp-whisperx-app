@@ -123,7 +123,7 @@ class StageIO:
             log_level=log_level
         )
     
-    def track_input(self, file_path: Path, file_type: str = "file", **metadata):
+    def track_input(self, file_path: Path, file_type: str = "file", **metadata: Any) -> None:
         """
         Track input file in manifest.
         
@@ -135,7 +135,7 @@ class StageIO:
         if self.manifest:
             self.manifest.add_input(file_path, file_type, **metadata)
     
-    def track_output(self, file_path: Path, file_type: str = "file", **metadata):
+    def track_output(self, file_path: Path, file_type: str = "file", **metadata: Any) -> None:
         """
         Track output file in manifest.
         
@@ -147,7 +147,7 @@ class StageIO:
         if self.manifest:
             self.manifest.add_output(file_path, file_type, **metadata)
     
-    def track_intermediate(self, file_path: Path, retained: bool = False, reason: str = ""):
+    def track_intermediate(self, file_path: Path, retained: bool = False, reason: str = "") -> None:
         """
         Track intermediate/cache file in manifest.
         
@@ -159,32 +159,32 @@ class StageIO:
         if self.manifest:
             self.manifest.add_intermediate(file_path, retained, reason)
     
-    def add_config(self, key: str, value: Any):
+    def add_config(self, key: str, value: Any) -> None:
         """Add configuration parameter to manifest"""
         if self.manifest:
             self.manifest.add_config(key, value)
     
-    def set_config(self, config_dict: Dict[str, Any]):
+    def set_config(self, config_dict: Dict[str, Any]) -> None:
         """Set multiple configuration parameters in manifest"""
         if self.manifest:
             self.manifest.set_config(config_dict)
     
-    def add_warning(self, message: str):
+    def add_warning(self, message: str) -> None:
         """Add warning to manifest"""
         if self.manifest:
             self.manifest.add_warning(message)
     
-    def add_error(self, message: str, exception: Optional[Exception] = None):
+    def add_error(self, message: str, exception: Optional[Exception] = None) -> None:
         """Add error to manifest"""
         if self.manifest:
             self.manifest.add_error(message, exception)
     
-    def set_resources(self, **resources):
+    def set_resources(self, **resources: Any) -> None:
         """Set resource usage in manifest"""
         if self.manifest:
             self.manifest.set_resources(**resources)
     
-    def finalize(self, status: str = "success", save_manifest: bool = True, **kwargs):
+    def finalize(self, status: str = "success", save_manifest: bool = True, **kwargs: Any) -> None:
         """
         Finalize stage execution.
         
@@ -381,7 +381,7 @@ class StageIO:
         return []
 
 
-def get_stage_logger(stage_name: str, log_level: str = "DEBUG", stage_io: Optional['StageIO'] = None):
+def get_stage_logger(stage_name: str, log_level: str = "DEBUG", stage_io: Optional['StageIO'] = None) -> logging.Logger:
     """
     Get a logger for a specific stage with proper configuration.
     

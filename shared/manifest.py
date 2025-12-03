@@ -20,9 +20,8 @@ import sys
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, Any, Optional, List
-
-# Third-party
 from contextlib import contextmanager
+import logging
 
 # Local
 from shared.logger import get_logger
@@ -44,7 +43,7 @@ class StageManifest:
             # Automatic success on exit
     """
     
-    def __init__(self, stage_name: str, movie_dir: Path, logger=None, job_id: str = None, user_id: int = None, job_env_file: Path = None):
+    def __init__(self, stage_name: str, movie_dir: Path, logger: Optional[logging.Logger] = None, job_id: Optional[str] = None, user_id: Optional[int] = None, job_env_file: Optional[Path] = None) -> None:
         """
         Initialize stage manifest.
         
@@ -109,7 +108,7 @@ class StageManifest:
         
         return data
     
-    def add_output(self, key: str, filepath: Path, description: str = None):
+    def add_output(self, key: str, filepath: Path, description: Optional[str] = None) -> None:
         """
         Add an output file to the manifest.
         
@@ -128,7 +127,7 @@ class StageManifest:
         if self.logger:
             self.logger.debug(f"Recorded output: {key} -> {filepath}")
     
-    def add_input(self, key: str, filepath: Path, description: str = None):
+    def add_input(self, key: str, filepath: Path, description: Optional[str] = None) -> None:
         """
         Add an input file to the manifest.
         
@@ -148,18 +147,18 @@ class StageManifest:
         if self.logger:
             self.logger.debug(f"Recorded input: {key} -> {filepath}")
     
-    def add_metadata(self, key: str, value: Any):
+    def add_metadata(self, key: str, value: Any) -> None:
         """Add stage-specific metadata."""
         self.metadata[key] = value
     
-    def set_error(self, error: str):
+    def set_error(self, error: str) -> None:
         """Record an error for this stage."""
         self.error = error
         self.status = "failed"
         if self.logger:
             self.logger.error(f"Stage error recorded: {error}")
     
-    def save(self, status: str = None):
+    def save(self, status: Optional[str] = None) -> None:
         """
         Save manifest to disk.
         
@@ -226,13 +225,13 @@ class StageManifest:
         if self.logger:
             self.logger.info(f"Manifest updated: {self.manifest_file}")
     
-    def __enter__(self):
+    def __enter__(self) -> 'StageManifest':
         """Context manager entry - mark stage as running."""
         self.data["pipeline"]["current_stage"] = self.stage_name
         self.save(status="running")
         return self
     
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: Optional[type], exc_val: Optional[BaseException], exc_tb: Optional[Any]) -> bool:
         """Context manager exit - save final status."""
         if exc_type is None:
             # No exception - success
@@ -292,7 +291,7 @@ class PipelineManifest:
                 }
             }
     
-    def set_input(self, input_file: str, title: str, year: Optional[int], job_id: str = None):
+    def set_input(self, input_file: str, title: str, year: Optional[int], job_id: Optional[str] = None) -> None:
         """Set input file information."""
         self.data["input"] = {
             "file": input_file,
@@ -303,12 +302,12 @@ class PipelineManifest:
             self.data["job_id"] = job_id
         self.save()
     
-    def set_output_dir(self, output_dir: str):
+    def set_output_dir(self, output_dir: str) -> None:
         """Set output directory."""
         self.data["output_dir"] = output_dir
         self.save()
     
-    def set_pipeline_step(self, stage_name: str, success: bool, **kwargs):
+    def set_pipeline_step(self, stage_name: str, success: bool, **kwargs: Any) -> None:
         """Record a pipeline step."""
         if stage_name not in self.data["stages"]:
             self.data["stages"][stage_name] = {}
@@ -336,7 +335,7 @@ class PipelineManifest:
             return stages[stage_name].get("status")
         return None
     
-    def finalize(self, status: str = "completed"):
+    def finalize(self, status: str = "completed") -> None:
         """Finalize pipeline execution."""
         end_time = datetime.now()
         duration = (end_time - self.start_time).total_seconds()
@@ -348,7 +347,7 @@ class PipelineManifest:
         
         self.save()
     
-    def save(self):
+    def save(self) -> None:
         """Save manifest to disk."""
         self.manifest_file.parent.mkdir(parents=True, exist_ok=True)
         with open(self.manifest_file, 'w') as f:
