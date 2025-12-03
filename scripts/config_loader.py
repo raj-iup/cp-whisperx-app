@@ -1,5 +1,4 @@
 """
-
 logger = get_logger(__name__)
 
 config_loader.py - Configuration loader for whisperx-app
@@ -9,6 +8,8 @@ Loads configuration from:
 - ./config/secrets.json (tokens/keys)
 
 NEVER reads from shell environment (os.environ) directly.
+
+Implements config caching to reduce disk I/O (Phase 3 Optimization).
 """
 
 # Standard library
@@ -21,6 +22,10 @@ from dotenv import dotenv_values
 
 # Local
 from shared.logger import get_logger
+
+
+# Config cache for performance optimization (Phase 3)
+_CONFIG_CACHE: Dict[str, 'Config'] = {}
 
 
 class Config:
@@ -387,12 +392,16 @@ class Config:
         return f"Config(env_file={self.env_file}, secrets_file={self.secrets_file})"
 
 
-def load_config(project_root: Optional[Path] = None) -> Config:
+def load_config(project_root: Optional[Path] = None, force_reload: bool = False) -> Config:
     """
-    Load configuration from ./config/.env and ./config/secrets.json
+    Load configuration from ./config/.env and ./config/secrets.json with caching.
+    
+    Config is cached in memory after first load to reduce disk I/O.
+    Phase 3 Optimization: Expected 5-10% faster stage initialization.
 
     Args:
         project_root: Path to project root (default: auto-detect)
+        force_reload: Force reload from disk, bypass cache (default: False)
 
     Returns:
         Config object with all settings
@@ -404,4 +413,27 @@ def load_config(project_root: Optional[Path] = None) -> Config:
         >>> logger.info(config.hf_token)
         'hf_...'
     """
-    return Config(project_root)
+    # Generate cache key
+    cache_key = str(project_root) if project_root else 'default'
+    
+    # Return cached config if available and not forcing reload
+    if not force_reload and cache_key in _CONFIG_CACHE:
+        return _CONFIG_CACHE[cache_key]
+    
+    # Load from disk
+    config = Config(project_root)
+    
+    # Cache for future use
+    _CONFIG_CACHE[cache_key] = config
+    
+    return config
+
+
+def clear_config_cache() -> None:
+    """
+    Clear the config cache.
+    
+    Useful for testing or when config files are modified at runtime.
+    """
+    global _CONFIG_CACHE
+    _CONFIG_CACHE.clear()
