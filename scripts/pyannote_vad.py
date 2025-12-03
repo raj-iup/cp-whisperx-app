@@ -2,6 +2,7 @@
 """
 PyAnnote VAD stage: Voice Activity Detection using PyAnnote
 """
+# Standard library
 import warnings
 # Suppress torchaudio warnings early before imports
 warnings.filterwarnings('ignore', message='.*torchaudio._backend.*')

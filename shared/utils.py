@@ -2,11 +2,14 @@
 Shared utilities for all pipeline containers.
 Cross-platform compatible (Windows, Linux, macOS).
 """
+# Standard library
 import json
 import re
-import platform
 from pathlib import Path
 from typing import Dict, Any, Optional
+
+# Third-party
+import platform
 
 
 def save_json(data: Dict[str, Any], filepath: Path) -> None:

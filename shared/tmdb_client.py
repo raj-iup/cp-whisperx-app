@@ -11,10 +11,13 @@ Usage:
     metadata = client.get_movie_metadata(movie['id'])
 """
 
+# Standard library
 import json
 from pathlib import Path
 from typing import Optional, Dict, List, Any
 from datetime import datetime
+
+# Third-party
 from tmdbv3api import TMDb, Movie, Person
 from cachetools import TTLCache
 

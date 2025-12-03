@@ -15,14 +15,17 @@ Generates:
 
 Compliance: DEVELOPER_STANDARDS.md
 """
+# Standard library
 import sys
 import os
 import json
-import csv
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Any, Optional
 from collections import Counter
+
+# Third-party
+import csv
 
 # Add project root to path for shared imports
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -527,7 +530,7 @@ def main():
         if logger:
             logger.error(f"Glossary building failed: {e}", exc_info=True, exc_info=True)
         else:
-            print(f"ERROR: {e}", file=sys.stderr)
+            logger.info(f"ERROR: {e}", file=sys.stderr)
         if stage_io:
             stage_io.add_error(f"Glossary build failed: {e}")
             stage_io.finalize(status="failed", error=str(e))

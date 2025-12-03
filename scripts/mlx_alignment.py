@@ -10,6 +10,7 @@ Can be used in two modes:
 2. CLI mode: Direct file path arguments
 """
 
+# Standard library
 import json
 import sys
 from pathlib import Path

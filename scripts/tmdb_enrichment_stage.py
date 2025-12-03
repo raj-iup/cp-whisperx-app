@@ -23,6 +23,7 @@ Usage:
       --year 2008
 """
 
+# Standard library
 import sys
 import json
 import argparse
@@ -436,10 +437,10 @@ def main():
         return 0 if success else 1
         
     except KeyboardInterrupt:
-        print("\n✗ TMDB enrichment interrupted by user", file=sys.stderr)
+        logger.info("\n✗ TMDB enrichment interrupted by user", file=sys.stderr)
         return 130
     except Exception as e:
-        print(f"\n✗ TMDB enrichment failed: {e}", file=sys.stderr)
+        logger.info(f"\n✗ TMDB enrichment failed: {e}", file=sys.stderr)
         if args.debug:
             import traceback
             traceback.print_exc()

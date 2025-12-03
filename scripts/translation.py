@@ -16,6 +16,7 @@ Output: translated_transcript.json with translations
 Can also translate existing SRT files for retranslation workflows.
 """
 
+# Standard library
 import sys
 import json
 from pathlib import Path

@@ -10,6 +10,7 @@ Stage: 06_asr (Stage 6)
 Input: audio.wav from demux or source_separation
 Output: transcript.json with word-level timestamps
 """
+# Standard library
 import sys
 from pathlib import Path
 

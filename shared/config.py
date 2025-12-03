@@ -2,6 +2,7 @@
 Shared configuration loader for all pipeline containers.
 Reads configuration from .env file and provides typed access.
 """
+# Standard library
 import os
 import json
 from pathlib import Path

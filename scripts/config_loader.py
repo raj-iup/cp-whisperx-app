@@ -8,9 +8,12 @@ Loads configuration from:
 NEVER reads from shell environment (os.environ) directly.
 """
 
+# Standard library
 import json
 from pathlib import Path
 from typing import Dict, Any, Optional
+
+# Third-party
 from dotenv import dotenv_values
 
 
@@ -306,26 +309,26 @@ class Config:
         is_valid, issues = self.validate_whisperx_config()
 
         if not issues:
-            print("✅ Configuration validation passed - all settings optimal")
+            logger.info("✅ Configuration validation passed - all settings optimal")
             return
 
-        print("📊 Configuration Validation Report:")
-        print("=" * 80)
+        logger.info("📊 Configuration Validation Report:")
+        logger.info("=" * 80)
 
         for issue in issues:
             if 'CRITICAL' in issue:
-                print(f"🔴 {issue}")
+                logger.info(f"🔴 {issue}")
             elif 'WARNING' in issue:
-                print(f"🟡 {issue}")
+                logger.info(f"🟡 {issue}")
             else:
-                print(f"ℹ️  {issue}")
+                logger.info(f"ℹ️  {issue}")
 
-        print("=" * 80)
+        logger.info("=" * 80)
 
         if not is_valid:
-            print("❌ Validation failed - critical issues found")
+            logger.info("❌ Validation failed - critical issues found")
         else:
-            print("⚠️  Validation passed with warnings - consider optimizing")
+            logger.warning(" Validation passed with warnings - consider optimizing")
 
     def __repr__(self):
         return f"Config(env_file={self.env_file}, secrets_file={self.secrets_file})"
@@ -343,9 +346,9 @@ def load_config(project_root: Optional[Path] = None) -> Config:
 
     Example:
         >>> config = load_config()
-        >>> print(config.window_seconds)
+        >>> logger.info(config.window_seconds)
         45
-        >>> print(config.hf_token)
+        >>> logger.info(config.hf_token)
         'hf_...'
     """
     return Config(project_root)

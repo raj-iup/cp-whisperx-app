@@ -12,11 +12,14 @@ Key features:
 - Provides entity consistency across transcript
 """
 
+# Standard library
 import re
 from typing import Dict, List, Set, Tuple, Optional
 from pathlib import Path
-import spacy
 from collections import Counter
+
+# Third-party
+import spacy
 
 # Local
 from shared.logger import get_logger

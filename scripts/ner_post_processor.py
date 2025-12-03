@@ -22,6 +22,7 @@ Usage:
       --output transcript_corrected.json
 """
 
+# Standard library
 import sys
 import json
 import argparse

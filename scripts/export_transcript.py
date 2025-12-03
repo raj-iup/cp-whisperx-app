@@ -16,6 +16,7 @@ Input: transcript.json from ASR stage
 Output: Multiple transcript formats
 """
 
+# Standard library
 import sys
 import json
 from pathlib import Path

@@ -26,6 +26,7 @@ Performance:
   - CPU-only (lightweight text processing)
 """
 
+# Standard library
 import sys
 import os
 import json

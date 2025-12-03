@@ -2,6 +2,7 @@
 Shared utilities for pipeline stages.
 Provides standardized I/O patterns and directory structure.
 """
+# Standard library
 import os
 import json
 import sys
@@ -10,11 +11,9 @@ from pathlib import Path
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 
-# Import centralized stage ordering
+# Local
 from shared.stage_order import get_stage_number, get_stage_dir, STAGE_NUMBERS
 from shared.stage_manifest import StageManifest
-
-# Local
 from shared.logger import get_logger
 logger = get_logger(__name__)
 

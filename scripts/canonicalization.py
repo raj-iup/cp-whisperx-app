@@ -8,14 +8,16 @@ Handles:
 - Final SRT generation with polished text
 """
 
+# Standard library
 import json
 import re
 from pathlib import Path
 from typing import List, Dict, Optional
-import yaml
-
 import sys
 from pathlib import Path
+
+# Third-party
+import yaml
 
 # Add project root to path for shared imports
 PROJECT_ROOT = Path(__file__).parent.parent

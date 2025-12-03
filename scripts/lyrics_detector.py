@@ -14,11 +14,14 @@ Architecture:
 Expected Impact: +2-3% accuracy on overall content
 """
 
+# Standard library
 import sys
 import json
 from pathlib import Path
 from typing import List, Dict, Tuple, Optional
 from dataclasses import dataclass
+
+# Third-party
 import statistics
 
 # Add project root to path
@@ -360,7 +363,7 @@ def main():
         python lyrics_detector.py <job_dir>
     """
     if len(sys.argv) != 2:
-        print("Usage: python lyrics_detector.py <job_dir>")
+        logger.info("Usage: python lyrics_detector.py <job_dir>")
         sys.exit(1)
     
     job_dir = Path(sys.argv[1])

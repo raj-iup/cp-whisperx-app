@@ -18,13 +18,16 @@ Features:
 - JSON and YAML output formats
 """
 
+# Standard library
 import sys
 import argparse
 import json
-import yaml
 from pathlib import Path
 from typing import Optional, Dict, Any
 from datetime import datetime
+
+# Third-party
+import yaml
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -287,9 +290,9 @@ Examples:
     api_key = config.get_secret('tmdb_api_key')
     
     if not api_key:
-        print("❌ TMDB API key not found in config/secrets.json")
-        print("Get your free key at: https://www.themoviedb.org/signup")
-        print('Add to config/secrets.json: {"tmdb_api_key": "your_key_here"}')
+        logger.info("❌ TMDB API key not found in config/secrets.json")
+        logger.info("Get your free key at: https://www.themoviedb.org/signup")
+        logger.info('Add to config/secrets.json: {"tmdb_api_key": "your_key_here"}')
         return 1
     
     # Create logger

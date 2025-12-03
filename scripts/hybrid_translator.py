@@ -11,6 +11,7 @@ Uses lyrics_detection to identify song segments, then applies appropriate
 translation method based on segment type.
 """
 
+# Standard library
 import sys
 import json
 import os

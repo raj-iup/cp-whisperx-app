@@ -8,9 +8,12 @@ Handles:
 - Quality scoring and fallback logic
 """
 
+# Standard library
 import json
 from pathlib import Path
 from typing import List, Dict, Optional, Any
+
+# Third-party
 import torch
 from transformers import (
     MarianMTModel, MarianTokenizer,

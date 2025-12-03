@@ -12,10 +12,13 @@ Applies multiple correction methods to improve name/term accuracy:
 This module is reusable across different pipeline stages.
 """
 
+# Standard library
 import re
 from typing import List, Dict, Tuple, Optional, Set
-from difflib import SequenceMatcher
 import logging
+
+# Third-party
+from difflib import SequenceMatcher
 
 # Local
 from shared.logger import get_logger

@@ -40,14 +40,17 @@ CONFIGURATION FLOW:
    - MPS batch sizes auto-optimized for stability by pipeline orchestrator
 """
 
+# Standard library
 import json
-import platform
 import subprocess
 import sys
 import time
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional, Tuple
+
+# Third-party
+import platform
 
 # Local
 from shared.logger import get_logger

@@ -7,6 +7,7 @@ Implements proper lyrics detection using:
 2. Repetition detection in transcripts
 3. Pattern matching (short lines, poetic structure)
 """
+# Standard library
 import sys
 import json
 from pathlib import Path
@@ -379,7 +380,7 @@ def main():
         if logger:
             logger.error(f"Unexpected error: {e}", exc_info=True, exc_info=True)
         else:
-            print(f"ERROR: {e}", file=sys.stderr)
+            logger.info(f"ERROR: {e}", file=sys.stderr)
         if stage_io:
             stage_io.add_error(f"Unexpected error: {e}")
             stage_io.finalize(status="failed", error=f"Unexpected: {type(e).__name__}")

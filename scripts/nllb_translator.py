@@ -8,12 +8,15 @@ Model: facebook/nllb-200-distilled-600M (or 1.3B/3.3B for better quality)
 https://huggingface.co/facebook/nllb-200-distilled-600M
 """
 
+# Standard library
 import os
-import torch
 import json
 from pathlib import Path
 from typing import List, Dict, Optional, Any
 from dataclasses import dataclass
+
+# Third-party
+import torch
 
 # Local
 from shared.logger import get_logger

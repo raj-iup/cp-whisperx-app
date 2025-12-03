@@ -14,6 +14,7 @@ Backends:
 - Auto-detection based on device availability
 """
 
+# Standard library
 import os
 # Fix OpenMP duplicate library issue
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'

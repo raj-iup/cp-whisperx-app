@@ -8,6 +8,7 @@ IMPORTANT: When adding/removing stages, only modify STAGE_ORDER list.
 All other components will automatically update.
 """
 
+# Standard library
 from typing import Dict, List, Optional
 
 # ============================================================================
@@ -214,9 +215,9 @@ def get_all_stage_dirs() -> List[str]:
 
 def print_stage_order():
     """Print the stage order for debugging/documentation."""
-    print("\n" + "=" * 70)
-    print("PIPELINE STAGE ORDER")
-    print("=" * 70)
+    logger.info("\n" + "=" * 70)
+    logger.info("PIPELINE STAGE ORDER")
+    logger.info("=" * 70)
     
     seen = set()
     for stage_name in STAGE_ORDER:
@@ -226,16 +227,16 @@ def print_stage_order():
         # Only print base stages (not aliases)
         if stage_dir not in seen:
             seen.add(stage_dir)
-            print(f"{stage_num:2d}. {stage_dir}")
+            logger.info(f"{stage_num:2d}. {stage_dir}")
     
-    print("=" * 70)
+    logger.info("=" * 70)
     
     if SUB_STAGES:
-        print("\nSub-stages (inherit parent number):")
+        logger.info("\nSub-stages (inherit parent number):")
         for sub, parent in SUB_STAGES.items():
             parent_num = STAGE_NUMBERS[parent]
-            print(f"  {sub} → {parent} (stage {parent_num})")
-        print("=" * 70)
+            logger.info(f"  {sub} → {parent} (stage {parent_num})")
+        logger.info("=" * 70)
 
 
 # ============================================================================
@@ -278,7 +279,7 @@ def validate_stage_order():
 try:
     validate_stage_order()
 except Exception as e:
-    print(f"WARNING: Stage order validation failed: {e}")
+    logger.warning(f"WARNING: Stage order validation failed: {e}")
 
 
 # ============================================================================
@@ -289,9 +290,9 @@ if __name__ == "__main__":
     print_stage_order()
     
     # Test some lookups
-    print("\nExample lookups:")
-    print(f"  get_stage_number('translation') = {get_stage_number('translation')}")
-    print(f"  get_stage_number('hybrid_translation') = {get_stage_number('hybrid_translation')}")
-    print(f"  get_stage_dir('translation') = {get_stage_dir('translation')}")
-    print(f"  get_stage_dir('hybrid_translation') = {get_stage_dir('hybrid_translation')}")
-    print(f"  get_stage_dir('hallucination_removal') = {get_stage_dir('hallucination_removal')}")
+    logger.info("\nExample lookups:")
+    logger.info(f"  get_stage_number('translation') = {get_stage_number('translation')}")
+    logger.info(f"  get_stage_number('hybrid_translation') = {get_stage_number('hybrid_translation')}")
+    logger.info(f"  get_stage_dir('translation') = {get_stage_dir('translation')}")
+    logger.info(f"  get_stage_dir('hybrid_translation') = {get_stage_dir('hybrid_translation')}")
+    logger.info(f"  get_stage_dir('hallucination_removal') = {get_stage_dir('hallucination_removal')}")

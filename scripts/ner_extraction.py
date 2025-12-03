@@ -9,16 +9,18 @@ Handles:
 - Saving NER results
 """
 
+# Standard library
 import json
 from pathlib import Path
 from typing import List, Dict, Optional, Set, Tuple
 from collections import Counter
 from datetime import datetime
-import spacy
-from tqdm import tqdm
-
 import sys
 from pathlib import Path
+
+# Third-party
+import spacy
+from tqdm import tqdm
 
 # Add project root to path for shared imports
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -341,7 +343,7 @@ def main():
     elif len(sys.argv) > 1:
         output_dir = Path(sys.argv[1])
     else:
-        print("ERROR: No output directory specified", file=sys.stderr)
+        logger.info("ERROR: No output directory specified", file=sys.stderr)
         return 1
     
     # Load configuration

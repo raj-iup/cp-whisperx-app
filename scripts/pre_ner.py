@@ -2,6 +2,7 @@
 """
 Pre-NER stage: Extract entities before processing
 """
+# Standard library
 import sys
 from pathlib import Path
 

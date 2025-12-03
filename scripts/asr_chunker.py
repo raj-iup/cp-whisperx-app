@@ -11,6 +11,7 @@ This module handles:
 
 Used by whisperx_integration.py for stable MPS processing on long files.
 """
+# Standard library
 import sys
 from pathlib import Path
 

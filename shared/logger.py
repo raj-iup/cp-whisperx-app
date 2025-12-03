@@ -5,12 +5,15 @@ Provides consistent logging across all steps.
 This is the SINGLE SOURCE OF TRUTH for all logging in cp-whisperx-app.
 Use this module for all Python scripts, Docker containers, and pipeline stages.
 """
+# Standard library
 import logging
 import sys
 import os
 from pathlib import Path
 from datetime import datetime
 from typing import Optional
+
+# Third-party
 from pythonjsonlogger import jsonlogger
 
 # Local

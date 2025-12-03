@@ -12,8 +12,11 @@ Compliance: DEVELOPER_STANDARDS_COMPLIANCE.md
 - Section 9.1: Code Documentation - Comprehensive docstrings
 """
 
+# Standard library
 from pathlib import Path
 from typing import Union, Dict, List, Any, Tuple, Iterator
+
+# Third-party
 import numpy as np
 
 

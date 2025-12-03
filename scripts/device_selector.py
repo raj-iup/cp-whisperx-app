@@ -15,8 +15,11 @@ DEVELOPER STANDARDS COMPLIANCE:
 - Multi-environment architecture support
 """
 
-import platform
+# Standard library
 from typing import Tuple, Literal, Optional
+
+# Third-party
+import platform
 
 # Local
 from shared.logger import get_logger

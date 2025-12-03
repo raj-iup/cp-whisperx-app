@@ -6,6 +6,7 @@ Parses movie filenames to extract title, year, and other metadata.
 Handles various naming conventions for Bollywood movies.
 """
 
+# Standard library
 import re
 from typing import NamedTuple, Optional
 
@@ -165,12 +166,12 @@ if __name__ == "__main__":
         "Jaane Tu Ya Jaane Na 2008.mp4",
     ]
     
-    print("Filename Parser Test Cases:")
-    print("=" * 80)
+    logger.info("Filename Parser Test Cases:")
+    logger.info("=" * 80)
     for filename in test_files:
         parsed = parse_filename(filename)
-        print(f"\nInput:   {filename}")
-        print(f"Title:   {parsed.title}")
-        print(f"Year:    {parsed.year}")
-        print(f"Display: {format_title_for_display(parsed)}")
-        print(f"Safe:    {format_title_for_filename(parsed)}")
+        logger.info(f"\nInput:   {filename}")
+        logger.info(f"Title:   {parsed.title}")
+        logger.info(f"Year:    {parsed.year}")
+        logger.info(f"Display: {format_title_for_display(parsed)}")
+        logger.info(f"Safe:    {format_title_for_filename(parsed)}")

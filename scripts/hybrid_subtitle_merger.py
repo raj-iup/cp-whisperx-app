@@ -5,11 +5,14 @@ Combines WhisperX (context-aware) and IndICTrans2 (safe) translations
 Uses IndICTrans2 for detected hallucination segments, WhisperX for the rest
 """
 
-import srt
+# Standard library
 import argparse
 from pathlib import Path
 from typing import List, Set, Tuple
 import sys
+
+# Third-party
+import srt
 
 def detect_hallucinations(subtitles: List[srt.Subtitle]) -> Set[int]:
     """
@@ -29,7 +32,7 @@ def detect_hallucinations(subtitles: List[srt.Subtitle]) -> Set[int]:
             hallucinations.add(i)
             hallucinations.add(i+1)
             hallucinations.add(i+2)
-            print(f"  Repetition detected at {subtitles[i].start}: '{text1}'")
+            logger.info(f"  Repetition detected at {subtitles[i].start}: '{text1}'")
     
     # Detection 2: Excessive segments in short time window
     time_window = 10  # seconds
@@ -46,7 +49,7 @@ def detect_hallucinations(subtitles: List[srt.Subtitle]) -> Set[int]:
         
         if len(segments_in_window) > max_segments:
             hallucinations.update(segments_in_window)
-            print(f"  Excessive segments at {subtitles[i].start}: {len(segments_in_window)} in {time_window}s")
+            logger.info(f"  Excessive segments at {subtitles[i].start}: {len(segments_in_window)} in {time_window}s")
     
     # Detection 3: Very short duration with text
     for i, sub in enumerate(subtitles):
@@ -56,7 +59,7 @@ def detect_hallucinations(subtitles: List[srt.Subtitle]) -> Set[int]:
         # If duration < 0.3s but has 2+ words, likely hallucination
         if duration < 0.3 and word_count >= 2:
             hallucinations.add(i)
-            print(f"  Too short at {sub.start}: {duration:.2f}s for '{sub.content}'")
+            logger.info(f"  Too short at {sub.start}: {duration:.2f}s for '{sub.content}'")
     
     return hallucinations
 
@@ -118,34 +121,34 @@ def merge_translations(
     - Use WhisperX for normal segments (better context)
     - Use IndICTrans2 for hallucination segments (safer)
     """
-    print("=" * 70)
-    print("HYBRID SUBTITLE MERGER")
-    print("=" * 70)
-    print(f"WhisperX:     {whisperx_file}")
-    print(f"IndICTrans2:  {indictrans2_file}")
-    print(f"Output:       {output_file}")
-    print()
+    logger.info("=" * 70)
+    logger.info("HYBRID SUBTITLE MERGER")
+    logger.info("=" * 70)
+    logger.info(f"WhisperX:     {whisperx_file}")
+    logger.info(f"IndICTrans2:  {indictrans2_file}")
+    logger.info(f"Output:       {output_file}")
+    logger.info()
     
     # Load subtitles
-    print("Loading subtitles...")
+    logger.info("Loading subtitles...")
     with open(whisperx_file, 'r', encoding='utf-8') as f:
         whisperx_subs = list(srt.parse(f.read()))
     
     with open(indictrans2_file, 'r', encoding='utf-8') as f:
         indictrans2_subs = list(srt.parse(f.read()))
     
-    print(f"  WhisperX:     {len(whisperx_subs)} subtitles")
-    print(f"  IndICTrans2:  {len(indictrans2_subs)} subtitles")
-    print()
+    logger.info(f"  WhisperX:     {len(whisperx_subs)} subtitles")
+    logger.info(f"  IndICTrans2:  {len(indictrans2_subs)} subtitles")
+    logger.info()
     
     # Detect hallucinations
-    print("Detecting hallucinations...")
+    logger.info("Detecting hallucinations...")
     hallucination_indices = detect_hallucinations(whisperx_subs)
-    print(f"  Detected {len(hallucination_indices)} hallucination segments")
-    print()
+    logger.info(f"  Detected {len(hallucination_indices)} hallucination segments")
+    logger.info()
     
     # Build hybrid
-    print("Building hybrid translation...")
+    logger.info("Building hybrid translation...")
     hybrid = []
     whisperx_count = 0
     indictrans2_count = 0
@@ -174,12 +177,12 @@ def merge_translations(
                 indictrans2_count += 1
                 
                 if verbose:
-                    print(f"  {wsub.start} → IndICTrans2: {match.content[:50]}")
+                    logger.info(f"  {wsub.start} → IndICTrans2: {match.content[:50]}")
             else:
                 # No match found, skip this segment
                 skipped_count += 1
                 if verbose:
-                    print(f"  {wsub.start} → SKIPPED (no match)")
+                    logger.info(f"  {wsub.start} → SKIPPED (no match)")
         else:
             # Use WhisperX (better context)
             hybrid.append(srt.Subtitle(
@@ -191,28 +194,28 @@ def merge_translations(
             whisperx_count += 1
     
     # Write output
-    print()
-    print("Writing hybrid translation...")
+    logger.info()
+    logger.info("Writing hybrid translation...")
     with open(output_file, 'w', encoding='utf-8') as f:
         f.write(srt.compose(hybrid))
     
     # Summary
-    print()
-    print("=" * 70)
-    print("HYBRID TRANSLATION COMPLETE")
-    print("=" * 70)
-    print(f"Total segments:       {len(hybrid)}")
-    print(f"  WhisperX (context): {whisperx_count} ({whisperx_count/len(hybrid)*100:.1f}%)")
-    print(f"  IndICTrans2 (safe): {indictrans2_count} ({indictrans2_count/len(hybrid)*100:.1f}%)")
+    logger.info()
+    logger.info("=" * 70)
+    logger.info("HYBRID TRANSLATION COMPLETE")
+    logger.info("=" * 70)
+    logger.info(f"Total segments:       {len(hybrid)}")
+    logger.info(f"  WhisperX (context): {whisperx_count} ({whisperx_count/len(hybrid)*100:.1f}%)")
+    logger.info(f"  IndICTrans2 (safe): {indictrans2_count} ({indictrans2_count/len(hybrid)*100:.1f}%)")
     if skipped_count:
-        print(f"  Skipped:            {skipped_count}")
-    print()
-    print(f"✓ Saved to: {output_file}")
-    print()
-    print("Benefits:")
-    print("  ✓ Context-aware dialogue (WhisperX)")
-    print("  ✓ No hallucinations in songs (IndICTrans2)")
-    print("  ✓ Best of both worlds!")
+        logger.info(f"  Skipped:            {skipped_count}")
+    logger.info()
+    logger.info(f"✓ Saved to: {output_file}")
+    logger.info()
+    logger.info("Benefits:")
+    logger.info("  ✓ Context-aware dialogue (WhisperX)")
+    logger.info("  ✓ No hallucinations in songs (IndICTrans2)")
+    logger.info("  ✓ Best of both worlds!")
 
 
 def main():
@@ -270,11 +273,11 @@ Examples:
     
     # Validate inputs
     if not args.whisperx_file.exists():
-        print(f"Error: WhisperX file not found: {args.whisperx_file}")
+        logger.error(f"Error: WhisperX file not found: {args.whisperx_file}")
         sys.exit(1)
     
     if not args.indictrans2_file.exists():
-        print(f"Error: IndICTrans2 file not found: {args.indictrans2_file}")
+        logger.error(f"Error: IndICTrans2 file not found: {args.indictrans2_file}")
         sys.exit(1)
     
     # Create output directory if needed

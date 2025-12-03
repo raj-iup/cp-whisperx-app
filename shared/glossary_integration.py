@@ -6,6 +6,7 @@ Provides easy glossary loading and application for stages that need
 to enforce glossary terms (subtitle_gen, translation, etc.).
 
 Usage:
+# Local
     from shared.glossary_integration import load_glossary_for_stage
     
     # In your stage
