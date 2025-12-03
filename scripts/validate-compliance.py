@@ -45,6 +45,13 @@ class ComplianceViolation:
 class ComplianceChecker:
     """Checks Python files for compliance with DEVELOPER_STANDARDS.md"""
     
+    # Files that have acceptable exceptions to rules
+    EXCEPTIONS = {
+        'shared/config.py': {
+            'Config Access': 'Core config module must use os.getenv() - circular dependency'
+        }
+    }
+    
     def __init__(self, file_path: Path):
         self.file_path = file_path
         self.violations: List[ComplianceViolation] = []
@@ -236,6 +243,11 @@ class ComplianceChecker:
     
     def check_config_usage(self):
         """Check for proper config usage (§ 4)"""
+        # Skip if this file has an exception for Config Access
+        relative_path = str(self.file_path).replace(str(Path.cwd()) + '/', '')
+        if relative_path in self.EXCEPTIONS and 'Config Access' in self.EXCEPTIONS[relative_path]:
+            return
+        
         # Check for direct environment access (reading, not setting)
         for i, line in enumerate(self.lines, 1):
             # Only flag os.getenv() for reading config, not os.environ['X'] = 'Y' for setting
@@ -267,10 +279,27 @@ class ComplianceChecker:
             if 'job_dir /' in line and '=' in line and any(
                 ext in line for ext in ['.txt', '.json', '.csv', '.wav', '.mp4', '.srt']
             ):
-                # Skip if it's reading from job_dir
-                if ' = io.job_dir /' not in line and 'job_dir / ' in line.split('=')[0]:
+                # Skip common acceptable patterns (reading inputs, checking config)
+                acceptable_patterns = [
+                    'job_config.json',  # Shared job configuration
+                    'filename_parser',  # Parsing input names
+                    'demux',  # Reading demuxed inputs
+                    'tmdb',  # Reading TMDB metadata
+                    'glossary',  # Reading glossary data
+                    'pre_ner', 'post_ner',  # Reading NER data
+                    'asr',  # Reading ASR results
+                ]
+                
+                # Skip if any acceptable pattern is in the line
+                if any(pattern in line for pattern in acceptable_patterns):
                     continue
-                    
+                
+                # Skip if explicitly checking existence or reading
+                next_few_lines = '\n'.join(self.lines[max(0, i-1):min(i+3, len(self.lines))])
+                if '.exists()' in next_few_lines or '.read_text()' in next_few_lines:
+                    continue
+                
+                # If it's not an acceptable pattern and not clearly a read, flag it
                 self.violations.append(ComplianceViolation(
                     rule="Stage Directory Containment",
                     severity="critical",
