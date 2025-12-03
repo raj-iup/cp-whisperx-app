@@ -567,8 +567,7 @@ def main() -> None:
     
     parser.add_argument(
         "-s", "--source-language",
-        required=True,
-        help="Source language code (e.g., hi, ta, te)"
+        help="Source language code (e.g., hi, ta, te). Optional for 'transcribe' workflow (will auto-detect)."
     )
     
     parser.add_argument(
@@ -616,8 +615,19 @@ def main() -> None:
         logger.error(f"❌ Error: Input media not found: {args.input_media}")
         sys.exit(1)
     
-    # Validate languages
-    if not validate_language(args.source_language, is_source=True):
+    # For transcribe workflow, source language is optional (will auto-detect)
+    if args.workflow == "transcribe" and not args.source_language:
+        logger.info("ℹ️  Source language not specified - will auto-detect during transcription")
+        args.source_language = "auto"  # Set to 'auto' for auto-detection
+    
+    # For other workflows, source language is required
+    if args.workflow != "transcribe" and not args.source_language:
+        logger.error(f"❌ Error: --source-language is required for '{args.workflow}' workflow")
+        logger.info(f"   Supported languages: {', '.join(INDIAN_LANGUAGES.keys())}")
+        sys.exit(1)
+    
+    # Validate languages (skip validation for 'auto')
+    if args.source_language != "auto" and not validate_language(args.source_language, is_source=True):
         logger.error(f"❌ Error: Unsupported source language: {args.source_language}")
         logger.info(f"   Supported languages: {', '.join(INDIAN_LANGUAGES.keys())}")
         sys.exit(1)
