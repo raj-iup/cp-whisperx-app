@@ -13,7 +13,7 @@ from datetime import datetime
 
 # Local
 from shared.stage_order import get_stage_number, get_stage_dir, STAGE_NUMBERS
-from shared.stage_manifest import StageManifest
+from shared.manifest import StageManifest
 from shared.logger import get_logger
 logger = get_logger(__name__)
 
