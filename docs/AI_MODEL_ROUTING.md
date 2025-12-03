@@ -17,6 +17,9 @@
 - **Compliance checker:** `scripts/validate-compliance.py` ⭐ NEW
 - (Optional) Model routing guide (general): `docs/COPILOT_MODEL_ROUTING_GUIDE.md`
 
+
+**Last Auto-Update:** 2025-12-03 (automated)
+
 ---
 
 ## 1) Non‑negotiable repo constraints (must be enforced in every prompt)
@@ -91,15 +94,16 @@ High-risk if you touch:
 - **widespread standards violations (>10 files)** ⭐ NEW
 
 ### Step C — pick model + workflow
-| Task | Low risk | Medium risk | High risk |
-|---|---|---|---|
-| T1 Read/Explain | GPT‑4.1 | Sonnet 4 | Sonnet 4.5 / GPT‑5 |
-| T2 Small change | GPT‑5 mini / GPT‑4.1 | GPT‑4.1 | GPT‑4.1 + review Sonnet 4 |
-| T3 Medium change | GPT‑5.1‑Codex‑Mini | GPT‑5‑Codex | Plan Sonnet 4.5 → Patch Codex → Review Sonnet 4 |
-| T4 Large change | Plan Sonnet 4 → Patch Codex | Plan Sonnet 4.5 → Patch Codex | Plan GPT‑5/Sonnet 4.5 → Patch GPT‑5.1‑Codex → Final review Sonnet 4.5 (Opus only if architecture changes) |
-| T5 Debug/Investigate | GPT‑4.1 | GPT‑5 / Sonnet 4.5 | GPT‑5 + Sonnet 4.5 review |
-| T6 Docs/Comms | Haiku 4.5 / GPT‑4.1 | Sonnet 4 | Sonnet 4.5 |
-| **T7 Standards fix** ⭐ | **GPT‑4.1** | **GPT‑5‑Codex** | **Sonnet 4.5** |
+| Task | Low Risk | Medium Risk | High Risk |
+|------|----------|-------------|------------|
+| Read/Explain (understand code/roadmap/logs) | GPT-4o Mini | GPT-4 Turbo | Claude 3.5 Sonnet |
+| Small change (≤1 file, ≤50 LOC, low risk) | GPT-4o | GPT-4 Turbo | Claude 3.5 Sonnet |
+| Medium change (2-5 files, 50-300 LOC, medium risk) | Claude 3.5 Sonnet | Claude 3.5 Sonnet | o1-mini |
+| Large change (≥6 files, >300 LOC, high risk) | Claude 3.5 Sonnet | o1-mini | o1 |
+| Debug/Investigate (root cause, perf analysis) | GPT-4 Turbo | o1-mini | o1 |
+| Docs/Comms (PR descriptions, documentation) | GPT-4o Mini | GPT-4 Turbo | Claude 3.5 Sonnet |
+| Standards compliance (fix logger/imports/StageIO) | GPT-4 Turbo | Claude 3.5 Sonnet | Claude 3.5 Sonnet |
+
 
 ---
 
