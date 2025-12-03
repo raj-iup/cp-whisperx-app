@@ -4501,6 +4501,643 @@ def refactor_complex_logic():
 
 ---
 
+## 17. CACHING IMPLEMENTATION STANDARDS
+
+### 17.1 Overview
+
+**Purpose:** Enable intelligent caching to optimize repeated workflows with similar media.
+
+**Architecture:** 5-layer caching system with ML-based optimization
+
+**Reference:** See `docs/technical/caching-ml-optimization.md` for complete architecture
+
+### 17.2 Cache Layers
+
+**All stages SHOULD implement caching where appropriate:**
+
+#### Layer 1: Model Weights Cache (Global)
+```python
+# Location: {cache_dir}/models/
+# Automatically managed by model loading utilities
+# No stage-specific implementation needed
+```
+
+#### Layer 2: Audio Fingerprint Cache
+```python
+# Stage: 01_demux
+from shared.cache_manager import CacheManager
+
+cache = CacheManager(job_dir)
+audio_hash = cache.compute_audio_fingerprint(input_file)
+
+# Check if already processed
+if cache.has_fingerprint(audio_hash):
+    cached_info = cache.get_fingerprint(audio_hash)
+    logger.info(f"Using cached audio info: {cached_info}")
+    return cached_info
+
+# Process and cache
+audio_info = extract_audio(input_file)
+cache.store_fingerprint(audio_hash, audio_info)
+```
+
+#### Layer 3: ASR Results Cache (Quality-Aware)
+```python
+# Stage: 06_whisperx_asr
+from shared.cache_manager import CacheManager
+
+cache = CacheManager(job_dir)
+cache_key = cache.compute_asr_cache_key(
+    audio_file=audio_path,
+    model_version=model_version,
+    language=language,
+    config_params=relevant_config
+)
+
+# Check cache
+if cache.has_asr_result(cache_key) and not no_cache:
+    logger.info("Using cached ASR results")
+    return cache.get_asr_result(cache_key)
+
+# Process and cache
+result = run_asr(audio_path, model_version, language)
+cache.store_asr_result(cache_key, result)
+```
+
+#### Layer 4: Translation Cache (Contextual)
+```python
+# Stage: 08_translate
+from shared.cache_manager import CacheManager
+
+cache = CacheManager(job_dir)
+
+for segment in segments:
+    cache_key = cache.compute_translation_cache_key(
+        source_text=segment['text'],
+        source_lang=source_lang,
+        target_lang=target_lang,
+        glossary_hash=glossary_hash,
+        context=segment.get('context')
+    )
+    
+    # Check exact match
+    if cache.has_translation(cache_key):
+        segment['translation'] = cache.get_translation(cache_key)
+        continue
+    
+    # Check similar segments (>80% similarity)
+    similar = cache.find_similar_translation(segment['text'], threshold=0.80)
+    if similar:
+        # Adjust and use
+        segment['translation'] = adjust_translation(similar, segment)
+    else:
+        # Fresh translation
+        segment['translation'] = translate(segment['text'])
+        cache.store_translation(cache_key, segment['translation'])
+```
+
+#### Layer 5: Glossary Learning Cache
+```python
+# Stage: 03_glossary_load
+from shared.cache_manager import CacheManager
+
+cache = CacheManager(job_dir)
+movie_id = get_movie_id_from_tmdb()
+
+# Load learned terms from previous processing
+learned_terms = cache.get_learned_glossary(movie_id)
+if learned_terms:
+    logger.info(f"Loaded {len(learned_terms)} learned terms")
+    glossary.merge(learned_terms)
+
+# After processing, update learned terms
+new_terms = extract_new_terms(asr_result)
+cache.update_learned_glossary(movie_id, new_terms)
+```
+
+### 17.3 Cache Configuration
+
+**Required in config/.env.pipeline:**
+```bash
+# Caching Configuration (see § 4 for parameter standards)
+ENABLE_CACHING=true                          # Master switch
+CACHE_DIR=~/.cp-whisperx/cache              # Cache location
+CACHE_MAX_SIZE_GB=50                        # Total cache size limit
+CACHE_ASR_RESULTS=true                      # Cache ASR outputs
+CACHE_TRANSLATIONS=true                     # Cache translations
+CACHE_AUDIO_FINGERPRINTS=true              # Cache audio analysis
+CACHE_TTL_DAYS=90                          # Cache expiration
+CACHE_CLEANUP_ON_START=false               # Auto-cleanup old cache
+
+# ML Optimization (see § 18)
+ENABLE_ML_OPTIMIZATION=true                 # Enable ML predictions
+ML_MODEL_SELECTION=adaptive                 # adaptive|fixed
+ML_QUALITY_PREDICTION=true                  # Predict optimal settings
+ML_LEARNING_FROM_HISTORY=true              # Learn from past jobs
+
+# Performance Tuning
+SIMILAR_CONTENT_THRESHOLD=0.80             # Similarity reuse threshold
+GLOSSARY_LEARNING_ENABLED=true             # Learn terms over time
+TRANSLATION_MEMORY_ENABLED=true            # Build translation memory
+```
+
+### 17.4 Cache Invalidation Rules
+
+**Cache MUST be invalidated when:**
+- Model version changes
+- Configuration parameters affecting output change
+- User explicitly requests fresh processing (`--no-cache` flag)
+- Cache entry exceeds TTL (CACHE_TTL_DAYS)
+- Cache corruption detected (checksum mismatch)
+
+**Implementation:**
+```python
+def should_invalidate_cache(cache_entry: dict, current_config: dict) -> bool:
+    """
+    Determine if cache entry should be invalidated.
+    
+    Args:
+        cache_entry: Cached data with metadata
+        current_config: Current job configuration
+        
+    Returns:
+        True if cache should be invalidated
+    """
+    # Check TTL
+    if is_expired(cache_entry['timestamp'], current_config['CACHE_TTL_DAYS']):
+        logger.info("Cache entry expired")
+        return True
+    
+    # Check model version
+    if cache_entry['model_version'] != current_config['model_version']:
+        logger.info("Model version changed, invalidating cache")
+        return True
+    
+    # Check relevant config parameters
+    if config_params_changed(cache_entry['config'], current_config):
+        logger.info("Configuration changed, invalidating cache")
+        return True
+    
+    # Check checksum
+    if not verify_checksum(cache_entry):
+        logger.warning("Cache checksum mismatch, invalidating")
+        return True
+    
+    return False
+```
+
+### 17.5 Cache Management Tools
+
+**Required tools in tools/cache-manager.sh:**
+```bash
+#!/usr/bin/env bash
+
+# View cache statistics
+./tools/cache-manager.sh --stats
+# Output:
+#   Total cache size: 12.3 GB / 50 GB (24.6%)
+#   ASR results: 450 entries, 8.2 GB
+#   Translations: 1,234 entries, 2.1 GB
+#   Audio fingerprints: 89 entries, 45 MB
+#   Glossary learned: 34 movies, 1.8 GB
+#   Cache hit rate (last 30 days): 73%
+
+# Clear specific cache type
+./tools/cache-manager.sh --clear asr
+
+# Clear old cache (>90 days)
+./tools/cache-manager.sh --cleanup
+
+# Clear all cache
+./tools/cache-manager.sh --clear all
+
+# Validate cache integrity
+./tools/cache-manager.sh --validate
+
+# Export cache for sharing
+./tools/cache-manager.sh --export cache-backup-20251203.tar.gz
+
+# Import cache
+./tools/cache-manager.sh --import cache-backup-20251203.tar.gz
+```
+
+### 17.6 Testing Requirements
+
+**Cache functionality MUST be tested:**
+
+```python
+# tests/test_caching.py
+
+def test_cache_identical_media():
+    """Test cache hit on identical media processing."""
+    # First run
+    result1 = process_with_cache(test_media)
+    assert result1.cache_hit is False
+    first_time = result1.processing_time
+    
+    # Second run
+    result2 = process_with_cache(test_media)
+    assert result2.cache_hit is True
+    assert result2.processing_time < first_time * 0.1  # 90% faster
+
+def test_cache_invalidation_on_config_change():
+    """Test cache invalidation when config changes."""
+    result1 = process_with_cache(test_media, config={'model': 'large-v2'})
+    assert result1.cache_hit is False
+    
+    result2 = process_with_cache(test_media, config={'model': 'large-v3'})
+    assert result2.cache_hit is False  # Config changed, cache invalidated
+
+def test_cache_no_cache_flag():
+    """Test --no-cache flag forces fresh processing."""
+    result1 = process_with_cache(test_media)
+    result2 = process_with_cache(test_media, no_cache=True)
+    assert result2.cache_hit is False  # Forced fresh processing
+```
+
+---
+
+## 18. ML OPTIMIZATION INTEGRATION
+
+### 18.1 Overview
+
+**Purpose:** Use machine learning to adaptively optimize processing based on media characteristics and historical data.
+
+**Components:**
+1. Adaptive Quality Prediction
+2. Context Learning from History
+3. Similarity-Based Optimization
+
+**Reference:** See `docs/technical/caching-ml-optimization.md` for algorithms
+
+### 18.2 Adaptive Quality Prediction
+
+**Lightweight ML model predicts optimal processing parameters.**
+
+**Implementation in 01_demux stage:**
+```python
+from shared.ml_optimizer import MLOptimizer
+
+def run_stage(job_dir: Path, stage_name: str = "01_demux") -> int:
+    io = StageIO(stage_name, job_dir, enable_manifest=True)
+    logger = io.get_stage_logger()
+    config = load_config(job_dir)
+    
+    # Extract audio characteristics
+    audio_info = analyze_audio(input_file)
+    
+    # ML prediction for optimal settings
+    if config.get('ENABLE_ML_OPTIMIZATION', 'true').lower() == 'true':
+        optimizer = MLOptimizer(job_dir)
+        predictions = optimizer.predict_optimal_settings(audio_info)
+        
+        logger.info(f"ML Predictions: {predictions}")
+        # predictions = {
+        #     'optimal_model': 'medium',  # Use medium model for this quality
+        #     'source_separation_needed': False,  # Clean audio
+        #     'expected_confidence': 0.92,
+        #     'estimated_time_minutes': 4.2
+        # }
+        
+        # Update job config with predictions
+        update_job_config(job_dir, predictions)
+```
+
+**ML Model Training:**
+```python
+# tools/train-ml-optimizer.py
+
+from shared.ml_optimizer import MLOptimizer
+from sklearn.ensemble import RandomForestClassifier
+import pandas as pd
+
+def train_optimizer():
+    """Train ML optimizer from historical job data."""
+    # Load historical data
+    jobs_df = load_historical_jobs()
+    
+    # Features: audio characteristics
+    features = [
+        'snr_db',           # Signal-to-noise ratio
+        'sample_rate',      # Audio sample rate
+        'duration_sec',     # Duration
+        'speech_ratio',     # Speech vs. silence ratio
+        'background_noise', # Noise level
+        'language'          # Detected language
+    ]
+    
+    # Labels: optimal settings
+    labels = {
+        'model_size': ['base', 'small', 'medium', 'large'],
+        'source_sep_needed': [True, False]
+    }
+    
+    # Train classifiers
+    model_clf = RandomForestClassifier()
+    model_clf.fit(jobs_df[features], jobs_df['optimal_model'])
+    
+    source_sep_clf = RandomForestClassifier()
+    source_sep_clf.fit(jobs_df[features], jobs_df['source_sep_needed'])
+    
+    # Save models
+    optimizer = MLOptimizer()
+    optimizer.save_models(model_clf, source_sep_clf)
+    
+    print("ML optimizer trained successfully")
+```
+
+### 18.3 Context Learning from History
+
+**Learn from previous jobs to improve context awareness.**
+
+**Character Name Recognition:**
+```python
+# Stage: 03_glossary_load
+
+from shared.ml_optimizer import MLOptimizer
+
+def run_stage(job_dir: Path, stage_name: str = "03_glossary_load") -> int:
+    optimizer = MLOptimizer(job_dir)
+    
+    # Get movie ID from TMDB stage
+    movie_id = read_tmdb_metadata(job_dir)
+    
+    # Load learned character names from previous processing
+    learned_names = optimizer.get_learned_character_names(movie_id)
+    if learned_names:
+        logger.info(f"Loaded {len(learned_names)} learned character names")
+        for name, info in learned_names.items():
+            glossary.add_term(
+                term=name,
+                context=info['contexts'],
+                frequency=info['frequency'],
+                speakers=info['speakers']
+            )
+```
+
+**Cultural Pattern Learning:**
+```python
+# Stage: 08_translate
+
+from shared.ml_optimizer import MLOptimizer
+
+def translate_segment(segment: dict, src_lang: str, tgt_lang: str) -> dict:
+    optimizer = MLOptimizer(job_dir)
+    
+    # Check for learned cultural patterns
+    cultural_patterns = optimizer.get_cultural_patterns(src_lang, tgt_lang)
+    
+    # Apply patterns to translation
+    for pattern in cultural_patterns:
+        if pattern['source_phrase'] in segment['text']:
+            segment['cultural_context'] = pattern['translation_context']
+            segment['alternatives'] = pattern['alternatives']
+    
+    # Translate with cultural context
+    translation = translate_with_context(segment, cultural_patterns)
+    
+    # Update learning
+    optimizer.record_translation(
+        source=segment['text'],
+        target=translation,
+        context=segment.get('cultural_context'),
+        confidence=segment.get('confidence', 0.0)
+    )
+    
+    return translation
+```
+
+### 18.4 Similarity-Based Optimization
+
+**Detect similar media and reuse processing decisions.**
+
+**Implementation:**
+```python
+from shared.ml_optimizer import MLOptimizer
+
+def run_stage(job_dir: Path, stage_name: str) -> int:
+    io = StageIO(stage_name, job_dir, enable_manifest=True)
+    logger = io.get_stage_logger()
+    config = load_config(job_dir)
+    
+    optimizer = MLOptimizer(job_dir)
+    
+    # Compute similarity with previous jobs
+    similarity_results = optimizer.find_similar_jobs(
+        audio_fingerprint=current_fingerprint,
+        language=detected_language,
+        duration=duration,
+        genre=genre
+    )
+    
+    if similarity_results:
+        best_match = similarity_results[0]
+        similarity_score = best_match['similarity']
+        
+        if similarity_score > 0.95:
+            logger.info(f"Nearly identical media detected (sim={similarity_score:.2f})")
+            # Reuse full pipeline config
+            reuse_full_config(best_match['job_id'])
+            
+        elif similarity_score > 0.80:
+            logger.info(f"Similar content detected (sim={similarity_score:.2f})")
+            # Reuse glossary and model selection, fresh ASR
+            reuse_glossary(best_match['job_id'])
+            reuse_model_selection(best_match['job_id'])
+            
+        elif similarity_score > 0.60:
+            logger.info(f"Similar genre/language (sim={similarity_score:.2f})")
+            # Suggest related glossaries
+            suggest_related_glossaries(best_match['job_id'])
+```
+
+### 18.5 Testing Requirements
+
+**ML optimization MUST be tested:**
+
+```python
+# tests/test_ml_optimization.py
+
+def test_adaptive_quality_prediction():
+    """Test ML model predicts optimal settings."""
+    optimizer = MLOptimizer()
+    
+    # Clean audio should predict smaller model
+    clean_audio = {
+        'snr_db': 45,
+        'background_noise': 0.1,
+        'speech_ratio': 0.85
+    }
+    predictions = optimizer.predict_optimal_settings(clean_audio)
+    assert predictions['optimal_model'] in ['base', 'small', 'medium']
+    assert predictions['source_separation_needed'] is False
+    
+    # Noisy audio should predict larger model + source separation
+    noisy_audio = {
+        'snr_db': 15,
+        'background_noise': 0.7,
+        'speech_ratio': 0.45
+    }
+    predictions = optimizer.predict_optimal_settings(noisy_audio)
+    assert predictions['optimal_model'] in ['medium', 'large']
+    assert predictions['source_separation_needed'] is True
+
+def test_similarity_detection():
+    """Test similar media detection."""
+    optimizer = MLOptimizer()
+    
+    # Process first job
+    job1_id = process_job(test_media)
+    
+    # Process identical media
+    similar_jobs = optimizer.find_similar_jobs(
+        audio_fingerprint=compute_fingerprint(test_media)
+    )
+    
+    assert len(similar_jobs) > 0
+    assert similar_jobs[0]['job_id'] == job1_id
+    assert similar_jobs[0]['similarity'] > 0.95
+```
+
+---
+
+## 19. TEST MEDIA USAGE IN DEVELOPMENT
+
+### 19.1 Standard Test Samples
+
+**ALL development and testing MUST use standardized test media.**
+
+**Sample 1: English Technical Content**
+- File: `in/Energy Demand in AI.mp4`
+- Purpose: Transcribe and Translate workflows
+- Language: English
+- Type: Technical/Educational
+- Duration: ~2-5 minutes
+
+**Sample 2: Hinglish Bollywood Content**
+- File: `in/test_clips/jaane_tu_test_clip.mp4`
+- Purpose: Subtitle, Transcribe, Translate workflows
+- Language: Hindi/Hinglish
+- Type: Entertainment
+- Duration: ~1-3 minutes
+
+**Reference:** See `docs/user-guide/workflows.md` for complete sample documentation
+
+### 19.2 Quality Baselines
+
+**All test runs MUST validate against quality baselines:**
+
+| Sample | Workflow | Metric | Target | Validation |
+|--------|----------|--------|--------|------------|
+| Sample 1 | Transcribe | ASR WER | ≤5% | Automated |
+| Sample 1 | Translate | BLEU Score | ≥90% | Automated |
+| Sample 2 | Subtitle | Subtitle Quality | ≥88% | Human + Auto |
+| Sample 2 | Subtitle | Context Preservation | ≥80% | Human evaluation |
+| Sample 2 | Subtitle | Glossary Application | 100% | Automated |
+| Both | All | Subtitle Timing | ±200ms | Automated |
+
+### 19.3 Test Media Index
+
+**Create and maintain:** `in/test_media_index.json`
+
+```json
+{
+  "test_samples": [
+    {
+      "id": "sample_01",
+      "file": "Energy Demand in AI.mp4",
+      "language": "en",
+      "type": "technical",
+      "duration_estimate": "2-5 min",
+      "workflows": ["transcribe", "translate"],
+      "quality_baseline": {
+        "asr_accuracy": 0.95,
+        "translation_fluency": 0.90
+      }
+    },
+    {
+      "id": "sample_02",
+      "file": "test_clips/jaane_tu_test_clip.mp4",
+      "language": "hi-Hinglish",
+      "type": "entertainment",
+      "duration_estimate": "1-3 min",
+      "workflows": ["subtitle", "transcribe", "translate"],
+      "quality_baseline": {
+        "asr_accuracy": 0.85,
+        "subtitle_quality": 0.88,
+        "context_awareness": 0.80
+      }
+    }
+  ]
+}
+```
+
+### 19.4 Development Workflow with Test Media
+
+**When developing new features:**
+
+```bash
+# 1. Develop feature
+# 2. Test with Sample 1 (English)
+./prepare-job.sh --media "in/Energy Demand in AI.mp4" --workflow transcribe --source-language en
+./run-pipeline.sh --job-dir out/$(latest_job)
+
+# 3. Validate quality
+python3 tests/validate-quality.py --job-dir out/$(latest_job) --sample sample_01
+
+# 4. Test with Sample 2 (Hinglish)
+./prepare-job.sh --media "in/test_clips/jaane_tu_test_clip.mp4" --workflow subtitle \
+  --source-language hi --target-languages en,gu,ta
+./run-pipeline.sh --job-dir out/$(latest_job)
+
+# 5. Validate quality
+python3 tests/validate-quality.py --job-dir out/$(latest_job) --sample sample_02
+
+# 6. Run full test suite
+pytest tests/
+```
+
+### 19.5 CI/CD Integration
+
+**GitHub Actions MUST test with standard media:**
+
+```yaml
+# .github/workflows/tests.yml
+
+name: Tests
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup test media
+        run: |
+          # Download or link to standard test media
+          ./tools/setup-test-media.sh
+      
+      - name: Run tests with Sample 1
+        run: |
+          ./prepare-job.sh --media "in/Energy Demand in AI.mp4" \
+            --workflow transcribe --source-language en
+          ./run-pipeline.sh --job-dir out/$(ls -t out/*/*/*/*/ | head -1)
+          python3 tests/validate-quality.py --sample sample_01
+      
+      - name: Run tests with Sample 2
+        run: |
+          ./prepare-job.sh --media "in/test_clips/jaane_tu_test_clip.mp4" \
+            --workflow subtitle --source-language hi --target-languages en,gu
+          ./run-pipeline.sh --job-dir out/$(ls -t out/*/*/*/*/ | head -1)
+          python3 tests/validate-quality.py --sample sample_02
+      
+      - name: Validate quality baselines
+        run: pytest tests/test_quality_baselines.py
+```
+
+---
+
 ## Document History
 
 | Version | Date | Changes | Author |

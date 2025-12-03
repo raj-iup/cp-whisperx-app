@@ -406,6 +406,158 @@ Models cached in `shared/model-cache/`:
 - IndicTrans2: `~/.cache/huggingface/`
 - NLLB: `~/.cache/huggingface/`
 
+### Intelligent Caching System (v3.0)
+
+**Purpose:** Enable subsequent workflows with similar media to perform optimally over time.
+
+**Architecture:** 5-layer caching system integrated across all stages
+
+```
+┌──────────────────────────────────────────────────────┐
+│         Intelligent Caching Architecture             │
+└──────────────────────────────────────────────────────┘
+                        │
+        ┌───────────────┼───────────────┐
+        │               │               │
+   ┌────▼────┐    ┌────▼────┐    ┌────▼────┐
+   │Layer 1  │    │Layer 2  │    │Layer 3  │
+   │Model    │    │Audio    │    │ASR      │
+   │Weights  │    │Finger-  │    │Results  │
+   │         │    │prints   │    │         │
+   └─────────┘    └─────────┘    └─────────┘
+        │               │               │
+   ┌────▼────┐    ┌────▼────┐
+   │Layer 4  │    │Layer 5  │
+   │Trans-   │    │Glossary │
+   │lation   │    │Learning │
+   │Memory   │    │         │
+   └─────────┘    └─────────┘
+```
+
+**Caching Layers:**
+
+1. **Model Weights Cache (Global)**
+   - Location: `{cache_dir}/models/`
+   - Stores: Downloaded model weights (WhisperX, IndicTrans2, PyAnnote)
+   - Benefits: Avoid re-downloading 1-5 GB per run
+   - Management: Automatic cleanup based on age and usage
+
+2. **Audio Fingerprint Cache**
+   - Location: `{cache_dir}/fingerprints/`
+   - Stores: Audio characteristics, detected language, noise profile
+   - Cache Key: Chromaprint + SHA256 of audio content
+   - Benefits: Skip demux/analysis for identical media
+
+3. **ASR Results Cache (Quality-Aware)**
+   - Location: `{cache_dir}/asr/`
+   - Cache Key: `SHA256(audio_content + model_version + language + config_params)`
+   - Stores: Transcribed segments, word timestamps, confidence scores
+   - Benefits: Reuse ASR results for same audio (saves 2-10 minutes)
+   - Invalidation: Model version change, config parameter change, or `--no-cache` flag
+
+4. **Translation Cache (Contextual)**
+   - Location: `{cache_dir}/translations/`
+   - Cache Key: `SHA256(source_text + src_lang + tgt_lang + glossary_hash + context)`
+   - Context-Aware Matching:
+     - Exact segment match: 100% reuse
+     - Similar segment (>80% similarity): Reuse with adjustment
+     - Different context: Fresh translation
+   - Benefits: Reuse translations for similar content (saves 1-5 minutes)
+
+5. **Glossary Learning Cache**
+   - Location: `{cache_dir}/glossary_learned/`
+   - Stores: Per-movie learned terms, character names, cultural terms, frequency analysis
+   - Learning Mechanisms:
+     - Character name recognition from previous jobs
+     - Cultural term patterns
+     - Translation memory from approved translations
+   - Benefits: Improve accuracy on subsequent processing of same movie/genre
+
+**Cache Configuration:**
+```bash
+# config/.env.pipeline
+ENABLE_CACHING=true
+CACHE_DIR=~/.cp-whisperx/cache
+CACHE_MAX_SIZE_GB=50
+CACHE_ASR_RESULTS=true
+CACHE_TRANSLATIONS=true
+CACHE_AUDIO_FINGERPRINTS=true
+CACHE_TTL_DAYS=90
+```
+
+**Expected Performance Improvements:**
+
+| Scenario | First Run | Subsequent Run | Improvement |
+|----------|-----------|----------------|-------------|
+| Identical media | 10 min | 30 sec | 95% faster |
+| Same movie, different cut | 10 min | 6 min | 40% faster |
+| Similar Bollywood movie | 10 min | 8 min | 20% faster |
+| Similar language/genre | 10 min | 9 min | 10% faster |
+
+**See:** `docs/technical/caching-ml-optimization.md` for complete caching architecture
+
+### ML-Based Optimization (v3.0)
+
+**Purpose:** Use machine learning to adaptively optimize processing based on media characteristics.
+
+**Components:**
+
+1. **Adaptive Quality Prediction**
+   - ML Model: Lightweight XGBoost classifier
+   - Features: Audio quality metrics (SNR, clarity, speech rate, noise level)
+   - Predictions:
+     - Optimal Whisper model size (base/small/medium/large)
+     - Source separation needed? (yes/no)
+     - Expected ASR confidence
+     - Processing time estimate
+   - Benefits: 30% faster processing on clean audio (use smaller model)
+
+2. **Context Learning from History**
+   - Character name recognition from previous jobs
+   - Cultural term patterns learning
+   - Translation memory from approved translations
+   - Benefits: Consistent terminology, higher accuracy over time
+
+3. **Similarity-Based Optimization**
+   - Detects similar media via audio fingerprinting
+   - Reuses processing decisions, glossaries, model selection
+   - Similarity metrics:
+     - Audio fingerprint matching (chromaprint)
+     - Content-based similarity (same movie, different versions)
+     - Language/accent similarity
+     - Genre similarity
+   - Benefits: 40-95% time reduction on similar content
+
+**Optimization Flow:**
+
+```
+Input Media
+    ↓
+Analyze Characteristics (SNR, noise, duration, language)
+    ↓
+ML Quality Predictor
+    ↓
+Optimal Settings: [model: medium, source_sep: false, expected_conf: 0.92]
+    ↓
+Update Job Config Dynamically
+    ↓
+Process with Optimal Settings
+    ↓
+Record Results for Future Learning
+```
+
+**Configuration:**
+```bash
+# config/.env.pipeline
+ENABLE_ML_OPTIMIZATION=true
+ML_MODEL_SELECTION=adaptive
+ML_QUALITY_PREDICTION=true
+ML_LEARNING_FROM_HISTORY=true
+SIMILAR_CONTENT_THRESHOLD=0.80
+```
+
+**See:** `docs/technical/caching-ml-optimization.md` for ML algorithms and training
+
 ### Batch Processing
 
 ASR batch size auto-selected based on hardware:
