@@ -110,14 +110,33 @@ INDIAN_LANGUAGES = {
 }
 
 
-def validate_language(lang_code: str, is_source: bool = True) -> bool:
-    """Validate language code for IndicTrans2 workflow"""
+def validate_language(lang_code: str, is_source: bool = True, workflow: str = "translate") -> bool:
+    """
+    Validate language code based on workflow.
+    
+    Args:
+        lang_code: Language code to validate
+        is_source: Whether this is source language
+        workflow: Workflow type (transcribe, translate, subtitle)
+        
+    Returns:
+        True if language is valid for the workflow
+        
+    Note:
+        - transcribe: Any language supported by WhisperX (100+ languages)
+        - translate: Source must be Indian language (IndicTrans2 constraint)
+        - subtitle: Source must be Indian language (IndicTrans2 constraint)
+    """
+    if workflow == "transcribe":
+        # Transcribe supports any language via WhisperX
+        return True
+    
     if is_source:
-        # Source must be Indian language
+        # For translate/subtitle: Source must be Indian language
         return lang_code in INDIAN_LANGUAGES
     else:
-        # Target can be any language, but primarily English
-        return True  # IndicTrans2 primarily supports English, but we'll allow others
+        # Target can be any language
+        return True
 
 
 def get_next_job_number(user_id: str, date_str: str) -> int:
@@ -627,9 +646,11 @@ def main() -> None:
         sys.exit(1)
     
     # Validate languages (skip validation for 'auto')
-    if args.source_language != "auto" and not validate_language(args.source_language, is_source=True):
+    if args.source_language != "auto" and not validate_language(args.source_language, is_source=True, workflow=args.workflow):
         logger.error(f"❌ Error: Unsupported source language: {args.source_language}")
-        logger.info(f"   Supported languages: {', '.join(INDIAN_LANGUAGES.keys())}")
+        if args.workflow in ["translate", "subtitle"]:
+            logger.info(f"   For {args.workflow} workflow, source must be an Indian language")
+            logger.info(f"   Supported languages: {', '.join(INDIAN_LANGUAGES.keys())}")
         sys.exit(1)
     
     if args.workflow == "translate" and not args.target_language:
