@@ -187,7 +187,7 @@ class WhisperXProcessor:
         
         # Get recommended backend if auto
         if self.backend_type == "auto":
-            recommended = get_recommended_backend(self.device, self.logger: logging.Logger)
+            recommended = get_recommended_backend(self.device, self.logger)
             self.logger.info(f"  Auto-detected backend: {recommended}")
             backend_to_use = recommended
         else:
@@ -546,7 +546,7 @@ class WhisperXProcessor:
             raise
         finally:
             # Always cleanup MPS memory
-            cleanup_mps_memory(self.logger: logging.Logger)
+            cleanup_mps_memory(self.logger)
             log_mps_memory(self.logger, "  After transcription - ")
 
         # Phase 1: Apply confidence-based filtering
@@ -635,7 +635,7 @@ class WhisperXProcessor:
             self.logger.error(f"  ✗ Hybrid transcription failed: {e}", exc_info=True)
             raise
         finally:
-            cleanup_mps_memory(self.logger: logging.Logger)
+            cleanup_mps_memory(self.logger)
             log_mps_memory(self.logger, "  After hybrid transcription - ")
 
         # Phase 1: Apply confidence-based filtering
@@ -760,7 +760,7 @@ class WhisperXProcessor:
                 # Continue with other windows - partial results better than none
                 continue
             finally:
-                cleanup_mps_memory(self.logger: logging.Logger)
+                cleanup_mps_memory(self.logger)
         
         self.logger.info(f"  Merging {len(all_segments)} segments from {total_windows} windows...")
 
@@ -884,7 +884,7 @@ class WhisperXProcessor:
                     chunk_results.append(result)
                     
                     # Memory cleanup after each chunk
-                    cleanup_mps_memory(self.logger: logging.Logger)
+                    cleanup_mps_memory(self.logger)
                     
                 except Exception as e:
                     self.logger.error(f"    ✗ Chunk {chunk.chunk_id} failed: {e}", exc_info=True)
@@ -930,7 +930,7 @@ class WhisperXProcessor:
                     # Reduce batch size for retry
                     batch_size = max(batch_size // 2, 4)
                     self.logger.warning(f"    🔄 Retrying with batch_size={batch_size}")
-                    cleanup_mps_memory(self.logger: logging.Logger)
+                    cleanup_mps_memory(self.logger)
                 else:
                     raise
         
@@ -1632,19 +1632,19 @@ def main() -> Any:
         return 0
         
     except FileNotFoundError as e:
-        logger.error(f"File not found: {e}", exc_info=True, exc_info=True)
+        logger.error(f"File not found: {e}", exc_info=True)
         stage_io.add_error(f"File not found: {e}")
         stage_io.finalize(status="failed", error=str(e))
         return 1
     
     except IOError as e:
-        logger.error(f"I/O error: {e}", exc_info=True, exc_info=True)
+        logger.error(f"I/O error: {e}", exc_info=True)
         stage_io.add_error(f"I/O error: {e}")
         stage_io.finalize(status="failed", error=str(e))
         return 1
     
     except RuntimeError as e:
-        logger.error(f"WhisperX runtime error: {e}", exc_info=True, exc_info=True)
+        logger.error(f"WhisperX runtime error: {e}", exc_info=True)
         stage_io.add_error(f"WhisperX error: {e}")
         stage_io.finalize(status="failed", error=str(e))
         return 1
@@ -1656,7 +1656,7 @@ def main() -> Any:
         return 130
     
     except Exception as e:
-        logger.error(f"Unexpected error: {e}", exc_info=True, exc_info=True)
+        logger.error(f"Unexpected error: {e}", exc_info=True)
         stage_io.add_error(f"Unexpected error: {e}")
         stage_io.finalize(status="failed", error=str(e))
         return 1

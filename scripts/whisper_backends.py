@@ -626,13 +626,13 @@ def create_backend(
     # Create backend
     if backend_type in ["whisperx", "ctranslate2"]:
         return WhisperXBackend(
-            model_name, device, compute_type, logger: logging.Logger,
+            model_name, device, compute_type, logger,
             condition_on_previous_text, logprob_threshold,
             no_speech_threshold, compression_ratio_threshold
         )
     elif backend_type == "mlx":
         return MLXWhisperBackend(
-            model_name, device, compute_type, logger: logging.Logger,
+            model_name, device, compute_type, logger,
             condition_on_previous_text, logprob_threshold,
             no_speech_threshold, compression_ratio_threshold
         )
