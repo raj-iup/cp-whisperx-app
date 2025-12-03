@@ -1,6 +1,12 @@
 # Copilot Instructions — CP-WhisperX-App
 
-**Version:** 4.0 (100% Compliance) | **Status:** 🎊 **100% PERFECT COMPLIANCE ACHIEVED** 🎊 | **Pre-commit Hook:** ✅ Active
+**Version:** 6.0 (Model Routing Automation) | **Status:** 🎊 **100% PERFECT COMPLIANCE ACHIEVED** 🎊 | **Pre-commit Hook:** ✅ Active
+
+**Major Updates in v6.0:**
+- 🆕 **Automated Model Updates**: Weekly checks for new AI model releases
+- 🆕 **Optimal Routing**: Data-driven model selection from AI_MODEL_ROUTING.md
+- 🆕 **Cost Optimization**: Track and optimize AI usage costs
+- 🆕 **Auto-Sync**: GitHub Actions keeps routing decisions current
 
 ---
 
@@ -12,36 +18,109 @@
 3. If stage: Does it use StageIO with `enable_manifest=True`? (§ 2.6)
 4. Are outputs going to `io.stage_dir` only? (§ 1.1)
 5. Am I using `load_config()` not `os.getenv()`? (§ 4.2)
+6. **Is my code cross-platform? (Use `pathlib`, not hardcoded paths)** (§ 1.2)
+7. **If creating shell script: Do I need Windows (.ps1) equivalent?** (§ 1.2)
+8. **If creating stage script: Is it named `{NN}_{stage_name}.py`?** (File Naming)
+9. **If testing: Am I using standard test media samples?** (§ 1.4) 🆕
+10. **If workflow: Am I following context-aware patterns?** (§ 1.5) 🆕
 
 **If NO to any → Check the relevant § section below**
 
 ---
 
-## 📍 Model Routing
+## 📍 Standard Test Media (ALWAYS USE THESE)
 
-**Consult:** `docs/AI_MODEL_ROUTING.md` before choosing models
+**Sample 1: English Technical**
+- File: `in/Energy Demand in AI.mp4`
+- Use for: Transcribe, Translate workflows
+- Quality target: ASR WER ≤5%, Translation BLEU ≥90%
+
+**Sample 2: Hinglish Bollywood**
+- File: `in/test_clips/jaane_tu_test_clip.mp4`
+- Use for: Subtitle, Transcribe, Translate workflows
+- Quality target: ASR WER ≤15%, Subtitle Quality ≥88%
+
+**See:** § 1.4 for complete test media documentation
+
+---
+
+## 🎯 Core Workflows (Context-Aware)
+
+**1. Subtitle Workflow** (§ 1.5)
+- Input: Bollywood/Indic media
+- Output: Multiple soft-embedded subtitle tracks (hi, en, gu, ta, es, ru, zh, ar)
+- Features: Character names, cultural terms, speaker diarization, temporal coherence
+
+**2. Transcribe Workflow** (§ 1.5)
+- Input: Any media
+- Output: Transcript in SAME language as source
+- Features: Domain terminology, proper nouns, native script output
+
+**3. Translate Workflow** (§ 1.5)
+- Input: Any media
+- Output: Transcript in SPECIFIED target language
+- Features: Cultural adaptation, glossary terms, formality preservation
+
+---
+
+## 📍 Model Routing (AUTO-UPDATED)
+
+**Primary Source:** `docs/AI_MODEL_ROUTING.md` (auto-updates weekly)
+
+**Quick Routing Principle:**
+- Start with cheapest model that can do the task correctly
+- Escalate only if: complexity increases, multi-file changes, high-risk territory, or stuck after 2 attempts
+
+**Escalation Ladder:**
+1. GPT-4 Turbo (default, small edits)
+2. GPT-4o (fast iteration)  
+3. Claude 3.5 Sonnet (refactoring, standards compliance)
+4. o1 (deep reasoning, architecture)
+
+**Task Types:**
+- T1: Read/Explain → GPT-4 Turbo
+- T2: Small change (≤1 file, ≤50 LOC) → GPT-4o
+- T3: Medium change (2-5 files) → Claude 3.5 Sonnet
+- T4: Large change (≥6 files) → o1 (high risk)
+- T5: Debug/Investigate → GPT-4 Turbo → o1 (complex)
+- T6: Docs/Comms → GPT-4 Turbo
+- T7: Standards compliance → Claude 3.5 Sonnet
+
+**Risk Levels:**
+- Low: No stage boundaries, manifests, or CI
+- Medium: Touches stage logic or multiple files
+- High: Manifests, resume logic, CI, dependencies, >10 files
+
+**Cost Monitoring:** Track usage with `./tools/model-usage-stats.py`
+
+**See:** AI_MODEL_ROUTING.md § 3 for complete routing table (updated weekly)
+
+**Last Synced:** 2025-12-03 (auto-synced by GitHub Actions)
 
 ---
 
 ## 🚧 Implementation Status
 
 **Current Architecture:** v2.0 (Simplified 3-6 Stage Pipeline)  
-**Target Architecture:** v3.0 (Modular 10-Stage Pipeline)  
-**Migration Progress:** 55% Complete
+**Target Architecture:** v3.0 (Context-Aware Modular 10-Stage Pipeline)  
+**Migration Progress:** 22% Complete (Phase 0 done)
 
 ### What Works Now (v2.0) ✅
 
 **Use These Patterns:**
 - ✅ Configuration loading (100% compliant) - `load_config()`
-- ✅ Logging system (90% compliant) - `logger.info()` not `print()`
+- ✅ Logging system (100% compliant) - `logger.info()` not `print()`
 - ✅ Multi-environment support - MLX/CUDA/CPU
 - ✅ Error handling patterns - Try/except with logging
 - ✅ Type hints and docstrings (100% compliant)
+- ✅ Standard test media - Two samples defined 🆕
 
 **Partially Implemented:**
 - ⚠️ Stage module pattern (5% adoption) - Only `tmdb_enrichment_stage.py`
-- ⚠️ Manifest tracking (40% adoption) - Few stages use it
+- ⚠️ Manifest tracking (10% adoption) - Few stages use it
 - ⚠️ Stage isolation (60% adoption) - Some shared state remains
+- ⚠️ Context-aware processing (40% adoption) - Basic implementation 🆕
+- ⚠️ Intelligent caching (0% adoption) - Planned in Phase 5 🆕
 
 ### What's Coming (v3.0) ⏳
 
@@ -90,6 +169,9 @@
 | Organize imports | § 6.1 | Standard/Third-party/Local |
 | Type hints | § 6.2 | Function signatures |
 | Docstrings | § 6.3 | Documentation |
+| **Testing** | **§ 1.4** | **Standard test media** 🆕 |
+| **Workflows** | **§ 1.5** | **Subtitle/Transcribe/Translate** 🆕 |
+| **Caching** | **§ 1.6** | **ML optimization** 🆕 |
 
 **Full standards:** `docs/developer/DEVELOPER_STANDARDS.md`
 
@@ -233,6 +315,131 @@ Output destination:
 
 ---
 
+## 📂 File Naming Standards
+
+### Stage Script Naming (MANDATORY)
+
+**All stage scripts MUST follow this pattern:**
+
+```
+scripts/{NN}_{stage_name}.py
+```
+
+Where `NN` is the stage number (01-99) and matches the stage directory name.
+
+**Examples:**
+
+✅ **CORRECT:**
+```
+scripts/01_demux.py           → Stage directory: 01_demux/
+scripts/02_tmdb_enrichment.py → Stage directory: 02_tmdb/
+scripts/03_glossary_loader.py → Stage directory: 03_glossary_load/
+scripts/04_source_separation.py
+scripts/05_pyannote_vad.py
+scripts/06_whisperx_asr.py
+scripts/07_mlx_alignment.py (or 07_alignment.py)
+scripts/08_indictrans2_translation.py (or 08_translate.py)
+scripts/09_subtitle_generation.py (or 09_subtitle_gen.py)
+scripts/10_mux.py
+```
+
+❌ **INCORRECT (Old patterns - DO NOT USE):**
+```
+scripts/demux.py                          # Missing stage number
+scripts/tmdb_enrichment_stage.py          # Wrong suffix
+scripts/03_glossary_load/glossary_loader.py  # Wrong directory
+```
+
+**Rules:**
+1. ✅ Format: `{NN}_{stage_name}.py`
+2. ✅ Place directly in `scripts/` (not in subdirectories)
+3. ✅ Match stage directory name (e.g., `01_demux/` → `01_demux.py`)
+4. ❌ No `_stage` suffix
+5. ❌ No subdirectories for stage scripts
+
+**Utility Scripts (Non-stages):**
+```
+scripts/config_loader.py      # Helper modules
+scripts/device_selector.py
+scripts/filename_parser.py
+```
+
+---
+
+## 🔧 Job Preparation Flow
+
+### prepare-job Design
+
+**Purpose:** Create job-specific configuration by copying and customizing system defaults.
+
+**Process Flow:**
+
+```
+1. Read: config/.env.pipeline (system defaults)
+   ↓
+2. Create: out/.../job-YYYYMMDD-user-NNNN/ (job directory)
+   ↓
+3. Copy: config/.env.pipeline → job/.env.pipeline
+   ↓
+4. Update: job/.env.pipeline with CLI parameters
+   ↓
+5. Create: job/job.json (job metadata)
+```
+
+**Example:**
+
+```bash
+./prepare-job.sh --media in/movie.mp4 --workflow subtitle \
+  --source-language hi --target-language en
+
+# Results in:
+# 1. job/.env.pipeline (copied from config/.env.pipeline)
+# 2. job/.env.pipeline updated with: source_language=hi, target_language=en
+# 3. job/job.json created with job metadata
+```
+
+**Configuration Files:**
+
+1. **`config/.env.pipeline`** (System defaults)
+   - Created by `bootstrap.sh`
+   - Version-controlled template
+   - Default values for all parameters
+   - **NEVER modified during job execution**
+
+2. **`{job_dir}/.env.pipeline`** (Job-specific config)
+   - Created by `prepare-job` (copied from system defaults)
+   - Updated with CLI parameters
+   - Used by all stages during execution
+   - Not version-controlled
+
+3. **`{job_dir}/job.json`** (Job metadata)
+   - Job ID, workflow, languages, timestamps
+   - Created by `prepare-job`
+   - Metadata only (not loaded by stages)
+
+**Stage Configuration Access:**
+
+```python
+from shared.config_loader import load_config
+
+# In stage scripts:
+def run_stage(job_dir: Path, stage_name: str) -> int:
+    # Automatically reads from job_dir/.env.pipeline
+    config = load_config(job_dir)
+    
+    # Get configuration values
+    model = config.get("WHISPERX_MODEL", "large-v2")
+    enabled = config.get("SOURCE_SEPARATION_ENABLED", "true")
+```
+
+**Key Points:**
+- ✅ `prepare-job` copies config, doesn't read CLI params from job.json
+- ✅ Stages read `.env.pipeline`, not `job.json`
+- ✅ System config (`config/.env.pipeline`) is never modified
+- ✅ Each job has its own `.env.pipeline` copy
+
+---
+
 ## 🚨 Critical Rules (NEVER Violate)
 
 ### 1. Logger Usage - NOT Print (§ 2.3)
@@ -354,10 +561,18 @@ value = int(config.get("PARAM_NAME", default))
 ```
 
 **Steps:**
-1. Add to `config/.env.pipeline`
+1. Add to `config/.env.pipeline` with full documentation
 2. Use `load_config()`
 3. Provide default with `.get(key, default)`
 4. Convert types: int(), float(), bool()
+
+**Configuration Parameter Rules:**
+- ✅ **Implement feature FIRST, then add parameter**
+- ✅ **Remove unused parameters immediately**  
+- ✅ **Mark future features**: `Status: ⏳ NOT YET IMPLEMENTED`
+- ✅ **Full documentation**: Purpose, values, defaults, impact
+- ❌ **NEVER add without implementation**
+- ❌ **NEVER leave unused parameters**
 
 ---
 
@@ -396,6 +611,42 @@ output = io.stage_dir / "file.ext"  # Correct: stage dir only
 
 ---
 
+## 🖥️ Cross-Platform Requirements (§ 1.2)
+
+**ALL core scripts MUST have Windows equivalents:**
+
+| Script | Unix/macOS | Windows | Status |
+|--------|------------|---------|--------|
+| bootstrap | ✅ `.sh` | ✅ `.ps1` | Complete |
+| prepare-job | ✅ `.sh` | ✅ `.ps1` | Complete |
+| run-pipeline | ✅ `.sh` | ✅ `.ps1` | Complete |
+| test-glossary-quickstart | ✅ `.sh` | ✅ `.ps1` | Complete |
+
+**When creating NEW shell scripts:**
+1. Create `.sh` for Unix/Linux/macOS
+2. Create `.ps1` for Windows (PowerShell 5.1+)
+3. Test on both platforms or document limitations
+4. Use platform-agnostic patterns where possible
+
+**Python code MUST be cross-platform:**
+```python
+# ✅ GOOD - Cross-platform paths
+from pathlib import Path
+config_path = Path("config") / ".env.pipeline"
+
+# ❌ BAD - Unix-only
+config_path = "config/.env.pipeline"
+
+# ✅ GOOD - Platform detection
+import sys
+if sys.platform == "win32":
+    # Windows-specific code
+else:
+    # Unix-like systems
+```
+
+---
+
 ## 📋 Pre-Commit Checklist
 
 **Before proposing code, verify:**
@@ -406,19 +657,41 @@ output = io.stage_dir / "file.ext"  # Correct: stage dir only
 - [ ] Type hints (§ 6.2)
 - [ ] Docstrings (§ 6.3)
 - [ ] Error handling (§ 5)
+- [ ] Cross-platform compatible (§ 1.2)
 
 **STAGE code:**
+- [ ] File named `{NN}_{stage_name}.py` (File Naming)
+- [ ] File in `scripts/` directory (not subdirectory)
 - [ ] `enable_manifest=True` (§ 2.6)
 - [ ] `io.get_stage_logger()` (§ 2.3)
 - [ ] Track inputs (§ 2.5)
 - [ ] Track outputs (§ 2.5)
 - [ ] Write to `io.stage_dir` only (§ 1.1)
 - [ ] Finalize manifest (§ 2.6)
+- [ ] Context propagation implemented (§ 1.5) 🆕
+- [ ] Cache-aware processing (§ 1.6) 🆕
+
+**TEST code:** 🆕
+- [ ] Uses standard test media (§ 1.4)
+- [ ] Tests Sample 1 (English technical) OR Sample 2 (Hinglish)
+- [ ] Validates quality baselines
+- [ ] Tests relevant workflow (Subtitle/Transcribe/Translate)
+- [ ] Tests caching behavior (first run vs. cached)
+- [ ] Includes integration test if workflow modified
+
+**SHELL scripts:**
+- [ ] Unix (.sh) script created
+- [ ] Windows (.ps1) script created
+- [ ] Both scripts have same functionality
+- [ ] Both scripts tested (or documented as untested)
 
 **CONFIG changes:**
-- [ ] Added to `.env.pipeline` (§ 4.1)
-- [ ] Uses `load_config()` (§ 4.2)
+- [ ] Parameter is actually USED in code (not planned)
+- [ ] Searched codebase to confirm usage
+- [ ] Added to `.env.pipeline` with full documentation (§ 4.1)
+- [ ] Uses `load_config()` in code (§ 4.2)
 - [ ] Has default value (§ 4.3)
+- [ ] If future feature: Marked with `⏳ NOT YET IMPLEMENTED`
 
 **Dependencies:**
 - [ ] Added to `requirements/*.txt` (§ 1.3)

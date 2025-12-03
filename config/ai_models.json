@@ -1,0 +1,231 @@
+{
+  "version": "1.0",
+  "last_updated": "2025-12-03",
+  "update_frequency": "weekly",
+  "description": "AI model registry for optimal routing decisions",
+  "models": {
+    "gpt-4-turbo": {
+      "provider": "OpenAI",
+      "tier": "standard",
+      "cost_per_1k_tokens": {
+        "input": 0.01,
+        "output": 0.03
+      },
+      "capabilities": ["code", "reasoning", "planning"],
+      "optimal_for": ["T1_medium", "T2_medium", "T5_low", "T6_medium", "T7_low"],
+      "context_window": 128000,
+      "release_date": "2024-04-09",
+      "status": "active",
+      "performance_score": 85,
+      "notes": "Good general-purpose model, cost-effective for simple tasks"
+    },
+    "gpt-4o": {
+      "provider": "OpenAI",
+      "tier": "premium",
+      "cost_per_1k_tokens": {
+        "input": 0.0025,
+        "output": 0.01
+      },
+      "capabilities": ["code", "multimodal", "fast"],
+      "optimal_for": ["T2_low"],
+      "context_window": 128000,
+      "release_date": "2024-05-13",
+      "status": "active",
+      "performance_score": 90,
+      "notes": "Fast and cost-effective, good for iteration"
+    },
+    "gpt-4o-mini": {
+      "provider": "OpenAI",
+      "tier": "budget",
+      "cost_per_1k_tokens": {
+        "input": 0.00015,
+        "output": 0.0006
+      },
+      "capabilities": ["code", "fast"],
+      "optimal_for": ["T1_low", "T6_low"],
+      "context_window": 128000,
+      "release_date": "2024-07-18",
+      "status": "active",
+      "performance_score": 80,
+      "notes": "Very cheap, good for simple tasks"
+    },
+    "claude-3-5-sonnet-20241022": {
+      "provider": "Anthropic",
+      "tier": "premium",
+      "cost_per_1k_tokens": {
+        "input": 0.003,
+        "output": 0.015
+      },
+      "capabilities": ["code", "reasoning", "analysis", "refactoring"],
+      "optimal_for": ["T1_high", "T2_high", "T3_low", "T3_medium", "T4_low", "T6_high", "T7_medium", "T7_high"],
+      "context_window": 200000,
+      "release_date": "2024-10-22",
+      "status": "active",
+      "performance_score": 95,
+      "notes": "Excellent for refactoring and standards compliance"
+    },
+    "claude-3-5-haiku-20241022": {
+      "provider": "Anthropic",
+      "tier": "budget",
+      "cost_per_1k_tokens": {
+        "input": 0.001,
+        "output": 0.005
+      },
+      "capabilities": ["code", "fast", "docs"],
+      "optimal_for": [],
+      "context_window": 200000,
+      "release_date": "2024-11-04",
+      "status": "active",
+      "performance_score": 82,
+      "notes": "Fast and cheap, good for documentation"
+    },
+    "o1-preview": {
+      "provider": "OpenAI",
+      "tier": "advanced",
+      "cost_per_1k_tokens": {
+        "input": 0.015,
+        "output": 0.06
+      },
+      "capabilities": ["deep_reasoning", "architecture", "complex_logic"],
+      "optimal_for": [],
+      "context_window": 128000,
+      "release_date": "2024-09-12",
+      "status": "active",
+      "performance_score": 92,
+      "notes": "Expensive but excellent for complex reasoning"
+    },
+    "o1": {
+      "provider": "OpenAI",
+      "tier": "advanced",
+      "cost_per_1k_tokens": {
+        "input": 0.015,
+        "output": 0.06
+      },
+      "capabilities": ["deep_reasoning", "architecture", "complex_logic", "math"],
+      "optimal_for": ["T4_high", "T5_high"],
+      "context_window": 200000,
+      "release_date": "2024-12-05",
+      "status": "active",
+      "performance_score": 96,
+      "notes": "Most capable reasoning model, use for architecture"
+    },
+    "o1-mini": {
+      "provider": "OpenAI",
+      "tier": "advanced",
+      "cost_per_1k_tokens": {
+        "input": 0.003,
+        "output": 0.012
+      },
+      "capabilities": ["reasoning", "math", "code"],
+      "optimal_for": ["T3_high", "T4_medium", "T5_medium"],
+      "context_window": 128000,
+      "release_date": "2024-09-12",
+      "status": "active",
+      "performance_score": 88,
+      "notes": "Cheaper reasoning model, good for debugging"
+    }
+  },
+  "task_types": {
+    "T1": "Read/Explain (understand code/roadmap/logs)",
+    "T2": "Small change (≤1 file, ≤50 LOC, low risk)",
+    "T3": "Medium change (2-5 files, 50-300 LOC, medium risk)",
+    "T4": "Large change (≥6 files, >300 LOC, high risk)",
+    "T5": "Debug/Investigate (root cause, perf analysis)",
+    "T6": "Docs/Comms (PR descriptions, documentation)",
+    "T7": "Standards compliance (fix logger/imports/StageIO)"
+  },
+  "risk_levels": {
+    "low": {
+      "description": "No stage boundaries, manifests, or CI changes",
+      "criteria": [
+        "Single file changes",
+        "No manifest updates",
+        "No stage output contract changes",
+        "No CI/CD changes",
+        "No dependency changes"
+      ]
+    },
+    "medium": {
+      "description": "Touches stage logic or multiple files",
+      "criteria": [
+        "2-5 file changes",
+        "Stage logic modifications",
+        "Multiple function changes",
+        "Some output contract changes"
+      ]
+    },
+    "high": {
+      "description": "Manifests, resume logic, CI, dependencies, >10 files",
+      "criteria": [
+        "Manifest schema changes",
+        "Resume/retry logic",
+        "CI workflow changes",
+        "Dependency/venv changes",
+        "Bootstrap logic",
+        ">10 files affected",
+        "Widespread standards violations"
+      ]
+    }
+  },
+  "routing_rules": {
+    "T1_low": "gpt-4o-mini",
+    "T1_medium": "gpt-4-turbo",
+    "T1_high": "claude-3-5-sonnet-20241022",
+    "T2_low": "gpt-4o",
+    "T2_medium": "gpt-4-turbo",
+    "T2_high": "claude-3-5-sonnet-20241022",
+    "T3_low": "claude-3-5-sonnet-20241022",
+    "T3_medium": "claude-3-5-sonnet-20241022",
+    "T3_high": "o1-mini",
+    "T4_low": "claude-3-5-sonnet-20241022",
+    "T4_medium": "o1-mini",
+    "T4_high": "o1",
+    "T5_low": "gpt-4-turbo",
+    "T5_medium": "o1-mini",
+    "T5_high": "o1",
+    "T6_low": "claude-3-5-haiku-20241022",
+    "T6_medium": "gpt-4-turbo",
+    "T6_high": "claude-3-5-sonnet-20241022",
+    "T7_low": "gpt-4-turbo",
+    "T7_medium": "claude-3-5-sonnet-20241022",
+    "T7_high": "claude-3-5-sonnet-20241022"
+  },
+  "cost_targets": {
+    "daily_max": 50,
+    "monthly_max": 500,
+    "alert_threshold": 0.8,
+    "currency": "USD"
+  },
+  "update_schedule": {
+    "frequency": "weekly",
+    "day": "Monday",
+    "time": "09:00 UTC",
+    "automation": ".github/workflows/update-model-routing.yml"
+  },
+  "benchmarks": {
+    "last_run": "2025-12-03",
+    "next_run": "2025-12-10",
+    "tasks": [
+      {
+        "name": "T2_simple_bug_fix",
+        "description": "Fix simple bug (≤50 LOC)",
+        "file": "tests/benchmarks/t2_bug_fix.md"
+      },
+      {
+        "name": "T3_refactor_module",
+        "description": "Refactor module (2-3 files)",
+        "file": "tests/benchmarks/t3_refactor.md"
+      },
+      {
+        "name": "T5_debug_root_cause",
+        "description": "Root cause analysis",
+        "file": "tests/benchmarks/t5_debug.md"
+      },
+      {
+        "name": "T7_standards_fix",
+        "description": "Fix compliance violations",
+        "file": "tests/benchmarks/t7_compliance.md"
+      }
+    ]
+  }
+}

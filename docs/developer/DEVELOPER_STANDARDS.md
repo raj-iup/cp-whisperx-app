@@ -1,11 +1,17 @@
 # CP-WhisperX Developer Standards & Best Practices
 
-**Document Version:** 4.0  
-**Date:** November 27, 2025  
+**Document Version:** 6.0  
+**Date:** December 3, 2025  
 **Last Updated:** December 3, 2025  
 **Status:** ACTIVE - All development must follow these standards  
 **Compliance Target:** 80% minimum  
 **Current Status:** 🎊 **100% COMPLIANCE ACHIEVED** 🎊
+
+**Major Updates in v6.0:**
+- 🆕 **AI Model Routing**: Automated updates for model releases
+- 🆕 **Routing Optimization**: Data-driven model selection
+- 🆕 **Cost Monitoring**: Track and optimize AI usage costs
+- 🆕 **Automated Sync**: GitHub Actions for weekly updates
 
 > 📚 **Quick Reference:** See [CODE_EXAMPLES.md](../CODE_EXAMPLES.md) for practical examples of all patterns described in this document. The examples document provides visual, side-by-side comparisons of good vs. bad code for every standard.
 
@@ -27,6 +33,9 @@ This document defines comprehensive development standards for the CP-WhisperX-Ap
 - **Dual Logging Architecture** - Main pipeline log + stage-specific logs with manifests
 - **Manifest Tracking** - Complete I/O tracking for data lineage and audit trails
 - **Job-Based Execution** - prepare-job.sh → run-pipeline.py workflow
+- **Context-Aware Processing** - Cultural, temporal, speaker coherence in outputs
+- **Intelligent Caching** - ML-based optimization for repeated workflows
+- **Test-Driven Development** - Standardized test media for validation
 - **Production Ready** - CI/CD, observability, and disaster recovery
 
 ---
@@ -118,11 +127,12 @@ All pipeline stages **will** follow the pattern documented in § 4 below.
 **See:** [Architecture Implementation Roadmap](../ARCHITECTURE_IMPLEMENTATION_ROADMAP.md) for 21-week migration plan.
 
 **Phase Progress:**
-- ✅ Phase 1: Documentation Sync (2 weeks) - **COMPLETE**
-- ⏳ Phase 2: Testing Infrastructure (3 weeks) - **NEXT**
-- ⏳ Phase 3: Stage Pattern Adoption (4 weeks) - Critical active stages
-- ⏳ Phase 4: Full Pipeline Implementation (8 weeks) - All 10 stages
-- ⏳ Phase 5: Advanced Features (4 weeks) - Production features
+- ✅ Phase 0: Foundation (8 weeks) - **COMPLETE** - Standards, config, hooks
+- ⏳ Phase 1: File Naming (2 weeks) - **READY** - Rename scripts to match standards
+- ⏳ Phase 2: Testing Infrastructure (3 weeks) - **READY** - Test media, workflows
+- ⏳ Phase 3: StageIO Migration (4 weeks) - **BLOCKED** - Migrate 5 active stages
+- ⏳ Phase 4: Stage Integration (8 weeks) - **BLOCKED** - Complete 10-stage pipeline
+- ⏳ Phase 5: Advanced Features (4 weeks) - **BLOCKED** - Caching, ML, monitoring
 
 ### Migration Checklist
 
@@ -195,7 +205,293 @@ cp-whisperx-app/
     └── generate_docs.py           # Documentation generator
 ```
 
-### 1.2 File Naming Conventions
+### 1.2 Cross-Platform Requirements
+
+**CRITICAL REQUIREMENT: All core task scripts MUST have Windows PowerShell equivalents**
+
+**Status:** ✅ **100% COMPLETE** - All scripts have .ps1 equivalents
+
+**Core Task Scripts (Required PowerShell Equivalents):**
+- ✅ `bootstrap.sh` → `bootstrap.ps1` (PowerShell 5.1+)
+- ✅ `prepare-job.sh` → `prepare-job.ps1` (PowerShell 5.1+)
+- ✅ `run-pipeline.sh` → `run-pipeline.ps1` (PowerShell 5.1+)
+- ✅ `test-glossary-quickstart.sh` → `test-glossary-quickstart.ps1` (PowerShell 5.1+)
+
+**Platform Support Matrix:**
+
+| Script | Unix/Linux/macOS | Windows | Status |
+|--------|------------------|---------|--------|
+| bootstrap | ✅ `.sh` | ✅ `.ps1` | ✅ Complete |
+| prepare-job | ✅ `.sh` | ✅ `.ps1` | ✅ Complete |
+| run-pipeline | ✅ `.sh` | ✅ `.ps1` | ✅ Complete |
+| test-glossary | ✅ `.sh` | ✅ `.ps1` | ✅ Complete |
+
+**⚠️ Important:** Use PowerShell (.ps1) only - NO batch files (.bat)
+
+**Implementation Guidelines:**
+
+1. **Bash Scripts (.sh) - Unix/Linux/macOS**
+   ```bash
+   #!/usr/bin/env bash
+   set -e  # Exit on error
+   set -u  # Exit on undefined variable
+   set -o pipefail  # Catch pipe errors
+   ```
+   - Use POSIX-compatible syntax when possible
+   - Test on macOS, Linux, and WSL
+
+2. **PowerShell Scripts (.ps1) - Windows**
+   ```powershell
+   #Requires -Version 5.1
+   Set-StrictMode -Version Latest
+   $ErrorActionPreference = "Stop"
+   ```
+   - Require PowerShell 5.1+ (Windows 10+)
+   - Use `Set-StrictMode` for error detection
+   - Test on Windows PowerShell 5.1 and PowerShell 7+
+   - Ensure functional equivalence with .sh version
+
+3. **Python Scripts - All Platforms**
+   ```python
+   from pathlib import Path  # Always use pathlib
+   
+   # Good: Cross-platform paths
+   config_path = Path("config") / ".env.pipeline"
+   output_dir = job_dir / "01_demux"
+   
+   # Bad: Hardcoded paths
+   # config_path = "/tmp/config"  # Unix only
+   # output_dir = "C:\\output"     # Windows only
+   ```
+   - Use `pathlib.Path` for all file paths
+   - No hardcoded Unix paths (`/tmp`, `/home`, `/usr`)
+   - No hardcoded Windows paths (`C:\`, `\\server`)
+   - Use `sys.platform` for platform-specific logic only when absolutely necessary
+   - Test on all target platforms (macOS MLX, Linux CUDA, Windows CUDA/CPU)
+
+**Validation:**
+
+```bash
+# Check for PowerShell equivalents
+for script in bootstrap prepare-job run-pipeline test-glossary-quickstart; do
+    if [ ! -f "${script}.ps1" ]; then
+        echo "❌ Missing: ${script}.ps1"
+    else
+        echo "✅ Found: ${script}.ps1"
+    fi
+done
+
+# Validate Python cross-platform paths
+python3 scripts/validate-compliance.py --check-paths scripts/*.py
+```
+
+### 1.3 Job-Based Architecture
+
+**Core System Design:** All pipeline execution follows a job-based workflow.
+
+**Workflow Stages:**
+
+```
+1. bootstrap     → Set up environments + create default config/.env.pipeline
+2. prepare-job   → Create job directory + copy/customize job configuration
+3. run-pipeline  → Execute stages using job configuration
+4. (optional) test-glossary-quickstart → Automated testing workflow
+```
+
+**Job Directory Structure:**
+
+```
+out/[Year]/[Month]/[Day]/[User]/[JobID]/
+├── job.json                     # Job metadata and parameters (created by prepare-job)
+├── .env.pipeline                # Job-specific config copied from config/.env.pipeline
+├── media/                       # Input media files
+│   └── input.mp4
+├── 01_demux/
+│   ├── manifest.json
+│   ├── 01_demux.log
+│   └── audio.wav
+├── 02_tmdb/
+│   ├── manifest.json
+│   ├── 02_tmdb.log
+│   └── metadata.json
+├── 03_glossary_load/
+│   ├── manifest.json
+│   ├── 03_glossary_load.log
+│   └── glossary_terms.json
+├── 04_source_separation/
+│   ├── manifest.json
+│   ├── 04_source_separation.log
+│   └── vocals.wav
+├── ...
+└── 10_mux/
+    ├── manifest.json
+    ├── 10_mux.log
+    └── video_with_subtitles.mp4
+```
+
+**Job Preparation Flow:**
+
+The `prepare-job` script creates job-specific configuration through the following steps:
+
+1. **Read System Defaults:** Load `config/.env.pipeline` as the base configuration
+2. **Copy to Job Directory:** Copy `.env.pipeline` to job directory as job-specific config
+3. **Apply CLI Overrides:** Update job config parameters from command-line arguments
+4. **Create Job Metadata:** Generate `job.json` with job ID, workflow, languages, etc.
+
+```bash
+# Example: prepare-job command
+./prepare-job.sh --media in/movie.mp4 --workflow subtitle \
+  --source-language hi --target-language en
+
+# Result:
+# 1. Reads: config/.env.pipeline (system defaults)
+# 2. Creates: out/.../job-YYYYMMDD-user-0001/
+# 3. Copies: config/.env.pipeline → job/.env.pipeline
+# 4. Updates: job/.env.pipeline with CLI parameters
+# 5. Creates: job/job.json with metadata
+```
+
+**Configuration Hierarchy:**
+
+1. **System Defaults:** `config/.env.pipeline` (created by bootstrap)
+   - Default values for all parameters
+   - Version-controlled template
+   - Shared baseline for all jobs
+   - **Never modified during job execution**
+
+2. **Job-Specific Config:** `{job_dir}/.env.pipeline` (created by prepare-job)
+   - Copied from system defaults
+   - Updated with CLI parameters
+   - Job-specific overrides
+   - Not version-controlled
+   - **Used by all stages during execution**
+
+3. **Job Metadata:** `{job_dir}/job.json` (created by prepare-job)
+   - Job ID, workflow type, timestamps
+   - Source/target languages
+   - Media processing parameters
+   - Environment mappings
+   - Not loaded by stages (metadata only)
+
+**Stage Configuration Access:**
+
+**All stages MUST:**
+- ✅ Load configuration using `load_config()`
+- ✅ Automatically reads from `{job_dir}/.env.pipeline`
+- ✅ Fall back to system defaults if job config not found
+- ✅ Never use `os.getenv()` directly
+- ✅ Never modify configuration files
+
+**Example:**
+
+```python
+from pathlib import Path
+from shared.config_loader import load_config
+
+def run_stage(job_dir: Path, stage_name: str) -> int:
+    """Stage implementation following job-based architecture"""
+    # Load config - automatically reads from job_dir/.env.pipeline
+    config = load_config(job_dir)
+    
+    # Get parameters (from job-specific config)
+    enabled = config.get("SOURCE_SEPARATION_ENABLED", "true").lower() == "true"
+    model = config.get("WHISPERX_MODEL", "large-v2")
+    
+    if not enabled:
+        logger.info("Stage disabled in configuration")
+        return 0
+    
+    # Stage logic using configuration
+    result = process_with_config(config)
+    return 0 if result else 1
+```
+
+**Configuration Flow Diagram:**
+
+```
+bootstrap.sh
+    ↓
+config/.env.pipeline (system defaults, version-controlled)
+    ↓
+prepare-job.sh --media file.mp4 --source-language hi
+    ↓
+1. Copy: config/.env.pipeline → job/.env.pipeline
+2. Update job/.env.pipeline with CLI params
+3. Create job/job.json with metadata
+    ↓
+run-pipeline.sh --job-id job-YYYYMMDD-user-0001
+    ↓
+Stage scripts call load_config(job_dir)
+    ↓
+Reads: job/.env.pipeline (job-specific config)
+```
+
+**Testing Workflow:**
+
+The `test-glossary-quickstart` script demonstrates the complete workflow:
+
+```bash
+# 1. Prepare test job
+./prepare-job.sh --input-file "test.mp4" --workflow transcribe
+
+# 2. Run baseline test
+./run-pipeline.sh --job-id <baseline-job> --test-mode baseline
+
+# 3. Run glossary-enhanced test
+./run-pipeline.sh --job-id <glossary-job> --test-mode glossary
+
+# 4. Run cached test
+./run-pipeline.sh --job-id <cached-job> --test-mode cached
+
+# 5. Compare results and generate report
+python3 tools/compare-results.py baseline glossary cached
+```
+```
+
+**Example: Cross-Platform Script Calling**
+
+```python
+# ✅ GOOD - Detects platform
+import sys
+import subprocess
+
+if sys.platform == "win32":
+    # Use PowerShell scripts on Windows
+    subprocess.run(["powershell", "-ExecutionPolicy", "Bypass", 
+                   "-File", "prepare-job.ps1", "-InputFile", "file.mp4"])
+else:
+    # Use bash scripts on Unix/Linux/macOS
+    subprocess.run(["./prepare-job.sh", "--input-file", "file.mp4"])
+
+# ❌ BAD - Unix-only
+subprocess.run(["./prepare-job.sh", "arg1"])
+```
+
+**Validation Checklist:**
+
+- [x] All `.sh` scripts have `.ps1` PowerShell equivalents
+- [ ] All scripts tested on target platforms (testing pending)
+- [x] Path handling is cross-platform (pathlib)
+- [x] Environment variables work on all platforms
+- [x] Documentation includes platform-specific notes
+- [ ] CI/CD tests on Windows, macOS, Linux (pending)
+
+**Current Status:**
+
+| Script | Bash (.sh) | PowerShell (.ps1) | Status |
+|--------|------------|-------------------|--------|
+| bootstrap | ✅ | ✅ | **COMPLETE** |
+| prepare-job | ✅ | ✅ | **COMPLETE** |
+| run-pipeline | ✅ | ✅ | **COMPLETE** |
+| test-glossary-quickstart | ✅ | ✅ | **COMPLETE** |
+
+**Note:** PowerShell (.ps1) is the recommended Windows format. Batch files (.bat) are deprecated due to limited functionality.
+
+**Priority: ✅ COMPLETE - All core scripts have Windows equivalents**
+
+---
+
+### 1.3 File Naming Conventions
 
 **Python Files:**
 ```python
@@ -204,16 +500,36 @@ stage_utils.py
 environment_manager.py
 stage_manifest.py
 
-# Stage scripts: {name}.py or {name}_stage.py
-demux.py
-whisperx_asr.py
-tmdb_enrichment_stage.py
+# Stage scripts: MUST use {stage_number}_{stage_name}.py format
+# Pattern: scripts/{NN}_{name}.py where NN is 01-99
+01_demux.py           # Stage 1: Demux
+02_tmdb_enrichment.py # Stage 2: TMDB enrichment
+03_glossary_loader.py # Stage 3: Glossary loading
+04_source_separation.py
+05_pyannote_vad.py
+06_whisperx_asr.py
+07_mlx_alignment.py
+08_lyrics_detection.py
+09_subtitle_gen.py
+10_mux.py
+
+# Utility/helper scripts (non-stages): {name}.py
+config_loader.py
+device_selector.py
+filename_parser.py
 
 # Test files: test_{module}.py
 test_stage_utils.py
 test_config.py
 test_manifest.py
 ```
+
+**Stage Script Naming Rules:**
+1. ✅ **DO:** Use format `{NN}_{stage_name}.py` (e.g., `01_demux.py`)
+2. ✅ **DO:** Match stage directory name (e.g., `01_demux/` → `01_demux.py`)
+3. ❌ **DON'T:** Use inconsistent names (e.g., `demux.py`, `tmdb_enrichment_stage.py`)
+4. ❌ **DON'T:** Put stage scripts in subdirectories (e.g., `03_glossary_load/glossary_loader.py`)
+5. ✅ **DO:** Place all stage scripts directly in `scripts/` directory
 
 **Log Files:**
 ```
@@ -229,10 +545,20 @@ manifest.json
 
 **Shell Scripts:**
 ```bash
-# Scripts: kebab-case.sh
+# Scripts: kebab-case with platform extensions
+# Unix/Linux/macOS
 bootstrap.sh
 prepare-job.sh
 run-pipeline.sh
+test-glossary-quickstart.sh
+
+# Windows PowerShell (required)
+bootstrap.ps1
+prepare-job.ps1
+run-pipeline.ps1
+test-glossary-quickstart.ps1
+
+# Note: Batch files (.bat) are deprecated due to limited functionality
 ```
 
 **Configuration:**
@@ -248,7 +574,500 @@ hardware_cache.json
 
 ---
 
-## 2. ENHANCED LOGGING ARCHITECTURE
+## 1.4 Testing Infrastructure & Standard Test Media
+
+**Purpose:** Establish reproducible testing baseline with diverse use cases for all three core workflows.
+
+### Standard Test Media Samples
+
+**Critical Requirement:** All testing MUST use these standardized samples for consistency and reproducibility.
+
+#### Sample 1: English Technical Content
+**File:** `in/Energy Demand in AI.mp4`  
+**Size:** ~14 MB  
+**Duration:** 2-5 minutes (estimated)  
+**Language:** English  
+**Content Type:** Technical/Educational  
+**Primary Workflows:** Transcribe, Translate
+
+**Characteristics:**
+- Clear English audio with minimal background noise
+- Technical terminology (AI, energy, demand)
+- Ideal for testing ASR accuracy on technical content
+- Good baseline for English-to-Indic translation
+- Low complexity audio (single speaker, good quality)
+
+**Quality Targets:**
+- ASR Word Error Rate (WER): ≤5%
+- Translation BLEU Score: ≥90%
+- Processing Time: <2 minutes (first run)
+- Processing Time: <30 seconds (cached)
+
+**Test Use Cases:**
+1. **Transcribe Workflow**: English → English transcript
+   - Tests: ASR accuracy, technical term handling, timestamp precision
+   
+2. **Translate Workflow**: English → Hindi/Gujarati/Spanish
+   - Tests: Cross-language translation, technical term preservation
+
+#### Sample 2: Hinglish Bollywood Content
+**File:** `in/test_clips/jaane_tu_test_clip.mp4`  
+**Size:** ~28 MB  
+**Duration:** 1-3 minutes (estimated)  
+**Language:** Hindi/Hinglish (code-mixed)  
+**Content Type:** Entertainment/Dialogue  
+**Primary Workflows:** Subtitle, Transcribe, Translate
+
+**Characteristics:**
+- Mixed Hindi-English (Hinglish) typical of Bollywood
+- Multiple speakers with emotional/casual speech
+- Background music possible
+- Real-world challenge for context-aware subtitle generation
+- Tests code-mixing, cultural terms, speaker diarization
+
+**Quality Targets:**
+- ASR Word Error Rate (WER): ≤15% (Hinglish)
+- Subtitle Quality Score: ≥88%
+- Context Awareness: ≥80%
+- Glossary Application Rate: 100%
+- Subtitle Timing Accuracy: ±200ms
+
+**Test Use Cases:**
+1. **Subtitle Workflow**: Hindi/Hinglish → Multiple subtitle tracks
+   - Output: Hindi, English, Gujarati, Tamil, Spanish, Russian, Chinese, Arabic
+   - Tests: Full pipeline, glossary application, context awareness, soft-embedding
+   
+2. **Transcribe Workflow**: Hindi → Hindi transcript
+   - Tests: Indic language ASR, code-mixing handling, Devanagari output
+   
+3. **Translate Workflow**: Hindi → English/Spanish/Chinese/Arabic
+   - Tests: Cultural adaptation, idiom handling, formality preservation
+
+### Test Media Index
+
+**Location:** `in/test_media_index.json`
+
+```json
+{
+  "version": "1.0",
+  "last_updated": "2025-12-03",
+  "test_samples": [
+    {
+      "id": "sample_01",
+      "file": "Energy Demand in AI.mp4",
+      "language": "en",
+      "type": "technical",
+      "duration_estimate": "2-5 min",
+      "workflows": ["transcribe", "translate"],
+      "quality_baseline": {
+        "asr_wer": 0.05,
+        "asr_confidence": 0.95,
+        "translation_bleu": 0.90,
+        "processing_time_first": 120,
+        "processing_time_cached": 30
+      },
+      "test_commands": {
+        "transcribe": "./prepare-job.sh --media 'in/Energy Demand in AI.mp4' --workflow transcribe --source-language en",
+        "translate_hi": "./prepare-job.sh --media 'in/Energy Demand in AI.mp4' --workflow translate --source-language en --target-language hi"
+      }
+    },
+    {
+      "id": "sample_02",
+      "file": "test_clips/jaane_tu_test_clip.mp4",
+      "language": "hi-Hinglish",
+      "type": "entertainment",
+      "duration_estimate": "1-3 min",
+      "workflows": ["subtitle", "transcribe", "translate"],
+      "quality_baseline": {
+        "asr_wer": 0.15,
+        "asr_confidence": 0.85,
+        "subtitle_quality": 0.88,
+        "context_awareness": 0.80,
+        "glossary_application": 1.00,
+        "timing_accuracy_ms": 200
+      },
+      "test_commands": {
+        "subtitle": "./prepare-job.sh --media in/test_clips/jaane_tu_test_clip.mp4 --workflow subtitle --source-language hi --target-languages en,gu,ta,es,ru,zh,ar",
+        "transcribe": "./prepare-job.sh --media in/test_clips/jaane_tu_test_clip.mp4 --workflow transcribe --source-language hi",
+        "translate_en": "./prepare-job.sh --media in/test_clips/jaane_tu_test_clip.mp4 --workflow translate --source-language hi --target-language en"
+      }
+    }
+  ]
+}
+```
+
+### Testing Requirements
+
+**All new features MUST:**
+1. ✅ Pass tests on both standard samples
+2. ✅ Meet or exceed quality baselines
+3. ✅ Document any baseline deviations
+4. ✅ Update test_media_index.json if quality improves
+
+**Test Categories:**
+- **Unit Tests**: Individual stage testing (target: 85% coverage)
+- **Integration Tests**: Full workflow testing with standard media (target: 75% coverage)
+- **Quality Baseline Tests**: Automated validation against targets
+- **Caching Tests**: Cache hit/miss scenarios
+- **Performance Tests**: Processing time benchmarks
+
+**See:** [Testing Infrastructure](../ARCHITECTURE_IMPLEMENTATION_ROADMAP.md#testing-infrastructure) for complete testing framework.
+
+---
+
+## 1.5 Core Workflows
+
+### Overview
+
+CP-WhisperX supports three primary workflows, each optimized for specific use cases with context-aware processing and intelligent caching.
+
+### Workflow 1: Subtitle (Context-Aware, Highest Accuracy)
+
+**Purpose:** Generate multilingual subtitles for Bollywood/Indic media with soft-embedding.
+
+**Input:** Indic/Hinglish movie media source  
+**Output:** Original media + soft-embedded subtitle tracks in organized subdirectory
+
+**Pipeline Stages:**
+```
+01_demux → 02_tmdb → 03_glossary_load → 04_source_sep (optional) →
+05_pyannote_vad → 06_whisperx_asr → 07_alignment → 08_translate →
+09_subtitle_gen → 10_mux
+```
+
+**Context-Aware Features:**
+1. **Character Names**: Preserved via glossary (Jai, Aditi, Meow, etc.)
+2. **Cultural Terms**: Hindi idioms, relationship terms (beta, bhai, ji)
+3. **Tone Adaptation**: Formal vs. casual based on context
+4. **Temporal Coherence**: Consistent terminology across subtitle blocks
+5. **Speaker Attribution**: Diarization for multi-speaker scenes
+
+**Output Structure:**
+```
+out/{date}/{user}/{job}/10_mux/{media_name}/
+├── {media_name}_subtitled.mkv     # Original + all subtitle tracks
+├── subtitles/
+│   ├── {media_name}.hi.srt        # Hindi (native)
+│   ├── {media_name}.en.srt        # English
+│   ├── {media_name}.gu.srt        # Gujarati
+│   ├── {media_name}.ta.srt        # Tamil
+│   ├── {media_name}.es.srt        # Spanish
+│   ├── {media_name}.ru.srt        # Russian
+│   ├── {media_name}.zh.srt        # Chinese
+│   └── {media_name}.ar.srt        # Arabic
+└── manifest.json                   # Processing metadata
+```
+
+**Usage Example:**
+```bash
+./prepare-job.sh \
+  --media in/test_clips/jaane_tu_test_clip.mp4 \
+  --workflow subtitle \
+  --source-language hi \
+  --target-languages en,gu,ta,es,ru,zh,ar
+
+./run-pipeline.sh --job-dir out/{date}/{user}/{job_id}
+```
+
+**Quality Targets:**
+- ASR Accuracy: ≥85% for Hinglish
+- Subtitle Timing: ±200ms
+- Translation Fluency: ≥88%
+- Context Consistency: ≥80%
+- Glossary Application: 100%
+
+### Workflow 2: Transcribe (Context-Aware, Highest Accuracy)
+
+**Purpose:** Create text transcript in SAME language as source audio.
+
+**Input:** Any media source (English, Hindi, Indic, non-English)  
+**Output:** Text transcript in source language
+
+**Pipeline Stages:**
+```
+01_demux → 02_tmdb (optional) → 03_glossary_load → 04_source_sep (optional) →
+05_pyannote_vad → 06_whisperx_asr → 07_alignment
+```
+
+**Language Handling:**
+- English media → English transcript
+- Hindi media → Hindi transcript (Devanagari script)
+- Indic media → Same Indic language (native script)
+- Spanish/Chinese/Arabic → Same language (native script)
+
+**Context-Aware Features:**
+1. **Domain Terminology**: Technical, medical, legal terms preserved
+2. **Proper Nouns**: Names, places, organizations
+3. **Language-Specific**: Native script output (Devanagari for Hindi)
+4. **Punctuation**: Context-aware sentence segmentation
+5. **Capitalization**: Proper noun detection (English)
+
+**Output Structure:**
+```
+out/{date}/{user}/{job}/07_alignment/
+├── transcript.txt                 # Plain text transcript
+├── transcript.json                # With word-level timestamps
+└── manifest.json                  # Processing metadata
+```
+
+**Usage Examples:**
+```bash
+# English technical content
+./prepare-job.sh \
+  --media "in/Energy Demand in AI.mp4" \
+  --workflow transcribe \
+  --source-language en
+
+# Hindi content
+./prepare-job.sh \
+  --media in/test_clips/jaane_tu_test_clip.mp4 \
+  --workflow transcribe \
+  --source-language hi
+```
+
+**Quality Targets:**
+- English Technical: ≥95% WER
+- Hindi/Indic: ≥85% WER
+- Other Languages: ≥90% WER
+- Proper Noun Accuracy: ≥90%
+- Timestamp Precision: ±100ms
+
+### Workflow 3: Translate (Context-Aware, Highest Accuracy)
+
+**Purpose:** Create text transcript in SPECIFIED target language.
+
+**Input:** Any media source  
+**Output:** Text transcript in target language
+
+**Pipeline Stages:**
+```
+01_demux → 02_tmdb → 03_glossary_load → 04_source_sep (optional) →
+05_pyannote_vad → 06_whisperx_asr → 07_alignment → 08_translate
+```
+
+**Translation Routing:**
+- **Indic → Indic**: IndicTrans2 (AI4Bharat) - Highest quality for Indian languages
+- **Indic → English**: IndicTrans2 optimized model
+- **Any → Non-Indic**: NLLB-200 (Meta) - Broad language support
+- **Fallback**: Hybrid approach if primary model fails
+
+**Context-Aware Features:**
+1. **Cultural Adaptation**: Idioms, metaphors localized
+2. **Formality Levels**: Maintained across languages
+3. **Named Entities**: Transliterated appropriately
+4. **Glossary Terms**: Bilingual term preservation
+5. **Temporal Consistency**: Same term translated consistently
+6. **Numeric/Date Formats**: Localized per target culture
+
+**Output Structure:**
+```
+out/{date}/{user}/{job}/08_translate/
+├── transcript_{target_lang}.txt   # Translated transcript
+├── transcript_{target_lang}.json  # With timestamps
+├── translation_metadata.json      # Quality metrics
+└── manifest.json                  # Processing metadata
+```
+
+**Usage Examples:**
+```bash
+# Hindi → English
+./prepare-job.sh \
+  --media in/test_clips/jaane_tu_test_clip.mp4 \
+  --workflow translate \
+  --source-language hi \
+  --target-language en
+
+# Hindi → Spanish (non-Indic)
+./prepare-job.sh \
+  --media in/test_clips/jaane_tu_test_clip.mp4 \
+  --workflow translate \
+  --source-language hi \
+  --target-language es
+
+# Hindi → Gujarati (Indic-to-Indic)
+./prepare-job.sh \
+  --media in/test_clips/jaane_tu_test_clip.mp4 \
+  --workflow translate \
+  --source-language hi \
+  --target-language gu
+```
+
+**Quality Targets:**
+- Hindi → English: ≥90% BLEU score
+- Indic-to-Indic: ≥88% BLEU score
+- Hindi → Non-Indic: ≥85% BLEU score
+- Glossary Application: 100%
+- Cultural Adaptation: ≥80% appropriateness
+
+---
+
+## 1.6 Caching & ML Optimization Strategy
+
+**Purpose:** Enable subsequent workflows with similar media to perform optimally through intelligent caching and machine learning.
+
+### Caching Layers
+
+#### 1. Model Cache (Shared Across Jobs)
+```
+~/.cp-whisperx/cache/models/
+├── whisperx/large-v2/              # ASR model weights
+├── indictrans2/hi-en/              # Translation models
+└── pyannote/speaker-diarization/   # Diarization models
+```
+**Benefit:** Avoid re-downloading models (saves 1-5 GB per run)
+
+#### 2. Audio Fingerprint Cache
+```
+~/.cp-whisperx/cache/fingerprints/
+├── {audio_hash}.json               # Audio characteristics
+└── index.db                        # Fast lookup
+```
+**Benefit:** Skip demux/analysis for identical media
+
+#### 3. ASR Results Cache
+```
+~/.cp-whisperx/cache/asr/
+├── {audio_hash}_{model}_{lang}.json
+└── index.db
+```
+**Cache Key:** `SHA256(audio_content + model_version + language + config_params)`
+**Benefit:** Reuse ASR results (saves 2-10 minutes)
+
+#### 4. Translation Cache (Context-Aware)
+```
+~/.cp-whisperx/cache/translations/
+├── {source_hash}_{src_lang}_{tgt_lang}_{glossary_hash}.json
+└── index.db
+```
+**Context Matching:**
+- Exact segment match: 100% reuse
+- Similar segment (>80%): Reuse with adjustment
+- Different context: Fresh translation
+
+**Benefit:** Reuse translations (saves 1-5 minutes)
+
+#### 5. Glossary Learning Cache
+```
+~/.cp-whisperx/cache/glossary_learned/
+├── {movie_id}/                     # Per-movie learned terms
+│   ├── character_names.json
+│   ├── cultural_terms.json
+│   └── frequency_analysis.json
+└── global/                         # Cross-movie patterns
+    ├── common_names.json
+    └── bollywood_terms.json
+```
+**Benefit:** Improve accuracy on repeated processing
+
+### ML-Based Optimization
+
+#### Adaptive Quality Prediction
+**ML Model:** Lightweight XGBoost classifier
+
+**Features:**
+- Audio quality metrics (SNR, clarity)
+- Language detected
+- Speech rate
+- Background noise level
+- Historical processing results
+
+**Predictions:**
+- Optimal Whisper model size (base/small/medium/large)
+- Source separation needed? (yes/no)
+- Expected ASR confidence
+- Processing time estimate
+
+**Benefits:**
+- 30% faster processing on clean audio (use smaller model)
+- Better quality on noisy audio (enable source separation)
+- Accurate time estimates
+
+#### Context Learning from History
+**Learning Mechanisms:**
+
+1. **Character Name Recognition**: After processing "Jaane Tu Ya Jaane Na" once, learn character names (Jai, Aditi, Meow) with frequency and context
+2. **Cultural Term Patterns**: Learn common Bollywood/Hindi patterns (beta, bhai, ji)
+3. **Translation Memory**: Build memory from approved translations
+
+#### Similarity-Based Optimization
+**Similarity Metrics:**
+- Audio fingerprint matching (chromaprint)
+- Content-based similarity (same movie, different versions)
+- Language/accent similarity
+- Genre similarity
+
+**Optimization Actions:**
+```
+Similarity > 95%: Reuse full pipeline config + glossary
+Similarity > 80%: Reuse glossary + model selection, fresh ASR
+Similarity > 60%: Reuse language settings + suggest glossaries
+```
+
+### Cache Configuration
+
+**In config/.env.pipeline:**
+```bash
+# Caching Configuration
+ENABLE_CACHING=true
+CACHE_DIR=~/.cp-whisperx/cache
+CACHE_MAX_SIZE_GB=50
+CACHE_ASR_RESULTS=true
+CACHE_TRANSLATIONS=true
+CACHE_AUDIO_FINGERPRINTS=true
+CACHE_TTL_DAYS=90
+CACHE_CLEANUP_ON_START=false
+
+# ML Optimization
+ENABLE_ML_OPTIMIZATION=true
+ML_MODEL_SELECTION=adaptive
+ML_QUALITY_PREDICTION=true
+ML_LEARNING_FROM_HISTORY=true
+
+# Performance Tuning
+SIMILAR_CONTENT_THRESHOLD=0.80
+GLOSSARY_LEARNING_ENABLED=true
+TRANSLATION_MEMORY_ENABLED=true
+```
+
+### Cache Management
+
+**Commands:**
+```bash
+# View cache statistics
+./tools/cache-manager.sh --stats
+
+# Clear specific cache type
+./tools/cache-manager.sh --clear asr
+./tools/cache-manager.sh --clear translations
+
+# Clear old cache (>90 days)
+./tools/cache-manager.sh --cleanup
+
+# Clear all cache
+./tools/cache-manager.sh --clear all
+
+# Disable caching for one job
+./prepare-job.sh --media in/file.mp4 --no-cache
+```
+
+### Expected Performance Improvements
+
+| Scenario | First Run | Subsequent Run | Improvement |
+|----------|-----------|----------------|-------------|
+| Identical media | 10 min | 30 sec | 95% faster |
+| Same movie, different cut | 10 min | 6 min | 40% faster |
+| Similar Bollywood movie | 10 min | 8 min | 20% faster |
+| Similar language/genre | 10 min | 9 min | 10% faster |
+
+**Cache Hit Rates (Target):**
+- Audio fingerprint: 80% on re-processing
+- ASR results: 70% on same media
+- Translations: 60% on similar content
+- Glossary terms: 90% on same movie/series
+
+---
+
+
 
 ### 2.1 Overview
 
@@ -733,6 +1552,8 @@ Environment variables       # Runtime overrides (highest priority)
 - Document parameter purpose and valid values
 - Use environment variable format: `STAGE_PARAMETER_NAME`
 - Validate configuration on load
+- Remove unused parameters immediately
+- Mark planned/future parameters with `⏳ NOT YET IMPLEMENTED`
 
 **❌ DON'T:**
 - Use `os.environ.get()` directly in stage scripts
@@ -740,6 +1561,54 @@ Environment variables       # Runtime overrides (highest priority)
 - Create stage-specific config files
 - Use different config formats (stick to env vars)
 - Commit secrets to version control
+- Leave unused parameters in config file
+- Add parameters without implementation
+
+### 3.2.1 Configuration Parameter Lifecycle
+
+**Adding New Parameters:**
+
+1. **Implement feature first**, then add config
+2. Add parameter to `config/.env.pipeline` with documentation:
+   ```bash
+   # PARAMETER_NAME: Purpose and description
+   #   Values: valid_value1 | valid_value2
+   #   Default: default_value
+   #   Impact: What this parameter affects
+   PARAMETER_NAME=default_value
+   ```
+3. Add to `shared/config.py` if using Config class
+4. Document in code where parameter is used
+5. Test with different values
+
+**Removing Parameters:**
+
+1. **Search codebase** for usage: `grep -r "PARAM_NAME" --include="*.py" scripts/ shared/`
+2. **Remove from config/.env.pipeline** if unused
+3. **Update documentation** if parameter was documented elsewhere
+4. **Test pipeline** to ensure no breakage
+
+**Marking Future Parameters:**
+
+For planned but unimplemented features, clearly mark status:
+```bash
+# FUTURE_PARAM: Description
+#   Values: valid_values
+#   Default: default_value
+#   Status: ⏳ NOT YET IMPLEMENTED (Planned for Phase N)
+#   Impact: Expected impact when implemented
+FUTURE_PARAM=false
+```
+
+**Parameter Naming Convention:**
+
+```bash
+# Format: STAGE_COMPONENT_PROPERTY
+WHISPER_MODEL=large-v3          # ✅ Clear, hierarchical
+WHISPERX_DEVICE=mps             # ✅ Good
+MODEL=large                     # ❌ Too generic
+WHISPER_LG_V3=true              # ❌ Abbreviations unclear
+```
 
 ### 3.3 Configuration Access Pattern
 
@@ -2962,6 +3831,676 @@ python3 tools/check_compliance.py --min-score=80
 
 ---
 
+## 16. AI MODEL ROUTING & AUTOMATED UPDATES
+
+### 16.1 Overview
+
+**Purpose:** Ensure AI_MODEL_ROUTING.md stays current with latest model releases and Copilot makes optimal routing decisions.
+
+**Key Principle:** Models improve rapidly. Our routing decisions must be data-driven and automatically updated to leverage the best available models for each task type.
+
+**Documents:**
+- `docs/AI_MODEL_ROUTING.md` - Model selection guide (auto-updated)
+- `.github/copilot-instructions.md` - Quick reference for Copilot (synced from AI_MODEL_ROUTING.md)
+
+### 16.2 Automated Model Update System
+
+#### Model Registry (Source of Truth)
+
+**Location:** `config/ai_models.json`
+
+```json
+{
+  "version": "1.0",
+  "last_updated": "2025-12-03",
+  "update_frequency": "weekly",
+  "models": {
+    "gpt-4-turbo": {
+      "provider": "OpenAI",
+      "tier": "standard",
+      "cost_per_1k_tokens": 0.01,
+      "capabilities": ["code", "reasoning", "planning"],
+      "optimal_for": ["T1", "T2_low_risk", "T7"],
+      "context_window": 128000,
+      "release_date": "2024-04-09",
+      "status": "active",
+      "performance_score": 85
+    },
+    "gpt-4o": {
+      "provider": "OpenAI",
+      "tier": "premium",
+      "cost_per_1k_tokens": 0.005,
+      "capabilities": ["code", "multimodal", "fast"],
+      "optimal_for": ["T2", "T5_low_risk"],
+      "context_window": 128000,
+      "release_date": "2024-05-13",
+      "status": "active",
+      "performance_score": 90
+    },
+    "claude-3-5-sonnet-20241022": {
+      "provider": "Anthropic",
+      "tier": "premium",
+      "cost_per_1k_tokens": 0.003,
+      "capabilities": ["code", "reasoning", "analysis", "refactoring"],
+      "optimal_for": ["T3", "T4", "T7_high_risk"],
+      "context_window": 200000,
+      "release_date": "2024-10-22",
+      "status": "active",
+      "performance_score": 95
+    },
+    "o1-preview": {
+      "provider": "OpenAI",
+      "tier": "advanced",
+      "cost_per_1k_tokens": 0.015,
+      "capabilities": ["deep_reasoning", "architecture", "complex_logic"],
+      "optimal_for": ["T4_high_risk", "T5_high_risk"],
+      "context_window": 128000,
+      "release_date": "2024-09-12",
+      "status": "active",
+      "performance_score": 92
+    },
+    "o1": {
+      "provider": "OpenAI",
+      "tier": "advanced",
+      "cost_per_1k_tokens": 0.015,
+      "capabilities": ["deep_reasoning", "architecture", "complex_logic"],
+      "optimal_for": ["T4_high_risk", "architecture_changes"],
+      "context_window": 200000,
+      "release_date": "2024-12-05",
+      "status": "active",
+      "performance_score": 96
+    }
+  },
+  "task_types": {
+    "T1": "Read/Explain",
+    "T2": "Small change (≤1 file, ≤50 LOC)",
+    "T3": "Medium change (2-5 files, 50-300 LOC)",
+    "T4": "Large change (≥6 files, >300 LOC)",
+    "T5": "Debug/Investigate",
+    "T6": "Docs/Comms",
+    "T7": "Standards compliance"
+  },
+  "risk_levels": {
+    "low": "No stage boundaries, manifests, or CI changes",
+    "medium": "Touches stage logic or multiple files",
+    "high": "Manifests, resume logic, CI, dependencies, >10 files"
+  }
+}
+```
+
+#### Update Automation Script
+
+**Location:** `tools/update-model-routing.py`
+
+**Purpose:** Automatically check for new models and update routing decisions based on performance data.
+
+```python
+#!/usr/bin/env python3
+"""
+Automated Model Routing Updater
+
+Checks for new AI models, evaluates performance, and updates routing decisions.
+Run: ./tools/update-model-routing.py [--check-only] [--force]
+"""
+from pathlib import Path
+import json
+import requests
+from datetime import datetime, timedelta
+from typing import Dict, List, Optional
+import logging
+
+logger = logging.getLogger(__name__)
+
+class ModelRoutingUpdater:
+    """Updates AI model routing based on latest releases and performance."""
+    
+    def __init__(self, config_path: Path, dry_run: bool = False):
+        self.config_path = config_path
+        self.dry_run = dry_run
+        self.models_file = Path("config/ai_models.json")
+        self.routing_doc = Path("docs/AI_MODEL_ROUTING.md")
+        self.copilot_instructions = Path(".github/copilot-instructions.md")
+        
+    def check_for_updates(self) -> Dict[str, any]:
+        """Check OpenAI and Anthropic APIs for new models."""
+        updates = {
+            "new_models": [],
+            "deprecated_models": [],
+            "updated_capabilities": []
+        }
+        
+        # Check OpenAI models
+        try:
+            openai_models = self._fetch_openai_models()
+            updates["new_models"].extend(openai_models)
+        except Exception as e:
+            logger.error(f"Failed to fetch OpenAI models: {e}")
+        
+        # Check Anthropic models
+        try:
+            anthropic_models = self._fetch_anthropic_models()
+            updates["new_models"].extend(anthropic_models)
+        except Exception as e:
+            logger.error(f"Failed to fetch Anthropic models: {e}")
+        
+        return updates
+    
+    def _fetch_openai_models(self) -> List[Dict]:
+        """Fetch latest OpenAI models from API."""
+        # Implementation would call OpenAI API
+        # For now, placeholder for structure
+        return []
+    
+    def _fetch_anthropic_models(self) -> List[Dict]:
+        """Fetch latest Anthropic models from releases page."""
+        # Implementation would scrape Anthropic releases
+        return []
+    
+    def evaluate_model_performance(self, model_id: str) -> int:
+        """
+        Evaluate model performance score (0-100).
+        
+        Based on:
+        - Benchmark results on standard test tasks
+        - Community feedback
+        - Official performance metrics
+        - Cost-effectiveness ratio
+        """
+        # Placeholder - in production, would run actual benchmarks
+        return 85
+    
+    def update_routing_decisions(self, updates: Dict) -> Dict[str, str]:
+        """
+        Update routing decisions based on new model data.
+        
+        Returns: Dict of task_type -> recommended_model
+        """
+        with open(self.models_file) as f:
+            model_data = json.load(f)
+        
+        routing = {}
+        
+        # For each task type and risk level, find best model
+        for task, description in model_data["task_types"].items():
+            for risk in ["low", "medium", "high"]:
+                key = f"{task}_{risk}"
+                best_model = self._find_best_model(
+                    task, risk, model_data["models"]
+                )
+                routing[key] = best_model
+        
+        return routing
+    
+    def _find_best_model(
+        self, 
+        task_type: str, 
+        risk_level: str, 
+        models: Dict
+    ) -> str:
+        """Find best model for task type and risk level."""
+        candidates = []
+        
+        for model_id, model_info in models.items():
+            if model_info["status"] != "active":
+                continue
+            
+            # Check if model is optimal for this task type
+            task_key = f"{task_type}_{risk_level}"
+            if task_key in model_info["optimal_for"]:
+                candidates.append({
+                    "id": model_id,
+                    "score": model_info["performance_score"],
+                    "cost": model_info["cost_per_1k_tokens"]
+                })
+        
+        if not candidates:
+            return "gpt-4-turbo"  # Fallback
+        
+        # Sort by performance score, then by cost (lower is better)
+        candidates.sort(
+            key=lambda x: (-x["score"], x["cost"])
+        )
+        
+        return candidates[0]["id"]
+    
+    def generate_routing_table(self, routing: Dict[str, str]) -> str:
+        """Generate markdown table for AI_MODEL_ROUTING.md."""
+        with open(self.models_file) as f:
+            model_data = json.load(f)
+        
+        # Build routing table
+        table = "| Task | Low Risk | Medium Risk | High Risk |\n"
+        table += "|------|----------|-------------|------------|\n"
+        
+        for task, description in model_data["task_types"].items():
+            low = routing.get(f"{task}_low", "gpt-4-turbo")
+            med = routing.get(f"{task}_medium", "gpt-4-turbo")
+            high = routing.get(f"{task}_high", "claude-3-5-sonnet")
+            
+            # Format model names for readability
+            low_name = self._format_model_name(low)
+            med_name = self._format_model_name(med)
+            high_name = self._format_model_name(high)
+            
+            table += f"| {description} | {low_name} | {med_name} | {high_name} |\n"
+        
+        return table
+    
+    def _format_model_name(self, model_id: str) -> str:
+        """Convert model ID to readable name."""
+        name_map = {
+            "gpt-4-turbo": "GPT-4 Turbo",
+            "gpt-4o": "GPT-4o",
+            "claude-3-5-sonnet-20241022": "Claude 3.5 Sonnet",
+            "o1-preview": "o1-preview",
+            "o1": "o1"
+        }
+        return name_map.get(model_id, model_id)
+    
+    def update_routing_doc(self, routing_table: str) -> bool:
+        """Update AI_MODEL_ROUTING.md with new routing table."""
+        if self.dry_run:
+            logger.info("DRY RUN: Would update AI_MODEL_ROUTING.md")
+            return True
+        
+        # Read current doc
+        with open(self.routing_doc) as f:
+            content = f.read()
+        
+        # Find and replace routing table section
+        # Look for "## 3) Routing algorithm" section
+        marker_start = "### Step C — pick model + workflow"
+        marker_end = "---"
+        
+        start_idx = content.find(marker_start)
+        if start_idx == -1:
+            logger.error("Could not find routing table marker")
+            return False
+        
+        # Find next section marker
+        end_idx = content.find(marker_end, start_idx + 100)
+        if end_idx == -1:
+            logger.error("Could not find end of routing section")
+            return False
+        
+        # Replace content
+        new_content = (
+            content[:start_idx + len(marker_start)] +
+            "\n" + routing_table + "\n" +
+            content[end_idx:]
+        )
+        
+        # Add update timestamp
+        timestamp = datetime.now().strftime("%Y-%m-%d")
+        new_content = new_content.replace(
+            "**Last Updated:**",
+            f"**Last Updated:** {timestamp} (auto-updated)\n**Previous Update:**"
+        )
+        
+        # Write back
+        with open(self.routing_doc, 'w') as f:
+            f.write(new_content)
+        
+        logger.info("✅ Updated AI_MODEL_ROUTING.md")
+        return True
+    
+    def sync_to_copilot_instructions(self) -> bool:
+        """Sync key routing decisions to copilot-instructions.md."""
+        if self.dry_run:
+            logger.info("DRY RUN: Would sync to copilot-instructions.md")
+            return True
+        
+        # Read AI_MODEL_ROUTING.md
+        with open(self.routing_doc) as f:
+            routing_content = f.read()
+        
+        # Extract key guidance
+        # Find "## 2) Model selection: principle + escalation ladder"
+        principle_start = routing_content.find("## 2) Model selection:")
+        principle_end = routing_content.find("## 3)", principle_start)
+        
+        if principle_start == -1 or principle_end == -1:
+            logger.error("Could not extract routing principle")
+            return False
+        
+        principle_section = routing_content[principle_start:principle_end]
+        
+        # Update copilot-instructions.md
+        with open(self.copilot_instructions) as f:
+            copilot_content = f.read()
+        
+        # Find "## 📍 Model Routing" section
+        routing_marker = "## 📍 Model Routing"
+        next_section = "## 📍 Standard Test Media"
+        
+        marker_idx = copilot_content.find(routing_marker)
+        next_idx = copilot_content.find(next_section, marker_idx)
+        
+        if marker_idx == -1:
+            # Section doesn't exist, add it
+            logger.info("Adding model routing section to copilot-instructions.md")
+            # Insert before "Standard Test Media" section
+            insert_point = copilot_content.find(next_section)
+            if insert_point != -1:
+                new_content = (
+                    copilot_content[:insert_point] +
+                    f"\n{routing_marker}\n\n**Consult:** `docs/AI_MODEL_ROUTING.md` before choosing models\n\n" +
+                    f"**Quick Reference:** See routing table in AI_MODEL_ROUTING.md § 3\n\n" +
+                    f"**Last Synced:** {datetime.now().strftime('%Y-%m-%d')}\n\n---\n\n" +
+                    copilot_content[insert_point:]
+                )
+            else:
+                new_content = copilot_content
+        else:
+            # Section exists, update timestamp
+            new_content = copilot_content.replace(
+                "**Last Synced:**",
+                f"**Last Synced:** {datetime.now().strftime('%Y-%m-%d')}\n**Previous:**"
+            )
+        
+        with open(self.copilot_instructions, 'w') as f:
+            f.write(new_content)
+        
+        logger.info("✅ Synced to copilot-instructions.md")
+        return True
+    
+    def run(self, force: bool = False) -> bool:
+        """Run full update process."""
+        logger.info("🔍 Checking for model updates...")
+        
+        # Check if update is needed
+        with open(self.models_file) as f:
+            model_data = json.load(f)
+        
+        last_update = datetime.fromisoformat(model_data["last_updated"])
+        days_since_update = (datetime.now() - last_update).days
+        
+        if not force and days_since_update < 7:
+            logger.info(f"✅ No update needed (last updated {days_since_update} days ago)")
+            return True
+        
+        # Check for new models
+        updates = self.check_for_updates()
+        
+        if updates["new_models"]:
+            logger.info(f"🆕 Found {len(updates['new_models'])} new models")
+        
+        # Update routing decisions
+        logger.info("📊 Calculating optimal routing...")
+        routing = self.update_routing_decisions(updates)
+        
+        # Generate new routing table
+        logger.info("📝 Generating routing table...")
+        routing_table = self.generate_routing_table(routing)
+        
+        # Update documents
+        logger.info("📄 Updating documentation...")
+        success = self.update_routing_doc(routing_table)
+        
+        if success:
+            success = self.sync_to_copilot_instructions()
+        
+        # Update timestamp in models file
+        if success and not self.dry_run:
+            model_data["last_updated"] = datetime.now().isoformat()
+            with open(self.models_file, 'w') as f:
+                json.dump(model_data, f, indent=2)
+        
+        if success:
+            logger.info("✅ Model routing update complete!")
+        else:
+            logger.error("❌ Model routing update failed")
+        
+        return success
+
+
+def main():
+    """Main entry point."""
+    import argparse
+    
+    parser = argparse.ArgumentParser(
+        description="Update AI model routing based on latest releases"
+    )
+    parser.add_argument(
+        "--check-only",
+        action="store_true",
+        help="Check for updates without applying changes"
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Force update even if within update frequency"
+    )
+    
+    args = parser.parse_args()
+    
+    updater = ModelRoutingUpdater(
+        config_path=Path("config/ai_models.json"),
+        dry_run=args.check_only
+    )
+    
+    success = updater.run(force=args.force)
+    return 0 if success else 1
+
+
+if __name__ == "__main__":
+    exit(main())
+```
+
+### 16.3 Automated Update Schedule
+
+**Frequency:** Weekly (every Monday)
+
+**Automation:** GitHub Actions workflow
+
+**Location:** `.github/workflows/update-model-routing.yml`
+
+```yaml
+name: Update AI Model Routing
+
+on:
+  schedule:
+    # Run every Monday at 9 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force update'
+        required: false
+        default: 'false'
+
+jobs:
+  update-routing:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          pip install requests pyyaml
+      
+      - name: Check for model updates
+        id: check
+        run: |
+          python tools/update-model-routing.py --check-only
+          echo "updates_available=$?" >> $GITHUB_OUTPUT
+      
+      - name: Apply updates
+        if: steps.check.outputs.updates_available == '0' || github.event.inputs.force == 'true'
+        run: |
+          python tools/update-model-routing.py --force
+      
+      - name: Create Pull Request
+        if: steps.check.outputs.updates_available == '0'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          commit-message: 'docs: auto-update AI model routing'
+          title: 'Auto-update: AI Model Routing'
+          body: |
+            ## Automated Model Routing Update
+            
+            This PR updates AI model routing based on:
+            - New model releases
+            - Performance benchmarks
+            - Cost optimizations
+            
+            ### Changes
+            - Updated `docs/AI_MODEL_ROUTING.md`
+            - Synced `.github/copilot-instructions.md`
+            - Updated model registry
+            
+            ### Review Checklist
+            - [ ] Routing decisions are optimal
+            - [ ] Cost trade-offs are acceptable
+            - [ ] Documentation is clear
+            
+            **Auto-generated by:** `.github/workflows/update-model-routing.yml`
+          branch: auto-update-model-routing
+          delete-branch: true
+```
+
+### 16.4 Manual Update Process
+
+**When to manually update:**
+- Major model release (GPT-5, Claude 4, etc.)
+- Significant price changes
+- New capability announced
+- Community feedback on model performance
+
+**Steps:**
+
+1. **Update Model Registry:**
+   ```bash
+   # Edit config/ai_models.json
+   # Add new model or update existing
+   ```
+
+2. **Run Update Script:**
+   ```bash
+   ./tools/update-model-routing.py --force
+   ```
+
+3. **Review Changes:**
+   ```bash
+   git diff docs/AI_MODEL_ROUTING.md
+   git diff .github/copilot-instructions.md
+   ```
+
+4. **Test Routing:**
+   ```bash
+   # Verify routing decisions make sense
+   grep -A 20 "Step C" docs/AI_MODEL_ROUTING.md
+   ```
+
+5. **Commit & PR:**
+   ```bash
+   git add config/ai_models.json docs/AI_MODEL_ROUTING.md .github/copilot-instructions.md
+   git commit -m "docs: update AI model routing for [MODEL_NAME]"
+   git push origin update-model-routing
+   ```
+
+### 16.5 Model Performance Tracking
+
+**Benchmarks:** Run standard tasks against each model
+
+**Location:** `tools/benchmark-models.py`
+
+**Test Tasks:**
+1. **T2 Small Change:** Fix simple bug (≤50 LOC)
+2. **T3 Medium Change:** Refactor module (2-3 files)
+3. **T5 Debug:** Root cause analysis
+4. **T7 Standards Fix:** Fix compliance violations
+
+**Metrics Tracked:**
+- **Correctness:** Does it solve the problem?
+- **Code Quality:** Follows standards?
+- **Completeness:** All edge cases covered?
+- **Speed:** Time to completion
+- **Cost:** Token usage × cost
+
+**Run Monthly:**
+```bash
+./tools/benchmark-models.py --all-models --save-results
+```
+
+### 16.6 Copilot Integration
+
+**Automatic Routing:** Copilot Chat reads AI_MODEL_ROUTING.md automatically
+
+**User Override:** Developers can specify model in prompt:
+```
+"Use Claude 3.5 Sonnet to refactor this module..."
+```
+
+**Routing Hints in Code:**
+```python
+# @copilot-model: claude-3-5-sonnet
+# Complex refactoring - use advanced reasoning
+def refactor_complex_logic():
+    pass
+```
+
+### 16.7 Cost Monitoring
+
+**Track Monthly Costs:**
+```bash
+# View model usage stats
+./tools/model-usage-stats.py --month 2025-12
+
+# Output:
+# GPT-4 Turbo: 1.2M tokens ($12.00)
+# Claude 3.5 Sonnet: 800K tokens ($2.40)
+# o1: 200K tokens ($3.00)
+# Total: $17.40
+```
+
+**Cost Alerts:** Set up alerts for unusual usage:
+- >$50/day → Alert
+- >$500/month → Review required
+
+### 16.8 Best Practices
+
+**DO:**
+- ✅ Start with cheapest model that can do the task
+- ✅ Escalate if first attempt fails
+- ✅ Use routing table in AI_MODEL_ROUTING.md § 3
+- ✅ Check for updates weekly
+- ✅ Benchmark new models before adopting
+- ✅ Track costs and optimize
+
+**DON'T:**
+- ❌ Use expensive models for simple tasks
+- ❌ Ignore routing guidance
+- ❌ Forget to update after major releases
+- ❌ Skip benchmarking
+- ❌ Use deprecated models
+
+### 16.9 Validation Checklist
+
+**Before updating routing:**
+- [ ] New model benchmarked on standard tasks
+- [ ] Performance score calculated (0-100)
+- [ ] Cost comparison with current models
+- [ ] Routing table updated
+- [ ] AI_MODEL_ROUTING.md updated
+- [ ] copilot-instructions.md synced
+- [ ] Changes reviewed by team
+- [ ] PR merged and deployed
+
+**Monthly review:**
+- [ ] Check for new model releases
+- [ ] Review usage statistics
+- [ ] Analyze cost trends
+- [ ] Update benchmarks if needed
+- [ ] Optimize routing decisions
+
+---
+
 ## Document History
 
 | Version | Date | Changes | Author |
@@ -2976,13 +4515,28 @@ python3 tools/check_compliance.py --min-score=80
 |  |  | - Added performance standards |  |
 |  |  | - Enhanced testing guidelines |  |
 |  |  | - Added type hints enforcement |  |
+| 4.0 | 2025-12-02 | **100% compliance achieved** | Team |
+|  |  | - All print() statements converted to logger |  |
+|  |  | - All imports organized |  |
+|  |  | - Type hints and docstrings added |  |
+| 5.0 | 2025-12-03 | **Testing infrastructure + workflows** | Team |
+|  |  | - Standard test media samples |  |
+|  |  | - Core workflows documented |  |
+|  |  | - Context-aware processing |  |
+|  |  | - Caching & ML optimization |  |
+| 6.0 | 2025-12-03 | **AI model routing automation** | Team |
+|  |  | - Automated model update system |  |
+|  |  | - Model registry and tracking |  |
+|  |  | - GitHub Actions integration |  |
+|  |  | - Cost monitoring and optimization |  |
+|  |  | - Routing decision automation |  |
 
 ---
 
 **Document Status:** ACTIVE  
-**Last Updated:** November 27, 2025  
+**Last Updated:** December 3, 2025  
 **Compliance Target:** 80% minimum (tracked quarterly)  
-**Next Review:** February 2026
+**Next Review:** March 2026
 
 ---
 
