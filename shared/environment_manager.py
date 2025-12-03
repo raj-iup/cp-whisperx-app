@@ -178,8 +178,8 @@ class EnvironmentManager:
             else:
                 # Log warning but don't fail - caller will handle
                 import sys
-                print(f"[WARNING] MLX backend requested but mlx environment not found", file=sys.stderr)
-                print(f"[WARNING] Falling back to whisperx environment", file=sys.stderr)
+                logger.info(f"[WARNING] MLX backend requested but mlx environment not found", file=sys.stderr)
+                logger.info(f"[WARNING] Falling back to whisperx environment", file=sys.stderr)
                 return 'whisperx'
         else:
             return 'whisperx'
@@ -260,9 +260,9 @@ class EnvironmentManager:
         
         # Log cache paths (debug level) - visible when DEBUG_MODE=true
         if cache_paths_set and os.environ.get("DEBUG_MODE", "false").lower() == "true":
-            print(f"[CACHE] Using local cache directories:", file=sys.stderr)
+            logger.info(f"[CACHE] Using local cache directories:", file=sys.stderr)
             for cache_path in cache_paths_set:
-                print(f"[CACHE]   {cache_path}", file=sys.stderr)
+                logger.info(f"[CACHE]   {cache_path}", file=sys.stderr)
         
         # Run the command
         return subprocess.run(
@@ -332,48 +332,48 @@ def main():
         envs = manager.list_all_environments()
         for env in envs:
             installed = "✓" if manager.is_environment_installed(env) else "✗"
-            print(f"{installed} {env}")
+            logger.info(f"{installed} {env}")
     
     elif args.command == "info":
         if not args.env:
-            print("Error: --env required", file=sys.stderr)
+            logger.error("Error: --env required", file=sys.stderr)
             sys.exit(1)
         
         info = manager.get_environment_info(args.env)
-        print(json.dumps(info, indent=2))
+        logger.info(json.dumps(info, indent=2))
     
     elif args.command == "check":
         if not args.env:
-            print("Error: --env required", file=sys.stderr)
+            logger.error("Error: --env required", file=sys.stderr)
             sys.exit(1)
         
         if manager.is_environment_installed(args.env):
-            print(f"✓ {args.env} is installed")
+            logger.info(f"✓ {args.env} is installed")
             sys.exit(0)
         else:
-            print(f"✗ {args.env} is NOT installed")
+            logger.info(f"✗ {args.env} is NOT installed")
             sys.exit(1)
     
     elif args.command == "validate":
         if not args.workflow:
-            print("Error: --workflow required", file=sys.stderr)
+            logger.error("Error: --workflow required", file=sys.stderr)
             sys.exit(1)
         
         valid, missing = manager.validate_environments_for_workflow(args.workflow)
         if valid:
-            print(f"✓ All environments for '{args.workflow}' are installed")
+            logger.info(f"✓ All environments for '{args.workflow}' are installed")
             sys.exit(0)
         else:
-            print(f"✗ Missing environments for '{args.workflow}': {', '.join(missing)}")
+            logger.info(f"✗ Missing environments for '{args.workflow}': {', '.join(missing)}")
             sys.exit(1)
     
     elif args.command == "python-path":
         if not args.env:
-            print("Error: --env required", file=sys.stderr)
+            logger.error("Error: --env required", file=sys.stderr)
             sys.exit(1)
         
         python_exe = manager.get_python_executable(args.env)
-        print(python_exe)
+        logger.info(python_exe)
 
 
 if __name__ == "__main__":

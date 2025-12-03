@@ -42,7 +42,7 @@ def load_audio(
         
     Example:
         >>> audio = load_audio("input.wav", sample_rate=16000)
-        >>> print(f"Loaded {len(audio) / 16000:.1f}s of audio")
+        >>> logger.info(f"Loaded {len(audio) / 16000:.1f}s of audio")
         Loaded 10.5s of audio
         
     Note:
@@ -107,7 +107,7 @@ def get_audio_duration(file_path: Union[str, Path]) -> float:
         
     Example:
         >>> duration = get_audio_duration("input.wav")
-        >>> print(f"Duration: {duration:.1f}s")
+        >>> logger.info(f"Duration: {duration:.1f}s")
         Duration: 10.5s
     """
     import soundfile as sf
@@ -193,7 +193,7 @@ def load_audio_segment(
     Example:
         >>> # Load only 30 seconds for a bias window
         >>> audio_segment = load_audio_segment("movie.mp4", 150.0, 180.0)
-        >>> print(f"Loaded {len(audio_segment) / 16000:.1f}s segment")
+        >>> logger.info(f"Loaded {len(audio_segment) / 16000:.1f}s segment")
         Loaded 30.0s segment
         
     Note:
@@ -431,7 +431,7 @@ def validate_audio_file(file_path: Union[str, Path]) -> Dict[str, Any]:
     Example:
         >>> validation = validate_audio_file("movie.mp4")
         >>> if not validation['valid']:
-        ...     print(f"Cannot process: {validation['issues']}")
+        ...     logger.info(f"Cannot process: {validation['issues']}")
         ...     exit(1)
         >>> 
         >>> # Auto-apply corrections

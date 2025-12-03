@@ -232,7 +232,7 @@ class UnifiedGlossaryManager:
                         source_idx = header.index('source')
                         pref_idx = header.index('preferred_english')
                     except ValueError:
-                        self.logger.error("Master glossary missing required columns: source, preferred_english")
+                        self.logger.error("Master glossary missing required columns: source, preferred_english", exc_info=True)
                         return
                     
                     # Parse data rows
@@ -254,7 +254,7 @@ class UnifiedGlossaryManager:
             # This should not happen as we handle it above, but just in case
             self.logger.debug("Pandas not available")
         except Exception as e:
-            self.logger.error(f"Error loading master glossary: {e}")
+            self.logger.error(f"Error loading master glossary: {e}", exc_info=True)
     
     def _load_tmdb_glossary(self) -> None:
         """Load TMDB-generated glossary"""
@@ -291,7 +291,7 @@ class UnifiedGlossaryManager:
             self.logger.debug(f"Loaded {len(self.tmdb_glossary)} TMDB terms")
             
         except Exception as e:
-            self.logger.error(f"Error loading TMDB glossary: {e}")
+            self.logger.error(f"Error loading TMDB glossary: {e}", exc_info=True)
     
     def _load_film_specific_glossary(self) -> None:
         """Load film-specific glossary overrides"""
@@ -322,7 +322,7 @@ class UnifiedGlossaryManager:
             self.logger.debug(f"Loaded {len(self.film_specific)} film-specific terms")
             
         except Exception as e:
-            self.logger.error(f"Error loading film-specific glossary: {e}")
+            self.logger.error(f"Error loading film-specific glossary: {e}", exc_info=True)
     
     def _load_learned_terms(self) -> None:
         """Load learned term frequencies"""
@@ -341,7 +341,7 @@ class UnifiedGlossaryManager:
             self.logger.debug(f"Loaded {len(self.learned_terms)} learned terms")
             
         except Exception as e:
-            self.logger.error(f"Error loading learned terms: {e}")
+            self.logger.error(f"Error loading learned terms: {e}", exc_info=True)
     
     def get_term(
         self,
@@ -530,7 +530,7 @@ class UnifiedGlossaryManager:
             return True
             
         except Exception as e:
-            self.logger.error(f"Error saving learned terms: {e}")
+            self.logger.error(f"Error saving learned terms: {e}", exc_info=True)
             return False
     
     def get_bias_terms(self, max_terms: int = 100) -> List[str]:
@@ -627,7 +627,7 @@ class UnifiedGlossaryManager:
                 json.dump(snapshot, f, indent=2, ensure_ascii=False)
             return True
         except Exception as e:
-            self.logger.error(f"Error saving snapshot: {e}")
+            self.logger.error(f"Error saving snapshot: {e}", exc_info=True)
             return False
     
     def get_statistics(self) -> Dict[str, Any]:

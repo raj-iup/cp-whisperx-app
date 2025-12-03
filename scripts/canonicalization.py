@@ -76,7 +76,7 @@ class CanonicalProcessor:
                     self.logger.info(f"  {label}: {len(self.canon_map[label])} mappings")
 
         except Exception as e:
-            self.logger.error(f"Failed to load canonical map: {e}")
+            self.logger.error(f"Failed to load canonical map: {e}", exc_info=True)
             self.canon_map = {}
 
     def apply_canonical_replacements(

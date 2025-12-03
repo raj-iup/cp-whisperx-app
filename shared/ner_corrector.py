@@ -67,7 +67,7 @@ class NERCorrector:
                 
         except OSError:
             if self.logger:
-                self.logger.error(f"spaCy model not found: {self.model_name}")
+                self.logger.error(f"spaCy model not found: {self.model_name}", exc_info=True)
                 self.logger.info(f"Install with: python -m spacy download {self.model_name}")
             raise
     

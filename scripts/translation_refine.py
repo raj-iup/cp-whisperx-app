@@ -93,7 +93,7 @@ class TranslationRefiner:
             self.logger.info("  Model loaded successfully")
 
         except Exception as e:
-            self.logger.error(f"  Failed to load model: {e}")
+            self.logger.error(f"  Failed to load model: {e}", exc_info=True)
             raise
 
     def _load_opus_mt(self):
@@ -415,7 +415,7 @@ def main():
     elif len(sys.argv) > 1:
         output_dir = Path(sys.argv[1])
     else:
-        print("ERROR: No output directory specified", file=sys.stderr)
+        logger.info("ERROR: No output directory specified", file=sys.stderr)
         return 1
     
     # Load configuration
@@ -525,9 +525,9 @@ def main():
         return 0
         
     except Exception as e:
-        logger.error(f"Translation refinement failed: {e}")
+        logger.error(f"Translation refinement failed: {e}", exc_info=True)
         import traceback
-        logger.error(traceback.format_exc())
+        logger.error(traceback.format_exc(, exc_info=True))
         logger.warning("Continuing without translation refinement")
         return 0  # Non-critical, don't fail pipeline
 

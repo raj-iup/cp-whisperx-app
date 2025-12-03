@@ -170,9 +170,9 @@ class ModelDownloader:
 
 def print_section(title: str):
     """Print a section header"""
-    print(f"\n{'='*70}")
-    print(f"  {title}")
-    print(f"{'='*70}")
+    logger.info(f"\n{'='*70}")
+    logger.info(f"  {title}")
+    logger.info(f"{'='*70}")
 
 
 def print_model_status(model_name: str, success: bool, message: str):
@@ -182,7 +182,7 @@ def print_model_status(model_name: str, success: bool, message: str):
     # Format model name
     display_name = model_name.ljust(40)
     
-    print(f"  {status_icon} {display_name} {message}")
+    logger.info(f"  {status_icon} {display_name} {message}")
 
 
 def load_hardware_cache(project_root: Path) -> Dict:
@@ -216,9 +216,9 @@ def main():
     cache_dir.mkdir(parents=True, exist_ok=True)
     
     print_section("ML MODEL PRE-DOWNLOAD")
-    print("  Downloading and caching all required ML models...")
-    print(f"  Cache directory: {cache_dir}")
-    print(f"  Max parallel workers: {args.max_workers}")
+    logger.info("  Downloading and caching all required ML models...")
+    logger.info(f"  Cache directory: {cache_dir}")
+    logger.info(f"  Max parallel workers: {args.max_workers}")
     
     # Load HF token from secrets if not provided
     hf_token = args.hf_token
@@ -234,9 +234,9 @@ def main():
                 pass
     
     if hf_token:
-        print("  ✓ HuggingFace token found - will download authenticated models")
+        logger.info("  ✓ HuggingFace token found - will download authenticated models")
     else:
-        print("  ⚠ No HuggingFace token - PyAnnote models will be skipped")
+        logger.info("  ⚠ No HuggingFace token - PyAnnote models will be skipped")
     
     # Determine which Whisper models to download
     if args.whisper_models:
@@ -254,15 +254,15 @@ def main():
         # Remove duplicates
         whisper_models = list(dict.fromkeys(whisper_models))
     
-    print(f"  Whisper models to download: {', '.join(whisper_models)}")
-    print()
+    logger.info(f"  Whisper models to download: {', '.join(whisper_models)}")
+    logger.info()
     
     # Initialize downloader
     downloader = ModelDownloader(cache_dir, hf_token, args.max_workers)
     
     # Download all models
-    print("  Starting parallel downloads...")
-    print()
+    logger.info("  Starting parallel downloads...")
+    logger.info()
     results = downloader.download_all_models(whisper_models)
     
     # Print results by category
@@ -282,7 +282,7 @@ def main():
         category_results = [(name, success, msg) for name, (success, msg, cat) in results.items() if cat == category]
         
         if category_results:
-            print(f"\n  {title}:")
+            logger.info(f"\n  {title}:")
             for model_name, success, message in category_results:
                 print_model_status(model_name, success, message)
                 stats['total'] += 1
@@ -295,13 +295,13 @@ def main():
     
     # Print summary
     print_section("SUMMARY")
-    print(f"  Total models processed: {stats['total']}")
-    print(f"  ✓ Successfully downloaded: {stats['success']}")
+    logger.info(f"  Total models processed: {stats['total']}")
+    logger.info(f"  ✓ Successfully downloaded: {stats['success']}")
     if stats['skipped'] > 0:
-        print(f"  ⊘ Skipped (optional): {stats['skipped']}")
+        logger.info(f"  ⊘ Skipped (optional): {stats['skipped']}")
     if stats['failed'] > 0:
-        print(f"  ✗ Failed: {stats['failed']}")
-    print()
+        logger.info(f"  ✗ Failed: {stats['failed']}")
+    logger.info()
     
     # Determine exit code
     # Only fail if critical models failed (not skipped)
@@ -309,15 +309,15 @@ def main():
                         if not success and 'Skipped' not in msg and cat in ['whisper', 'silero', 'spacy']]
     
     if critical_failures:
-        print(f"  ⚠ Critical models failed: {', '.join(critical_failures)}")
-        print(f"  These models will be downloaded on first use")
-        print()
+        logger.info(f"  ⚠ Critical models failed: {', '.join(critical_failures)}")
+        logger.info(f"  These models will be downloaded on first use")
+        logger.info()
         sys.exit(0)  # Don't fail bootstrap, models can download on demand
     else:
-        print(f"  ✓ All critical models ready!")
+        logger.info(f"  ✓ All critical models ready!")
         if stats['skipped'] > 0:
-            print(f"  ⚠ Some optional models skipped (will download on first use if needed)")
-        print()
+            logger.info(f"  ⚠ Some optional models skipped (will download on first use if needed)")
+        logger.info()
         sys.exit(0)
 
 

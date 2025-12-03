@@ -183,10 +183,10 @@ class WhisperXBackend(WhisperBackend):
                     
                     return True
                 else:
-                    self.logger.error(f"  Failed to load model: {e}")
+                    self.logger.error(f"  Failed to load model: {e}", exc_info=True)
                     return False
         
-        self.logger.error("  Failed to load model after all attempts")
+        self.logger.error("  Failed to load model after all attempts", exc_info=True)
         return False
     
     def transcribe(
@@ -384,7 +384,7 @@ class MLXWhisperBackend(WhisperBackend):
             self.logger.info("  ✓ MLX backend ready (2-4x faster than CPU)")
             return True
         except Exception as e:
-            self.logger.error(f"  Failed to initialize MLX backend: {e}")
+            self.logger.error(f"  Failed to initialize MLX backend: {e}", exc_info=True)
             return False
     
     def transcribe(
@@ -479,12 +479,12 @@ class MLXWhisperBackend(WhisperBackend):
             
         except Exception as e:
             error_msg = str(e)
-            self.logger.error(f"  MLX transcription failed: {e}")
+            self.logger.error(f"  MLX transcription failed: {e}", exc_info=True)
             
             # Check for HuggingFace authentication errors
             if "401" in error_msg or "expired" in error_msg.lower() or "unauthorized" in error_msg.lower():
-                self.logger.error("  ✗ HuggingFace token is invalid or expired")
-                self.logger.error("  → Get a new token from: https://huggingface.co/settings/tokens")
+                self.logger.error("  ✗ HuggingFace token is invalid or expired", exc_info=True)
+                self.logger.error("  → Get a new token from: https://huggingface.co/settings/tokens", exc_info=True)
                 self.logger.error("  → Set HF_TOKEN environment variable or update config/.env.pipeline")
                 self.logger.info("  → Alternatively, use CPU backend which doesn't require HF authentication")
             elif "repository not found" in error_msg.lower() or "404" in error_msg:

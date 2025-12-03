@@ -36,10 +36,10 @@ def main():
     try:
         return whisperx_main()
     except KeyboardInterrupt:
-        print("\n✗ ASR stage interrupted by user", file=sys.stderr)
+        logger.info("\n✗ ASR stage interrupted by user", file=sys.stderr)
         return 130
     except Exception as e:
-        print(f"\n✗ ASR stage failed with unexpected error: {e}", file=sys.stderr)
+        logger.info(f"\n✗ ASR stage failed with unexpected error: {e}", file=sys.stderr)
         return 1
 
 

@@ -539,7 +539,7 @@ class WhisperXProcessor:
             )
             self.logger.info(f"  ✓ Transcription complete: {len(result.get('segments', []))} segments")
         except Exception as e:
-            self.logger.error(f"  ✗ Transcription failed: {e}")
+            self.logger.error(f"  ✗ Transcription failed: {e}", exc_info=True)
             raise
         finally:
             # Always cleanup MPS memory
@@ -629,7 +629,7 @@ class WhisperXProcessor:
             self.logger.info(f"  ✓ Hybrid transcription complete: {len(result.get('segments', []))} segments")
 
         except Exception as e:
-            self.logger.error(f"  ✗ Hybrid transcription failed: {e}")
+            self.logger.error(f"  ✗ Hybrid transcription failed: {e}", exc_info=True)
             raise
         finally:
             cleanup_mps_memory(self.logger)
@@ -752,7 +752,7 @@ class WhisperXProcessor:
                 self.logger.info(f"    ✓ Window complete: {len(chunk_result.get('segments', []))} segments")
                 
             except Exception as e:
-                self.logger.error(f"    ✗ Window {i} failed: {e}")
+                self.logger.error(f"    ✗ Window {i} failed: {e}", exc_info=True)
                 # Continue with other windows - partial results better than none
                 continue
             finally:
@@ -883,7 +883,7 @@ class WhisperXProcessor:
                     cleanup_mps_memory(self.logger)
                     
                 except Exception as e:
-                    self.logger.error(f"    ✗ Chunk {chunk.chunk_id} failed: {e}")
+                    self.logger.error(f"    ✗ Chunk {chunk.chunk_id} failed: {e}", exc_info=True)
                     # Continue with other chunks, partial results better than none
                     continue
         
@@ -1245,9 +1245,9 @@ def run_whisperx_pipeline(
                 except (RuntimeError, Exception) as e:
                     error_msg = str(e)
                     if "authentication" in error_msg.lower() or "gated" in error_msg.lower():
-                        logger.error("=" * 70)
-                        logger.error("IndicTrans2 authentication required")
-                        logger.error("=" * 70)
+                        logger.error("=" * 70, exc_info=True)
+                        logger.error("IndicTrans2 authentication required", exc_info=True)
+                        logger.error("=" * 70, exc_info=True)
                         logger.warning("Falling back to Whisper translation (slower)")
                         logger.info("To enable IndicTrans2 for future runs:")
                         logger.info("  1. Visit: https://huggingface.co/ai4bharat/indictrans2-indic-en-1B")
@@ -1368,13 +1368,13 @@ def main():
     try:
         config = load_config()
     except Exception as e:
-        logger.error(f"Failed to load configuration: {e}")
+        logger.error(f"Failed to load configuration: {e}", exc_info=True)
         return 1
     
     # Get audio file from demux stage
     audio_file = stage_io.get_input_path("audio.wav", from_stage="demux")
     if not audio_file.exists():
-        logger.error(f"Audio file not found: {audio_file}")
+        logger.error(f"Audio file not found: {audio_file}", exc_info=True)
         stage_io.add_error(f"Audio file not found: {audio_file}")
         stage_io.finalize(status="failed", error="Input file not found")
         return 1
@@ -1628,19 +1628,19 @@ def main():
         return 0
         
     except FileNotFoundError as e:
-        logger.error(f"File not found: {e}", exc_info=True)
+        logger.error(f"File not found: {e}", exc_info=True, exc_info=True)
         stage_io.add_error(f"File not found: {e}")
         stage_io.finalize(status="failed", error=str(e))
         return 1
     
     except IOError as e:
-        logger.error(f"I/O error: {e}", exc_info=True)
+        logger.error(f"I/O error: {e}", exc_info=True, exc_info=True)
         stage_io.add_error(f"I/O error: {e}")
         stage_io.finalize(status="failed", error=str(e))
         return 1
     
     except RuntimeError as e:
-        logger.error(f"WhisperX runtime error: {e}", exc_info=True)
+        logger.error(f"WhisperX runtime error: {e}", exc_info=True, exc_info=True)
         stage_io.add_error(f"WhisperX error: {e}")
         stage_io.finalize(status="failed", error=str(e))
         return 1
@@ -1652,7 +1652,7 @@ def main():
         return 130
     
     except Exception as e:
-        logger.error(f"Unexpected error: {e}", exc_info=True)
+        logger.error(f"Unexpected error: {e}", exc_info=True, exc_info=True)
         stage_io.add_error(f"Unexpected error: {e}")
         stage_io.finalize(status="failed", error=str(e))
         return 1

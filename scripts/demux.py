@@ -34,13 +34,13 @@ def main():
     try:
         config = load_config()
     except Exception as e:
-        logger.error(f"Failed to load configuration: {e}")
+        logger.error(f"Failed to load configuration: {e}", exc_info=True)
         return 1
     
     # Get input file
     input_file = getattr(config, 'in_root', getattr(config, 'input_media', ''))
     if not input_file or not Path(input_file).exists():
-        logger.error(f"Input media not found: {input_file}")
+        logger.error(f"Input media not found: {input_file}", exc_info=True)
         return 1
     
     logger.info(f"Input media: {input_file}")

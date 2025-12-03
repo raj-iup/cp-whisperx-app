@@ -280,5 +280,5 @@ def load_film_glossary(job_dir: Path, logger: Optional[logging.Logger] = None) -
         return glossary
         
     except Exception as e:
-        logger.error(f"Failed to load film glossary: {e}")
+        logger.error(f"Failed to load film glossary: {e}", exc_info=True)
         return None

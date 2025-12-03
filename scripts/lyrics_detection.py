@@ -48,7 +48,7 @@ def main():
         try:
             config = load_config()
         except Exception as e:
-            logger.error(f"Failed to load configuration: {e}")
+            logger.error(f"Failed to load configuration: {e}", exc_info=True)
             stage_io.add_error(f"Config load failed: {e}", e)
             stage_io.finalize(status="failed", error=str(e))
             return 1
@@ -83,7 +83,7 @@ def main():
             if segments_file.exists():
                 stage_io.track_input(segments_file, "segments", format="json")
         except Exception as e:
-            logger.error(f"Failed to load segments: {e}")
+            logger.error(f"Failed to load segments: {e}", exc_info=True)
             stage_io.add_error(f"Failed to load segments: {e}", e)
             stage_io.finalize(status="failed", error=str(e))
             return 1
@@ -337,7 +337,7 @@ def main():
     
     except FileNotFoundError as e:
         if logger:
-            logger.error(f"File not found: {e}", exc_info=True)
+            logger.error(f"File not found: {e}", exc_info=True, exc_info=True)
         if stage_io:
             stage_io.add_error(f"File not found: {e}")
             stage_io.finalize(status="failed", error=f"Missing file: {e}")
@@ -345,7 +345,7 @@ def main():
     
     except IOError as e:
         if logger:
-            logger.error(f"I/O error: {e}", exc_info=True)
+            logger.error(f"I/O error: {e}", exc_info=True, exc_info=True)
         if stage_io:
             stage_io.add_error(f"I/O error: {e}")
             stage_io.finalize(status="failed", error=f"IO error: {e}")
@@ -353,7 +353,7 @@ def main():
     
     except ValueError as e:
         if logger:
-            logger.error(f"Invalid value: {e}", exc_info=True)
+            logger.error(f"Invalid value: {e}", exc_info=True, exc_info=True)
         if stage_io:
             stage_io.add_error(f"Validation error: {e}")
             stage_io.finalize(status="failed", error=f"Invalid input: {e}")
@@ -361,7 +361,7 @@ def main():
     
     except KeyError as e:
         if logger:
-            logger.error(f"Missing required field: {e}", exc_info=True)
+            logger.error(f"Missing required field: {e}", exc_info=True, exc_info=True)
         if stage_io:
             stage_io.add_error(f"Missing field: {e}")
             stage_io.finalize(status="failed", error=f"Missing data: {e}")
@@ -377,7 +377,7 @@ def main():
     
     except Exception as e:
         if logger:
-            logger.error(f"Unexpected error: {e}", exc_info=True)
+            logger.error(f"Unexpected error: {e}", exc_info=True, exc_info=True)
         else:
             print(f"ERROR: {e}", file=sys.stderr)
         if stage_io:

@@ -277,7 +277,7 @@ class MLTermSelector:
             self.logger.info(f"✓ Saved ML model to {filepath}")
         
         except Exception as e:
-            self.logger.error(f"Error saving ML model: {e}")
+            self.logger.error(f"Error saving ML model: {e}", exc_info=True)
     
     def load_model(self, filepath: Path):
         """Load learned selection patterns"""
@@ -308,7 +308,7 @@ class MLTermSelector:
             self.logger.info(f"✓ Loaded ML model from {filepath} ({total_records} training examples)")
         
         except Exception as e:
-            self.logger.error(f"Error loading ML model: {e}")
+            self.logger.error(f"Error loading ML model: {e}", exc_info=True)
     
     def get_statistics(self) -> Dict[str, Any]:
         """Get ML model statistics"""

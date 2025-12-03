@@ -62,7 +62,7 @@ class TMDBFetcher:
             self.tmdb.language = 'en-US'
             self.movie_api = Movie()
         except ImportError:
-            self.logger.error("tmdbv3api not installed. Run: pip install tmdbv3api")
+            self.logger.error("tmdbv3api not installed. Run: pip install tmdbv3api", exc_info=True)
             sys.exit(1)
     
     def _create_default_logger(self) -> PipelineLogger:
@@ -165,7 +165,7 @@ class TMDBFetcher:
             return metadata
             
         except Exception as e:
-            self.logger.error(f"Failed to fetch TMDB data: {e}")
+            self.logger.error(f"Failed to fetch TMDB data: {e}", exc_info=True)
             return None
     
     def generate_glossary(self, metadata: Dict[str, Any]) -> Dict[str, Any]:

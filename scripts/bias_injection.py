@@ -249,7 +249,7 @@ def main(stage_name: Optional[str] = None):
             segments = stage_io.load_json("segments.json", from_stage="lyrics_detection")
             stage_io.save_json(segments, "segments.json")
         except Exception as e:
-            logger.error(f"Failed to copy segments: {e}")
+            logger.error(f"Failed to copy segments: {e}", exc_info=True)
             return 1
         logger.info("=" * 70)
         return 0
@@ -259,7 +259,7 @@ def main(stage_name: Optional[str] = None):
     try:
         asr_data = stage_io.load_json("segments.json", from_stage="lyrics_detection")
     except Exception as e:
-        logger.error(f"Failed to load segments: {e}")
+        logger.error(f"Failed to load segments: {e}", exc_info=True)
         return 1
     
     # Handle both formats: list of segments or dict with 'segments' key
@@ -268,7 +268,7 @@ def main(stage_name: Optional[str] = None):
     elif isinstance(asr_data, dict):
         segments = asr_data.get('segments', [])
     else:
-        logger.error(f"Unexpected data format: {type(asr_data)}")
+        logger.error(f"Unexpected data format: {type(asr_data, exc_info=True)}")
         return 1
     
     logger.info(f"Loaded {len(segments)} segments")
@@ -328,9 +328,9 @@ def main(stage_name: Optional[str] = None):
     try:
         corrected_segments, stats = corrector.correct_segments(segments)
     except Exception as e:
-        logger.error(f"Bias correction failed: {e}")
+        logger.error(f"Bias correction failed: {e}", exc_info=True)
         import traceback
-        logger.error(traceback.format_exc())
+        logger.error(traceback.format_exc(, exc_info=True))
         return 1
     
     # Log statistics

@@ -253,19 +253,19 @@ class TMDBEnrichmentStage:
             return True
             
         except FileNotFoundError as e:
-            self.logger.error(f"File not found: {e}", exc_info=True)
+            self.logger.error(f"File not found: {e}", exc_info=True, exc_info=True)
             self.stage_io.add_error(f"File not found: {e}")
             self.stage_io.finalize(status="failed", error=str(e))
             return False
         
         except IOError as e:
-            self.logger.error(f"I/O error: {e}", exc_info=True)
+            self.logger.error(f"I/O error: {e}", exc_info=True, exc_info=True)
             self.stage_io.add_error(f"I/O error: {e}")
             self.stage_io.finalize(status="failed", error=str(e))
             return False
         
         except KeyError as e:
-            self.logger.error(f"Missing config: {e}", exc_info=True)
+            self.logger.error(f"Missing config: {e}", exc_info=True, exc_info=True)
             self.stage_io.add_error(f"Missing configuration: {e}")
             self.stage_io.finalize(status="failed", error=str(e))
             return False
@@ -277,7 +277,7 @@ class TMDBEnrichmentStage:
             return False
         
         except Exception as e:
-            self.logger.error(f"Unexpected error: {e}", exc_info=True)
+            self.logger.error(f"Unexpected error: {e}", exc_info=True, exc_info=True)
             self.stage_io.add_error(f"Unexpected error: {e}")
             self.stage_io.finalize(status="failed", error=str(e))
             return False

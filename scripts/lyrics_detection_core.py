@@ -104,7 +104,7 @@ class LyricsDetector:
             return lyric_segments
             
         except Exception as e:
-            self.logger.error(f"Audio feature analysis failed: {e}")
+            self.logger.error(f"Audio feature analysis failed: {e}", exc_info=True)
             return []
     
     def _calculate_music_confidence(self, audio: np.ndarray, sr: int) -> float:
@@ -556,7 +556,7 @@ class LyricsDetector:
             )
             
         except Exception as e:
-            self.logger.error(f"Music separation analysis failed: {e}")
+            self.logger.error(f"Music separation analysis failed: {e}", exc_info=True)
             import traceback
             self.logger.debug(traceback.format_exc())
         
@@ -702,4 +702,4 @@ def run_lyrics_detection(
 
 
 if __name__ == "__main__":
-    print("This is a library module. Use lyrics_detection.py or bias_injection.py for main entry point.")
+    logger.info("This is a library module. Use lyrics_detection.py or bias_injection.py for main entry point.")

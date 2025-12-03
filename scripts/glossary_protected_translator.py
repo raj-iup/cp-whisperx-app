@@ -223,7 +223,7 @@ class GlossaryProtectedTranslator:
                 **kwargs
             )
         except Exception as e:
-            self.logger.error(f"Translation failed: {e}")
+            self.logger.error(f"Translation failed: {e}", exc_info=True)
             # Return original text as fallback
             return text
 
@@ -273,7 +273,7 @@ class GlossaryProtectedTranslator:
                     **kwargs
                 )
             except Exception as e:
-                self.logger.error(f"Batch translation failed: {e}")
+                self.logger.error(f"Batch translation failed: {e}", exc_info=True)
                 # Fallback to individual translation
                 return [self.translate(text, src_lang, tgt_lang, **kwargs) for text in texts]
 

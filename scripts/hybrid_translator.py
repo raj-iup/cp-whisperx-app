@@ -139,7 +139,7 @@ class HybridTranslator:
             self.logger.info("✓ IndicTrans2 loaded successfully")
             
         except Exception as e:
-            self.logger.error(f"Failed to load IndicTrans2: {e}")
+            self.logger.error(f"Failed to load IndicTrans2: {e}", exc_info=True)
             raise
     
     def load_llm_client(self):
@@ -311,7 +311,7 @@ class HybridTranslator:
             return primary_result
                 
         except Exception as e:
-            self.logger.error(f"Translation error for text: {text[:50]}... Error: {e}")
+            self.logger.error(f"Translation error for text: {text[:50]}... Error: {e}", exc_info=True)
             self.stats['errors'] += 1
             
             # Fallback to original text
@@ -721,7 +721,7 @@ def main():
     try:
         data = stage_io.load_json("segments.json", from_stage="asr")
     except Exception as e:
-        logger.error(f"Failed to load segments from ASR: {e}")
+        logger.error(f"Failed to load segments from ASR: {e}", exc_info=True)
         return 1
     
     segments = data.get('segments', []) if isinstance(data, dict) else data

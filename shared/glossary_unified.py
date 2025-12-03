@@ -160,7 +160,7 @@ class UnifiedGlossary:
             self.logger.info(f"Loaded unified glossary: {len(self.master)} terms from {path}")
             
         except Exception as e:
-            self.logger.error(f"Failed to load unified glossary: {e}")
+            self.logger.error(f"Failed to load unified glossary: {e}", exc_info=True)
             import traceback
             self.logger.debug(f"Traceback: {traceback.format_exc()}")
     
@@ -222,7 +222,7 @@ class UnifiedGlossary:
                 self.logger.info(f"Loaded {len(self.film_terms)} film-specific terms from {path}")
         
         except Exception as e:
-            self.logger.error(f"Failed to parse prompt file: {e}")
+            self.logger.error(f"Failed to parse prompt file: {e}", exc_info=True)
     
     def _load_learned_terms(self):
         """Load learned terms from previous runs"""
@@ -258,7 +258,7 @@ class UnifiedGlossary:
             self.logger.info(f"Loaded {len(self.learned)} learned terms from {learned_file}")
             
         except Exception as e:
-            self.logger.error(f"Failed to load learned terms: {e}")
+            self.logger.error(f"Failed to load learned terms: {e}", exc_info=True)
     
     def get_translation(
         self,

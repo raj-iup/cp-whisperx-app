@@ -79,7 +79,7 @@ class NERProcessor:
             self.logger.info(f"  Install with: python -m spacy download {self.model_name}")
             raise
         except Exception as e:
-            self.logger.error(f"  Failed to load NER model: {e}")
+            self.logger.error(f"  Failed to load NER model: {e}", exc_info=True)
             raise
 
     def extract_entities_from_text(self, text: str) -> List[Dict]:
@@ -477,7 +477,7 @@ def main():
             logger.info(f"  To enable NER, install with: python -m spacy download {model_name}")
             logger.info("  NER is optional - continuing without entity extraction")
         else:
-            logger.error(f"NER extraction failed: {e}")
+            logger.error(f"NER extraction failed: {e}", exc_info=True)
             import traceback
             logger.error(traceback.format_exc())
         

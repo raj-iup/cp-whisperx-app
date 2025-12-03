@@ -646,9 +646,9 @@ class IndicTrans2Pipeline:
                     
             except Exception as e:
                 duration = (datetime.now() - start_time).total_seconds()
-                self.logger.error(f"❌ Stage {stage_name}: EXCEPTION: {e}")
+                self.logger.error(f"❌ Stage {stage_name}: EXCEPTION: {e}", exc_info=True)
                 if self.debug:
-                    self.logger.error(f"Traceback: {traceback.format_exc()}")
+                    self.logger.error(f"Traceback: {traceback.format_exc(, exc_info=True)}")
                 self._update_stage_status(stage_name, "failed", duration)
                 return False
         
@@ -783,29 +783,29 @@ class IndicTrans2Pipeline:
                 return False
                 
         except subprocess.CalledProcessError as e:
-            self.logger.error(f"FFmpeg failed: {e}")
-            stage_logger.error(f"FFmpeg command failed: {e.stderr if e.stderr else str(e)}", exc_info=True)
+            self.logger.error(f"FFmpeg failed: {e}", exc_info=True)
+            stage_logger.error(f"FFmpeg command failed: {e.stderr if e.stderr else str(e, exc_info=True)}", exc_info=True)
             stage_io.add_error(f"FFmpeg command failed: {e}")
             stage_io.finalize(status="failed", error="Demux failed")
             return False
         
         except FileNotFoundError as e:
-            self.logger.error(f"Input file not found: {e}")
-            stage_logger.error(f"Input file not found: {e}", exc_info=True)
+            self.logger.error(f"Input file not found: {e}", exc_info=True)
+            stage_logger.error(f"Input file not found: {e}", exc_info=True, exc_info=True)
             stage_io.add_error(f"Input file not found: {e}")
             stage_io.finalize(status="failed", error=str(e))
             return False
         
         except IOError as e:
-            self.logger.error(f"I/O error: {e}")
-            stage_logger.error(f"I/O error during demux: {e}", exc_info=True)
+            self.logger.error(f"I/O error: {e}", exc_info=True)
+            stage_logger.error(f"I/O error during demux: {e}", exc_info=True, exc_info=True)
             stage_io.add_error(f"I/O error: {e}")
             stage_io.finalize(status="failed", error=str(e))
             return False
         
         except Exception as e:
-            self.logger.error(f"Unexpected error: {e}", exc_info=True)
-            stage_logger.error(f"Unexpected error during demux: {e}", exc_info=True)
+            self.logger.error(f"Unexpected error: {e}", exc_info=True, exc_info=True)
+            stage_logger.error(f"Unexpected error during demux: {e}", exc_info=True, exc_info=True)
             stage_io.add_error(f"Unexpected error: {e}")
             stage_io.finalize(status="failed", error=str(e))
             return False
@@ -891,7 +891,7 @@ class IndicTrans2Pipeline:
             return True
             
         except subprocess.CalledProcessError as e:
-            self.logger.error(f"TMDB enrichment failed: {e.stderr if e.stderr else str(e)}")
+            self.logger.error(f"TMDB enrichment failed: {e.stderr if e.stderr else str(e, exc_info=True)}")
             self.logger.warning("Continuing without TMDB metadata")
             return True  # Non-blocking failure
     
@@ -964,7 +964,7 @@ class IndicTrans2Pipeline:
             return True
             
         except Exception as e:
-            self.logger.error(f"Failed to load glossary system: {e}")
+            self.logger.error(f"Failed to load glossary system: {e}", exc_info=True)
             if self.debug:
                 self.logger.debug(traceback.format_exc())
             self.logger.warning("Continuing without glossary system")
@@ -1022,7 +1022,7 @@ class IndicTrans2Pipeline:
             return True
             
         except subprocess.CalledProcessError as e:
-            self.logger.error(f"Source separation failed: {e.stderr}")
+            self.logger.error(f"Source separation failed: {e.stderr}", exc_info=True)
             return False
     
     def _stage_lyrics_detection(self) -> bool:
@@ -1155,11 +1155,11 @@ class IndicTrans2Pipeline:
                 return True
                 
         except subprocess.CalledProcessError as e:
-            self.logger.error(f"Lyrics detection error: {e.stderr}")
+            self.logger.error(f"Lyrics detection error: {e.stderr}", exc_info=True)
             self.logger.warning("Continuing pipeline without lyrics metadata")
             return True  # Non-fatal, graceful degradation
         except Exception as e:
-            self.logger.error(f"Unexpected error in lyrics detection: {e}")
+            self.logger.error(f"Unexpected error in lyrics detection: {e}", exc_info=True)
             if self.debug:
                 import traceback
                 self.logger.debug(traceback.format_exc())
@@ -1266,12 +1266,12 @@ class IndicTrans2Pipeline:
                 return False
                 
         except subprocess.CalledProcessError as e:
-            self.logger.error(f"PyAnnote VAD error: {e.stderr}")
-            self.logger.error("Pipeline cannot continue without VAD preprocessing")
+            self.logger.error(f"PyAnnote VAD error: {e.stderr}", exc_info=True)
+            self.logger.error("Pipeline cannot continue without VAD preprocessing", exc_info=True)
             return False
         except Exception as e:
-            self.logger.error(f"Unexpected error in PyAnnote VAD: {e}")
-            self.logger.error("Pipeline cannot continue without VAD preprocessing")
+            self.logger.error(f"Unexpected error in PyAnnote VAD: {e}", exc_info=True)
+            self.logger.error("Pipeline cannot continue without VAD preprocessing", exc_info=True)
             return False
     
     def _stage_asr(self) -> bool:
@@ -1346,14 +1346,14 @@ class IndicTrans2Pipeline:
             python_exe = self.env_manager.get_python_executable(asr_env)
             self.logger.info(f"Using WhisperX environment: {python_exe}")
         except (ValueError, FileNotFoundError) as e:
-            self.logger.error(f"Failed to get Python executable for {asr_env} environment: {e}")
-            self.logger.error("Run bootstrap.sh to set up environments")
+            self.logger.error(f"Failed to get Python executable for {asr_env} environment: {e}", exc_info=True)
+            self.logger.error("Run bootstrap.sh to set up environments", exc_info=True)
             return False
         
         # Run whisperx_asr.py stage script in the selected environment
         asr_script = self.scripts_dir / "whisperx_asr.py"
         if not asr_script.exists():
-            self.logger.error(f"ASR script not found: {asr_script}")
+            self.logger.error(f"ASR script not found: {asr_script}", exc_info=True)
             return False
         
         # Run ASR stage with subprocess
@@ -1534,7 +1534,7 @@ logger.info(f"Transcription completed: {{len(segments)}} segments")
                 return False
                 
         except subprocess.CalledProcessError as e:
-            self.logger.error(f"MLX-Whisper error: {e.stderr}")
+            self.logger.error(f"MLX-Whisper error: {e.stderr}", exc_info=True)
             return False
         finally:
             # Clean up temp script
@@ -1606,7 +1606,7 @@ logger.info(f"Transcription completed: {{len(segments)}} segments")
                 return False
                 
         except subprocess.CalledProcessError as e:
-            self.logger.error(f"ASR error: {e.stderr}")
+            self.logger.error(f"ASR error: {e.stderr}", exc_info=True)
             return False
     
     def _stage_alignment(self) -> bool:
@@ -1763,9 +1763,9 @@ logger.info(f"Transcription completed: {{len(segments)}} segments")
                 return False
                 
         except subprocess.CalledProcessError as e:
-            self.logger.error(f"MLX alignment failed: {e}")
+            self.logger.error(f"MLX alignment failed: {e}", exc_info=True)
             if e.stderr:
-                self.logger.error(f"Error output: {e.stderr}")
+                self.logger.error(f"Error output: {e.stderr}", exc_info=True)
             return False
     
     def _stage_export_transcript(self) -> bool:
@@ -1808,7 +1808,7 @@ logger.info(f"Transcription completed: {{len(segments)}} segments")
             return True
             
         except Exception as e:
-            self.logger.error(f"Error exporting transcript: {e}")
+            self.logger.error(f"Error exporting transcript: {e}", exc_info=True)
             return False
     
     def _stage_load_transcript(self) -> bool:
@@ -2020,11 +2020,11 @@ logger.info(f"Transcription completed: {{len(segments)}} segments")
                 return False
                 
         except subprocess.CalledProcessError as e:
-            self.logger.error(f"Hybrid translation error: {e.stderr}")
+            self.logger.error(f"Hybrid translation error: {e.stderr}", exc_info=True)
             self.logger.warning("Falling back to standard IndicTrans2")
             return self._stage_indictrans2_translation()
         except Exception as e:
-            self.logger.error(f"Unexpected error in hybrid translation: {e}")
+            self.logger.error(f"Unexpected error in hybrid translation: {e}", exc_info=True)
             if self.debug:
                 import traceback
                 self.logger.debug(traceback.format_exc())
@@ -2172,7 +2172,7 @@ logger.info(f"Translated {{len(translated['segments'])}} segments")
                 return False
                 
         except subprocess.CalledProcessError as e:
-            self.logger.error(f"Translation error: {e.stderr}")
+            self.logger.error(f"Translation error: {e.stderr}", exc_info=True)
             return False
     
     def _stage_subtitle_generation(self) -> bool:
@@ -2210,7 +2210,7 @@ logger.info(f"Translated {{len(translated['segments'])}} segments")
                 raw_data = json.load(f)
                 data, segments = normalize_segments_data(raw_data)
         except Exception as e:
-            self.logger.error(f"Failed to load segments: {e}")
+            self.logger.error(f"Failed to load segments: {e}", exc_info=True)
             return False
         
         # Generate SRT file
@@ -2267,7 +2267,7 @@ logger.info(f"Translated {{len(translated['segments'])}} segments")
                 raw_data = json.load(f)
                 data, segments = normalize_segments_data(raw_data)
         except Exception as e:
-            self.logger.error(f"Failed to load segments: {e}")
+            self.logger.error(f"Failed to load segments: {e}", exc_info=True)
             return False
         
         # Generate SRT file
@@ -2403,7 +2403,7 @@ logger.info(f"Translated {{len(translated['segments'])}} segments to {target_lan
                 return False
                 
         except subprocess.CalledProcessError as e:
-            self.logger.error(f"Translation to {target_lang} error: {e.stderr}")
+            self.logger.error(f"Translation to {target_lang} error: {e.stderr}", exc_info=True)
             return False
     
     def _stage_nllb_translation(self) -> bool:
@@ -2492,7 +2492,7 @@ logger.info(f"Translated {{len(translated['segments'])}} segments")
                 return False
                 
         except subprocess.CalledProcessError as e:
-            self.logger.error(f"Translation error: {e.stderr}")
+            self.logger.error(f"Translation error: {e.stderr}", exc_info=True)
             return False
     
     def _stage_nllb_translation_multi(self, target_lang: str) -> bool:
@@ -2580,7 +2580,7 @@ logger.info(f"Translated {{len(translated['segments'])}} segments to {target_lan
                 return False
                 
         except subprocess.CalledProcessError as e:
-            self.logger.error(f"Translation to {target_lang} error: {e.stderr}")
+            self.logger.error(f"Translation to {target_lang} error: {e.stderr}", exc_info=True)
             return False
     
     def _stage_subtitle_generation_target_multi(self, target_lang: str) -> bool:
@@ -2599,7 +2599,7 @@ logger.info(f"Translated {{len(translated['segments'])}} segments to {target_lan
                 raw_data = json.load(f)
                 data, segments = normalize_segments_data(raw_data)
         except Exception as e:
-            self.logger.error(f"Failed to load {target_lang} segments: {e}")
+            self.logger.error(f"Failed to load {target_lang} segments: {e}", exc_info=True)
             return False
         
         # Generate SRT file
@@ -2607,7 +2607,7 @@ logger.info(f"Translated {{len(translated['segments'])}} segments to {target_lan
             self.logger.info(f"{target_lang.upper()} subtitles generated: {output_srt}")
             return True
         else:
-            self.logger.error(f"{target_lang} subtitle generation failed")
+            self.logger.error(f"{target_lang} subtitle generation failed", exc_info=True)
             return False
     
     def _stage_subtitle_generation_target(self) -> bool:
@@ -2627,7 +2627,7 @@ logger.info(f"Translated {{len(translated['segments'])}} segments to {target_lan
                 raw_data = json.load(f)
                 data, segments = normalize_segments_data(raw_data)
         except Exception as e:
-            self.logger.error(f"Failed to load segments: {e}")
+            self.logger.error(f"Failed to load segments: {e}", exc_info=True)
             return False
         
         # Generate SRT file
@@ -2635,7 +2635,7 @@ logger.info(f"Translated {{len(translated['segments'])}} segments to {target_lan
             self.logger.info(f"Target subtitles generated: {output_srt}")
             return True
         else:
-            self.logger.error("Target subtitle generation failed")
+            self.logger.error("Target subtitle generation failed", exc_info=True)
             return False
     
     def _stage_hinglish_detection(self) -> bool:
@@ -2694,7 +2694,7 @@ logger.info(f"Translated {{len(translated['segments'])}} segments to {target_lan
             return True
             
         except subprocess.CalledProcessError as e:
-            self.logger.error(f"Hinglish detection failed: {e.stderr}")
+            self.logger.error(f"Hinglish detection failed: {e.stderr}", exc_info=True)
             self.logger.warning("Continuing without Hinglish detection...")
             return True  # Don't fail the pipeline, just warn
     
@@ -2920,7 +2920,7 @@ logger.info(f"Translated {{len(translated['segments'])}} segments to {target_lan
                 return False
                 
         except subprocess.CalledProcessError as e:
-            self.logger.error(f"FFmpeg muxing error: {e.stderr}")
+            self.logger.error(f"FFmpeg muxing error: {e.stderr}", exc_info=True)
             return False
     
     # ========================================================================
@@ -3096,10 +3096,10 @@ logger.info(f"Translated {{len(translated['segments'])}} segments to {target_lan
             return True
             
         except Exception as e:
-            self.logger.error(f"Error in hallucination removal: {e}")
+            self.logger.error(f"Error in hallucination removal: {e}", exc_info=True)
             if self.main_config.debug_mode:
                 import traceback
-                self.logger.error(f"Traceback: {traceback.format_exc()}")
+                self.logger.error(f"Traceback: {traceback.format_exc(, exc_info=True)}")
             
             # Graceful degradation - continue with original segments
             self.logger.warning("Continuing with original segments (graceful degradation)")

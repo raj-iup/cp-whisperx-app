@@ -252,7 +252,7 @@ class IndicTrans2Translator:
         if self.logger:
             getattr(self.logger, level)(message)
         else:
-            print(f"[{level.upper()}] {message}")
+            logger.info(f"[{level.upper()}] {message}")
     
     def _get_hf_token(self) -> Optional[str]:
         """
@@ -808,12 +808,12 @@ def translate_whisperx_result(
         # Check for authentication errors
         if "authentication required" in str(e).lower():
             if logger:
-                logger.error("=" * 70)
-                logger.error("IndicTrans2 authentication required - falling back to source")
-                logger.error("=" * 70)
-                logger.error("Please authenticate with HuggingFace:")
-                logger.error(f"  1. Visit: https://huggingface.co/{model_name}")
-                logger.error("  2. Request access to the model")
+                logger.error("=" * 70, exc_info=True)
+                logger.error("IndicTrans2 authentication required - falling back to source", exc_info=True)
+                logger.error("=" * 70, exc_info=True)
+                logger.error("Please authenticate with HuggingFace:", exc_info=True)
+                logger.error(f"  1. Visit: https://huggingface.co/{model_name}", exc_info=True)
+                logger.error("  2. Request access to the model", exc_info=True)
                 logger.error("  3. Run: huggingface-cli login")
             return source_result
         else:
@@ -821,7 +821,7 @@ def translate_whisperx_result(
     
     except Exception as e:
         if logger:
-            logger.error(f"IndicTrans2 translation failed: {e}")
+            logger.error(f"IndicTrans2 translation failed: {e}", exc_info=True)
             logger.warning("Falling back to returning source result")
         return source_result
             
@@ -884,12 +884,12 @@ def main():
             skip_english=not args.no_skip_english
         )
         
-        print(f"\n✓ Successfully translated {num_translated} subtitles")
-        print(f"  Output: {args.output}")
+        logger.info(f"\n✓ Successfully translated {num_translated} subtitles")
+        logger.info(f"  Output: {args.output}")
         return 0
         
     except Exception as e:
-        print(f"\n✗ Translation failed: {e}")
+        logger.info(f"\n✗ Translation failed: {e}")
         return 1
     finally:
         translator.cleanup()

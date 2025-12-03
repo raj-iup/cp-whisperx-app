@@ -109,7 +109,7 @@ class TMDBLoader:
             
         except Exception as e:
             if self.logger:
-                self.logger.error(f"Failed to load TMDB enrichment: {e}")
+                self.logger.error(f"Failed to load TMDB enrichment: {e}", exc_info=True)
             self._cache = TMDBData.empty()
             return self._cache
     

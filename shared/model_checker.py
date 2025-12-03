@@ -171,9 +171,9 @@ class ModelChecker:
 
 def print_section(title: str):
     """Print a section header"""
-    print(f"\n{'='*70}")
-    print(f"  {title}")
-    print(f"{'='*70}")
+    logger.info(f"\n{'='*70}")
+    logger.info(f"  {title}")
+    logger.info(f"{'='*70}")
 
 
 def print_model_status(model_name: str, cached: bool, status: str, note: Optional[str] = None):
@@ -187,7 +187,7 @@ def print_model_status(model_name: str, cached: bool, status: str, note: Optiona
     if note:
         full_status += f" - {note}"
     
-    print(f"  {status_icon} {display_name} {full_status}")
+    logger.info(f"  {status_icon} {display_name} {full_status}")
 
 
 def load_hardware_cache(project_root: Path) -> Dict:
@@ -221,8 +221,8 @@ def main():
     cache_dir = project_root / '.cache'
     
     print_section("ML MODEL STATUS CHECK")
-    print(f"  Cache directory: {cache_dir}")
-    print(f"  Check time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    logger.info(f"  Cache directory: {cache_dir}")
+    logger.info(f"  Check time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     
     # Load HF token from secrets if not provided
     hf_token = args.hf_token
@@ -238,9 +238,9 @@ def main():
                 pass
     
     if hf_token:
-        print("  ✓ HuggingFace token available")
+        logger.info("  ✓ HuggingFace token available")
     else:
-        print("  ⚠ No HuggingFace token - PyAnnote models not checked")
+        logger.info("  ⚠ No HuggingFace token - PyAnnote models not checked")
     
     # Determine which Whisper models to check
     if args.whisper_models:
@@ -256,8 +256,8 @@ def main():
         # Remove duplicates
         whisper_models = list(dict.fromkeys(whisper_models))
     
-    print(f"  Checking Whisper models: {', '.join(whisper_models)}")
-    print()
+    logger.info(f"  Checking Whisper models: {', '.join(whisper_models)}")
+    logger.info()
     
     # Initialize checker
     checker = ModelChecker(cache_dir, hf_token)
@@ -283,7 +283,7 @@ def main():
         category_results = [(name, cached, status, note) for name, (cached, status, note, cat) in results.items() if cat == category]
         
         if category_results:
-            print(f"\n  {title}:")
+            logger.info(f"\n  {title}:")
             for model_name, cached, status, note in category_results:
                 print_model_status(model_name, cached, status, note)
                 stats['total'] += 1
@@ -298,26 +298,26 @@ def main():
     if cache_dir.exists():
         total_cache_size = checker._get_dir_size(cache_dir)
         cache_size_str = checker._format_size(total_cache_size)
-        print(f"\n  Total cache size: {cache_size_str}")
+        logger.info(f"\n  Total cache size: {cache_size_str}")
     
     # Print summary
     print_section("SUMMARY")
-    print(f"  Total models checked: {stats['total']}")
-    print(f"  ✓ Cached/Installed: {stats['cached']}")
-    print(f"  ✗ Missing: {stats['missing']}")
+    logger.info(f"  Total models checked: {stats['total']}")
+    logger.info(f"  ✓ Cached/Installed: {stats['cached']}")
+    logger.info(f"  ✗ Missing: {stats['missing']}")
     
     if missing_models:
-        print(f"\n  Missing models that can be downloaded:")
+        logger.info(f"\n  Missing models that can be downloaded:")
         for model in missing_models:
-            print(f"    • {model}")
-        print(f"\n  To download missing models, run:")
-        print(f"    python shared/model_downloader.py")
+            logger.info(f"    • {model}")
+        logger.info(f"\n  To download missing models, run:")
+        logger.info(f"    python shared/model_downloader.py")
     
     if args.check_updates:
-        print(f"\n  ⓘ Update checking not yet implemented")
-        print(f"  Models are downloaded from latest available versions")
+        logger.info(f"\n  ⓘ Update checking not yet implemented")
+        logger.info(f"  Models are downloaded from latest available versions")
     
-    print()
+    logger.info()
 
 
 if __name__ == '__main__':

@@ -578,7 +578,7 @@ def main():
     try:
         data = stage_io.load_json("segments.json", from_stage="whisperx_asr")
     except Exception as e:
-        logger.error(f"Failed to load segments: {e}")
+        logger.error(f"Failed to load segments: {e}", exc_info=True)
         return 1
     
     # Extract segments and metadata

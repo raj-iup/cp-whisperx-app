@@ -35,7 +35,7 @@ if __name__ == "__main__":
     try:
         config = load_config()
     except Exception as e:
-        logger.error(f"Failed to load configuration: {e}")
+        logger.error(f"Failed to load configuration: {e}", exc_info=True)
         stage_io.add_error(f"Config load failed: {e}", e)
         stage_io.finalize(status="failed", error=str(e))
         sys.exit(1)
@@ -44,7 +44,7 @@ if __name__ == "__main__":
     audio_input = stage_io.get_input_path("audio.wav", from_stage="demux")
     
     if not audio_input.exists():
-        logger.error(f"Audio file not found: {audio_input}")
+        logger.error(f"Audio file not found: {audio_input}", exc_info=True)
         stage_io.add_error(f"Audio file not found: {audio_input}")
         stage_io.finalize(status="failed", error="Input file missing")
         sys.exit(1)
@@ -86,23 +86,23 @@ if __name__ == "__main__":
         from pyannote_vad_chunker import main as vad_main
         exit_code = vad_main()
     except FileNotFoundError as e:
-        logger.error(f"✗ File not found: {e}", exc_info=True)
+        logger.error(f"✗ File not found: {e}", exc_info=True, exc_info=True)
         stage_io.add_error(f"File not found: {e}")
         stage_io.finalize(status="failed", error=str(e))
         sys.exit(1)
     except IOError as e:
-        logger.error(f"✗ I/O error: {e}", exc_info=True)
+        logger.error(f"✗ I/O error: {e}", exc_info=True, exc_info=True)
         stage_io.add_error(f"I/O error: {e}")
         stage_io.finalize(status="failed", error=str(e))
         sys.exit(1)
     except ImportError as e:
-        logger.error(f"✗ Failed to import pyannote_vad_chunker: {e}")
-        logger.error("Make sure PyAnnote is installed in the correct environment")
+        logger.error(f"✗ Failed to import pyannote_vad_chunker: {e}", exc_info=True)
+        logger.error("Make sure PyAnnote is installed in the correct environment", exc_info=True)
         stage_io.add_error(f"Import failed: {e}")
         stage_io.finalize(status="failed", error="Missing dependency")
         sys.exit(1)
     except RuntimeError as e:
-        logger.error(f"✗ Model error: {e}", exc_info=True)
+        logger.error(f"✗ Model error: {e}", exc_info=True, exc_info=True)
         stage_io.add_error(f"PyAnnote model error: {e}")
         stage_io.finalize(status="failed", error=str(e))
         sys.exit(1)
@@ -112,14 +112,14 @@ if __name__ == "__main__":
         stage_io.finalize(status="failed", error="KeyboardInterrupt")
         sys.exit(130)
     except Exception as e:
-        logger.error(f"✗ VAD failed with unexpected error: {e}", exc_info=True)
+        logger.error(f"✗ VAD failed with unexpected error: {e}", exc_info=True, exc_info=True)
         stage_io.add_error(f"Unexpected error: {e}")
         stage_io.finalize(status="failed", error=str(e))
         sys.exit(1)
     
     # Handle None exit code (should not happen with fixed chunker)
     if exit_code is None:
-        logger.error("✗ PyAnnote VAD returned None - treating as failure")
+        logger.error("✗ PyAnnote VAD returned None - treating as failure", exc_info=True)
         stage_io.add_error("VAD returned None")
         stage_io.finalize(status="failed", error="Invalid return code")
         exit_code = 1
@@ -151,7 +151,7 @@ if __name__ == "__main__":
             stage_io.add_warning("Output file not found")
             stage_io.finalize(status="success", device=device)
     else:
-        logger.error(f"✗ PyAnnote VAD failed with exit code {exit_code}")
+        logger.error(f"✗ PyAnnote VAD failed with exit code {exit_code}", exc_info=True)
         stage_io.add_error(f"VAD failed with exit code {exit_code}")
         stage_io.finalize(status="failed", exit_code=exit_code)
     

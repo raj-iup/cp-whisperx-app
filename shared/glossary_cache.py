@@ -147,7 +147,7 @@ class GlossaryCache:
             return glossary
             
         except Exception as e:
-            self.logger.error(f"Error loading cached glossary: {e}")
+            self.logger.error(f"Error loading cached glossary: {e}", exc_info=True)
             self.stats['tmdb_misses'] += 1
             return None
     
@@ -205,7 +205,7 @@ class GlossaryCache:
             return True
             
         except Exception as e:
-            self.logger.error(f"Error saving glossary cache: {e}")
+            self.logger.error(f"Error saving glossary cache: {e}", exc_info=True)
             return False
     
     def get_learned_terms(
@@ -238,7 +238,7 @@ class GlossaryCache:
             return learned_data
             
         except Exception as e:
-            self.logger.error(f"Error loading learned terms: {e}")
+            self.logger.error(f"Error loading learned terms: {e}", exc_info=True)
             self.stats['learned_misses'] += 1
             return {}
     
@@ -284,7 +284,7 @@ class GlossaryCache:
             return True
             
         except Exception as e:
-            self.logger.error(f"Error saving learned terms: {e}")
+            self.logger.error(f"Error saving learned terms: {e}", exc_info=True)
             return False
     
     def cleanup_expired(self) -> int:

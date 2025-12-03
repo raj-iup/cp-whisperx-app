@@ -88,7 +88,7 @@ def export_json(transcript_data: Dict[str, Any], output_path: Path, logger) -> b
         logger.info(f"✓ Exported JSON: {output_path}")
         return True
     except Exception as e:
-        logger.error(f"✗ Failed to export JSON: {e}")
+        logger.error(f"✗ Failed to export JSON: {e}", exc_info=True)
         return False
 
 
@@ -116,7 +116,7 @@ def export_txt(transcript_data: Dict[str, Any], output_path: Path, logger) -> bo
         logger.info(f"✓ Exported TXT: {output_path}")
         return True
     except Exception as e:
-        logger.error(f"✗ Failed to export TXT: {e}")
+        logger.error(f"✗ Failed to export TXT: {e}", exc_info=True)
         return False
 
 
@@ -152,7 +152,7 @@ def export_srt(transcript_data: Dict[str, Any], output_path: Path, logger) -> bo
         logger.info(f"✓ Exported SRT: {output_path}")
         return True
     except Exception as e:
-        logger.error(f"✗ Failed to export SRT: {e}")
+        logger.error(f"✗ Failed to export SRT: {e}", exc_info=True)
         return False
 
 
@@ -189,7 +189,7 @@ def export_vtt(transcript_data: Dict[str, Any], output_path: Path, logger) -> bo
         logger.info(f"✓ Exported VTT: {output_path}")
         return True
     except Exception as e:
-        logger.error(f"✗ Failed to export VTT: {e}")
+        logger.error(f"✗ Failed to export VTT: {e}", exc_info=True)
         return False
 
 
@@ -227,7 +227,7 @@ def export_tsv(transcript_data: Dict[str, Any], output_path: Path, logger) -> bo
         logger.info(f"✓ Exported TSV: {output_path}")
         return True
     except Exception as e:
-        logger.error(f"✗ Failed to export TSV: {e}")
+        logger.error(f"✗ Failed to export TSV: {e}", exc_info=True)
         return False
 
 
@@ -251,14 +251,14 @@ def main():
         try:
             config = load_config()
         except Exception as e:
-            logger.error(f"Failed to load config: {e}")
+            logger.error(f"Failed to load config: {e}", exc_info=True)
             return 1
         
         # Get input transcript
         transcript_file = stage_io.get_input_path("transcript.json", from_stage="asr")
         
         if not transcript_file.exists():
-            logger.error(f"Transcript file not found: {transcript_file}")
+            logger.error(f"Transcript file not found: {transcript_file}", exc_info=True)
             return 1
         
         logger.info(f"Input transcript: {transcript_file}")
@@ -268,7 +268,7 @@ def main():
             with open(transcript_file, 'r', encoding='utf-8') as f:
                 transcript_data = json.load(f)
         except Exception as e:
-            logger.error(f"Failed to load transcript: {e}")
+            logger.error(f"Failed to load transcript: {e}", exc_info=True)
             return 1
         
         # Get segments count
@@ -328,7 +328,7 @@ def main():
         logger.warning("✗ Export interrupted by user")
         return 130
     except Exception as e:
-        logger.error(f"✗ Export failed: {e}")
+        logger.error(f"✗ Export failed: {e}", exc_info=True)
         import traceback
         logger.debug(traceback.format_exc())
         return 1

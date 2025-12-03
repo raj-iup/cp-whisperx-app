@@ -76,10 +76,10 @@ def translate_with_indictrans2(
         return translated_segments
         
     except ImportError:
-        logger.error("IndicTrans2 not available. Install with: pip install indictrans2")
+        logger.error("IndicTrans2 not available. Install with: pip install indictrans2", exc_info=True)
         raise
     except Exception as e:
-        logger.error(f"IndicTrans2 translation failed: {e}")
+        logger.error(f"IndicTrans2 translation failed: {e}", exc_info=True)
         raise
 
 
@@ -127,10 +127,10 @@ def translate_with_nllb(
         return translated_segments
         
     except ImportError:
-        logger.error("NLLB not available. Install with: pip install transformers")
+        logger.error("NLLB not available. Install with: pip install transformers", exc_info=True)
         raise
     except Exception as e:
-        logger.error(f"NLLB translation failed: {e}")
+        logger.error(f"NLLB translation failed: {e}", exc_info=True)
         raise
 
 
@@ -183,7 +183,7 @@ def main():
         try:
             config = load_config()
         except Exception as e:
-            logger.error(f"Failed to load config: {e}")
+            logger.error(f"Failed to load config: {e}", exc_info=True)
             return 1
         
         # Get translation settings from config
@@ -225,7 +225,7 @@ def main():
             with open(transcript_file, 'r', encoding='utf-8') as f:
                 transcript_data = json.load(f)
         except Exception as e:
-            logger.error(f"Failed to load transcript: {e}")
+            logger.error(f"Failed to load transcript: {e}", exc_info=True)
             return 1
         
         segments = transcript_data.get('segments', [])
@@ -257,7 +257,7 @@ def main():
                 return 1
         
         except Exception as e:
-            logger.error(f"Translation failed: {e}")
+            logger.error(f"Translation failed: {e}", exc_info=True)
             import traceback
             logger.debug(traceback.format_exc())
             return 1
@@ -277,7 +277,7 @@ def main():
             with open(output_file, 'w', encoding='utf-8') as f:
                 json.dump(output_data, f, ensure_ascii=False, indent=2)
         except Exception as e:
-            logger.error(f"Failed to save translated transcript: {e}")
+            logger.error(f"Failed to save translated transcript: {e}", exc_info=True)
             return 1
         
         logger.info(f"✓ Saved translated transcript: {output_file}")
@@ -300,7 +300,7 @@ def main():
         logger.warning("✗ Translation interrupted by user")
         return 130
     except Exception as e:
-        logger.error(f"✗ Translation failed: {e}")
+        logger.error(f"✗ Translation failed: {e}", exc_info=True)
         import traceback
         logger.debug(traceback.format_exc())
         return 1

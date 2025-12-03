@@ -134,7 +134,7 @@ class TMDBClient:
             
         except Exception as e:
             if self.logger:
-                self.logger.error(f"TMDB search failed: {e}")
+                self.logger.error(f"TMDB search failed: {e}", exc_info=True)
             return None
     
     def get_movie_metadata(self, movie_id: int) -> Optional[Dict[str, Any]]:
@@ -238,7 +238,7 @@ class TMDBClient:
             
         except Exception as e:
             if self.logger:
-                self.logger.error(f"Failed to fetch metadata: {e}")
+                self.logger.error(f"Failed to fetch metadata: {e}", exc_info=True)
             import traceback
             traceback.print_exc()
             return None

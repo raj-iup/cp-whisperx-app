@@ -130,7 +130,7 @@ class NERPostProcessor:
                 return False
                 
         except Exception as e:
-            self.logger.error(f"NER post-processing failed: {e}")
+            self.logger.error(f"NER post-processing failed: {e}", exc_info=True)
             import traceback
             traceback.print_exc()
             return False

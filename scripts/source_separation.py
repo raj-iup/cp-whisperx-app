@@ -58,7 +58,7 @@ def install_demucs(logger):
             logger.error(f"Failed to install Demucs: {result.stderr}")
             return False
     except Exception as e:
-        logger.error(f"Failed to install Demucs: {e}")
+        logger.error(f"Failed to install Demucs: {e}", exc_info=True)
         return False
 
 
@@ -171,11 +171,11 @@ def separate_vocals(input_audio, output_dir, quality="balanced", logger=None):
         
     except subprocess.TimeoutExpired:
         if logger:
-            logger.error("Demucs timed out after 10 minutes")
+            logger.error("Demucs timed out after 10 minutes", exc_info=True)
         return None
     except Exception as e:
         if logger:
-            logger.error(f"Source separation failed: {e}")
+            logger.error(f"Source separation failed: {e}", exc_info=True)
         return None
 
 
@@ -208,12 +208,12 @@ def main():
             with open(job_config_file, 'r') as f:
                 job_config = json.load(f)
         except json.JSONDecodeError as e:
-            logger.error(f"Invalid JSON in job configuration: {e}")
+            logger.error(f"Invalid JSON in job configuration: {e}", exc_info=True)
             stage_io.add_error(f"Config parse failed: {e}", e)
             stage_io.finalize(status="failed", error=f"Invalid JSON: {e}")
             return 1
         except IOError as e:
-            logger.error(f"Failed to read job configuration: {e}")
+            logger.error(f"Failed to read job configuration: {e}", exc_info=True)
             stage_io.add_error(f"Config read failed: {e}", e)
             stage_io.finalize(status="failed", error=f"IO error: {e}")
             return 1
@@ -278,7 +278,7 @@ def main():
                 raise ValueError("Input audio file is empty")
             logger.debug(f"Input audio size: {input_size / (1024*1024):.2f} MB")
         except OSError as e:
-            logger.error(f"Cannot access input audio: {e}")
+            logger.error(f"Cannot access input audio: {e}", exc_info=True)
             stage_io.add_error(f"Input file access error: {e}")
             stage_io.finalize(status="failed", error=f"Cannot read input: {e}")
             return 1
@@ -326,7 +326,7 @@ def main():
             shutil.copy2(vocals_file, output_audio)
             logger.info(f"✓ Output audio (vocals only): {output_audio}")
         except IOError as e:
-            logger.error(f"Failed to copy vocals to output: {e}")
+            logger.error(f"Failed to copy vocals to output: {e}", exc_info=True)
             stage_io.add_error(f"Output file copy failed: {e}")
             stage_io.finalize(status="failed", error=f"Cannot write output: {e}")
             return 1
@@ -385,7 +385,7 @@ def main():
     
     except FileNotFoundError as e:
         if logger:
-            logger.error(f"File not found: {e}", exc_info=True)
+            logger.error(f"File not found: {e}", exc_info=True, exc_info=True)
         if stage_io:
             stage_io.add_error(f"File not found: {e}")
             stage_io.finalize(status="failed", error=f"Missing file: {e}")
@@ -393,7 +393,7 @@ def main():
     
     except IOError as e:
         if logger:
-            logger.error(f"I/O error: {e}", exc_info=True)
+            logger.error(f"I/O error: {e}", exc_info=True, exc_info=True)
         if stage_io:
             stage_io.add_error(f"I/O error: {e}")
             stage_io.finalize(status="failed", error=f"IO error: {e}")
@@ -401,7 +401,7 @@ def main():
     
     except ValueError as e:
         if logger:
-            logger.error(f"Invalid value: {e}", exc_info=True)
+            logger.error(f"Invalid value: {e}", exc_info=True, exc_info=True)
         if stage_io:
             stage_io.add_error(f"Validation error: {e}")
             stage_io.finalize(status="failed", error=f"Invalid input: {e}")
@@ -409,7 +409,7 @@ def main():
     
     except subprocess.TimeoutExpired as e:
         if logger:
-            logger.error(f"Processing timeout: {e}", exc_info=True)
+            logger.error(f"Processing timeout: {e}", exc_info=True, exc_info=True)
         if stage_io:
             stage_io.add_error(f"Timeout during processing: {e}")
             stage_io.finalize(status="failed", error="Processing timeout")
@@ -425,9 +425,9 @@ def main():
     
     except Exception as e:
         if logger:
-            logger.error(f"Unexpected error: {e}", exc_info=True)
+            logger.error(f"Unexpected error: {e}", exc_info=True, exc_info=True)
         else:
-            print(f"ERROR: {e}", file=sys.stderr)
+            logger.info(f"ERROR: {e}", file=sys.stderr)
         if stage_io:
             stage_io.add_error(f"Unexpected error: {e}")
             stage_io.finalize(status="failed", error=f"Unexpected: {type(e).__name__}")

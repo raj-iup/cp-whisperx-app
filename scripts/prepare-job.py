@@ -661,7 +661,7 @@ def main():
         
         logger.info(f"✓ All required environments installed")
     except FileNotFoundError as e:
-        logger.error(f"❌ Error: {e}")
+        logger.error(f"❌ Error: {e}", exc_info=True)
         logger.info(f"   Run: ./bootstrap.sh to setup environments")
         sys.exit(1)
     
