@@ -76,6 +76,71 @@ This document defines comprehensive development standards for the CP-WhisperX-Ap
 
 ---
 
+## ⚠️ Implementation Reality vs. Documentation
+
+**Document Status:** This document describes the **target architecture (v3.0)**, which is 55% complete.
+
+### Current Reality (v2.0)
+
+**Stage Pattern Adoption:** 5% (1-2 of 44 Python files)
+
+Most stages currently implemented as utility scripts **without**:
+- ❌ `run_stage()` function
+- ❌ StageIO initialization  
+- ❌ Manifest tracking
+- ⚠️ Partial logging compliance (90%)
+- ⚠️ Partial error handling (70%)
+
+**Files Currently Using Full StageIO Pattern:**
+1. ✅ `scripts/tmdb_enrichment_stage.py` - Complete implementation
+2. ⚠️ `scripts/validate-compliance.py` - Uses logger pattern (not a stage)
+
+**Active Stages (Partially Compliant):**
+- `scripts/demux.py` - Has logging, no StageIO/manifest
+- `scripts/whisperx_asr.py` - Has logging, no StageIO/manifest
+- `scripts/indictrans2_translator.py` - Has logging, no StageIO/manifest
+- Inline subtitle generation - No dedicated module
+- `scripts/mux.py` - Has logging, no StageIO/manifest
+
+**Future Stages (Not Integrated):**
+- `scripts/tmdb_enrichment_stage.py` - Follows pattern, not integrated
+- `glossary/` - Partial implementation
+- `scripts/ner_extraction.py` - Standalone, not integrated
+- `scripts/lyrics_detector.py` - Standalone, not integrated
+- `scripts/hallucination_removal.py` - Standalone, not integrated
+
+### Target Pattern (v3.0)
+
+All pipeline stages **will** follow the pattern documented in § 4 below.
+
+### Migration Status
+
+**See:** [Architecture Implementation Roadmap](../ARCHITECTURE_IMPLEMENTATION_ROADMAP.md) for 21-week migration plan.
+
+**Phase Progress:**
+- ✅ Phase 1: Documentation Sync (2 weeks) - **COMPLETE**
+- ⏳ Phase 2: Testing Infrastructure (3 weeks) - **NEXT**
+- ⏳ Phase 3: Stage Pattern Adoption (4 weeks) - Critical active stages
+- ⏳ Phase 4: Full Pipeline Implementation (8 weeks) - All 10 stages
+- ⏳ Phase 5: Advanced Features (4 weeks) - Production features
+
+### Migration Checklist
+
+When converting a script to stage pattern:
+- [ ] Add `run_stage()` function with `(job_dir: Path, stage_name: str) -> int` signature
+- [ ] Initialize StageIO with `enable_manifest=True`
+- [ ] Use `io.get_stage_logger()` for logging
+- [ ] Track all inputs with `io.manifest.add_input()`
+- [ ] Track all outputs with `io.manifest.add_output()`
+- [ ] Write outputs ONLY to `io.stage_dir`
+- [ ] Finalize manifest with exit code
+- [ ] Add unit tests for stage
+- [ ] Update pipeline orchestrator to call `run_stage()`
+
+**See:** [Migration Guide](MIGRATION_GUIDE.md) for detailed conversion process.
+
+---
+
 ## 1. PROJECT STRUCTURE
 
 ### 1.1 Directory Layout

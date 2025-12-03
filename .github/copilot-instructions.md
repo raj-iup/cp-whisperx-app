@@ -23,6 +23,61 @@
 
 ---
 
+## 🚧 Implementation Status
+
+**Current Architecture:** v2.0 (Simplified 3-6 Stage Pipeline)  
+**Target Architecture:** v3.0 (Modular 10-Stage Pipeline)  
+**Migration Progress:** 55% Complete
+
+### What Works Now (v2.0) ✅
+
+**Use These Patterns:**
+- ✅ Configuration loading (100% compliant) - `load_config()`
+- ✅ Logging system (90% compliant) - `logger.info()` not `print()`
+- ✅ Multi-environment support - MLX/CUDA/CPU
+- ✅ Error handling patterns - Try/except with logging
+- ✅ Type hints and docstrings (100% compliant)
+
+**Partially Implemented:**
+- ⚠️ Stage module pattern (5% adoption) - Only `tmdb_enrichment_stage.py`
+- ⚠️ Manifest tracking (40% adoption) - Few stages use it
+- ⚠️ Stage isolation (60% adoption) - Some shared state remains
+
+### What's Coming (v3.0) ⏳
+
+**In Active Development:**
+- ⏳ Full 10-stage modular pipeline
+- ⏳ Universal StageIO adoption (target: 100%)
+- ⏳ Complete manifest tracking (target: 100%)
+- ⏳ Stage-level testing infrastructure
+- ⏳ Stage enable/disable per job
+- ⏳ Advanced features (retry, caching, circuit breakers)
+
+**See:** [Implementation Status Dashboard](../docs/IMPLEMENTATION_STATUS.md) for current progress.
+
+### Code Generation Guidelines
+
+**When generating NEW stage code:**
+1. ✅ **Follow DEVELOPER_STANDARDS.md patterns** (even if not widely adopted yet)
+2. ✅ **Use StageIO pattern with manifests** - This is the target state
+3. ✅ **Write to io.stage_dir only** - Maintain stage isolation
+4. ✅ **Use logger, not print** - Always use proper logging
+5. ✅ **Add type hints and docstrings** - 100% compliance required
+
+**When modifying EXISTING code:**
+1. 🎯 **Match existing patterns** for consistency
+2. 📝 **Add TODO comment** for v3.0 migration if applicable
+3. 🔄 **Consider gradual refactoring** if time permits
+4. ⚠️ **Note:** Existing stages may not follow StageIO pattern (migration in progress)
+
+**Example for existing stage:**
+```python
+# TODO: v3.0 - Migrate to StageIO pattern with manifest tracking
+# See: scripts/tmdb_enrichment_stage.py for reference implementation
+```
+
+---
+
 ## 🗺️ Quick Navigation Table
 
 | Task | Section | Topics |

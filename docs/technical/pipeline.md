@@ -21,35 +21,82 @@ The `run-pipeline` script executes the multi-stage processing pipeline for a pre
 
 ## Pipeline Stages
 
-The pipeline executes stages based on the workflow:
+---
 
-### Transcribe Workflow
+## ⚠️ Architecture Versions
 
-```
-1. Demux         - Extract audio from video
-2. ASR           - Speech-to-text with WhisperX
-3. Alignment     - Word-level timestamps
-```
+**Current Implementation:** v2.0 (Simplified 3-6 Stage Pipeline)  
+**Target Architecture:** v3.0 (Modular 10-Stage Pipeline)  
+**Migration Status:** 55% Complete
 
-### Translate Workflow
+See: [Architecture Implementation Roadmap](../ARCHITECTURE_IMPLEMENTATION_ROADMAP.md)
 
-```
-1. Demux         - Extract audio from video
-2. ASR           - Speech-to-text with WhisperX
-3. Alignment     - Word-level timestamps
-4. Translation   - IndicTrans2 translation to target languages
-```
+---
 
-### Subtitle Workflow
+## Current Implementation (v2.0)
 
-```
-1. Demux         - Extract audio from video
-2. ASR           - Speech-to-text with WhisperX
-3. Alignment     - Word-level timestamps
-4. Translation   - IndicTrans2 translation to target languages
-5. Subtitle Gen  - Generate SRT files with styling
-6. Mux           - Embed subtitles in video (soft subs)
-```
+The pipeline currently executes stages based on the workflow:
+
+### Transcribe Workflow (3 stages)
+
+**Active Stages:**
+1. ✅ **Demux** - Audio extraction (`scripts/demux.py`)
+2. ✅ **ASR** - Speech recognition (`scripts/whisperx_asr.py`)
+3. ✅ **Alignment** - Word-level timestamps (inline in ASR)
+
+### Translate Workflow (4-5 stages)
+
+**Active Stages:**
+1. ✅ **Demux** - Audio extraction
+2. ✅ **ASR** - Speech recognition
+3. ✅ **Alignment** - Word-level timestamps
+4. ✅ **Translation** - IndicTrans2 translation (`scripts/indictrans2_translator.py`)
+5. ✅ **Subtitle Gen** - SRT generation (inline function)
+
+### Subtitle Workflow (6 stages)
+
+**Active Stages:**
+1. ✅ **Demux** - Audio extraction
+2. ✅ **ASR** - Speech recognition
+3. ✅ **Alignment** - Word-level timestamps
+4. ✅ **Translation** - IndicTrans2 translation
+5. ✅ **Subtitle Gen** - SRT generation
+6. ✅ **Mux** - Video embedding (`scripts/mux.py`)
+
+---
+
+## Future Architecture (v3.0)
+
+### Planned 10-Stage Modular Pipeline
+
+The target architecture will support a fully modular, 10-stage pipeline with enable/disable configuration per stage:
+
+1. ✅ **01_demux** - Audio extraction (implemented)
+2. ⏳ **02_tmdb** - TMDB metadata enrichment (script exists, not integrated)
+3. ⏳ **03_glossary_load** - Glossary loading (partial implementation)
+4. ✅ **04_asr** - Speech recognition (implemented as `scripts/whisperx_asr.py`)
+5. ⏳ **05_ner** - Named entity recognition (scripts exist, not integrated)
+6. ⏳ **06_lyrics_detection** - Lyrics detection (standalone, needs integration)
+7. ⏳ **07_hallucination_removal** - Remove hallucinations (standalone)
+8. ⏳ **08_translation** - IndicTrans2 translation (partially integrated)
+9. ⏳ **09_subtitle_gen** - Professional SRT/VTT (inline, needs module)
+10. ✅ **10_mux** - Video embedding (implemented)
+
+**Legend:**
+- ✅ **Implemented and integrated** - Fully functional in current pipeline
+- ⏳ **Implemented but not integrated** - Code exists but not integrated as modular stage
+- ❌ **Not implemented yet** - Planned for future implementation
+
+**Migration Path:** See [Architecture Implementation Roadmap](../ARCHITECTURE_IMPLEMENTATION_ROADMAP.md) for detailed 21-week implementation plan.
+
+**Benefits of v3.0:**
+- Selective stage enable/disable per job
+- Better quality control and validation
+- Modular testing and development
+- Enhanced extensibility
+- Stage-level dependency management
+
+---
 
 ## Command Line Options
 

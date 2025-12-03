@@ -60,6 +60,28 @@ Professional-grade speech transcription, translation, and subtitle generation pi
 
 ---
 
+## 🏗️ Architecture Status
+
+**Current:** v2.0 (Simplified Pipeline) | **Target:** v3.0 (Modular Pipeline) | **Progress:** 55%
+
+### What's Working Now ✅
+- Multi-environment support (MLX/CUDA/CPU)
+- Core transcription and translation workflows
+- Dual logging system (main + stage logs)
+- Configuration management
+- 3-6 stage workflows based on needs
+
+### In Development ⏳
+- Modular 10-stage pipeline with selective stage enable/disable
+- Universal StageIO pattern (currently 5% adoption)
+- Complete manifest tracking (currently 40%)
+- Stage-level testing infrastructure
+- Advanced features (retry logic, caching, circuit breakers)
+
+**See:** [Architecture Implementation Roadmap](docs/ARCHITECTURE_IMPLEMENTATION_ROADMAP.md) for 21-week migration plan.
+
+---
+
 ## 📚 Documentation
 
 ### Getting Started
