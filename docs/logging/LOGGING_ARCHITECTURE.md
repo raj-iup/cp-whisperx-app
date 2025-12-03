@@ -500,3 +500,23 @@ jq -r '.intermediate_files[] | "\(.path) - \(.retained) - \(.reason)"' \
 - [ ] Automated validation of manifest completeness
 - [ ] Performance profiling per stage
 - [ ] Cost tracking (API calls, compute time)
+
+---
+
+## Related Documents
+
+### Core Architecture
+- **[System Architecture](../technical/architecture.md)** - Overall system design
+- **[Pipeline Architecture](../technical/pipeline.md)** - Stage processing flow
+- **[Architecture Index](../ARCHITECTURE_INDEX.md)** - Complete documentation index
+
+### Logging Documentation
+- **[Stage Logging Architecture](STAGE_LOGGING_ARCHITECTURE.md)** - Per-stage logging patterns
+- **[Logging Implementation](LOGGING_IMPLEMENTATION.md)** - Implementation details
+- **[Logging Quick Reference](LOGGING_QUICKREF.md)** - Quick lookup guide
+
+### Development Standards
+- **[Developer Standards](../developer/DEVELOPER_STANDARDS.md)** - All development patterns
+- **[Code Examples](../CODE_EXAMPLES.md)** - Practical logging examples
+
+**Last Updated:** December 3, 2025

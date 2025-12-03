@@ -506,3 +506,22 @@ This is the foundation that makes the cp-whisperx-app powerful and maintainable!
 - `scripts/run-pipeline.py` - Stage execution with environments
 
 **Key Concept:** Each stage runs in its own isolated Python environment with exactly the dependencies it needs.
+
+---
+
+## Related Documents
+
+### Core Architecture
+- **[System Architecture](architecture.md)** - Overall system design overview
+- **[Pipeline Architecture](pipeline.md)** - Detailed stage-by-stage processing
+- **[Architecture Index](../ARCHITECTURE_INDEX.md)** - Complete documentation index
+
+### Development & Standards
+- **[Developer Standards](../developer/DEVELOPER_STANDARDS.md)** - Code patterns and best practices
+- **[Environment Manager](../../shared/environment_manager.py)** - Implementation details
+
+### User Guides
+- **[Bootstrap Guide](../user-guide/BOOTSTRAP.md)** - Environment setup instructions
+- **[Configuration Guide](../user-guide/configuration.md)** - Configuration patterns
+
+**Last Updated:** December 3, 2025

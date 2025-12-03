@@ -493,6 +493,27 @@ Questions? See:
 
 ---
 
-**Last Updated:** 2025-11-28  
+## Related Documents
+
+### Core Architecture
+- **[System Architecture](../docs/technical/architecture.md)** - Overall system design
+- **[Pipeline Architecture](../docs/technical/pipeline.md)** - Stage processing flow
+- **[Architecture Index](../docs/ARCHITECTURE_INDEX.md)** - Complete documentation index
+
+### Development Standards
+- **[Developer Standards](../docs/developer/DEVELOPER_STANDARDS.md)** - All development patterns
+- **[Code Examples](../docs/CODE_EXAMPLES.md)** - Practical examples
+
+### Implementation Guides
+- **[Glossary Integration](../docs/implementation/GLOSSARY_INTEGRATION.md)** - Integration patterns
+- **[Glossary Builder Implementation](../docs/implementation/GLOSSARY_BUILDER_IMPLEMENTATION.md)** - Builder details
+
+### Source Code
+- **[UnifiedGlossaryManager](glossary_manager.py)** - Main implementation
+- **[Stage 3: Glossary Load](../scripts/stage03_glossary_load.py)** - Pipeline integration
+
+---
+
+**Last Updated:** December 3, 2025  
 **Version:** 1.0  
 **Status:** Active

@@ -2,9 +2,12 @@
 
 **Document Version:** 4.0  
 **Date:** November 27, 2025  
+**Last Updated:** December 3, 2025  
 **Status:** ACTIVE - All development must follow these standards  
 **Compliance Target:** 80% minimum  
 **Current Status:** 🎊 **100% COMPLIANCE ACHIEVED** 🎊
+
+> 📚 **Quick Reference:** See [CODE_EXAMPLES.md](../CODE_EXAMPLES.md) for practical examples of all patterns described in this document. The examples document provides visual, side-by-side comparisons of good vs. bad code for every standard.
 
 ---
 
@@ -1597,9 +1600,136 @@ if __name__ == "__main__":
 
 ---
 
-## 8. TESTING STANDARDS
+## 8. AUTOMATED ENFORCEMENT
 
-### 7.1 Test Organization
+### 8.1 Pre-commit Hook
+
+A pre-commit hook is **ACTIVE** in this repository and automatically enforces compliance before every commit.
+
+#### 8.1.1 What It Does
+
+The pre-commit hook (`scripts/validate-compliance.py`):
+- ✅ **Validates all Python files** before commit
+- ✅ **Blocks commits** with compliance violations
+- ✅ **Maintains 100% compliance** automatically
+- ✅ **Provides helpful error messages** with exact locations
+- ✅ **Zero-tolerance policy** - no violations allowed
+
+#### 8.1.2 Validation Checks
+
+The hook validates:
+1. **Type Hints** - All functions must have parameter and return type hints
+2. **Docstrings** - All modules, classes, and functions must be documented
+3. **Logger Usage** - Must use `logger`, never `print()`
+4. **Import Organization** - Standard/Third-party/Local order with blank lines
+5. **Configuration** - Must use `load_config()`, not `os.getenv()`
+6. **Error Handling** - Proper try/except blocks with logging
+7. **StageIO Pattern** - Stages must use StageIO with `enable_manifest=True`
+
+#### 8.1.3 Installation
+
+The pre-commit hook is automatically installed by:
+```bash
+./bootstrap.sh
+```
+
+Or manually:
+```bash
+cp scripts/pre-commit .git/hooks/pre-commit
+chmod +x .git/hooks/pre-commit
+```
+
+#### 8.1.4 Usage
+
+The hook runs automatically on every commit:
+```bash
+git add your_file.py
+git commit -m "Your message"
+# → Hook runs automatically
+# → Commit blocked if violations found
+# → Fix violations and try again
+```
+
+#### 8.1.5 Manual Validation
+
+Test compliance before committing:
+```bash
+# Single file
+./scripts/validate-compliance.py scripts/your_stage.py
+
+# Multiple files
+./scripts/validate-compliance.py scripts/*.py
+
+# Strict mode (exit 1 on violations)
+./scripts/validate-compliance.py --strict scripts/*.py
+
+# Check staged files only
+./scripts/validate-compliance.py --staged
+```
+
+#### 8.1.6 Example Output
+
+**✅ Compliant code:**
+```
+🔍 Running compliance validation...
+
+✅ All checks passed!
+
+Summary:
+  Files checked: 1
+  Critical issues: 0
+  Errors: 0
+  Warnings: 0
+
+Status: ✅ COMPLIANT
+```
+
+**❌ Non-compliant code:**
+```
+🔍 Running compliance validation...
+
+❌ scripts/my_stage.py
+
+CRITICAL VIOLATIONS (2):
+  Line 45: print() usage detected - use logger instead
+  Line 67: Missing return type hint on function 'process_data'
+
+ERROR: Compliance check failed
+Commit blocked - fix violations above
+```
+
+#### 8.1.7 Benefits
+
+- **Automatic Quality Control** - No manual review needed for standards
+- **Zero Technical Debt** - Violations caught immediately
+- **Consistent Codebase** - All code follows same patterns
+- **Documentation** - Enforced docstrings and type hints
+- **Confidence** - 100% compliance guaranteed
+
+#### 8.1.8 Bypassing (Not Recommended)
+
+In rare cases, bypass with:
+```bash
+git commit --no-verify -m "Emergency fix"
+```
+
+**⚠️ WARNING:** Only use for emergency hotfixes. All bypassed commits must be fixed immediately.
+
+### 8.2 Continuous Integration
+
+The validation also runs in CI/CD:
+- GitHub Actions (if configured)
+- Pre-merge checks
+- Automated testing
+- Documentation builds
+
+See [PRE_COMMIT_HOOK_GUIDE.md](../PRE_COMMIT_HOOK_GUIDE.md) for complete documentation.
+
+---
+
+## 9. TESTING STANDARDS
+
+### 9.1 Test Organization
 
 ```
 tests/

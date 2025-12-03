@@ -653,6 +653,26 @@ This architecture addresses:
 
 ---
 
+## Related Documents
+
+### Core Architecture
+- **[System Architecture](../technical/architecture.md)** - Overall system design
+- **[Pipeline Architecture](../technical/pipeline.md)** - Stage processing flow
+- **[Architecture Index](../ARCHITECTURE_INDEX.md)** - Complete documentation index
+
+### Logging Documentation
+- **[Logging Architecture](LOGGING_ARCHITECTURE.md)** - Main logging design
+- **[Stage Logging Implementation Guide](STAGE_LOGGING_IMPLEMENTATION_GUIDE.md)** - Complete guide
+- **[Stage Logging Quick Reference](STAGE_LOGGING_QUICKREF.md)** - Quick lookup
+
+### Development Standards
+- **[Developer Standards](../developer/DEVELOPER_STANDARDS.md)** - All development patterns
+- **[Code Examples](../CODE_EXAMPLES.md)** - Practical logging examples
+- **[StageIO Implementation](../../shared/stage_utils.py)** - Source code
+
+---
+
 **Document Status:** APPROVED - Ready for Implementation  
 **Implementation Priority:** HIGH  
-**Target Completion:** November 28, 2025
+**Target Completion:** November 28, 2025  
+**Last Updated:** December 3, 2025
