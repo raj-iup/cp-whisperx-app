@@ -22,13 +22,13 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 
 # ============================================================================
-# STAGE 03: GLOSSARY LOAD TESTS
+# STAGE 03: GLOSSARY LOADER TESTS
 # ============================================================================
 
 @pytest.mark.unit
 @pytest.mark.stage
-class TestGlossaryLoadStage:
-    """Unit tests for 03_glossary_load stage."""
+class TestGlossaryLoaderStage:
+    """Unit tests for 03_glossary_loader stage."""
     
     @pytest.fixture
     def mock_job_dir(self, tmp_path: Path) -> Path:
@@ -38,38 +38,49 @@ class TestGlossaryLoadStage:
         
         # Create minimal required directories
         (job_dir / "02_tmdb").mkdir()
+        (job_dir / "06_whisperx_asr").mkdir()
         (job_dir / "glossary").mkdir(parents=True, exist_ok=True)
+        
+        # Create minimal ASR transcript (required input)
+        asr_file = job_dir / "06_whisperx_asr" / "transcript.json"
+        asr_file.write_text('{"segments": []}')
         
         # Create minimal job config
         config_path = job_dir / ".env.pipeline"
-        config_path.write_text("STAGE_03_GLOSSARY_ENABLED=true\n")
+        config_path.write_text("GLOSSARY_ENABLE=true\n")
         
         return job_dir
     
-    def test_glossary_load_entry_point_exists(self):
-        """Test that glossary_load has run_stage() entry point."""
-        module = importlib.import_module("scripts.03_glossary_load")
+    def test_glossary_loader_entry_point_exists(self) -> None:
+        """Test that glossary_loader has run_stage() entry point."""
+        module = importlib.import_module("scripts.03_glossary_loader")
         assert hasattr(module, "run_stage")
         assert callable(module.run_stage)
     
-    @pytest.mark.skip(reason="Phase 3 - Requires full stage implementation")
-    def test_glossary_load_creates_output_dir(self, mock_job_dir: Path):
-        """Test that glossary_load creates its output directory."""
-        module = importlib.import_module("scripts.03_glossary_load")
+    def test_glossary_loader_has_main_function(self) -> None:
+        """Test that glossary_loader has main() function."""
+        module = importlib.import_module("scripts.03_glossary_loader")
+        assert hasattr(module, "main")
+        assert callable(module.main)
+    
+    @pytest.mark.skip(reason="Phase 3 - Requires full environment and dependencies")
+    def test_glossary_loader_creates_output_dir(self, mock_job_dir: Path) -> None:
+        """Test that glossary_loader creates its output directory."""
+        module = importlib.import_module("scripts.03_glossary_loader")
         
         # Run stage
-        exit_code = module.run_stage(mock_job_dir, "03_glossary_load")
+        exit_code = module.run_stage(mock_job_dir, "03_glossary_loader")
         
         # Verify output directory created
-        output_dir = mock_job_dir / "03_glossary_load"
+        output_dir = mock_job_dir / "03_glossary_loader"
         assert output_dir.exists()
     
-    @pytest.mark.skip(reason="Phase 3 - Requires full stage implementation")
-    def test_glossary_load_returns_exit_code(self, mock_job_dir: Path):
-        """Test that glossary_load returns proper exit code."""
-        module = importlib.import_module("scripts.03_glossary_load")
+    @pytest.mark.skip(reason="Phase 3 - Requires full environment and dependencies")
+    def test_glossary_loader_returns_exit_code(self, mock_job_dir: Path) -> None:
+        """Test that glossary_loader returns proper exit code."""
+        module = importlib.import_module("scripts.03_glossary_loader")
         
-        exit_code = module.run_stage(mock_job_dir, "03_glossary_load")
+        exit_code = module.run_stage(mock_job_dir, "03_glossary_loader")
         
         assert isinstance(exit_code, int)
         assert exit_code in [0, 1]  # Success or failure
