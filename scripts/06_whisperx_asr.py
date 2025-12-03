@@ -1,0 +1,140 @@
+#!/usr/bin/env python3
+"""
+WhisperX ASR stage: Automatic Speech Recognition
+
+This is a thin wrapper around whisperx_integration.py which contains
+the actual ASR logic. The separation allows for easier testing and
+maintains compatibility with the pipeline architecture.
+
+Stage: 04_asr (Stage 4)
+Input: audio.wav from demux or source_separation
+Output: transcript.json with word-level timestamps
+"""
+# Standard library
+import sys
+from pathlib import Path
+from typing import Optional
+
+# Add parent directory to path for imports
+SCRIPT_DIR = Path(__file__).parent
+PROJECT_ROOT = SCRIPT_DIR.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from whisperx_integration import main as whisperx_main
+
+# Local
+from shared.logger import get_logger
+from shared.stage_utils import StageIO
+from shared.config_loader import load_config
+
+logger = get_logger(__name__)
+
+
+def run_stage(job_dir: Path, stage_name: str = "04_asr") -> int:
+    """
+    WhisperX ASR Stage - run_stage() wrapper
+    
+    Provides StageIO interface for legacy whisperx_integration.py
+    
+    Args:
+        job_dir: Job directory path
+        stage_name: Stage name for logging/manifest
+        
+    Returns:
+        0 on success, 1 on failure
+    """
+    io = StageIO(stage_name, job_dir, enable_manifest=True)
+    logger_stage = io.get_stage_logger()
+    
+    try:
+        logger_stage.info("=" * 80)
+        logger_stage.info("STAGE: WhisperX ASR")
+        logger_stage.info("=" * 80)
+        
+        # Check if ASR is enabled
+        config = load_config()
+        asr_enabled = config.get("STAGE_04_ASR_ENABLED", "true").lower() == "true"
+        
+        if not asr_enabled:
+            logger_stage.info("ASR stage disabled in configuration, skipping")
+            io.finalize(status="success")
+            return 0
+        
+        # Find input audio
+        input_audio = None
+        for potential_dir in ["01_demux", "source_separation"]:
+            candidate = job_dir / potential_dir / "audio.wav"
+            if candidate.exists():
+                input_audio = candidate
+                break
+        
+        if not input_audio:
+            logger_stage.error("No input audio found")
+            io.finalize(status="failed")
+            return 1
+        
+        logger_stage.info(f"Input audio: {input_audio}")
+        io.track_input(input_audio, "audio")
+        
+        # Call legacy whisperx_integration main
+        # It will use the job_dir environment and create outputs in standard locations
+        logger_stage.info("Running WhisperX ASR...")
+        exit_code = whisperx_main()
+        
+        if exit_code != 0:
+            logger_stage.error(f"WhisperX ASR failed with exit code {exit_code}")
+            io.finalize(status="failed")
+            return exit_code
+        
+        # Track outputs (ASR creates these in job_dir/04_asr or transcripts/)
+        output_locations = [
+            io.stage_dir / "transcript.json",
+            io.stage_dir / "whisperx_output.json",
+            io.stage_dir / "segments.json",
+            job_dir / "transcripts" / "segments.json"
+        ]
+        
+        for output_file in output_locations:
+            if output_file.exists():
+                io.track_output(output_file, "transcript")
+                logger_stage.info(f"Created output: {output_file}")
+        
+        logger_stage.info("=" * 80)
+        logger_stage.info("WhisperX ASR Complete")
+        logger_stage.info("=" * 80)
+        
+        io.finalize(status="success")
+        return 0
+        
+    except Exception as e:
+        logger_stage.error(f"ASR stage failed: {e}", exc_info=True)
+        io.finalize(status="failed")
+        return 1
+
+
+def main() -> int:
+    """
+    Main entry point for ASR stage.
+    
+    Delegates to whisperx_integration.main() which handles:
+    - Backend selection (WhisperX/MLX)
+    - Model loading
+    - Audio transcription
+    - Word-level alignment
+    - Translation (if enabled)
+    
+    Returns:
+        int: Exit code (0 for success, 1 for failure)
+    """
+    try:
+        return whisperx_main()
+    except KeyboardInterrupt:
+        logger.info("\n✗ ASR stage interrupted by user", file=sys.stderr)
+        return 130
+    except Exception as e:
+        logger.info(f"\n✗ ASR stage failed with unexpected error: {e}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -782,7 +782,7 @@ def translate_whisperx_result(
     )
     translator = IndicTrans2Translator(
         config=config,
-        logger: logging.Logger=logger,
+        logger=logger,
         source_lang=source_lang,
         target_lang=target_lang
     )
@@ -832,6 +832,149 @@ def translate_whisperx_result(
 
 
 # CLI interface for standalone testing
+
+def run_stage(job_dir: Path, stage_name: str = "08_translation") -> int:
+    """
+    IndicTrans2 Translation Stage - run_stage() wrapper
+    
+    Provides StageIO interface for IndicTrans2 translation.
+    
+    Args:
+        job_dir: Job directory path
+        stage_name: Stage name for logging/manifest
+        
+    Returns:
+        0 on success, 1 on failure
+    """
+    # Import here to avoid circular dependencies
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from shared.stage_utils import StageIO
+    from shared.config_loader import load_config
+    
+    io = StageIO(stage_name, job_dir, enable_manifest=True)
+    logger_stage = io.get_stage_logger()
+    
+    try:
+        logger_stage.info("=" * 80)
+        logger_stage.info("STAGE: IndicTrans2 Translation")
+        logger_stage.info("=" * 80)
+        
+        # Check if translation is enabled
+        config = load_config()
+        translation_enabled = config.get("STAGE_08_TRANSLATION_ENABLED", "true").lower() == "true"
+        
+        if not translation_enabled:
+            logger_stage.info("Translation stage disabled in configuration, skipping")
+            io.finalize(status="success")
+            return 0
+        
+        # Find input transcript/subtitle files
+        # Look for ASR output or previous stage outputs
+        input_files = []
+        search_dirs = [
+            io.output_base / "07_hallucination_removal",
+            io.output_base / "06_lyrics_detection",
+            io.output_base / "04_asr",
+            io.output_base / "transcripts"
+        ]
+        
+        for search_dir in search_dirs:
+            if search_dir.exists():
+                # Look for JSON transcripts
+                for pattern in ["transcript_cleaned.json", "transcript_with_lyrics.json", "transcript.json", "segments.json"]:
+                    candidate = search_dir / pattern
+                    if candidate.exists():
+                        input_files.append(candidate)
+                        io.track_input(candidate, "transcript")
+                        logger_stage.info(f"Input: {candidate}")
+                        break
+                if input_files:
+                    break
+        
+        if not input_files:
+            logger_stage.warning("No input transcript found for translation")
+            io.finalize(status="success")
+            return 0
+        
+        # Get target languages
+        target_langs = config.get("TARGET_LANGUAGE", "en").split(",")
+        logger_stage.info(f"Target languages: {target_langs}")
+        
+        # Get translation configuration
+        device = config.get("TRANSLATION_DEVICE", "auto")
+        num_beams = int(config.get("TRANSLATION_NUM_BEAMS", "4"))
+        
+        # Create translator configuration
+        trans_config = TranslationConfig(
+            device=device,
+            num_beams=num_beams
+        )
+        
+        # Create translator
+        logger_stage.info(f"Initializing IndicTrans2 translator (device: {device})...")
+        translator = IndicTrans2Translator(config=trans_config)
+        
+        try:
+            # For each target language, translate
+            for target_lang in target_langs:
+                output_file = io.stage_dir / f"translated_{target_lang}.json"
+                
+                logger_stage.info(f"Translating to {target_lang}...")
+                
+                # Load input transcript
+                with open(input_files[0], 'r', encoding='utf-8') as f:
+                    transcript_data = json.load(f)
+                
+                # Extract segments
+                if isinstance(transcript_data, dict):
+                    segments = transcript_data.get('segments', [])
+                else:
+                    segments = transcript_data
+                
+                # Translate segments
+                translated_segments = []
+                for segment in segments:
+                    text = segment.get('text', '')
+                    if text:
+                        # Translate text
+                        translated_text = translator.translate_text(text)
+                        
+                        # Create translated segment
+                        translated_seg = segment.copy()
+                        translated_seg['text'] = translated_text
+                        translated_seg['original_text'] = text
+                        translated_segments.append(translated_seg)
+                
+                # Save translated output
+                output_data = {
+                    'segments': translated_segments,
+                    'language': target_lang,
+                    'source_language': transcript_data.get('language', 'unknown') if isinstance(transcript_data, dict) else 'unknown'
+                }
+                
+                with open(output_file, 'w', encoding='utf-8') as f:
+                    json.dump(output_data, f, indent=2, ensure_ascii=False)
+                
+                io.track_output(output_file, "translation")
+                logger_stage.info(f"Created: {output_file}")
+                logger_stage.info(f"  Translated {len(translated_segments)} segments")
+            
+            logger_stage.info("=" * 80)
+            logger_stage.info("IndicTrans2 Translation Complete")
+            logger_stage.info("=" * 80)
+            
+            io.finalize(status="success")
+            return 0
+            
+        finally:
+            translator.cleanup()
+        
+    except Exception as e:
+        logger_stage.error(f"Translation stage failed: {e}", exc_info=True)
+        io.finalize(status="failed")
+        return 1
+
+
 def main() -> None:
     """CLI entry point for testing IndicTrans2 translation"""
     import argparse

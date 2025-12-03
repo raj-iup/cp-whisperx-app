@@ -33,6 +33,11 @@ from shared.logger import PipelineLogger, get_logger
 from shared.environment_manager import EnvironmentManager
 from scripts.config_loader import Config
 from shared.stage_order import get_stage_dir
+from shared.stage_dependencies import (
+    validate_stage_dependencies,
+    get_workflow_stages,
+    get_execution_order
+)
 
 # Initialize logger
 logger = get_logger(__name__)
@@ -905,71 +910,29 @@ class IndicTrans2Pipeline:
             return True  # Non-blocking failure
     
     def _stage_glossary_load(self) -> bool:
-        """Stage 3b: Load unified glossary system"""
+        """Stage 3: Load glossary system using new modular stage"""
         
         try:
-            from shared.glossary_manager import UnifiedGlossaryManager
-            
             # Check if glossary is enabled
-            glossary_enabled = self.env_config.get("GLOSSARY_CACHE_ENABLED", "true").lower() == "true"
+            glossary_enabled = self.env_config.get("STAGE_03_GLOSSARY_ENABLED", "true").lower() == "true"
             
             if not glossary_enabled:
                 self.logger.info("Glossary system is disabled (skipping)")
-                self.glossary_manager = None
                 return True
             
-            # Get film metadata
-            title = self.job_config.get("title")
-            year = self.job_config.get("year")
+            # Import new glossary loader module
+            sys.path.insert(0, str(PROJECT_ROOT / "scripts/03_glossary_load"))
+            import glossary_loader
             
-            # Input/output setup
-            output_dir = self._stage_path("glossary_load")
-            output_dir.mkdir(parents=True, exist_ok=True)
+            # Call the new stage module
+            self.logger.info("Running glossary load stage...")
+            exit_code = glossary_loader.run_stage(self.job_dir, "03_glossary_load")
             
-            # Check for TMDB enrichment data
-            tmdb_enrichment_path = self._stage_path("tmdb") / "enrichment.json"
-            if not tmdb_enrichment_path.exists():
-                tmdb_enrichment_path = None
-                self.logger.info("No TMDB enrichment data found (will use master glossary only)")
+            if exit_code != 0:
+                self.logger.error("Glossary load stage failed")
+                return False
             
-            # Log input/output
-            if tmdb_enrichment_path:
-                self.logger.info(f"📥 Input: {tmdb_enrichment_path.relative_to(self.job_dir)}")
-            self.logger.info(f"📤 Output: {output_dir.relative_to(self.job_dir)}/")
-            
-            # Initialize unified glossary manager
-            self.logger.info("Loading unified glossary system...")
-            
-            enable_cache = self.env_config.get("GLOSSARY_CACHE_ENABLED", "true").lower() == "true"
-            enable_learning = self.env_config.get("GLOSSARY_LEARNING_ENABLED", "false").lower() == "true"
-            
-            self.glossary_manager = UnifiedGlossaryManager(
-                project_root=PROJECT_ROOT,
-                film_title=title,
-                film_year=year,
-                tmdb_enrichment_path=tmdb_enrichment_path,
-                enable_cache=enable_cache,
-                enable_learning=enable_learning,
-                logger=self.logger
-            )
-            
-            # Load all glossary sources
-            stats = self.glossary_manager.load_all_sources()
-            
-            # Log statistics
-            self.logger.info(f"✓ Glossary system loaded successfully")
-            self.logger.info(f"  Total terms: {stats['total_terms']}")
-            self.logger.info(f"  Master glossary: {stats['master_count']} terms")
-            if stats['tmdb_count'] > 0:
-                self.logger.info(f"  TMDB glossary: {stats['tmdb_count']} terms (cache {'hit' if stats['cache_hit'] else 'miss'})")
-            if stats['film_specific_count'] > 0:
-                self.logger.info(f"  Film-specific: {stats['film_specific_count']} terms")
-            
-            # Save glossary snapshot for debugging
-            snapshot_path = output_dir / "glossary_snapshot.json"
-            self.glossary_manager.save_snapshot(snapshot_path)
-            self.logger.debug(f"Saved glossary snapshot to: {snapshot_path.relative_to(self.job_dir)}")
-            
+            self.logger.info("✓ Glossary load complete")
             return True
             
         except Exception as e:
@@ -977,7 +940,6 @@ class IndicTrans2Pipeline:
             if self.debug:
                 self.logger.debug(traceback.format_exc())
             self.logger.warning("Continuing without glossary system")
-            self.glossary_manager = None
             return True  # Non-blocking failure
     
     def _stage_source_separation(self) -> bool:
@@ -1005,7 +967,7 @@ class IndicTrans2Pipeline:
         self.logger.info("This will extract vocals and remove background music")
         
         # Run the source separation script
-        script_path = self.scripts_dir / "source_separation.py"
+        script_path = self.scripts_dir / "04_source_separation.py"
         
         try:
             # Set up environment
@@ -1035,142 +997,34 @@ class IndicTrans2Pipeline:
             return False
     
     def _stage_lyrics_detection(self) -> bool:
-        """Stage 6: Lyrics detection - Identify song/musical segments in transcription"""
-        
-        # Check if lyrics detection is enabled
-        lyrics_enabled = self.env_config.get("LYRICS_DETECTION_ENABLED", "true").lower() == "true"
-        
-        if not lyrics_enabled:
-            self.logger.info("Lyrics detection is disabled (LYRICS_DETECTION_ENABLED=false)")
-            self.logger.info("Skipping stage - continuing without lyrics metadata")
-            return True
-        
-        # Input: ASR transcription segments
-        segments_file = self._stage_path("asr") / "segments.json"
-        if not segments_file.exists():
-            segments_file = self.job_dir / "transcripts" / "segments.json"
-        
-        if not segments_file.exists():
-            self.logger.warning(f"Segments file not found: {segments_file}")
-            self.logger.warning("Lyrics detection requires ASR output - skipping")
-            return True  # Non-fatal, continue pipeline
-        
-        # Audio file for analysis (vocals from source separation or original)
-        audio_file = self._stage_path("source_separation") / "vocals.wav"
-        if not audio_file.exists():
-            audio_file = self._stage_path("source_separation") / "audio.wav"
-        if not audio_file.exists():
-            audio_file = self.job_dir / "01_demux" / "audio.wav"
-        
-        if not audio_file.exists():
-            self.logger.warning(f"Audio file not found for lyrics detection")
-            self.logger.warning("Lyrics detection cannot run without audio")
-            return True  # Non-fatal, continue pipeline
-        
-        # Output directory
-        output_dir = self._stage_path("lyrics_detection")
-        output_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Log input/output
-        self.logger.info(f"📥 Input segments: {segments_file.relative_to(self.job_dir)}")
-        self.logger.info(f"📥 Input audio: {audio_file.relative_to(self.job_dir)}")
-        self.logger.info(f"📤 Output: {output_dir.relative_to(self.job_dir)}/")
-        self.logger.info("Running lyrics detection...")
-        
-        # Get configuration
-        threshold = float(self.env_config.get("LYRICS_DETECTION_THRESHOLD", "0.5"))
-        min_duration = float(self.env_config.get("LYRICS_MIN_DURATION", "30.0"))
-        device = self.env_config.get("LYRICS_DETECTION_DEVICE", "cpu")
-        
-        self.logger.info(f"Configuration:")
-        self.logger.info(f"  Threshold: {threshold}")
-        self.logger.info(f"  Min duration: {min_duration}s")
-        self.logger.info(f"  Device: {device}")
+        """Stage 6: Lyrics detection using new modular stage"""
         
         try:
-            # Get Python executable from Demucs environment (has librosa)
-            python_exe = self.env_manager.get_python_executable("demucs")
-            self.logger.info(f"Using Demucs environment: {python_exe}")
+            # Check if lyrics detection is enabled
+            lyrics_enabled = self.env_config.get("STAGE_06_LYRICS_ENABLED", "true").lower() == "true"
             
-            # Build command to run lyrics detection
-            # Pass configuration via environment variables
-            env = os.environ.copy()
-            env['CONFIG_PATH'] = str(self.job_dir / f".{self.job_config['job_id']}.env")
-            env['OUTPUT_DIR'] = str(self.job_dir)
-            env['LYRICS_DETECTION_ENABLED'] = 'true'
-            env['LYRICS_DETECTION_THRESHOLD'] = str(threshold)
-            env['LYRICS_MIN_DURATION'] = str(min_duration)
-            env['LYRICS_DETECTION_DEVICE'] = device
-            env['DEBUG_MODE'] = 'true' if self.debug else 'false'
-            env['LOG_LEVEL'] = 'DEBUG' if self.debug else 'INFO'
-            env['AUDIO_INPUT'] = str(audio_file)
-            env['SEGMENTS_INPUT'] = str(segments_file)
-            env['LYRICS_OUTPUT_DIR'] = str(output_dir)
-            
-            # Run lyrics detection script
-            script_path = PROJECT_ROOT / "scripts" / "lyrics_detection_pipeline.py"
-            
-            result = subprocess.run(
-                [str(python_exe), str(script_path)],
-                capture_output=True,
-                text=True,
-                check=True,
-                cwd=str(PROJECT_ROOT),
-                env=env
-            )
-            
-            if self.debug and result.stdout:
-                self.logger.debug(f"Lyrics detection output: {result.stdout}")
-            
-            # Check for output metadata
-            metadata_file = output_dir / "lyrics_metadata.json"
-            if metadata_file.exists():
-                # Read and log statistics
-                with open(metadata_file) as f:
-                    metadata = json.load(f)
-                
-                lyric_segments = metadata.get('lyric_segments', [])
-                self.logger.info(f"✓ Detected {len(lyric_segments)} potential song segments")
-                
-                if lyric_segments:
-                    total_duration = sum(seg['end'] - seg['start'] for seg in lyric_segments)
-                    self.logger.info(f"Total lyrics duration: {total_duration:.1f}s")
-                    
-                    # Log each detected segment
-                    for i, seg in enumerate(lyric_segments[:5], 1):  # Show first 5
-                        conf = seg.get('confidence', 0)
-                        self.logger.info(f"  Segment {i}: {seg['start']:.1f}s-{seg['end']:.1f}s (confidence: {conf:.2f})")
-                    
-                    if len(lyric_segments) > 5:
-                        self.logger.info(f"  ... and {len(lyric_segments) - 5} more")
-                else:
-                    self.logger.info("No song segments detected (all speech/dialog)")
-                
-                # Copy enhanced segments to old location for compatibility
-                segments_output = output_dir / "segments.json"
-                if segments_output.exists():
-                    import shutil
-                    compat_dir = self.job_dir / "lyrics_detection"
-                    compat_dir.mkdir(parents=True, exist_ok=True)
-                    shutil.copy2(segments_output, compat_dir / "segments.json")
-                    self.logger.info(f"✓ Enhanced segments saved to: {segments_output.relative_to(self.job_dir)}")
-                    self.logger.info(f"✓ Copied to: lyrics_detection/segments.json")
-                
-                self.logger.info(f"✓ Lyrics metadata: {metadata_file.relative_to(self.job_dir)}")
+            if not lyrics_enabled:
+                self.logger.info("Lyrics detection is disabled (skipping)")
                 return True
-            else:
-                # No output is OK - means no lyrics detected
-                self.logger.info("No lyrics detected - all content classified as dialog")
-                return True
-                
-        except subprocess.CalledProcessError as e:
-            self.logger.error(f"Lyrics detection error: {e.stderr}", exc_info=True)
-            self.logger.warning("Continuing pipeline without lyrics metadata")
-            return True  # Non-fatal, graceful degradation
+            
+            # Import new lyrics detection module
+            sys.path.insert(0, str(PROJECT_ROOT / "scripts/06_lyrics_detection"))
+            import lyrics_stage
+            
+            # Call the new stage module
+            self.logger.info("Running lyrics detection stage...")
+            exit_code = lyrics_stage.run_stage(self.job_dir, "06_lyrics_detection")
+            
+            if exit_code != 0:
+                self.logger.warning("Lyrics detection failed, continuing without lyrics metadata")
+                return True  # Non-fatal failure
+            
+            self.logger.info("✓ Lyrics detection complete")
+            return True
+            
         except Exception as e:
-            self.logger.error(f"Unexpected error in lyrics detection: {e}", exc_info=True)
+            self.logger.error(f"Lyrics detection error: {e}", exc_info=True)
             if self.debug:
-                import traceback
                 self.logger.debug(traceback.format_exc())
             self.logger.warning("Continuing pipeline without lyrics metadata")
             return True  # Non-fatal, graceful degradation
@@ -1235,7 +1089,7 @@ class IndicTrans2Pipeline:
             env['VAD_OUTPUT_DIR'] = str(output_dir)  # Pass VAD output directory
             
             # Run PyAnnote VAD script
-            script_path = PROJECT_ROOT / "scripts" / "pyannote_vad.py"
+            script_path = PROJECT_ROOT / "scripts" / "05_pyannote_vad.py"
             
             result = subprocess.run(
                 [str(python_exe), str(script_path)],
@@ -1359,8 +1213,8 @@ class IndicTrans2Pipeline:
             self.logger.error("Run bootstrap.sh to set up environments", exc_info=True)
             return False
         
-        # Run whisperx_asr.py stage script in the selected environment
-        asr_script = self.scripts_dir / "whisperx_asr.py"
+        # Run 06_whisperx_asr.py stage script in the selected environment
+        asr_script = self.scripts_dir / "06_whisperx_asr.py"
         if not asr_script.exists():
             self.logger.error(f"ASR script not found: {asr_script}", exc_info=True)
             return False
@@ -1569,8 +1423,8 @@ logger.info(f"Transcription completed: {{len(segments)}} segments")
         python_exe = self.env_manager.get_python_executable("whisperx")
         self.logger.info(f"Using WhisperX environment: {python_exe}")
         
-        # Use the proper whisperx_asr script that supports all features
-        asr_script = self.scripts_dir / "whisperx_asr.py"
+        # Use the proper 06_whisperx_asr script that supports all features
+        asr_script = self.scripts_dir / "06_whisperx_asr.py"
         
         if not asr_script.exists():
             self.logger.error(f"ASR script not found: {asr_script}")
@@ -1776,6 +1630,72 @@ logger.info(f"Transcription completed: {{len(segments)}} segments")
             if e.stderr:
                 self.logger.error(f"Error output: {e.stderr}", exc_info=True)
             return False
+    
+    
+    def _stage_ner(self) -> bool:
+        """Stage 5: Named Entity Recognition using new modular stage"""
+        
+        try:
+            # Check if NER is enabled
+            ner_enabled = self.env_config.get("STAGE_05_NER_ENABLED", "true").lower() == "true"
+            
+            if not ner_enabled:
+                self.logger.info("NER stage is disabled (skipping)")
+                return True
+            
+            # Import new NER module
+            sys.path.insert(0, str(PROJECT_ROOT / "scripts/05_ner"))
+            import ner_stage
+            
+            # Call the new stage module
+            self.logger.info("Running NER stage...")
+            exit_code = ner_stage.run_stage(self.job_dir, "05_ner")
+            
+            if exit_code != 0:
+                self.logger.warning("NER stage failed, continuing without NER data")
+                return True  # Non-fatal failure
+            
+            self.logger.info("✓ NER stage complete")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"NER stage error: {e}", exc_info=True)
+            if self.debug:
+                self.logger.debug(traceback.format_exc())
+            self.logger.warning("Continuing without NER data")
+            return True  # Non-fatal, graceful degradation
+    
+    def _stage_subtitle_gen(self) -> bool:
+        """Stage 9: Subtitle generation using new modular stage"""
+        
+        try:
+            # Check if subtitle generation is enabled
+            subtitle_enabled = self.env_config.get("STAGE_09_SUBTITLE_ENABLED", "true").lower() == "true"
+            
+            if not subtitle_enabled:
+                self.logger.info("Subtitle generation is disabled (skipping)")
+                return True
+            
+            # Import new subtitle generation module
+            sys.path.insert(0, str(PROJECT_ROOT / "scripts/09_subtitle_gen"))
+            import subtitle_gen
+            
+            # Call the new stage module
+            self.logger.info("Running subtitle generation stage...")
+            exit_code = subtitle_gen.run_stage(self.job_dir, "09_subtitle_gen")
+            
+            if exit_code != 0:
+                self.logger.error("Subtitle generation failed")
+                return False  # Fatal failure
+            
+            self.logger.info("✓ Subtitle generation complete")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Subtitle generation error: {e}", exc_info=True)
+            if self.debug:
+                self.logger.debug(traceback.format_exc())
+            return False  # Fatal failure
     
     def _stage_export_transcript(self) -> bool:
         """Stage: Export plain text transcript"""
