@@ -1,11 +1,17 @@
 # CP-WhisperX Developer Standards & Best Practices
 
-**Document Version:** 6.0  
+**Document Version:** 6.1  
 **Date:** December 3, 2025  
-**Last Updated:** December 3, 2025  
+**Last Updated:** December 3, 2025 (Bug Fixes & Enhancements)
 **Status:** ACTIVE - All development must follow these standards  
 **Compliance Target:** 80% minimum  
 **Current Status:** 🎊 **100% COMPLIANCE ACHIEVED** 🎊
+
+**Major Updates in v6.1 (December 3, 2025):**
+- 🐛 **StageManifest Enhanced**: add_intermediate() method implemented
+- 🐛 **TMDB Workflow-Aware**: Only enabled for subtitle workflow
+- 🐛 **Source Language Optional**: Transcribe auto-detects language
+- 🐛 **Script Path Fixed**: Corrected TMDB stage reference
 
 **Major Updates in v6.0:**
 - 🆕 **AI Model Routing**: Automated updates for model releases
