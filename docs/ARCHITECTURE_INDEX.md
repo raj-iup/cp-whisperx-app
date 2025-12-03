@@ -226,6 +226,32 @@ This index provides a comprehensive guide to all architecture documentation in t
 
 **Status:** ✅ Pre-commit hook is **ACTIVE** and enforcing 100% compliance
 
+### Gap Analysis & Roadmaps
+
+**[Architecture Gap Analysis](ARCHITECTURE_GAP_ANALYSIS.md)** ⭐ NEW
+- Comprehensive gap analysis (15KB)
+- 9 gap areas identified with severity ratings
+- Current: 55% aligned, Target: 95% aligned
+- Detailed findings and recommendations
+
+**[Architecture Implementation Roadmap](ARCHITECTURE_IMPLEMENTATION_ROADMAP.md)** ⭐ NEW
+- 5-phase implementation plan (36KB)
+- 21-week timeline with detailed tasks
+- 250 hours total effort breakdown
+- Success metrics and risk mitigation
+
+**[Gap Analysis Executive Summary](ARCHITECTURE_ANALYSIS_EXECUTIVE_SUMMARY.md)** ⭐ NEW
+- Quick overview (8KB)
+- Key findings and ROI analysis
+- Decision framework
+- For managers and decision-makers
+
+**[Gap Analysis Quick Reference](ARCHITECTURE_GAP_QUICK_REF.md)** ⭐ NEW
+- 1-page reference card (5KB)
+- Top 5 gaps at-a-glance
+- Visual roadmap
+- For quick status checks
+
 ### Validation
 
 **Compliance Validator:** `scripts/validate-compliance.py`
