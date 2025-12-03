@@ -245,16 +245,18 @@ class ComplianceChecker:
                         section="§ 2.3"
                     ))
                 
-                # Check for manifest.add_input/add_output
-                has_add_input = any('manifest.add_input' in line for line in self.lines)
-                has_add_output = any('manifest.add_output' in line for line in self.lines)
+                # Check for manifest tracking (both old and new API)
+                # New API: io.track_input() / io.track_output()
+                # Old API: io.manifest.add_input() / io.manifest.add_output()
+                has_add_input = any('manifest.add_input' in line or 'track_input' in line for line in self.lines)
+                has_add_output = any('manifest.add_output' in line or 'track_output' in line for line in self.lines)
                 
                 if not has_add_input:
                     self.violations.append(ComplianceViolation(
                         rule="Manifest Input Tracking",
                         severity="error",
                         line=1,
-                        message="Stage should track inputs with io.manifest.add_input()",
+                        message="Stage should track inputs with io.track_input() or io.manifest.add_input()",
                         section="§ 2.5"
                     ))
                 
@@ -263,18 +265,20 @@ class ComplianceChecker:
                         rule="Manifest Output Tracking",
                         severity="error",
                         line=1,
-                        message="Stage should track outputs with io.manifest.add_output()",
+                        message="Stage should track outputs with io.track_output() or io.manifest.add_output()",
                         section="§ 2.5"
                     ))
                 
-                # Check for finalize_stage_manifest
-                has_finalize = any('finalize_stage_manifest' in line for line in self.lines)
+                # Check for manifest finalization (both old and new API)
+                # New API: io.finalize()
+                # Old API: io.finalize_stage_manifest()
+                has_finalize = any('finalize_stage_manifest' in line or '.finalize(' in line for line in self.lines)
                 if not has_finalize:
                     self.violations.append(ComplianceViolation(
                         rule="Manifest Finalization",
                         severity="critical",
                         line=1,
-                        message="Stage must call io.finalize_stage_manifest()",
+                        message="Stage must call io.finalize() or io.finalize_stage_manifest()",
                         section="§ 2.6"
                     ))
     
