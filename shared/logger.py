@@ -16,10 +16,6 @@ from typing import Optional
 # Third-party
 from pythonjsonlogger import jsonlogger
 
-# Local
-from shared.logger import get_logger
-logger = get_logger(__name__)
-
 
 # Stage order mapping for log file prefixes
 # NOTE: ASR (stage 6) must execute before bias_injection (stage 7) before Diarization (stage 8)
@@ -73,6 +69,34 @@ def get_stage_log_filename(stage_name: str, timestamp: Optional[str] = None) -> 
     
     stage_num = STAGE_ORDER.get(stage_name, 99)
     return f"{stage_num:02d}_{stage_name}_{timestamp}.log"
+
+
+def get_logger(name: str, log_level: str = "INFO") -> logging.Logger:
+    """
+    Get a simple logger for non-stage scripts (simplified wrapper around setup_logger).
+    
+    For stage scripts, use StageIO.get_stage_logger() instead.
+    
+    Args:
+        name: Logger name (usually __name__)
+        log_level: Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+    
+    Returns:
+        Configured logger instance
+    
+    Example:
+        >>> from shared.logger import get_logger
+        >>> logger = get_logger(__name__)
+        >>> logger.info("Starting process")
+    """
+    return setup_logger(
+        name=name,
+        log_level=log_level,
+        log_format="text",
+        log_to_console=True,
+        log_to_file=False,
+        log_dir=""
+    )
 
 
 def setup_logger(
