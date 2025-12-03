@@ -333,13 +333,17 @@ def setup_dual_logger(
     )
     
     # Handler 1: Stage-specific log (ALL levels including DEBUG)
+    # Phase 3 Optimization: Create handler with buffered file stream
     stage_log_file.parent.mkdir(parents=True, exist_ok=True)
-    stage_handler = logging.FileHandler(stage_log_file, mode='a', encoding='utf-8')
+    # Open file with buffering
+    stage_file = open(stage_log_file, mode='a', encoding='utf-8', buffering=8192)
+    stage_handler = logging.StreamHandler(stage_file)
     stage_handler.setFormatter(detailed_formatter)
     stage_handler.setLevel(logging.DEBUG)  # Capture everything
     logger.addHandler(stage_handler)
     
     # Handler 2: Main pipeline log (INFO and above only)
+    # Phase 3 Optimization: Create handler with buffered file stream
     main_log_dir.mkdir(parents=True, exist_ok=True)
     
     # Find or create main pipeline log
@@ -354,7 +358,9 @@ def setup_dual_logger(
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         main_log_file = main_log_dir / f"99_pipeline_{timestamp}.log"
     
-    main_handler = logging.FileHandler(main_log_file, mode='a', encoding='utf-8')
+    # Open file with buffering  
+    main_file = open(main_log_file, mode='a', encoding='utf-8', buffering=8192)
+    main_handler = logging.StreamHandler(main_file)
     main_handler.setFormatter(simple_formatter)
     main_handler.setLevel(logging.INFO)  # Only important messages to main log
     logger.addHandler(main_handler)
