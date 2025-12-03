@@ -112,9 +112,14 @@ class ComplianceChecker:
     def check_logger_import(self):
         """Check if logger is imported when needed"""
         has_logging_call = any('logger.' in line for line in self.lines)
-        has_logger_import = any(
-            'get_logger' in line or 'io.get_stage_logger' in line 
-            for line in self.lines[:30]  # Check first 30 lines
+        
+        # Check for logger import anywhere in the file (simpler and more reliable)
+        # This handles organized imports, multi-line docstrings, etc.
+        content = '\n'.join(self.lines)
+        has_logger_import = (
+            'from shared.logger import get_logger' in content or
+            'io.get_stage_logger' in content or
+            'logger = get_logger' in content
         )
         
         if has_logging_call and not has_logger_import:
@@ -231,16 +236,29 @@ class ComplianceChecker:
     
     def check_config_usage(self):
         """Check for proper config usage (§ 4)"""
-        # Check for direct environment access
+        # Check for direct environment access (reading, not setting)
         for i, line in enumerate(self.lines, 1):
-            if 'os.getenv(' in line or 'os.environ[' in line:
+            # Only flag os.getenv() for reading config, not os.environ['X'] = 'Y' for setting
+            if 'os.getenv(' in line:
+                # This is reading config - should use load_config()
                 self.violations.append(ComplianceViolation(
                     rule="Config Access",
                     severity="critical",
                     line=i,
-                    message="Use load_config() instead of os.getenv() or os.environ[]",
+                    message="Use load_config() instead of os.getenv()",
                     section="§ 4.2"
                 ))
+            elif 'os.environ[' in line and '=' not in line.split('os.environ[')[1].split(']')[0]:
+                # Reading from os.environ[] without assignment - should use load_config()
+                # Skip lines like: os.environ['X'] = 'Y' (these are settings, not config reading)
+                if '] =' not in line and ']=' not in line:
+                    self.violations.append(ComplianceViolation(
+                        rule="Config Access",
+                        severity="critical",
+                        line=i,
+                        message="Use load_config() instead of os.environ[]",
+                        section="§ 4.2"
+                    ))
     
     def check_stage_directory_usage(self):
         """Check for proper stage directory usage (§ 1.1)"""
