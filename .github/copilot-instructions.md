@@ -1,8 +1,12 @@
 # Copilot Instructions — CP-WhisperX-App
 
-**Version:** 6.0 (Model Routing Automation) | **Status:** 🎊 **100% PERFECT COMPLIANCE ACHIEVED** 🎊 | **Pre-commit Hook:** ✅ Active
+**Version:** 6.1 (Bug Fixes & TMDB Workflow-Aware) | **Status:** 🎊 **100% PERFECT COMPLIANCE ACHIEVED** 🎊 | **Pre-commit Hook:** ✅ Active
 
-**Major Updates in v6.0:**
+**Major Updates in v6.1 (2025-12-03):**
+- 🐛 **Source Language Optional**: Transcribe workflow auto-detects language
+- 🐛 **TMDB Workflow-Aware**: Only enabled for subtitle workflow (movies/TV)
+- 🐛 **StageManifest Enhanced**: Added add_intermediate() method
+- 🐛 **Script Path Fixed**: Corrected TMDB script reference
 - 🆕 **Automated Model Updates**: Weekly checks for new AI model releases
 - 🆕 **Optimal Routing**: Data-driven model selection from AI_MODEL_ROUTING.md
 - 🆕 **Cost Optimization**: Track and optimize AI usage costs
@@ -47,19 +51,24 @@
 ## 🎯 Core Workflows (Context-Aware)
 
 **1. Subtitle Workflow** (§ 1.5)
-- Input: Bollywood/Indic media
+- Input: Bollywood/Indic media (movies/TV shows)
 - Output: Multiple soft-embedded subtitle tracks (hi, en, gu, ta, es, ru, zh, ar)
 - Features: Character names, cultural terms, speaker diarization, temporal coherence
+- **TMDB:** ✅ Enabled (fetches cast, crew, character names)
 
 **2. Transcribe Workflow** (§ 1.5)
-- Input: Any media
+- Input: Any media (YouTube, podcasts, lectures, general content)
 - Output: Transcript in SAME language as source
 - Features: Domain terminology, proper nouns, native script output
+- **Source Language:** Optional (auto-detects if not specified)
+- **TMDB:** ❌ Disabled (not needed for non-movie content)
 
 **3. Translate Workflow** (§ 1.5)
-- Input: Any media
+- Input: Any media (YouTube, podcasts, lectures, general content)
 - Output: Transcript in SPECIFIED target language
 - Features: Cultural adaptation, glossary terms, formality preservation
+- **Source Language:** Required (must be Indian language for IndicTrans2)
+- **TMDB:** ❌ Disabled (not needed for non-movie content)
 
 ---
 
@@ -151,7 +160,7 @@
 **Output:** Original media + soft-embedded subtitle tracks (hi, en, gu, ta, es, ru, zh, ar)  
 **Output Location:** `out/{date}/{user}/{job}/10_mux/{media_name}/`
 
-**Pipeline:** demux → tmdb → glossary_load → source_sep → pyannote_vad → whisperx_asr → alignment → translate → subtitle_gen → mux
+**Pipeline:** demux → tmdb ✅ → glossary_load → source_sep → pyannote_vad → whisperx_asr → alignment → translate → subtitle_gen → mux
 
 **Context-Aware Features:**
 - Character names preserved via glossary
@@ -172,11 +181,13 @@
 ### 2. Transcribe Workflow
 **Purpose:** Create high-accuracy transcript in SOURCE language
 
-**Input:** Any media source  
+**Input:** Any media source (YouTube, podcasts, lectures, general content)
 **Output:** Text transcript in SAME language as source  
 **Output Location:** `out/{date}/{user}/{job}/07_alignment/transcript.txt`
 
-**Pipeline:** demux → tmdb (optional) → glossary_load → source_sep (optional) → pyannote_vad → whisperx_asr → alignment
+**Pipeline:** demux → glossary_load → source_sep (optional) → pyannote_vad → whisperx_asr → alignment
+
+**TMDB:** ❌ **Disabled** (not needed for non-movie content)
 
 **Context-Aware Features:**
 - Domain terminology preserved
@@ -184,24 +195,30 @@
 - Language-specific output (native script for Hindi)
 - Context-aware punctuation
 - Capitalization (proper noun detection for English)
+- **Auto-detects language if not specified**
 
 **Example:**
 ```bash
-# English technical
-./prepare-job.sh --media "in/Energy Demand in AI.mp4" --workflow transcribe --source-language en
+# Auto-detect language (NEW in v6.1)
+./prepare-job.sh --media "in/Energy Demand in AI.mp4" --workflow transcribe
+
+# Explicit English
+./prepare-job.sh --media "in/Energy Demand in AI.mp4" --workflow transcribe -s en
 
 # Hindi content
-./prepare-job.sh --media in/test_clips/jaane_tu_test_clip.mp4 --workflow transcribe --source-language hi
+./prepare-job.sh --media in/test_clips/jaane_tu_test_clip.mp4 --workflow transcribe -s hi
 ```
 
 ### 3. Translate Workflow
 **Purpose:** Create high-accuracy transcript in TARGET language
 
-**Input:** Any media source  
+**Input:** Indian language media (IndicTrans2 constraint)
 **Output:** Text transcript in SPECIFIED target language  
 **Output Location:** `out/{date}/{user}/{job}/08_translate/transcript_{target_lang}.txt`
 
-**Pipeline:** demux → tmdb → glossary_load → source_sep (optional) → pyannote_vad → whisperx_asr → alignment → translate
+**Pipeline:** demux → glossary_load → source_sep (optional) → pyannote_vad → whisperx_asr → alignment → translate
+
+**TMDB:** ❌ **Disabled** (not needed for non-movie content)
 
 **Context-Aware Features:**
 - Cultural adaptation (idioms, metaphors localized)
@@ -216,8 +233,22 @@
 - Non-Indic: NLLB-200 (broad support)
 - Fallback: Hybrid approach
 
+**Language Constraint (NEW in v6.1):**
+- ✅ Source language **MUST** be Indian language (hi, ta, te, etc.)
+- ✅ Target language can be ANY language
+- ❌ English→Hindi NOT supported (use transcribe instead)
+
 **Example:**
 ```bash
+# Hindi → English (WORKS)
+./prepare-job.sh --media in/test_clips/jaane_tu_test_clip.mp4 --workflow translate -s hi -t en
+
+# Hindi → Spanish (WORKS)
+./prepare-job.sh --media in/test_clips/jaane_tu_test_clip.mp4 --workflow translate -s hi -t es
+
+# English → Hindi (FAILS - use transcribe instead)
+# ./prepare-job.sh --media file.mp4 --workflow translate -s en -t hi  ❌
+```
 # Hindi → English
 ./prepare-job.sh --media in/test_clips/jaane_tu_test_clip.mp4 --workflow translate \
   --source-language hi --target-language en
@@ -342,9 +373,10 @@ ML_LEARNING_FROM_HISTORY=true              # Learn from past jobs
 - ✅ Type hints and docstrings (100% compliant)
 - ✅ Standard test media - Two samples defined (§ 1.4) 🆕
 - ✅ Core workflows documented - Subtitle/Transcribe/Translate (§ 1.5) 🆕
+- ✅ **StageManifest enhanced** - add_intermediate() method added (v6.1) 🆕
 
 **Partially Implemented:**
-- ⚠️ Stage module pattern (5% adoption) - Only `tmdb_enrichment_stage.py`
+- ⚠️ Stage module pattern (5% adoption) - Only `02_tmdb_enrichment.py`
 - ⚠️ Manifest tracking (10% adoption) - Few stages use it
 - ⚠️ Stage isolation (60% adoption) - Some shared state remains
 - ⚠️ Context-aware processing (40% adoption) - Basic implementation (§ 1.5) 🆕
@@ -576,7 +608,7 @@ scripts/10_mux.py
 ❌ **INCORRECT (Old patterns - DO NOT USE):**
 ```
 scripts/demux.py                          # Missing stage number
-scripts/tmdb_enrichment_stage.py          # Wrong suffix
+scripts/tmdb_enrichment_stage.py          # Wrong name (fixed in v6.1)
 scripts/03_glossary_load/glossary_loader.py  # Wrong directory
 ```
 
@@ -759,6 +791,10 @@ def run_stage(job_dir: Path, stage_name: str = "stage") -> int:
         # 6. Track output
         io.manifest.add_output(output_file, io.compute_hash(output_file))
         
+        # 6a. Track intermediate files (NEW in v6.1)
+        intermediate_file = io.stage_dir / "cache.tmp"
+        io.track_intermediate(intermediate_file, retained=True, reason="Model cache")
+        
         # 7. Finalize
         io.finalize_stage_manifest(exit_code=0)
         return 0
@@ -773,8 +809,23 @@ def run_stage(job_dir: Path, stage_name: str = "stage") -> int:
 - `enable_manifest=True`
 - `io.get_stage_logger()` (not print)
 - Track inputs/outputs
+- Track intermediate files (NEW in v6.1) - Use `io.track_intermediate()` for cache/temp files
 - Write to `io.stage_dir` ONLY
 - Finalize manifest
+
+**StageManifest Methods (v6.1):**
+```python
+# Track inputs
+io.manifest.add_input("key", file_path, "description")
+
+# Track outputs  
+io.manifest.add_output("key", file_path, "description")
+
+# Track intermediate files (NEW in v6.1)
+io.track_intermediate(file_path, retained=True, reason="Model cache")
+# retained=True: Keep after stage completes
+# retained=False: Temporary file (can be deleted)
+```
 
 ---
 
