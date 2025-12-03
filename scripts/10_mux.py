@@ -13,7 +13,7 @@ import json
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from shared.stage_utils import StageIO, get_stage_logger
+from shared.stage_utils import StageIO
 from shared.config import load_config
 
 def main() -> int:
