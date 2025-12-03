@@ -12,12 +12,13 @@ on:
         default: 'false'
         type: boolean
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   update-routing:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
     
     steps:
       - name: Checkout repository
