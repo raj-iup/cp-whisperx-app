@@ -920,13 +920,13 @@ class IndicTrans2Pipeline:
                 self.logger.info("Glossary system is disabled (skipping)")
                 return True
             
-            # Import new glossary loader module
-            sys.path.insert(0, str(PROJECT_ROOT / "scripts/03_glossary_load"))
-            import glossary_loader
+            # Import glossary load stage module (module name starts with number, use importlib)
+            import importlib
+            glossary_load = importlib.import_module("scripts.03_glossary_load")
             
-            # Call the new stage module
+            # Call the stage module
             self.logger.info("Running glossary load stage...")
-            exit_code = glossary_loader.run_stage(self.job_dir, "03_glossary_load")
+            exit_code = glossary_load.run_stage(self.job_dir, "03_glossary_load")
             
             if exit_code != 0:
                 self.logger.error("Glossary load stage failed")
@@ -1007,13 +1007,13 @@ class IndicTrans2Pipeline:
                 self.logger.info("Lyrics detection is disabled (skipping)")
                 return True
             
-            # Import new lyrics detection module
-            sys.path.insert(0, str(PROJECT_ROOT / "scripts/06_lyrics_detection"))
-            import lyrics_stage
+            # Import lyrics detection stage module (module name starts with number, use importlib)
+            import importlib
+            lyrics_detection = importlib.import_module("scripts.06_lyrics_detection")
             
-            # Call the new stage module
+            # Call the stage module
             self.logger.info("Running lyrics detection stage...")
-            exit_code = lyrics_stage.run_stage(self.job_dir, "06_lyrics_detection")
+            exit_code = lyrics_detection.run_stage(self.job_dir, "06_lyrics_detection")
             
             if exit_code != 0:
                 self.logger.warning("Lyrics detection failed, continuing without lyrics metadata")
@@ -1643,11 +1643,11 @@ logger.info(f"Transcription completed: {{len(segments)}} segments")
                 self.logger.info("NER stage is disabled (skipping)")
                 return True
             
-            # Import new NER module
-            sys.path.insert(0, str(PROJECT_ROOT / "scripts/05_ner"))
-            import ner_stage
+            # Import NER stage module (module name starts with number, use importlib)
+            import importlib
+            ner_stage = importlib.import_module("scripts.05_ner")
             
-            # Call the new stage module
+            # Call the stage module
             self.logger.info("Running NER stage...")
             exit_code = ner_stage.run_stage(self.job_dir, "05_ner")
             
@@ -1676,11 +1676,11 @@ logger.info(f"Transcription completed: {{len(segments)}} segments")
                 self.logger.info("Subtitle generation is disabled (skipping)")
                 return True
             
-            # Import new subtitle generation module
-            sys.path.insert(0, str(PROJECT_ROOT / "scripts/09_subtitle_gen"))
-            import subtitle_gen
+            # Import subtitle generation stage module (module name starts with number, use importlib)
+            import importlib
+            subtitle_gen = importlib.import_module("scripts.09_subtitle_gen")
             
-            # Call the new stage module
+            # Call the stage module
             self.logger.info("Running subtitle generation stage...")
             exit_code = subtitle_gen.run_stage(self.job_dir, "09_subtitle_gen")
             

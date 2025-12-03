@@ -18,7 +18,9 @@ from collections import Counter
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from shared.logger import PipelineLogger
+from shared.logger import PipelineLogger, get_logger
+
+logger = get_logger(__name__)
 
 
 class GlossaryLearner:
@@ -318,7 +320,7 @@ class GlossaryLearner:
         return enhanced_glossary
 
 
-def main():
+def main() -> None:
     """Command-line interface for glossary learner."""
     import argparse
     
@@ -353,7 +355,7 @@ def main():
         with open(args.base_glossary, 'r', encoding='utf-8') as f:
             data = json.load(f)
             base_glossary = data.get('glossary', data)
-        print(f"✓ Loaded base glossary: {len(base_glossary)} terms")
+        logger.info(f"✓ Loaded base glossary: {len(base_glossary)} terms")
     
     # Learn from job
     enhanced_glossary = learner.learn_from_job(
@@ -363,10 +365,10 @@ def main():
         args.confidence_threshold
     )
     
-    print(f"\n✅ Glossary learning complete!")
-    print(f"   Base terms: {len(base_glossary) if base_glossary else 0}")
-    print(f"   Total terms: {len(enhanced_glossary)}")
-    print(f"   New terms: {len(enhanced_glossary) - (len(base_glossary) if base_glossary else 0)}")
+    logger.info("✅ Glossary learning complete!")
+    logger.info(f"   Base terms: {len(base_glossary) if base_glossary else 0}")
+    logger.info(f"   Total terms: {len(enhanced_glossary)}")
+    logger.info(f"   New terms: {len(enhanced_glossary) - (len(base_glossary) if base_glossary else 0)}")
 
 
 if __name__ == "__main__":
