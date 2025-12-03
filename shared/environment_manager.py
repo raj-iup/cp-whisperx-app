@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 """
+
+logger = get_logger(__name__)
+
 Environment Manager
 Manages multiple Python virtual environments for pipeline stages
 """
@@ -316,6 +319,9 @@ class EnvironmentManager:
 def main():
     """CLI interface for environment manager"""
     import argparse
+
+# Local
+from shared.logger import get_logger
     
     parser = argparse.ArgumentParser(description="Environment Manager CLI")
     parser.add_argument("command", choices=[

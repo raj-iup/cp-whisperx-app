@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 """
+
+logger = get_logger(__name__)
+
 WhisperX ASR stage: Automatic Speech Recognition
 
 This is a thin wrapper around whisperx_integration.py which contains
@@ -18,6 +21,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from whisperx_integration import main as whisperx_main
+
+# Local
+from shared.logger import get_logger
 
 
 def main():

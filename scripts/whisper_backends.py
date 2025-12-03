@@ -1,4 +1,7 @@
 """
+
+logger = get_logger(__name__)
+
 whisper_backends.py - Unified backend abstraction for Whisper models
 
 Supports multiple backends:
@@ -646,6 +649,9 @@ def get_recommended_backend(device: str, logger) -> str:
     if device_lower == "mps":
         try:
             import mlx_whisper
+
+# Local
+from shared.logger import get_logger
             logger.info("✓ MPS: Using MLX-Whisper (native GPU acceleration)")
             logger.info("  → ASR runs clean on MPS (2-4x faster than CPU)")
             logger.info("  → Bias injection: post-ASR stage (bias_injection)")

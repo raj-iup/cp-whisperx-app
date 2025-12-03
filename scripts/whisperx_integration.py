@@ -50,6 +50,7 @@ from whisper_backends import create_backend, get_recommended_backend
 
 # Local
 from shared.logger import get_logger
+from shared.config_loader import load_config
 logger = get_logger(__name__)
 
 # Audio loading utility
@@ -549,8 +550,8 @@ class WhisperXProcessor:
 
         # Phase 1: Apply confidence-based filtering
         segments = result.get('segments', [])
-        min_logprob = float(os.getenv('WHISPER_LOGPROB_THRESHOLD', -0.7))
-        min_duration = float(os.getenv('WHISPER_MIN_DURATION', 0.1))
+        min_logprob = float(config.get('WHISPER_LOGPROB_THRESHOLD', str(-0.7)))
+        min_duration = float(config.get('WHISPER_MIN_DURATION', str(0.1)))
         filtered_segments = self.filter_low_confidence_segments(segments, min_logprob, min_duration)
         result['segments'] = filtered_segments
 
@@ -638,8 +639,8 @@ class WhisperXProcessor:
 
         # Phase 1: Apply confidence-based filtering
         segments = result.get('segments', [])
-        min_logprob = float(os.getenv('WHISPER_LOGPROB_THRESHOLD', -0.7))
-        min_duration = float(os.getenv('WHISPER_MIN_DURATION', 0.1))
+        min_logprob = float(config.get('WHISPER_LOGPROB_THRESHOLD', str(-0.7)))
+        min_duration = float(config.get('WHISPER_MIN_DURATION', str(0.1)))
         filtered_segments = self.filter_low_confidence_segments(segments, min_logprob, min_duration)
         result['segments'] = filtered_segments
 
@@ -765,8 +766,8 @@ class WhisperXProcessor:
         merged_segments = self._merge_overlapping_segments(all_segments)
 
         # Phase 1: Apply confidence-based filtering
-        min_logprob = float(os.getenv('WHISPER_LOGPROB_THRESHOLD', -0.7))
-        min_duration = float(os.getenv('WHISPER_MIN_DURATION', 0.1))
+        min_logprob = float(config.get('WHISPER_LOGPROB_THRESHOLD', str(-0.7)))
+        min_duration = float(config.get('WHISPER_MIN_DURATION', str(0.1)))
         filtered_segments = self.filter_low_confidence_segments(merged_segments, min_logprob, min_duration)
 
         self.logger.info(f"  ✓ Chunked transcription complete: {len(filtered_segments)} merged segments")
@@ -894,8 +895,8 @@ class WhisperXProcessor:
 
         # Phase 1: Apply confidence-based filtering
         segments = merged_result.get('segments', [])
-        min_logprob = float(os.getenv('WHISPER_LOGPROB_THRESHOLD', -0.7))
-        min_duration = float(os.getenv('WHISPER_MIN_DURATION', 0.1))
+        min_logprob = float(config.get('WHISPER_LOGPROB_THRESHOLD', str(-0.7)))
+        min_duration = float(config.get('WHISPER_MIN_DURATION', str(0.1)))
         filtered_segments = self.filter_low_confidence_segments(segments, min_logprob, min_duration)
         merged_result['segments'] = filtered_segments
 

@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
 """
+# Local
+from shared.logger import get_logger
+
+
+logger = get_logger(__name__)
+
 Subtitle Segment Merger - Phase 3: Readability Improvements
 
 Merges short subtitle segments for optimal readability with:

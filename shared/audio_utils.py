@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 """
+
+logger = get_logger(__name__)
+
 Audio Utilities - Lightweight audio loading without whisperx dependency
 
 This module provides audio loading functionality that doesn't require
@@ -455,6 +458,9 @@ def validate_audio_file(file_path: Union[str, Path]) -> Dict[str, Any]:
     """
     import soundfile as sf
     from typing import Dict, List, Any
+
+# Local
+from shared.logger import get_logger
     
     file_path = Path(file_path)
     

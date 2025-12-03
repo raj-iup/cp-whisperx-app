@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 """
+
+logger = get_logger(__name__)
+
 Hybrid Subtitle Merger
 Combines WhisperX (context-aware) and IndICTrans2 (safe) translations
 Uses IndICTrans2 for detected hallucination segments, WhisperX for the rest
@@ -13,6 +16,9 @@ import sys
 
 # Third-party
 import srt
+
+# Local
+from shared.logger import get_logger
 
 def detect_hallucinations(subtitles: List[srt.Subtitle]) -> Set[int]:
     """

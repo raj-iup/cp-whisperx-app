@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 """
+
+logger = get_logger(__name__)
+
 Model Pre-Downloader for CP-WhisperX-App
 Downloads and caches all required ML models during bootstrap
 """
@@ -115,6 +118,9 @@ class ModelDownloader:
         """Test MLX-Whisper availability (models download on first use)"""
         try:
             import mlx_whisper
+
+# Local
+from shared.logger import get_logger
             
             # MLX models are downloaded on first use, just verify library works
             version = getattr(mlx_whisper, '__version__', 'installed')

@@ -1,4 +1,7 @@
 """
+
+logger = get_logger(__name__)
+
 config_loader.py - Configuration loader for whisperx-app
 
 Loads configuration from:
@@ -15,6 +18,9 @@ from typing import Dict, Any, Optional
 
 # Third-party
 from dotenv import dotenv_values
+
+# Local
+from shared.logger import get_logger
 
 
 class Config:

@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 """
+
+logger = get_logger(__name__)
+
 Filename Parser for Movie Files
 
 Parses movie filenames to extract title, year, and other metadata.
@@ -44,6 +47,9 @@ def parse_filename(filename: str) -> ParsedFilename:
         ParsedFilename(title='3 Idiots', year=2009, quality='1080p', ...)
     """
     from pathlib import Path
+
+# Local
+from shared.logger import get_logger
     
     # Get basename without extension
     basename = Path(filename).stem

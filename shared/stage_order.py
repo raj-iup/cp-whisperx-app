@@ -1,4 +1,7 @@
 """
+
+logger = get_logger(__name__)
+
 Centralized Stage Order Configuration
 
 This module defines the canonical ordering of pipeline stages.
@@ -198,6 +201,9 @@ def get_stage_dir(stage_name: str, job_dir: Optional[str] = None) -> str:
     
     if job_dir:
         from pathlib import Path
+
+# Local
+from shared.logger import get_logger
         return str(Path(job_dir) / stage_dir)
     
     return stage_dir

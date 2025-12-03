@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 """
+
+logger = get_logger(__name__)
+
 Model Status Checker for CP-WhisperX-App
 Checks cached models and reports if newer versions are available
 """
@@ -207,6 +210,9 @@ def load_hardware_cache(project_root: Path) -> Dict:
 
 def main():
     import argparse
+
+# Local
+from shared.logger import get_logger
     
     parser = argparse.ArgumentParser(description='Check ML model status for CP-WhisperX-App')
     parser.add_argument('--hf-token', type=str, help='HuggingFace API token')
