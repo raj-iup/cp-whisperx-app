@@ -457,9 +457,9 @@ class WhisperXProcessor:
         else:
             # Phase 1: Global bias (default, fast)
             # Auto-decide between whole-file and chunked based on duration/device
+            # TODO: Fix chunking API mismatch (dict vs object attributes)
             use_chunking = (
-                self.backend.device == 'mps' or  # Always chunk for MPS stability
-                audio_duration > 600  # Always chunk if > 10 minutes
+                audio_duration > 1800  # Only chunk if > 30 minutes (temporary until chunking fixed)
             )
             
             if use_chunking:
@@ -469,7 +469,7 @@ class WhisperXProcessor:
                     bias_windows, batch_size, output_dir
                 )
             else:
-                self.logger.info(f"  🚀 PHASE 1: Global bias strategy")
+                self.logger.info(f"  🚀 Whole-file processing (duration={audio_duration:.0f}s)")
                 return self._transcribe_whole(
                     audio_file, source_lang, task,
                     bias_windows, batch_size
@@ -503,6 +503,9 @@ class WhisperXProcessor:
         batch_size: int
     ) -> Dict[str, Any]:
         """Whole-file transcription with global bias prompting (for short files or CPU)"""
+        
+        # Load config for filtering thresholds
+        config = load_config()
         
         # Create global bias prompts from bias windows
         initial_prompt = None
@@ -860,11 +863,14 @@ class WhisperXProcessor:
         
         chunker = ChunkedASRProcessor(self.logger, chunk_duration=300)  # 5 min chunks
         
-        # Create chunks
-        chunks = chunker.create_chunks(audio_file, bias_windows)
+        # Create chunks output directory
+        chunks_dir = output_dir / 'chunks' / task
+        chunks_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Create chunks (audio_file, output_dir)
+        chunks = chunker.create_chunks(audio_file, chunks_dir)
         
         # Process each chunk with checkpointing
-        # Use task-specific subdirectory to avoid cache conflicts between transcribe/translate
         chunk_results = []
         checkpoint_dir = output_dir / 'chunks' / task
         checkpoint_dir.mkdir(parents=True, exist_ok=True)
@@ -1406,8 +1412,14 @@ def main() -> Any:
     # Default to 'whisperx' to ensure bias prompting support
     backend = getattr(config, 'whisper_backend', 'whisperx')
     
-    # Get workflow mode
-    workflow_mode = getattr(config, 'workflow_mode', 'subtitle-gen')
+    # Get workflow from job config (job.json)
+    workflow_mode = 'transcribe'  # Default
+    job_json_path = stage_io.job_dir / "job.json"
+    if job_json_path.exists():
+        import json
+        with open(job_json_path) as f:
+            job_data = json.load(f)
+            workflow_mode = job_data.get('workflow', 'transcribe')
     
     # Get HF token from secrets or environment
     hf_token = None

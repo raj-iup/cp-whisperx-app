@@ -31,7 +31,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from shared.logger import PipelineLogger, get_logger
 from shared.environment_manager import EnvironmentManager
-from scripts.config_loader import Config
+from shared.config_loader import Config
 from shared.stage_order import get_stage_dir
 from shared.stage_dependencies import (
     validate_stage_dependencies,
@@ -340,6 +340,9 @@ class IndicTrans2Pipeline:
             env["DEBUG_MODE"] = 'true' if self.debug else 'false'
             env["LOG_LEVEL"] = 'DEBUG' if self.debug else 'INFO'
             
+            # Add PROJECT_ROOT to PYTHONPATH for shared module imports
+            env["PYTHONPATH"] = f"{PROJECT_ROOT}:{env.get('PYTHONPATH', '')}"
+            
             # Replace python in command with environment-specific python
             if command[0] == "python" or command[0] == "python3":
                 command[0] = str(python_exe)
@@ -353,6 +356,9 @@ class IndicTrans2Pipeline:
                 kwargs['env'] = os.environ.copy()
             kwargs['env']['DEBUG_MODE'] = 'true' if self.debug else 'false'
             kwargs['env']['LOG_LEVEL'] = 'DEBUG' if self.debug else 'INFO'
+            
+            # Add PROJECT_ROOT to PYTHONPATH even for current environment
+            kwargs['env']["PYTHONPATH"] = f"{PROJECT_ROOT}:{kwargs['env'].get('PYTHONPATH', '')}"
         
         return subprocess.run(command, **kwargs)
     

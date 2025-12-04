@@ -505,10 +505,9 @@
 **Assignee:** Testing Team
 
 **Tasks:**
-- [ ] Test subtitle workflow with Sample 1
-- [ ] Test subtitle workflow with Sample 2
-- [ ] Test transcribe workflow with both samples
-- [ ] Test translate workflow with both samples
+- [ ] Test subtitle workflow with Sample 2 (jaane_tu_test_clip.mp4 - Hinglish)
+- [ ] Test transcribe workflow with Sample 1 (Energy Demand in AI.mp4 - English)
+- [ ] Test translate workflow with Sample 1 (Energy Demand in AI.mp4 - English)
 - [ ] Performance profiling
 - [ ] Error scenario testing
 

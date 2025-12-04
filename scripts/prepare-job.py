@@ -35,7 +35,7 @@ from shared.stage_order import get_all_stage_dirs
 from shared.logger import PipelineLogger, get_logger
 from shared.environment_manager import EnvironmentManager
 from scripts.filename_parser import parse_filename
-from scripts.config_loader import Config
+from shared.config_loader import Config
 
 # Initialize logger
 logger = get_logger(__name__)

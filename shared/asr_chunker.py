@@ -18,7 +18,7 @@ Status: ✅ Implemented for large file processing
 # Standard library
 import json
 from pathlib import Path
-from typing import Optional, Any, Dict, List, Tuple
+from typing import Optional, Any, Dict, List, Tuple, Union
 
 # Local
 from shared.logger import get_logger
@@ -64,15 +64,15 @@ class ChunkedASRProcessor:
     
     def create_chunks(
         self,
-        audio_file: Path,
-        output_dir: Path
+        audio_file: Union[Path, str],
+        output_dir: Union[Path, str]
     ) -> List[Dict[str, Any]]:
         """
         Create audio chunks from a large file.
         
         Args:
-            audio_file: Path to input audio file
-            output_dir: Directory for chunk outputs
+            audio_file: Path to input audio file (Path or str)
+            output_dir: Directory for chunk outputs (Path or str)
             
         Returns:
             List of chunk metadata dicts with:
@@ -86,6 +86,10 @@ class ChunkedASRProcessor:
             FileNotFoundError: If audio file doesn't exist
             ImportError: If librosa/soundfile not installed
         """
+        # Convert to Path if string
+        audio_file = Path(audio_file) if isinstance(audio_file, str) else audio_file
+        output_dir = Path(output_dir) if isinstance(output_dir, str) else output_dir
+        
         if not audio_file.exists():
             raise FileNotFoundError(f"Audio file not found: {audio_file}")
         
