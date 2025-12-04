@@ -1389,11 +1389,15 @@ Input Video (in/film.mp4)
     ↓
 [07_alignment] → aligned_segments.json
     ↓
-[08_lyrics_detection] → lyrics_enhanced.json
+[08_lyrics_detection] → transcript_with_lyrics.json
     ↓
-[09_subtitle_generation] → subtitles.srt
+[09_hallucination_removal] → transcript_cleaned.json
     ↓
-[10_mux] → output_video.mp4
+[10_translation] → transcript_{lang}.json
+    ↓
+[11_subtitle_generation] → subtitles/{media}.{lang}.srt
+    ↓
+[12_mux] → {media}_subtitled.mkv
 ```
 
 **Each manifest records:**
