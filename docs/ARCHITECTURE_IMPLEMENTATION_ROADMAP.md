@@ -22,7 +22,7 @@
 
 **Key Updates Since v2.0:**
 - ✅ Code quality: 100% compliance achieved
-- ✅ Configuration: Cleaned and standardized (186 parameters)
+- ✅ Configuration: Cleaned and standardized (179 parameters)
 - ✅ Documentation: File naming and job preparation flow documented
 - ✅ Pre-commit hook: Active and enforcing standards
 - 🆕 **Testing Infrastructure**: Standardized test media samples defined
@@ -755,7 +755,7 @@ Subtitle:    demux → asr → translation → subtitle_gen (inline) → mux
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│       CP-WhisperX Pipeline v3.0 (Context-Aware)             │
+│     CP-WhisperX Pipeline v3.0 (12-Stage Context-Aware)      │
 │         (Fully Modular + Caching + ML Optimization)         │
 └─────────────────────────────────────────────────────────────┘
 
@@ -772,16 +772,16 @@ Subtitle:    demux → asr → translation → subtitle_gen (inline) → mux
 └─────────────┘  └─────────────┘  └─────────────┘
        ↓                ↓                ↓
 ┌─────────────┐  ┌─────────────┐  ┌─────────────┐
-│ 07_alignment│→│ 08_translate│→│ 09_subtitle │
-│ Word-level  │ │ Context-aware│ │ Multi-lang  │
-│ MLX         │ │ (cached)    │ │ generation  │
+│ 07_alignment│→│ 08_lyrics   │→│ 09_hallucin │
+│ Word-level  │ │ Detection   │ │ Removal     │
+│ MLX         │ │ (MANDATORY) │ │ (MANDATORY) │
 └─────────────┘  └─────────────┘  └─────────────┘
-                                       ↓
-                                ┌─────────────┐
-                                │ 10_mux      │
-                                │ Soft-embed  │
-                                │ organized   │
-                                └─────────────┘
+       ↓                ↓                ↓
+┌─────────────┐  ┌─────────────┐  ┌─────────────┐
+│ 10_translate│→│ 11_subtitle │→│ 12_mux      │
+│ Context-aware│ │ Multi-lang  │ │ Soft-embed  │
+│ (cached)    │ │ generation  │ │ all tracks  │
+└─────────────┘  └─────────────┘  └─────────────┘
 
 [Cache Layer] - Intelligent caching across all stages
 [ML Optimizer] - Adaptive quality and performance tuning
@@ -1451,7 +1451,7 @@ Add production-ready features for reliability, performance, and intelligent opti
 
 ### Configuration
 
-- `config/.env.pipeline` - 1,052 lines, 186 parameters
+- `config/.env.pipeline` - 1,054 lines, 179 parameters
 - `.github/copilot-instructions.md` - Development guidelines
 - `.git/hooks/pre-commit` - Automated validation
 
