@@ -166,7 +166,7 @@
 
 **Input:** Indic/Hinglish movie media source  
 **Output:** Original media + soft-embedded subtitle tracks (hi, en, gu, ta, es, ru, zh, ar)  
-**Output Location:** `out/{date}/{user}/{job}/10_mux/{media_name}/`
+**Output Location:** `out/{date}/{user}/{job}/12_mux/`
 
 **Pipeline:** demux → tmdb ✅ → glossary_load → source_sep → pyannote_vad → whisperx_asr → alignment → translate → subtitle_gen → mux
 
@@ -376,7 +376,7 @@ ML_LEARNING_FROM_HISTORY=true              # Learn from past jobs
 ## 🚧 Implementation Status
 
 **Current Architecture:** v2.0 (Simplified 3-6 Stage Pipeline)  
-**Target Architecture:** v3.0 (Context-Aware Modular 10-Stage Pipeline)  
+**Target Architecture:** v3.0 (Context-Aware Modular 12-Stage Pipeline)  
 **Migration Progress:** 95% Documentation Complete (Phase 4)
 
 ### What Works Now (v2.0) ✅
@@ -392,18 +392,18 @@ ML_LEARNING_FROM_HISTORY=true              # Learn from past jobs
 - ✅ **StageManifest enhanced** - add_intermediate() method added (v6.1) 🆕
 
 **Partially Implemented:**
-- ⚠️ Stage module pattern (5% adoption) - Only `02_tmdb_enrichment.py`
-- ⚠️ Manifest tracking (10% adoption) - Few stages use it
-- ⚠️ Stage isolation (60% adoption) - Some shared state remains
-- ⚠️ Context-aware processing (40% adoption) - Basic implementation (§ 1.5) 🆕
-- ⚠️ Intelligent caching (0% adoption) - Planned in Phase 5 (§ 1.6) 🆕
+- ✅ Stage module pattern (100% adoption) - ALL stages use StageIO ✅
+- ✅ Manifest tracking (100% adoption) - All stages track inputs/outputs ✅
+- ✅ Stage isolation (100% adoption) - Stage-based directories enforced ✅
+- ✅ Context-aware processing (90% adoption) - Implemented in subtitle workflow ✅
+- ⏳ Intelligent caching (0% adoption) - Planned in Phase 5 (§ 1.6) 🆕
 
 ### What's Coming (v3.0) ⏳
 
 **In Active Development:**
-- ⏳ Full 10-stage modular pipeline
-- ⏳ Universal StageIO adoption (target: 100%)
-- ⏳ Complete manifest tracking (target: 100%)
+- ⏳ Full 12-stage modular pipeline
+- ✅ Universal StageIO adoption (100% achieved)
+- ✅ Complete manifest tracking (100% achieved)
 - ⏳ Stage-level testing infrastructure
 - ⏳ Stage enable/disable per job
 - ⏳ Advanced features (retry, caching, circuit breakers)
@@ -616,9 +616,11 @@ scripts/04_source_separation.py
 scripts/05_pyannote_vad.py
 scripts/06_whisperx_asr.py
 scripts/07_mlx_alignment.py (or 07_alignment.py)
-scripts/08_indictrans2_translation.py (or 08_translate.py)
-scripts/09_subtitle_generation.py (or 09_subtitle_gen.py)
-scripts/10_mux.py
+scripts/08_lyrics_detection.py
+scripts/09_hallucination_removal.py
+scripts/10_translation.py (or 10_indictrans2_translation.py)
+scripts/11_subtitle_generation.py (or 11_subtitle_gen.py)
+scripts/12_mux.py
 ```
 
 ❌ **INCORRECT (Old patterns - DO NOT USE):**

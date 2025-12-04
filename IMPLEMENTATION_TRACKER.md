@@ -367,11 +367,11 @@ TIME: ~15 minutes
 
 #### Subtask: Document Core Pipeline (1 hour)
 
-- [ ] Create CANONICAL_PIPELINE.md
-- [ ] List all 10 core stages (01-10)
-- [ ] Document purpose and criticality
-- [ ] Add workflow execution paths
-- [ ] Document StageIO compliance status
+- [x] Create CANONICAL_PIPELINE.md
+- [x] List all 12 core stages (01-12)
+- [x] Document purpose and criticality
+- [x] Add workflow execution paths
+- [x] Document StageIO compliance status
 
 **Status:** ⏳ Not Started  
 **Assigned:** ___________  
@@ -701,7 +701,7 @@ Issues: ___________
 
 - [ ] Run: `./prepare-job.sh --media "in/test_clips/jaane_tu_test_clip.mp4" --workflow subtitle -s hi -t en,gu,ta,es`
 - [ ] Verify job created
-- [ ] Run pipeline (full 10-stage)
+- [ ] Run pipeline (full 12-stage subtitle workflow)
 - [ ] Check output: `10_mux/{media}.mkv` exists
 - [ ] Verify subtitle tracks: `ffprobe -show_streams`
 - [ ] Check subtitle quality (target: ≥88%)
