@@ -1678,11 +1678,11 @@ logger.info(f"Transcription completed: {{len(segments)}} segments")
             
             # Import subtitle generation stage module (module name starts with number, use importlib)
             import importlib
-            subtitle_gen = importlib.import_module("scripts.09_subtitle_gen")
+            subtitle_gen = importlib.import_module("scripts.09_subtitle_generation")
             
             # Call the stage module
             self.logger.info("Running subtitle generation stage...")
-            exit_code = subtitle_gen.run_stage(self.job_dir, "09_subtitle_gen")
+            exit_code = subtitle_gen.run_stage(self.job_dir, "09_subtitle_generation")
             
             if exit_code != 0:
                 self.logger.error("Subtitle generation failed")
