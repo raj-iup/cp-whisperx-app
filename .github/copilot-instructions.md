@@ -176,6 +176,14 @@
 - Tone adaptation (formal vs. casual)
 - Temporal coherence (consistent terminology)
 - Speaker attribution (diarization)
+- **Lyrics detection (Stage 08) - MANDATORY**
+  - Identifies song/music segments
+  - Prevents literal translation of lyrics
+  - Preserves cultural significance
+- **Hallucination removal (Stage 09) - MANDATORY**
+  - Removes ASR artifacts ("Thanks for watching", repeated phrases)
+  - Cleans background music-induced errors
+  - Ensures 88%+ subtitle quality
 
 **Example:**
 ```bash
