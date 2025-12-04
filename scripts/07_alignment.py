@@ -257,7 +257,7 @@ def main():
             output_file,
             model,
             language,
-            logger: logging.Logger
+            logger
         )
         
         if use_pipeline:
@@ -288,21 +288,21 @@ def main():
         sys.exit(0 if success else 1)
         
     except FileNotFoundError as e:
-        logger.error(f"File not found: {e}", exc_info=True, exc_info=True)
+        logger.error(f"File not found: {e}", exc_info=True)
         if use_pipeline:
             stage_io.add_error(f"File not found: {e}")
             stage_io.finalize(status="failed", error=str(e))
         sys.exit(1)
     
     except IOError as e:
-        logger.error(f"I/O error: {e}", exc_info=True, exc_info=True)
+        logger.error(f"I/O error: {e}", exc_info=True)
         if use_pipeline:
             stage_io.add_error(f"I/O error: {e}")
             stage_io.finalize(status="failed", error=str(e))
         sys.exit(1)
     
     except RuntimeError as e:
-        logger.error(f"MLX runtime error: {e}", exc_info=True, exc_info=True)
+        logger.error(f"MLX runtime error: {e}", exc_info=True)
         if use_pipeline:
             stage_io.add_error(f"MLX alignment error: {e}")
             stage_io.finalize(status="failed", error=str(e))
@@ -316,7 +316,7 @@ def main():
         sys.exit(130)
     
     except Exception as e:
-        logger.error(f"✗ Unexpected error: {e}", exc_info=True, exc_info=True)
+        logger.error(f"✗ Unexpected error: {e}", exc_info=True)
         if use_pipeline:
             stage_io.add_error(f"Unexpected error: {e}")
             stage_io.finalize(status="failed", error=str(e))

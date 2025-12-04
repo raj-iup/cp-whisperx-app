@@ -87,12 +87,12 @@ if __name__ == "__main__":
         from pyannote_vad_chunker import main as vad_main
         exit_code = vad_main()
     except FileNotFoundError as e:
-        logger.error(f"✗ File not found: {e}", exc_info=True, exc_info=True)
+        logger.error(f"✗ File not found: {e}", exc_info=True)
         stage_io.add_error(f"File not found: {e}")
         stage_io.finalize(status="failed", error=str(e))
         sys.exit(1)
     except IOError as e:
-        logger.error(f"✗ I/O error: {e}", exc_info=True, exc_info=True)
+        logger.error(f"✗ I/O error: {e}", exc_info=True)
         stage_io.add_error(f"I/O error: {e}")
         stage_io.finalize(status="failed", error=str(e))
         sys.exit(1)
@@ -103,7 +103,7 @@ if __name__ == "__main__":
         stage_io.finalize(status="failed", error="Missing dependency")
         sys.exit(1)
     except RuntimeError as e:
-        logger.error(f"✗ Model error: {e}", exc_info=True, exc_info=True)
+        logger.error(f"✗ Model error: {e}", exc_info=True)
         stage_io.add_error(f"PyAnnote model error: {e}")
         stage_io.finalize(status="failed", error=str(e))
         sys.exit(1)
@@ -113,7 +113,7 @@ if __name__ == "__main__":
         stage_io.finalize(status="failed", error="KeyboardInterrupt")
         sys.exit(130)
     except Exception as e:
-        logger.error(f"✗ VAD failed with unexpected error: {e}", exc_info=True, exc_info=True)
+        logger.error(f"✗ VAD failed with unexpected error: {e}", exc_info=True)
         stage_io.add_error(f"Unexpected error: {e}")
         stage_io.finalize(status="failed", error=str(e))
         sys.exit(1)
