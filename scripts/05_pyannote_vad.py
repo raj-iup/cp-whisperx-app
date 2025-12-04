@@ -68,24 +68,79 @@ if __name__ == "__main__":
     stage_io.set_config({
         "device": device,
         "merge_gap": 0.2,
-        "model": "pyannote/segmentation"
+        "model": "pyannote/voice-activity-detection"
     })
     
-    # Construct arguments for VAD chunker
-    sys.argv = [
-        "pyannote_vad",
-        str(audio_input),
-        "--device", device,
-        "--out-json", str(output_json),
-        "--merge-gap", "0.2"
-    ]
+    logger.info("Running PyAnnote VAD...")
     
-    logger.info("Running PyAnnote VAD chunker...")
-    
-    # Import and run the main VAD chunker
+    # Run PyAnnote VAD directly
+    exit_code = 1
     try:
-        from pyannote_vad_chunker import main as vad_main
-        exit_code = vad_main()
+        import json
+        import torch
+        from pyannote.audio import Pipeline
+        
+        # Load the VAD pipeline
+        logger.info("Loading PyAnnote VAD model...")
+        pipeline = Pipeline.from_pretrained("pyannote/voice-activity-detection")
+        
+        # Move to device
+        if device in ["cuda", "mps"]:
+            try:
+                pipeline.to(torch.device(device))
+                logger.info(f"Using device: {device}")
+            except Exception as e:
+                logger.warning(f"Could not use {device}, falling back to CPU: {e}")
+                device = "cpu"
+        
+        # Run VAD on audio
+        logger.info(f"Processing audio file: {audio_input}")
+        vad_result = pipeline(str(audio_input))
+        
+        # Convert to segments list
+        segments = []
+        for speech in vad_result.get_timeline().support():
+            segments.append({
+                "start": float(speech.start),
+                "end": float(speech.end),
+                "duration": float(speech.end - speech.start)
+            })
+        
+        logger.info(f"Detected {len(segments)} speech segments")
+        
+        # Merge close segments if merge_gap is set
+        merge_gap = 0.2
+        if merge_gap > 0 and len(segments) > 1:
+            merged_segments = []
+            current = segments[0]
+            
+            for next_seg in segments[1:]:
+                if next_seg["start"] - current["end"] <= merge_gap:
+                    # Merge segments
+                    current["end"] = next_seg["end"]
+                    current["duration"] = current["end"] - current["start"]
+                else:
+                    merged_segments.append(current)
+                    current = next_seg
+            
+            merged_segments.append(current)
+            logger.info(f"Merged to {len(merged_segments)} segments (gap threshold: {merge_gap}s)")
+            segments = merged_segments
+        
+        # Save to JSON
+        output_json.parent.mkdir(parents=True, exist_ok=True)
+        with open(output_json, 'w') as f:
+            json.dump(segments, f, indent=2)
+        
+        logger.info(f"✓ Saved speech segments to: {output_json}")
+        exit_code = 0
+        
+    except ImportError as e:
+        logger.error(f"✗ Failed to import PyAnnote: {e}", exc_info=True)
+        logger.error("Make sure PyAnnote is installed in the correct environment")
+        stage_io.add_error(f"Import failed: {e}")
+        stage_io.finalize(status="failed", error="Missing dependency")
+        sys.exit(1)
     except FileNotFoundError as e:
         logger.error(f"✗ File not found: {e}", exc_info=True)
         stage_io.add_error(f"File not found: {e}")
@@ -95,12 +150,6 @@ if __name__ == "__main__":
         logger.error(f"✗ I/O error: {e}", exc_info=True)
         stage_io.add_error(f"I/O error: {e}")
         stage_io.finalize(status="failed", error=str(e))
-        sys.exit(1)
-    except ImportError as e:
-        logger.error(f"✗ Failed to import pyannote_vad_chunker: {e}", exc_info=True)
-        logger.error("Make sure PyAnnote is installed in the correct environment", exc_info=True)
-        stage_io.add_error(f"Import failed: {e}")
-        stage_io.finalize(status="failed", error="Missing dependency")
         sys.exit(1)
     except RuntimeError as e:
         logger.error(f"✗ Model error: {e}", exc_info=True)
@@ -117,13 +166,6 @@ if __name__ == "__main__":
         stage_io.add_error(f"Unexpected error: {e}")
         stage_io.finalize(status="failed", error=str(e))
         sys.exit(1)
-    
-    # Handle None exit code (should not happen with fixed chunker)
-    if exit_code is None:
-        logger.error("✗ PyAnnote VAD returned None - treating as failure", exc_info=True)
-        stage_io.add_error("VAD returned None")
-        stage_io.finalize(status="failed", error="Invalid return code")
-        exit_code = 1
     
     if exit_code == 0:
         logger.info("✓ PyAnnote VAD completed successfully")

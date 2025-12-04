@@ -1009,11 +1009,11 @@ class IndicTrans2Pipeline:
             
             # Import lyrics detection stage module (module name starts with number, use importlib)
             import importlib
-            lyrics_detection = importlib.import_module("scripts.06_lyrics_detection")
+            lyrics_detection = importlib.import_module("scripts.12_lyrics_detection")
             
             # Call the stage module
             self.logger.info("Running lyrics detection stage...")
-            exit_code = lyrics_detection.run_stage(self.job_dir, "06_lyrics_detection")
+            exit_code = lyrics_detection.run_stage(self.job_dir, "12_lyrics_detection")
             
             if exit_code != 0:
                 self.logger.warning("Lyrics detection failed, continuing without lyrics metadata")
@@ -1645,11 +1645,11 @@ logger.info(f"Transcription completed: {{len(segments)}} segments")
             
             # Import NER stage module (module name starts with number, use importlib)
             import importlib
-            ner_stage = importlib.import_module("scripts.05_ner")
+            ner_stage = importlib.import_module("scripts.11_ner")
             
             # Call the stage module
             self.logger.info("Running NER stage...")
-            exit_code = ner_stage.run_stage(self.job_dir, "05_ner")
+            exit_code = ner_stage.run_stage(self.job_dir, "11_ner")
             
             if exit_code != 0:
                 self.logger.warning("NER stage failed, continuing without NER data")

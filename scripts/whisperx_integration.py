@@ -36,11 +36,17 @@ warnings.filterwarnings('ignore', message='.*has been deprecated.*', module='spe
 
 # Removed: device_selector imports (unused, causes cross-environment issues)
 # Backend selection now handled by whisper_backends.py (see line 47)
-from bias_window_generator import BiasWindow, get_window_for_time
-from mps_utils import cleanup_mps_memory, log_mps_memory, optimize_batch_size_for_mps
-from asr_chunker import ChunkedASRProcessor
+
+# TODO: These modules moved to shared/ directory (Phase 5 implementation)
+# Context-aware features for subtitle generation accuracy
+from shared.bias_window_generator import BiasWindow, get_window_for_time
+from shared.mps_utils import cleanup_mps_memory, log_mps_memory, optimize_batch_size_for_mps
+from shared.asr_chunker import ChunkedASRProcessor
+
+# Standard library
 import sys
 from pathlib import Path
+from typing import List, Optional, Any
 
 # Add project root to path for shared imports
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -51,7 +57,7 @@ from whisper_backends import create_backend, get_recommended_backend
 
 # Local
 from shared.logger import get_logger
-from shared.config_loader import load_config
+from shared.config import load_config
 logger = get_logger(__name__)
 
 # Audio loading utility
@@ -362,7 +368,7 @@ class WhisperXProcessor:
         audio_file: str,
         source_lang: str,
         target_lang: str,
-        bias_windows: Optional[List[BiasWindow]] = None,
+        bias_windows: Optional[Any] = None,
         batch_size: int = 16,
         output_dir: Optional[Path] = None,
         bias_strategy: str = "global",
@@ -493,7 +499,7 @@ class WhisperXProcessor:
         audio_file: str,
         source_lang: str,
         task: str,
-        bias_windows: Optional[List[BiasWindow]],
+        bias_windows: Optional[Any],
         batch_size: int
     ) -> Dict[str, Any]:
         """Whole-file transcription with global bias prompting (for short files or CPU)"""
@@ -567,7 +573,7 @@ class WhisperXProcessor:
         audio_file: str,
         source_lang: str,
         task: str,
-        bias_windows: Optional[List[BiasWindow]],
+        bias_windows: Optional[Any],
         batch_size: int
     ) -> Dict[str, Any]:
         """
@@ -655,7 +661,7 @@ class WhisperXProcessor:
         audio_file: str,
         source_lang: str,
         task: str,
-        bias_windows: Optional[List[BiasWindow]],
+        bias_windows: Optional[Any],
         batch_size: int
     ) -> Dict[str, Any]:
         """
@@ -840,7 +846,7 @@ class WhisperXProcessor:
         audio_file: str,
         source_lang: str,
         task: str,
-        bias_windows: Optional[List[BiasWindow]],
+        bias_windows: Optional[Any],
         batch_size: int,
         output_dir: Optional[Path]
     ) -> Dict[str, Any]:
@@ -939,7 +945,7 @@ class WhisperXProcessor:
     def _apply_bias_context(
         self,
         result: Dict[str, Any],
-        bias_windows: List[BiasWindow]
+        bias_windows: Any
     ) -> Dict[str, Any]:
         """
         Apply bias window context to segments (metadata annotation)
@@ -1125,7 +1131,7 @@ def run_whisperx_pipeline(
     basename: str,
     source_lang: str,
     target_lang: str,
-    bias_windows: Optional[List[BiasWindow]],
+    bias_windows: Optional[Any],
     model_name: str,
     device: str,
     compute_type: str,
