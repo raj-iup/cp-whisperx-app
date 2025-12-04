@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Subtitle Generation Stage (09_subtitle_gen)
+Subtitle Generation Stage (11_subtitle_generation)
 
 Generates SRT subtitle files from translated transcripts.
 
-Input: Translated transcript segments
-Output: SRT subtitle files
+Input: Translated transcript segments (from 10_translation)
+Output: SRT subtitle files for all target languages
 """
 
 # Standard library
@@ -73,7 +73,7 @@ def generate_srt(segments: List[Dict], output_path: Path, language: str = "en") 
     return i
 
 
-def run_stage(job_dir: Path, stage_name: str = "09_subtitle_gen") -> int:
+def run_stage(job_dir: Path, stage_name: str = "11_subtitle_generation") -> int:
     """
     Subtitle Generation Stage
     
@@ -217,7 +217,7 @@ if __name__ == "__main__":
     
     parser = argparse.ArgumentParser(description="Subtitle Generation Stage")
     parser.add_argument("--job-dir", type=Path, required=True, help="Job directory")
-    parser.add_argument("--stage-name", default="09_subtitle_gen", help="Stage name")
+    parser.add_argument("--stage-name", default="11_subtitle_generation", help="Stage name")
     
     args = parser.parse_args()
     

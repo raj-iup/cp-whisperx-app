@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """
-Hallucination Removal Stage (07_hallucination_removal)
+Hallucination Removal Stage (09_hallucination_removal)
 
 Removes ASR hallucinations (repeated phrases, artifacts, nonsense).
+MANDATORY for subtitle workflow - cannot be disabled.
 
-Input: ASR transcript (with optional lyrics markers)
+Input: ASR transcript with lyrics markers (from 08_lyrics_detection)
 Output: Cleaned transcript with hallucinations removed
 """
 
@@ -79,7 +80,7 @@ def is_hallucination(text: str) -> bool:
     return False
 
 
-def run_stage(job_dir: Path, stage_name: str = "07_hallucination_removal") -> int:
+def run_stage(job_dir: Path, stage_name: str = "09_hallucination_removal") -> int:
     """
     Hallucination Removal Stage
     
@@ -102,18 +103,18 @@ def run_stage(job_dir: Path, stage_name: str = "07_hallucination_removal") -> in
         
         # Load configuration
         config = load_config()
-        removal_enabled = config.get("STAGE_07_HALLUCINATION_ENABLED", "true").lower() == "true"
+        removal_enabled = config.get("STAGE_09_HALLUCINATION_ENABLED", "true").lower() == "true"
         
         if not removal_enabled:
-            logger.info("Hallucination removal disabled in configuration, skipping")
-            io.finalize(status="success")
-            return 0
+            logger.warning("Hallucination removal is MANDATORY for subtitle workflow")
+            logger.info("Continuing with hallucination removal despite config setting")
+            # Don't skip - this is mandatory for subtitle workflow
         
         # Find input transcript (prefer lyrics detection output)
         input_file = None
         
         # Try lyrics detection output first
-        lyrics_dir = io.output_base / "06_lyrics_detection"
+        lyrics_dir = io.output_base / "08_lyrics_detection"
         if lyrics_dir.exists():
             lyrics_file = lyrics_dir / "transcript_with_lyrics.json"
             if lyrics_file.exists():

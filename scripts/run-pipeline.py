@@ -503,17 +503,21 @@ class IndicTrans2Pipeline:
     
     def run_subtitle_workflow(self) -> bool:
         """
-        Execute subtitle workflow stages:
-        Auto-executes transcribe + translate workflows if needed
-        Generates subtitles in source and multiple target languages (up to 5)
-        1. Demux - Extract audio (if needed)
-        2. ASR - Transcribe (if needed)
-        3. Alignment - Word timestamps (if needed)
-        4. Load Transcript - Load segments.json
-        5. IndicTrans2 Translation - Translate text (for each target language)
-        6. Subtitle Generation (Target) - Create SRT for each target language
-        7. Subtitle Generation (Source) - Create SRT in source language
-        8. Mux - Embed all subtitle tracks in video
+        Execute subtitle workflow stages (12-stage pipeline):
+        Auto-executes transcribe stages if needed, then subtitle-specific stages
+        
+        1. Demux - Extract audio
+        2. TMDB - Fetch movie metadata
+        3. Glossary Load - Character names
+        4. Source Separation - Dialogue extraction (optional)
+        5. PyAnnote VAD - Speech detection
+        6. WhisperX ASR - Transcribe
+        7. Alignment - Word timestamps
+        8. Lyrics Detection - Mark song sections (MANDATORY)
+        9. Hallucination Removal - Clean artifacts (MANDATORY)
+        10. Translation - Multi-language (IndicTrans2)
+        11. Subtitle Generation - Generate SRT files
+        12. Mux - Embed all subtitle tracks
         """
         self.logger.info("=" * 80)
         self.logger.info("SUBTITLE WORKFLOW")
@@ -558,14 +562,15 @@ class IndicTrans2Pipeline:
             transcribe_stages.extend([
                 ("pyannote_vad", self._stage_pyannote_vad),
                 ("asr", self._stage_asr),
-                ("hallucination_removal", self._stage_hallucination_removal),
                 ("alignment", self._stage_alignment),
             ])
             
-            # Add lyrics detection AFTER ASR (optional)
-            lyrics_enabled = self.env_config.get("LYRICS_DETECTION_ENABLED", "true").lower() == "true"
-            if lyrics_enabled:
-                transcribe_stages.append(("lyrics_detection", self._stage_lyrics_detection))
+            # MANDATORY subtitle workflow stages (cannot be disabled)
+            # These run AFTER alignment and BEFORE translation
+            transcribe_stages.extend([
+                ("lyrics_detection", self._stage_lyrics_detection),  # Stage 08 - MANDATORY
+                ("hallucination_removal", self._stage_hallucination_removal),  # Stage 09 - MANDATORY
+            ])
             
             # Final stage
             transcribe_stages.append(("export_transcript", self._stage_export_transcript))
@@ -1009,11 +1014,11 @@ class IndicTrans2Pipeline:
             
             # Import lyrics detection stage module (module name starts with number, use importlib)
             import importlib
-            lyrics_detection = importlib.import_module("scripts.12_lyrics_detection")
+            lyrics_detection = importlib.import_module("scripts.08_lyrics_detection")
             
             # Call the stage module
             self.logger.info("Running lyrics detection stage...")
-            exit_code = lyrics_detection.run_stage(self.job_dir, "12_lyrics_detection")
+            exit_code = lyrics_detection.run_stage(self.job_dir, "08_lyrics_detection")
             
             if exit_code != 0:
                 self.logger.warning("Lyrics detection failed, continuing without lyrics metadata")
@@ -1678,11 +1683,11 @@ logger.info(f"Transcription completed: {{len(segments)}} segments")
             
             # Import subtitle generation stage module (module name starts with number, use importlib)
             import importlib
-            subtitle_gen = importlib.import_module("scripts.09_subtitle_generation")
+            subtitle_gen = importlib.import_module("scripts.11_subtitle_generation")
             
             # Call the stage module
             self.logger.info("Running subtitle generation stage...")
-            exit_code = subtitle_gen.run_stage(self.job_dir, "09_subtitle_generation")
+            exit_code = subtitle_gen.run_stage(self.job_dir, "11_subtitle_generation")
             
             if exit_code != 0:
                 self.logger.error("Subtitle generation failed")

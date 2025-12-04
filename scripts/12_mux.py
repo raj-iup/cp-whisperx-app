@@ -28,7 +28,7 @@ def main() -> int:
     
     try:
         # Initialize StageIO with manifest tracking
-        stage_io = StageIO("mux", enable_manifest=True)
+        stage_io = StageIO("12_mux", enable_manifest=True)
         logger = stage_io.get_stage_logger("INFO")
     
         logger.info("=" * 60)
@@ -335,7 +335,7 @@ def main() -> int:
             stage_io.finalize(status="failed", error=f"Unexpected: {type(e).__name__}")
         return 1
 
-def run_stage(job_dir: Path, stage_name: str = "10_mux") -> int:
+def run_stage(job_dir: Path, stage_name: str = "12_mux") -> int:
     """
     Mux Stage - run_stage() wrapper
     

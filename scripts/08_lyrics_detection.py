@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """
-Lyrics Detection Stage (06_lyrics_detection)
+Lyrics Detection Stage (08_lyrics_detection)
 
 Detects lyrics/song sections in ASR transcript to avoid translating them.
+MANDATORY for subtitle workflow - cannot be disabled.
 
-Input: ASR transcript with segments
+Input: ASR transcript with segments (from 07_alignment)
 Output: Annotated transcript with lyrics markers
 """
 
@@ -66,7 +67,7 @@ def detect_lyrics_simple(text: str) -> bool:
     return False
 
 
-def run_stage(job_dir: Path, stage_name: str = "06_lyrics_detection") -> int:
+def run_stage(job_dir: Path, stage_name: str = "08_lyrics_detection") -> int:
     """
     Lyrics Detection Stage
     
@@ -89,12 +90,12 @@ def run_stage(job_dir: Path, stage_name: str = "06_lyrics_detection") -> int:
         
         # Load configuration
         config = load_config()
-        lyrics_enabled = config.get("STAGE_06_LYRICS_ENABLED", "true").lower() == "true"
+        lyrics_enabled = config.get("STAGE_08_LYRICS_ENABLED", "true").lower() == "true"
         
         if not lyrics_enabled:
-            logger.info("Lyrics detection disabled in configuration, skipping")
-            io.finalize(status="success")
-            return 0
+            logger.warning("Lyrics detection is MANDATORY for subtitle workflow")
+            logger.info("Continuing with lyrics detection despite config setting")
+            # Don't skip - this is mandatory for subtitle workflow
         
         # Find ASR transcript (or NER output if available)
         input_file = None
