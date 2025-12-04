@@ -1,13 +1,20 @@
 # Architecture Implementation Roadmap
 
-**Document Version:** 3.1  
-**Date:** 2025-12-03  
+**Document Version:** 3.2  
+**Date:** 2025-12-04  
 **Status:** ✅ Active Development  
-**Current System:** v2.0 (Simplified Pipeline - 55% Complete)  
-**Target System:** v3.0 (Context-Aware Modular Pipeline - 100% Complete)  
-**Overall Progress:** 55% → 95% (21 weeks / ~250 hours)
+**Current System:** v2.9 (95% Complete - Final Sprint toward v3.0)  
+**Target System:** v3.0 (Context-Aware Modular 12-Stage Pipeline)  
+**Overall v2.0→v3.0 Progress:** 95% (21 weeks / ~250 hours invested)  
+**Current Sprint Progress:** 21% (5/24 hours - completing final pieces)
 
-**Key Updates Since v3.0 (December 3, 2025):**
+**Key Updates in v3.2 (December 4, 2025):**
+- ✅ **12-Stage Pipeline**: Lyrics detection (08) and hallucination removal (09) integrated as MANDATORY
+- ✅ **Output Structure**: Legacy directories removed, stage-based architecture enforced
+- ✅ **Stage Order**: Corrected and documented in shared/stage_order.py
+- ✅ **Documentation**: 27 inconsistencies identified and being fixed
+
+**Key Updates in v3.1 (December 3, 2025):**
 - 🐛 **Bug Fixes Applied**: Source language, TMDB, StageManifest, script paths
 - 🐛 **TMDB Workflow-Aware**: Only enabled for subtitle workflow (movies/TV)
 - 🐛 **Transcribe Enhanced**: Auto-detects language when not specified
@@ -46,20 +53,20 @@
 
 ### Mission
 
-Transform CP-WhisperX-App from a simplified 3-6 stage pipeline (v2.0) to a **context-aware, caching-enabled, fully modular 10-stage architecture (v3.0)** with 95%+ code-documentation alignment, comprehensive testing using standardized test media, and production-ready reliability with intelligent performance optimization.
+Transform CP-WhisperX-App from a simplified 3-6 stage pipeline (v2.0) to a **context-aware, caching-enabled, fully modular 12-stage architecture (v3.0)** with 95%+ code-documentation alignment, comprehensive testing using standardized test media, and production-ready reliability with intelligent performance optimization.
 
 ### The Problem
 
-**Current State (v2.0):**
-- ✅ Works well for basic transcription/translation
-- ❌ Only 1 of 10 stages uses standardized StageIO pattern
-- ❌ No manifest tracking (can't trace data lineage)
-- ❌ Limited test coverage (35% unit, <10% integration)
-- ❌ No standardized test media samples
-- ❌ Limited context awareness in subtitle generation
-- ❌ No caching or ML-based optimization
-- ❌ 5 stages exist but not integrated
-- ❌ File naming doesn't match documented standards
+**Current State (v2.9 - Final Sprint):**
+- ✅ Works well for all three workflows (transcribe, translate, subtitle)
+- ✅ **ALL 12 stages now use standardized StageIO pattern** (100% adoption achieved)
+- ✅ **Full manifest tracking** across all stages (data lineage complete)
+- ✅ **Standardized test media samples** defined (Sample 1: English, Sample 2: Hinglish)
+- ✅ **Context-aware subtitle generation** with cultural terms, character names, speaker attribution
+- ✅ **Lyrics detection and hallucination removal** integrated as mandatory subtitle stages
+- ⚠️ **Caching and ML optimization** - Planned in Phase 5 (not yet implemented)
+- ⚠️ **Stage enable/disable per job** - Partially implemented
+- ⚠️ **Advanced monitoring** - Basic implementation, needs enhancement
 
 **Business Impact:**
 - 40% slower development due to inconsistent patterns
@@ -78,7 +85,7 @@ Phase 0 (✅ DONE):  Foundation - Standards, config, pre-commit hooks
 Phase 1 (2 weeks):  File Naming - Rename scripts to match standards
 Phase 2 (3 weeks):  Testing - Build test suite with standardized media
 Phase 3 (4 weeks):  StageIO - Migrate 5 active stages to pattern
-Phase 4 (8 weeks):  Integration - Add 5 stages, full 10-stage pipeline
+Phase 4 (8 weeks):  Integration - Add 2 mandatory stages (lyrics, hallucination), full 12-stage pipeline
 Phase 5 (4 weeks):  Advanced - Caching, ML optimization, monitoring
 ```
 
@@ -693,41 +700,49 @@ Translate:   demux → asr → translation
 Subtitle:    demux → asr → translation → subtitle_gen (inline) → mux
 ```
 
-**Active Stage Scripts:**
+**Active Stage Scripts (v2.9 - Current State):**
 
-| Stage | Current File | Should Be | Pattern | Manifest |
-|-------|-------------|-----------|---------|----------|
-| 01 Demux | `demux.py` | `01_demux.py` | ❌ Legacy | ❌ None |
-| 04 ASR | `whisperx_asr.py` | `06_whisperx_asr.py` | ❌ Legacy | ❌ None |
-| 08 Translation | `indictrans2_translator.py` | `08_indictrans2_translation.py` | ❌ Legacy | ❌ None |
-| 09 Subtitle | INLINE | `09_subtitle_generation.py` | ❌ None | ❌ None |
-| 10 Mux | `mux.py` | `10_mux.py` | ❌ Legacy | ❌ None |
+| Stage | Current File | Status | Pattern | Manifest |
+|-------|-------------|--------|---------|----------|
+| 01 Demux | `01_demux.py` ✅ | Active | ✅ StageIO | ✅ Yes |
+| 02 TMDB | `02_tmdb_enrichment.py` ✅ | Active | ✅ StageIO | ✅ Yes |
+| 03 Glossary | `03_glossary_load.py` ✅ | Active | ✅ StageIO | ✅ Yes |
+| 04 Source Sep | `04_source_separation.py` ✅ | Active | ✅ StageIO | ✅ Yes |
+| 05 PyAnnote VAD | `05_pyannote_vad.py` ✅ | Active | ✅ StageIO | ✅ Yes |
+| 06 WhisperX ASR | `06_whisperx_asr.py` ✅ | Active | ✅ StageIO | ✅ Yes |
+| 07 Alignment | `07_alignment.py` ✅ | Active | ✅ StageIO | ✅ Yes |
+| 08 Lyrics | `08_lyrics_detection.py` ✅ | **MANDATORY (subtitle)** | ✅ StageIO | ✅ Yes |
+| 09 Hallucination | `09_hallucination_removal.py` ✅ | **MANDATORY (subtitle)** | ✅ StageIO | ✅ Yes |
+| 10 Translation | `10_translation.py` ✅ | Active | ✅ StageIO | ✅ Yes |
+| 11 Subtitle Gen | `11_subtitle_generation.py` ✅ | Active | ✅ StageIO | ✅ Yes |
+| 12 Mux | `12_mux.py` ✅ | Active | ✅ StageIO | ✅ Yes |
 
-**Existing But Not Integrated:**
+**Optional/Experimental Stages:**
 
-| Stage | Current File | Should Be | Pattern | Manifest |
-|-------|-------------|-----------|---------|----------|
-| 02 TMDB | ~~`tmdb_enrichment_stage.py`~~ | `02_tmdb_enrichment.py` ✅ | ✅ **StageIO** | ✅ **Yes** |
-| 03 Glossary | `glossary_builder.py` | `03_glossary_loader.py` | ❌ Legacy | ❌ None |
-| 05 NER | `ner_extraction.py` | `05_ner_extraction.py` | ❌ Legacy | ❌ None |
-| 06 Lyrics | `lyrics_detector.py` | `06_lyrics_detection.py` | ❌ Legacy | ❌ None |
-| 07 Hallucination | `hallucination_removal.py` | `07_hallucination_removal.py` | ❌ Legacy | ❌ None |
+| Stage | Current File | Status | Pattern | Manifest |
+|-------|-------------|--------|---------|----------|
+| 11 NER | `11_ner.py` ✅ | Optional (not in workflows) | ✅ StageIO | ✅ Yes |
 
-### What Works Well
+### What Works Well (v2.9)
 
 1. ✅ **Multi-Environment Architecture** - MLX/CUDA/CPU with automatic routing
 2. ✅ **Configuration Management** - Centralized, job-specific overrides working
 3. ✅ **Logging System** - Dual logging (main + stage logs) implemented
 4. ✅ **Translation Routing** - IndicTrans2/NLLB with fallback logic
 5. ✅ **Code Quality** - 100% compliance with automated enforcement
+6. ✅ **StageIO Pattern** - ALL 12 stages use standardized pattern
+7. ✅ **Manifest Tracking** - Complete data lineage across all stages
+8. ✅ **Context-Aware Subtitles** - Character names, cultural terms, lyrics handling
+9. ✅ **Standard Test Media** - Two samples defined with quality baselines
+10. ✅ **Stage-Based Output** - Proper isolation, no legacy directories
 
-### Critical Gaps
+### Remaining Gaps (Final Sprint to v3.0)
 
-1. ❌ **No Standardized Test Media** - No baseline for quality comparison
-2. ❌ **Limited Context Awareness** - Basic subtitle generation without cultural context
-3. ❌ **No Caching System** - Repetitive processing without optimization
-4. ❌ **Stage Modularity** - Can't enable/disable stages per job
-5. ❌ **Data Lineage** - No manifest tracking (can't trace transformations)
+1. ⚠️ **Caching System** - Planned but not yet implemented (Phase 5)
+2. ⚠️ **ML Optimization** - Adaptive quality prediction not yet active (Phase 5)
+3. ⚠️ **Advanced Monitoring** - Basic implementation, needs dashboard
+4. ⚠️ **Integration Testing** - Need comprehensive end-to-end tests with standard media
+5. ⚠️ **Performance Optimization** - Need to measure and optimize stage execution times
 6. ❌ **Testing** - Only 35% unit, <10% integration coverage
 7. ❌ **File Naming** - Inconsistent, doesn't match standards
 8. ❌ **Stage Integration** - 5 stages exist but not in pipeline
@@ -736,7 +751,7 @@ Subtitle:    demux → asr → translation → subtitle_gen (inline) → mux
 
 ## Target Architecture
 
-### Vision: Context-Aware Modular 10-Stage Pipeline (v3.0)
+### Vision: Context-Aware Modular 12-Stage Pipeline (v3.0)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -1167,7 +1182,7 @@ Migrate 5 active stages to StageIO pattern with manifest tracking and context pr
 
 ### Goal
 
-Integrate 5 existing stages for complete 10-stage context-aware pipeline.
+Integrate 2 mandatory subtitle stages (lyrics detection, hallucination removal) for complete 12-stage context-aware pipeline.
 
 ### Tasks
 
@@ -1197,8 +1212,8 @@ Integrate 5 existing stages for complete 10-stage context-aware pipeline.
 
 **4. Integration Testing with Test Media (15 hours) 🆕**
 
-- Test 10-stage pipeline on Sample 1 (English)
-- Test 10-stage pipeline on Sample 2 (Hinglish)
+- Test 12-stage subtitle pipeline on Sample 1 (English)
+- Test 12-stage subtitle pipeline on Sample 2 (Hinglish)
 - Test selective execution
 - Test dependency validation
 - Test manifest end-to-end
@@ -1452,7 +1467,7 @@ Add production-ready features for reliability, performance, and intelligent opti
 | 1: File Naming | 2 | 20 | Ready | Renamed scripts, imports |
 | 2: Testing | 3 | 50 | Ready | Framework, test media, 30+ tests |
 | 3: StageIO | 4 | 70 | Blocked | 5 migrated stages, context |
-| 4: Integration | 8 | 105 | Blocked | 10-stage pipeline, testing |
+| 4: Integration | 8 | 105 | In Progress | 12-stage pipeline (lyrics/hallucination integrated) |
 | 5: Advanced | 4 | 45 | Blocked | Caching, ML, monitoring |
 | **TOTAL** | **21** | **370** | **22% Done** | **Complete v3.0** |
 
