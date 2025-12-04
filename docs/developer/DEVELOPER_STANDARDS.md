@@ -1,11 +1,16 @@
 # CP-WhisperX Developer Standards & Best Practices
 
-**Document Version:** 6.1  
+**Document Version:** 6.2  
 **Date:** December 3, 2025  
-**Last Updated:** December 3, 2025 (Bug Fixes & Enhancements)
+**Last Updated:** December 3, 2025 (Syntax Error Prevention)
 **Status:** ACTIVE - All development must follow these standards  
 **Compliance Target:** 80% minimum  
 **Current Status:** 🎊 **100% COMPLIANCE ACHIEVED** 🎊
+
+**Major Updates in v6.2 (December 3, 2025):**
+- 🐛 **Syntax Error Fixed**: Duplicate exc_info=True parameters (8 instances)
+- 📝 **Error Handling Enhanced**: Added common mistake warnings
+- 📝 **Best Practice Documented**: Use exc_info=True exactly once
 
 **Major Updates in v6.1 (December 3, 2025):**
 - 🐛 **StageManifest Enhanced**: add_intermediate() method implemented
@@ -2421,7 +2426,7 @@ def process_operation(input_data, config, logger, stage_io):
         # Validate inputs
         if not input_data:
             error_msg = "Input data is empty"
-            logger.error(error_msg)
+            logger.error(error_msg, exc_info=True)
             stage_io.add_error(error_msg)
             return None
         
@@ -2431,7 +2436,7 @@ def process_operation(input_data, config, logger, stage_io):
         # Validate output
         if not result:
             error_msg = "Operation produced no output"
-            logger.error(error_msg)
+            logger.error(error_msg, exc_info=True)
             stage_io.add_error(error_msg)
             return None
         
@@ -2439,19 +2444,19 @@ def process_operation(input_data, config, logger, stage_io):
         
     except FileNotFoundError as e:
         error_msg = f"File not found: {e}"
-        logger.error(error_msg)
+        logger.error(error_msg, exc_info=True)
         stage_io.add_error(error_msg, e)
         return None
         
     except ValueError as e:
         error_msg = f"Invalid value: {e}"
-        logger.error(error_msg)
+        logger.error(error_msg, exc_info=True)
         stage_io.add_error(error_msg, e)
         return None
         
     except Exception as e:
         error_msg = f"Unexpected error: {e}"
-        logger.error(error_msg)
+        logger.error(error_msg, exc_info=True)
         stage_io.add_error(error_msg, e)
         
         if config.debug:
@@ -2461,6 +2466,31 @@ def process_operation(input_data, config, logger, stage_io):
         
         return None
 ```
+
+**⚠️ CRITICAL: Error Logging Best Practices**
+
+**DO:**
+```python
+# ✅ CORRECT - Include exc_info=True for exception context
+logger.error(f"Failed to process: {e}", exc_info=True)
+```
+
+**DON'T:**
+```python
+# ❌ WRONG - Duplicate parameter causes SyntaxError
+logger.error(f"Failed to process: {e}", exc_info=True, exc_info=True)
+
+# ❌ WRONG - Missing exc_info loses stack trace
+logger.error(f"Failed to process: {e}")
+```
+
+**Why exc_info=True?**
+- Captures full stack trace for debugging
+- Essential for diagnosing production issues
+- Required by development standards (§ 7.1)
+- Must appear exactly once per logger.error() call
+
+**Historical Note:** This syntax error occurred in job-20251203-rpatel-0015, affecting 8 instances across 2 files (05_pyannote_vad.py, 07_alignment.py). The duplicate parameter caused immediate SyntaxError on script load.
 
 ### 7.2 Graceful Degradation with Warnings
 

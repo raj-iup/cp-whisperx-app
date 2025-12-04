@@ -1,12 +1,19 @@
 # Copilot Instructions — CP-WhisperX-App
 
-**Version:** 6.1 (Bug Fixes & TMDB Workflow-Aware) | **Status:** 🎊 **100% PERFECT COMPLIANCE ACHIEVED** 🎊 | **Pre-commit Hook:** ✅ Active
+**Version:** 6.2 (Syntax Error Prevention) | **Status:** 🎊 **100% PERFECT COMPLIANCE ACHIEVED** 🎊 | **Pre-commit Hook:** ✅ Active
+
+**Major Updates in v6.2 (2025-12-03):**
+- 🐛 **Syntax Error Fixed**: Duplicate exc_info=True parameters (8 instances)
+- 🐛 **Error Handling Guide**: Added common mistake warning
+- 📝 **Best Practice**: Always use exc_info=True exactly once
 
 **Major Updates in v6.1 (2025-12-03):**
 - 🐛 **Source Language Optional**: Transcribe workflow auto-detects language
 - 🐛 **TMDB Workflow-Aware**: Only enabled for subtitle workflow (movies/TV)
 - 🐛 **StageManifest Enhanced**: Added add_intermediate() method
 - 🐛 **Script Path Fixed**: Corrected TMDB script reference
+
+**Major Updates in v6.0:**
 - 🆕 **Automated Model Updates**: Weekly checks for new AI model releases
 - 🆕 **Optimal Routing**: Data-driven model selection from AI_MODEL_ROUTING.md
 - 🆕 **Cost Optimization**: Track and optimize AI usage costs
@@ -27,6 +34,7 @@
 8. **If creating stage script: Is it named `{NN}_{stage_name}.py`?** (File Naming)
 9. **If testing: Am I using standard test media samples?** (§ 1.4) 🆕
 10. **If workflow: Am I following context-aware patterns?** (§ 1.5) 🆕
+11. **Error handling: Am I using exc_info=True exactly once?** (§ 5) 🆕
 
 **If NO to any → Check the relevant § section below**
 
@@ -874,6 +882,17 @@ except Exception as e:
 ```
 
 **Key:** Specific exceptions first, always `exc_info=True`
+
+**⚠️ COMMON MISTAKE - AVOID:**
+```python
+# ❌ WRONG - Duplicate parameter (SyntaxError)
+logger.error(f"Error: {e}", exc_info=True, exc_info=True)
+
+# ✅ CORRECT - Single parameter
+logger.error(f"Error: {e}", exc_info=True)
+```
+
+**Note:** This error occurred in job-20251203-rpatel-0015 and caused pipeline failure. Always use `exc_info=True` exactly once.
 
 ---
 
