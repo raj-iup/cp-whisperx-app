@@ -325,11 +325,20 @@ grep "Stage.*completed in" logs/pipeline-*.log
 ## Test Results Log
 
 ### Test 1: Transcribe Workflow (Sample 1)
-**Date:** _Not yet run_  
-**Status:** ⏳ Pending  
+**Date:** 2025-12-04  
+**Status:** 🔄 In Progress (fixes applied, ready to retry)
 **Duration:** _TBD_  
 **Result:** _TBD_  
-**Issues:** _TBD_
+**Issues Fixed:**
+1. ✅ config_loader.py location (moved to shared/)
+2. ✅ PYTHONPATH for multi-environment execution
+3. ✅ ASR chunker Path/str handling
+4. ✅ Chunker method signature mismatch
+5. ✅ MPS auto-chunking disabled (<30min)
+6. ✅ Undefined config variable in _transcribe_whole
+7. ✅ Workflow detection from job.json
+
+**Next**: Retry pipeline execution
 
 ### Test 2: Translate Workflow (Sample 2)
 **Date:** _Not yet run_  
@@ -347,6 +356,6 @@ grep "Stage.*completed in" logs/pipeline-*.log
 
 ---
 
-**Last Updated:** 2025-12-04 03:45 UTC  
+**Last Updated:** 2025-12-04 04:38 UTC  
 **Next Review:** After Test 1 completion  
-**Status:** 🔄 Ready to Execute
+**Status:** 🔄 Fixes Applied - Ready to Resume Testing
