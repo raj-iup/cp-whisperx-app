@@ -315,29 +315,59 @@ python3 scripts/validate-compliance.py --check-paths scripts/*.py
 out/[Year]/[Month]/[Day]/[User]/[JobID]/
 ├── job.json                     # Job metadata and parameters (created by prepare-job)
 ├── .env.pipeline                # Job-specific config copied from config/.env.pipeline
-├── media/                       # Input media files
-│   └── input.mp4
+├── logs/                        # Shared logs directory
+│   └── pipeline.log
 ├── 01_demux/
 │   ├── manifest.json
-│   ├── 01_demux.log
+│   ├── stage.log
 │   └── audio.wav
 ├── 02_tmdb/
 │   ├── manifest.json
-│   ├── 02_tmdb.log
+│   ├── stage.log
 │   └── metadata.json
 ├── 03_glossary_load/
 │   ├── manifest.json
-│   ├── 03_glossary_load.log
+│   ├── stage.log
 │   └── glossary_terms.json
 ├── 04_source_separation/
 │   ├── manifest.json
-│   ├── 04_source_separation.log
+│   ├── stage.log
 │   └── vocals.wav
-├── ...
-└── 10_mux/
+├── 05_pyannote_vad/
+│   ├── manifest.json
+│   ├── stage.log
+│   └── segments.json
+├── 06_whisperx_asr/
+│   ├── manifest.json
+│   ├── stage.log
+│   └── transcript.json
+├── 07_alignment/
+│   ├── manifest.json
+│   ├── stage.log
+│   └── segments_aligned.json
+├── 08_lyrics_detection/         # Subtitle workflow only (MANDATORY)
+│   ├── manifest.json
+│   ├── stage.log
+│   └── transcript_with_lyrics.json
+├── 09_hallucination_removal/    # Subtitle workflow only (MANDATORY)
+│   ├── manifest.json
+│   ├── stage.log
+│   └── transcript_cleaned.json
+├── 10_translation/
+│   ├── manifest.json
+│   ├── stage.log
+│   ├── transcript_en.json
+│   └── transcript_gu.json
+├── 11_subtitle_generation/
+│   ├── manifest.json
+│   ├── stage.log
+│   └── subtitles/
+│       ├── movie.hi.srt
+│       └── movie.en.srt
+└── 12_mux/
     ├── manifest.json
-    ├── 10_mux.log
-    └── video_with_subtitles.mp4
+    ├── stage.log
+    └── movie_subtitled.mkv
 ```
 
 **Job Preparation Flow:**
@@ -743,7 +773,7 @@ CP-WhisperX supports three primary workflows, each optimized for specific use ca
 ```
 01_demux → 02_tmdb → 03_glossary_load → 04_source_sep (optional) →
 05_pyannote_vad → 06_whisperx_asr → 07_alignment → 08_translate →
-09_subtitle_gen → 10_mux
+07_alignment → 08_lyrics_detection → 09_hallucination_removal → 10_translation → 11_subtitle_generation → 12_mux
 ```
 
 **Context-Aware Features:**
@@ -755,18 +785,20 @@ CP-WhisperX supports three primary workflows, each optimized for specific use ca
 
 **Output Structure:**
 ```
-out/{date}/{user}/{job}/10_mux/{media_name}/
-├── {media_name}_subtitled.mkv     # Original + all subtitle tracks
-├── subtitles/
-│   ├── {media_name}.hi.srt        # Hindi (native)
-│   ├── {media_name}.en.srt        # English
-│   ├── {media_name}.gu.srt        # Gujarati
-│   ├── {media_name}.ta.srt        # Tamil
-│   ├── {media_name}.es.srt        # Spanish
-│   ├── {media_name}.ru.srt        # Russian
-│   ├── {media_name}.zh.srt        # Chinese
-│   └── {media_name}.ar.srt        # Arabic
-└── manifest.json                   # Processing metadata
+out/{date}/{user}/{job}/12_mux/
+├── {media_name}_subtitled.mkv        # Original video + all embedded subtitle tracks
+└── manifest.json                     # Processing metadata
+
+# Individual subtitle files are in stage 11:
+out/{date}/{user}/{job}/11_subtitle_generation/subtitles/
+├── {media_name}.hi.srt              # Hindi (native)
+├── {media_name}.en.srt              # English
+├── {media_name}.gu.srt              # Gujarati
+├── {media_name}.ta.srt              # Tamil
+├── {media_name}.es.srt              # Spanish
+├── {media_name}.ru.srt              # Russian
+├── {media_name}.zh.srt              # Chinese
+└── {media_name}.ar.srt              # Arabic
 ```
 
 **Usage Example:**
