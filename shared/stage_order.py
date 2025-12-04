@@ -40,11 +40,11 @@ STAGE_ORDER: List[str] = [
     # Stage 7: Word-level alignment
     "alignment",
     
-    # Stage 8: Song/lyrics detection
+    # Stage 8: Song/lyrics detection (MANDATORY for subtitle workflow)
     "lyrics_detection",
     
-    # Stage 9: Export transcript to plain text
-    "export_transcript",
+    # Stage 9: Hallucination removal (MANDATORY for subtitle workflow)
+    "hallucination_removal",
     
     # Stage 10: Translation (hybrid/indictrans2/nllb)
     "translation",
@@ -63,9 +63,9 @@ STAGE_ORDER: List[str] = [
 
 # Sub-stages that belong to parent stages (don't get their own number)
 SUB_STAGES: Dict[str, str] = {
-    "hallucination_removal": "asr",  # Part of ASR stage
     "load_transcript": "translation",  # Part of translation stage
     "hinglish_detection": "subtitle_generation",  # Part of subtitle generation
+    "export_transcript": "alignment",  # Part of alignment stage (exports aligned transcript)
 }
 
 # ============================================================================

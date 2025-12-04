@@ -5,7 +5,13 @@
 **Target:** Complete v3.0 in 3 days (24 hours)  
 **Progress:** 0/24 hours (0%)
 
-**Last Updated:** 2025-12-04 01:59 UTC (Subtitle workflow integration complete)
+**Last Updated:** 2025-12-04 02:03 UTC (Output directory restructure + stage order correction)
+
+**Critical Issues Identified:**
+1. ❌ Legacy directories (`media/`, `transcripts/`, `subtitles/`) still being created
+2. ❌ `shared/stage_order.py` outdated - missing hallucination_removal (stage 09)
+3. ❌ Outputs written to wrong locations instead of stage directories
+4. ✅ Subtitle workflow integration complete (stages 08-12)
 
 ---
 
@@ -23,9 +29,9 @@
 
 ## Phase 1: Code Consolidation (8 hours)
 
-**Goal:** Clean 10-stage canonical pipeline  
-**Status:** ⏳ Not Started  
-**Progress:** 0/8 hours (0%)
+**Goal:** Clean 12-stage canonical pipeline + proper output directory structure  
+**Status:** 🔄 In Progress  
+**Progress:** 5/8 hours (63%)
 
 ### Task 1.1: Resolve Stage Conflicts (4 hours)
 
@@ -66,96 +72,254 @@ TIME: ~20 minutes (well under 1 hour estimate)
 #### Subtask: Stage 06 - Lyrics vs WhisperX ASR (1 hour)
 
 - [x] Compare 06_lyrics_detection.py and 06_whisperx_asr.py
-- [x] Decision: Keep whisperx_asr, move lyrics to 12
-- [x] Execute: `git mv scripts/06_lyrics_detection.py scripts/12_lyrics_detection.py`
-- [x] Update references
-- [x] Test: Verify 06_whisperx_asr.py works
+- [x] Decision: Keep whisperx_asr at stage 06
+- [x] ✅ **CORRECTED:** Lyrics moved to stage 08 (MANDATORY for subtitle workflow)
+- [x] Execute: Integrated into 12-stage subtitle pipeline
+- [x] Test: Verified integration complete
 
-**Status:** ✅ Complete
+**Status:** ✅ Complete (CORRECTED)
 **Assigned:** Implementation Team  
-**Completed:** 2025-12-04 01:16 UTC
+**Completed:** 2025-12-04 01:59 UTC
 
 **Notes:**
 ```
-ANALYSIS:
-- 06_whisperx_asr.py: Core ASR engine (lines 1216-1217, 1426-1427)
-- 06_lyrics_detection.py: Optional feature (lines 1012, 1016)
+INITIAL ANALYSIS (INCORRECT):
+- 06_whisperx_asr.py: Core ASR engine
+- 06_lyrics_detection.py: Marked as "optional feature"
 
-DECISION: Keep 06_whisperx_asr.py as canonical Stage 06
-- WhisperX ASR is CRITICAL transcription engine
-- Used by ALL workflows
+INITIAL DECISION (INCORRECT): 
+- Moved lyrics to stage 12 as "optional"
 
-EXECUTION:
-✅ Moved: scripts/06_lyrics_detection.py → scripts/12_lyrics_detection.py
-✅ Updated run-pipeline.py references
-✅ Committed to git
+CORRECTION (2025-12-04 01:59 UTC):
+✅ Lyrics detection is MANDATORY for subtitle workflow
+✅ Moved to stage 08 (after alignment, before translation)
+✅ See: SUBTITLE_WORKFLOW_INTEGRATION_COMPLETION_REPORT.md
 
-TIME: ~15 minutes
+FINAL ARCHITECTURE:
+- 06_whisperx_asr.py: Core ASR (stage 06)
+- 07_alignment.py: Word-level timing (stage 07)
+- 08_lyrics_detection.py: Mark songs (MANDATORY, stage 08)
+- 09_hallucination_removal.py: Clean artifacts (MANDATORY, stage 09)
+
+TIME: ~15 minutes (initial) + ~2 hours (correction/integration)
 ```
 
 #### Subtask: Stage 07 - Hallucination vs Alignment (1 hour)
 
 - [x] Compare 07_hallucination_removal.py and 07_alignment.py
-- [x] Decision: Keep alignment, move hallucination to 13
-- [x] Execute: `git mv scripts/07_hallucination_removal.py scripts/13_hallucination_removal.py`
-- [x] Update references
-- [x] Test: Verify 07_alignment.py works
+- [x] Decision: Keep alignment at stage 07
+- [x] ✅ **CORRECTED:** Hallucination moved to stage 09 (MANDATORY for subtitle workflow)
+- [x] Execute: Integrated into 12-stage subtitle pipeline
+- [x] Test: Verified integration complete
 
-**Status:** ✅ Complete
+**Status:** ✅ Complete (CORRECTED)
 **Assigned:** Implementation Team  
-**Completed:** 2025-12-04 01:16 UTC
+**Completed:** 2025-12-04 01:59 UTC
 
 **Notes:**
 ```
-ANALYSIS:
-- 07_alignment.py: Word-level timing (CRITICAL for subtitles)
-- 07_hallucination_removal.py: Optional post-processing
+INITIAL ANALYSIS (INCORRECT):
+- 07_alignment.py: Word-level timing (CRITICAL)
+- 07_hallucination_removal.py: Marked as "optional post-processing"
 
-DECISION: Keep 07_alignment.py as canonical Stage 07
-- Alignment is CRITICAL for subtitle generation
-- Required for accurate timing
+INITIAL DECISION (INCORRECT):
+- Moved hallucination removal to stage 13 as "optional"
 
-EXECUTION:
-✅ Moved: scripts/07_hallucination_removal.py → scripts/13_hallucination_removal.py
-✅ Updated run-pipeline.py references
-✅ Committed to git
+CORRECTION (2025-12-04 01:59 UTC):
+✅ Hallucination removal is MANDATORY for subtitle workflow
+✅ Moved to stage 09 (after lyrics detection, before translation)
+✅ See: SUBTITLE_WORKFLOW_INTEGRATION_COMPLETION_REPORT.md
 
-TIME: ~15 minutes
+FINAL ARCHITECTURE:
+- 07_alignment.py: Word-level timing (stage 07)
+- 08_lyrics_detection.py: Mark songs (MANDATORY, stage 08)
+- 09_hallucination_removal.py: Clean artifacts (MANDATORY, stage 09)
+- 10_translation.py: Multi-language translation (stage 10)
+
+TIME: ~15 minutes (initial) + ~2 hours (correction/integration)
 ```
+- [x] Update references
+- [x] Test: Verify 07_alignment.py works
+
+**Status:** ✅ Complete (CORRECTED)
+**Assigned:** Implementation Team  
+**Completed:** 2025-12-04 01:59 UTC
+
+**Notes:** See above
 
 #### Subtask: Update run-pipeline.py (1 hour)
 
 - [x] Update stage number references
 - [x] Update workflow execution logic
+- [x] ✅ **CORRECTED:** Integrated subtitle workflow (12 stages)
+- [x] ✅ **CORRECTED:** Mandatory stages 08-09 cannot be disabled
 - [x] Test: Verify pipeline can locate all stages
 - [x] Commit changes
 
-**Status:** ✅ Complete
+**Status:** ✅ Complete (CORRECTED)
 **Assigned:** Implementation Team  
-**Completed:** 2025-12-04 01:16 UTC
+**Completed:** 2025-12-04 02:00 UTC
 
 **Notes:**
 ```
 UPDATES MADE:
-✅ Updated 05_ner → 11_ner references
-✅ Updated 06_lyrics_detection → 12_lyrics_detection references
-✅ Updated 07_hallucination_removal → 13_hallucination_removal references
+✅ Updated subtitle workflow to 12-stage pipeline
+✅ Stages 08-09 enforced as mandatory (cannot skip)
+✅ Updated import module references
+✅ Updated stage execution order: alignment → lyrics → hallucination → translation
 
-COMMIT:
+COMMITS:
 ✅ Committed with detailed message
-✅ Compliance check: 0 critical, 0 errors, 3 warnings (acceptable)
+✅ Compliance check: 0 critical, 0 errors, 1 warning (acceptable)
 ✅ All changes in git history
 
-TIME: ~10 minutes (included in moves above)
+TIME: ~30 minutes (included in integration time)
 ```
 
 **Task 1.1 Summary:**
-- ✅ All 3 stage conflicts resolved
-- ✅ Core stages (05, 06, 07) now have single canonical files
-- ✅ Optional stages moved to 11, 12, 13
+- ✅ All 3 stage conflicts resolved (corrected)
+- ✅ Core stages (05, 06, 07) have single canonical files
+- ✅ Subtitle stages (08-12) properly integrated
 - ✅ All references updated
 - ✅ Changes committed to git
-- ✅ Time: ~1 hour total (75% faster than estimate!)
+- ✅ Time: ~3 hours total (including 2-hour correction)
+
+### Task 1.4: Fix Output Directory Structure (NEW - 2 hours)
+
+**Status:** 🔄 In Progress | **Progress:** 0/2 hours
+**Priority:** CRITICAL - Fix architecture compliance
+
+#### Problem Statement
+
+**Current Issue:**
+```
+out/2025/12/03/rpatel/17/
+├── 01_demux/              ✅ Correct (stage output)
+├── 02_tmdb/               ✅ Correct
+├── ...
+├── 12_mux/                ✅ Correct
+├── media/                 ❌ WRONG (legacy, should not exist)
+├── transcripts/           ❌ WRONG (legacy, should not exist)
+├── subtitles/             ❌ WRONG (legacy, should not exist)
+└── logs/                  ✅ Correct
+```
+
+**What's Wrong:**
+1. `prepare-job.py` creates legacy directories (lines 205-207)
+2. Stages write to `job_dir/transcripts/` instead of `stage_dir/`
+3. Media copied to `job_dir/media/` instead of staying in `in/`
+4. Breaks stage isolation principle
+
+#### Subtask 1.4.1: Update shared/stage_order.py (30 min)
+
+- [ ] Add `hallucination_removal` as stage 09 (not sub-stage)
+- [ ] Update STAGE_ORDER to match 12-stage pipeline
+- [ ] Remove SUB_STAGES entry for hallucination_removal
+- [ ] Update comments to reflect subtitle workflow
+- [ ] Test: Verify get_all_stage_dirs() returns correct list
+
+**Status:** ⏳ Not Started  
+**Assigned:** ___________  
+**Completed:** ___________
+
+**Expected Changes:**
+```python
+STAGE_ORDER: List[str] = [
+    "demux",                      # 01
+    "tmdb",                       # 02
+    "glossary_load",              # 03
+    "source_separation",          # 04
+    "pyannote_vad",               # 05
+    "asr",                        # 06
+    "alignment",                  # 07
+    "lyrics_detection",           # 08 - MANDATORY for subtitle
+    "hallucination_removal",      # 09 - MANDATORY for subtitle (MOVE FROM SUB_STAGES)
+    "translation",                # 10
+    "subtitle_generation",        # 11
+    "mux",                        # 12
+]
+
+# Remove from SUB_STAGES
+SUB_STAGES: Dict[str, str] = {
+    "load_transcript": "translation",
+    "hinglish_detection": "subtitle_generation",
+    # hallucination_removal REMOVED (now standalone stage 09)
+}
+```
+
+#### Subtask 1.4.2: Remove Legacy Directory Creation (30 min)
+
+- [ ] Edit `scripts/prepare-job.py` lines 205-207
+- [ ] Remove creation of `media/`, `transcripts/`, `subtitles/`
+- [ ] Keep only `logs/` creation
+- [ ] Update `prepare_media()` function (line 226) to NOT copy media
+- [ ] Media should remain in `in/` directory
+- [ ] Test: Verify prepare-job doesn't create legacy dirs
+
+**Status:** ⏳ Not Started  
+**Assigned:** ___________  
+**Completed:** ___________
+
+**Changes:**
+```python
+# OLD (WRONG):
+(job_dir / "logs").mkdir(exist_ok=True)
+(job_dir / "media").mkdir(exist_ok=True)      # ❌ REMOVE
+(job_dir / "transcripts").mkdir(exist_ok=True)  # ❌ REMOVE
+(job_dir / "subtitles").mkdir(exist_ok=True)    # ❌ REMOVE
+
+# NEW (CORRECT):
+(job_dir / "logs").mkdir(exist_ok=True)
+# Stage directories created by get_all_stage_dirs() - no manual creation needed
+```
+
+#### Subtask 1.4.3: Fix Stage Output Locations (1 hour)
+
+- [ ] Audit all stages that write to `job_dir/transcripts/`
+- [ ] Update to write to `io.stage_dir/` instead
+- [ ] Find all `job_dir / "media"` references
+- [ ] Update to use `input_media` path directly (from `in/`)
+- [ ] Test: Run subtitle workflow, verify no legacy dirs created
+
+**Status:** ⏳ Not Started  
+**Assigned:** ___________  
+**Completed:** ___________
+
+**Files to Update:**
+- `scripts/run-pipeline.py` (lines 433, 541, 1271-1272)
+- Any stage that writes to `transcripts/`
+- Any stage that reads from `media/`
+
+**Expected Behavior:**
+```python
+# OLD (WRONG):
+transcripts_dir = self.job_dir / "transcripts"
+transcripts_dir.mkdir(parents=True, exist_ok=True)
+output = transcripts_dir / "segments.json"
+
+# NEW (CORRECT):
+# Each stage writes to its own stage_dir
+output = io.stage_dir / "segments.json"
+# No manual directory creation needed (StageIO handles it)
+```
+
+### ✅ Phase 1 Completion Checklist
+
+- [x] All stage conflicts resolved (05, 06, 07) - CORRECTED
+- [x] Subtitle workflow integrated (08-12) - COMPLETE
+- [ ] Output directory structure fixed (1.4) - IN PROGRESS
+- [ ] All duplicates consolidated (03, 09) - PENDING
+- [ ] CANONICAL_PIPELINE.md created - PENDING
+- [ ] All changes committed to git
+- [ ] No stage number conflicts remain
+- [ ] 12 canonical stages working correctly
+- [ ] All stages verified to work
+
+**Phase 1 Sign-off:**
+- Completed By: ___________
+- Date: ___________
+- Time Spent: ~5 hours (out of 8)
+- Issues: Output directory structure needs fixing
 
 ### Task 1.2: Consolidate Duplicates (2 hours)
 

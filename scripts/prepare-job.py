@@ -200,13 +200,11 @@ def create_job_directory(input_media: Path, workflow: str, user_id: Optional[str
     job_dir = PROJECT_ROOT / "out" / year / month / day / user_id / str(job_number)
     job_dir.mkdir(parents=True, exist_ok=True)
     
-    # Create main subdirectories
+    # Create logs directory (only shared directory needed)
     (job_dir / "logs").mkdir(exist_ok=True)
-    (job_dir / "media").mkdir(exist_ok=True)
-    (job_dir / "transcripts").mkdir(exist_ok=True)
-    (job_dir / "subtitles").mkdir(exist_ok=True)
     
     # Create stage subdirectories using centralized stage order
+    # Each stage will write outputs to its own directory
     for stage_dir in get_all_stage_dirs():
         (job_dir / stage_dir).mkdir(exist_ok=True)
     
@@ -217,24 +215,25 @@ def prepare_media(input_media: Path, job_dir: Path,
                   start_time: Optional[str] = None,
                   end_time: Optional[str] = None) -> Path:
     """
-    Prepare media file - copy to job directory
-    Clipping is now handled by the demux stage based on job config
+    Prepare media file - record path in job config
+    Media file stays in 'in/' directory (not copied)
+    Clipping is handled by demux stage based on job config
     
     Returns:
-        Path to prepared media file
+        Path to input media file (in 'in/' directory)
     """
-    media_dir = job_dir / "media"
-    output_media = media_dir / input_media.name
+    # Media file stays in original location (in/ directory)
+    # Demux stage will read from this path
+    # No copying needed - saves disk space and time
     
-    # Always copy the full media file
-    # Clipping will be done during demux stage based on job.json config
-    shutil.copy2(input_media, output_media)
+    logger.info(f"Media file location: {input_media}")
+    logger.info("Media will be processed in place (not copied)")
     
     if start_time or end_time:
         logger.info(f"   Note: Clipping configured ({start_time} to {end_time})")
-        logger.info(f"   Full media copied - clipping will happen during pipeline execution")
+        logger.info(f"   Clipping will happen during demux stage")
     
-    return output_media
+    return input_media
 
 
 def create_job_config(job_dir: Path, job_id: str, workflow: str,
