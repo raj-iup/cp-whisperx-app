@@ -542,16 +542,49 @@ class WhisperXProcessor:
         log_mps_memory(self.logger, "  Before transcription - ")
 
         try:
-            result = self.backend.transcribe(
-                audio_file,
-                language=source_lang,
-                task=task,
-                batch_size=batch_size,
-                initial_prompt=initial_prompt
-            )
-            self.logger.info(f"  ✓ Transcription complete: {len(result.get('segments', []))} segments")
+            import time
+            import threading
+            
+            start_time = time.time()
+            self.logger.info(f"  🎙️ Starting transcription at {time.strftime('%H:%M:%S')}...")
+            
+            # Progress heartbeat for long-running transcriptions
+            heartbeat_active = True
+            def progress_heartbeat() -> None:
+                """Log periodic progress to detect hangs"""
+                last_log = start_time
+                while heartbeat_active:
+                    time.sleep(60)  # Every 60 seconds
+                    if heartbeat_active:
+                        elapsed = time.time() - last_log
+                        total_elapsed = time.time() - start_time
+                        self.logger.info(f"  ⏱️  Still transcribing... {total_elapsed/60:.1f} minutes elapsed")
+                        last_log = time.time()
+            
+            # Start heartbeat thread
+            heartbeat_thread = threading.Thread(target=progress_heartbeat, daemon=True)
+            heartbeat_thread.start()
+            
+            try:
+                result = self.backend.transcribe(
+                    audio_file,
+                    language=source_lang,
+                    task=task,
+                    batch_size=batch_size,
+                    initial_prompt=initial_prompt
+                )
+            finally:
+                # Stop heartbeat
+                heartbeat_active = False
+                heartbeat_thread.join(timeout=1.0)
+            
+            elapsed = time.time() - start_time
+            self.logger.info(f"  ✓ Transcription complete: {len(result.get('segments', []))} segments in {elapsed:.1f}s ({elapsed/60:.1f} min)")
         except Exception as e:
-            self.logger.error(f"  ✗ Transcription failed: {e}", exc_info=True)
+            elapsed = time.time() - start_time if 'start_time' in locals() else 0
+            self.logger.error(f"  ✗ Transcription failed after {elapsed:.1f}s: {e}", exc_info=True)
+            self.logger.error(f"  Audio file: {audio_file}")
+            self.logger.error(f"  Language: {source_lang}, Task: {task}")
             raise
         finally:
             # Always cleanup MPS memory
@@ -926,7 +959,7 @@ class WhisperXProcessor:
         max_retries: int = 3
     ) -> Dict[str, Any]:
         """Process a single chunk with retry logic"""
-        from mps_utils import retry_with_degradation
+        from shared.mps_utils import retry_with_degradation
         
         # Simple retry wrapper - the decorator doesn't work well here
         # because we need to modify chunker's state
@@ -976,6 +1009,82 @@ class WhisperXProcessor:
 
         return result
 
+    def align_with_whisperx_subprocess(
+        self,
+        segments: List[Dict[str, Any]],
+        audio_file: str,
+        language: str
+    ) -> Dict[str, Any]:
+        """
+        Run WhisperX alignment in separate subprocess for stability
+        
+        This prevents MLX segfaults by using WhisperX alignment model
+        in an isolated subprocess. Used when ALIGNMENT_BACKEND=whisperx.
+        
+        Args:
+            segments: Transcription segments
+            audio_file: Path to audio file
+            language: Language code
+            
+        Returns:
+            Dict with aligned segments including word-level timestamps
+        """
+        import subprocess
+        import json
+        import tempfile
+        
+        self.logger.info("  Running alignment in subprocess (WhisperX)...")
+        
+        # Write segments to temp file
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump({"segments": segments}, f)
+            segments_file = f.name
+        
+        try:
+            # Run alignment in subprocess using WhisperX environment
+            cmd = [
+                str(PROJECT_ROOT / "venv" / "whisperx" / "bin" / "python"),
+                str(PROJECT_ROOT / "scripts" / "align_segments.py"),
+                "--audio", str(audio_file),
+                "--segments", segments_file,
+                "--language", language,
+                "--device", self.device
+            ]
+            
+            self.logger.debug(f"  Subprocess command: {' '.join(cmd)}")
+            
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=300  # 5 minute timeout
+            )
+            
+            if result.returncode == 0:
+                aligned = json.loads(result.stdout)
+                num_segments = len(aligned.get("segments", []))
+                self.logger.info(f"  ✓ Alignment complete: {num_segments} segments with word timestamps")
+                return aligned
+            else:
+                self.logger.warning(f"  ⚠ Alignment subprocess failed (exit code {result.returncode})")
+                if result.stderr:
+                    self.logger.warning(f"  Error output: {result.stderr}")
+                self.logger.info("  Returning segments without word-level timestamps")
+                return {"segments": segments}  # Return original
+        
+        except subprocess.TimeoutExpired:
+            self.logger.error("  ✗ Alignment subprocess timed out after 5 minutes")
+            return {"segments": segments}
+        except Exception as e:
+            self.logger.error(f"  ✗ Alignment subprocess error: {e}", exc_info=True)
+            return {"segments": segments}
+        finally:
+            # Clean up temp file
+            try:
+                Path(segments_file).unlink(missing_ok=True)
+            except:
+                pass
+
     def align_segments(
         self,
         result: Dict[str, Any],
@@ -984,7 +1093,11 @@ class WhisperXProcessor:
     ) -> Dict[str, Any]:
         """
         Add word-level alignment to segments
-
+        
+        Uses hybrid architecture:
+        - If backend is MLX: Uses WhisperX subprocess (prevents segfault)
+        - If backend is WhisperX: Uses backend's built-in alignment
+        
         Args:
             result: Whisper transcription result
             audio_file: Path to audio/video file
@@ -1000,13 +1113,24 @@ class WhisperXProcessor:
         self.logger.info("Aligning segments for word-level timestamps...")
 
         try:
-            aligned_result = self.backend.align_segments(
-                result.get("segments", []),
-                audio_file,
-                target_lang
-            )
-            self.logger.info("  ✓ Alignment complete")
-            return aligned_result
+            # Check if using MLX backend - use subprocess for stability
+            if self.backend.name == "mlx-whisper":
+                self.logger.info("  MLX backend detected: using WhisperX subprocess")
+                aligned_result = self.align_with_whisperx_subprocess(
+                    result.get("segments", []),
+                    audio_file,
+                    target_lang
+                )
+                return aligned_result
+            else:
+                # WhisperX or other backend - use native alignment
+                aligned_result = self.backend.align_segments(
+                    result.get("segments", []),
+                    audio_file,
+                    target_lang
+                )
+                self.logger.info("  ✓ Alignment complete")
+                return aligned_result
 
         except Exception as e:
             self.logger.warning(f"  ⚠ Alignment failed: {e}")
@@ -1219,8 +1343,16 @@ def run_whisperx_pipeline(
                 workflow_mode='transcribe-only'  # Force transcribe-only for step 1
             )
             
-            # Align to source language
-            source_result = processor.align_segments(source_result, audio_file, source_lang)
+            # Extract detected language if auto-detected
+            detected_lang = source_result.get("language", source_lang)
+            if source_lang == "auto" and detected_lang != "auto":
+                logger.info(f"Using detected language for alignment: {detected_lang}")
+                align_lang = detected_lang
+            else:
+                align_lang = source_lang
+            
+            # Align to source language (use detected language if auto-detected)
+            source_result = processor.align_segments(source_result, audio_file, align_lang)
             
             # Save source language files (no language suffix)
             logger.info(f"Saving source language files ({source_lang})...")
@@ -1345,6 +1477,16 @@ def run_whisperx_pipeline(
                 workflow_mode=workflow_mode
             )
 
+            # Extract detected language if auto-detected
+            detected_lang = result.get("language", source_lang)
+            if source_lang == "auto" and detected_lang != "auto":
+                logger.info(f"Using detected language for alignment: {detected_lang}")
+                # Update alignment language to detected language
+                if workflow_mode == 'transcribe-only' or workflow_mode == 'transcribe':
+                    align_lang = detected_lang
+                    # Reload alignment model for detected language
+                    processor.load_align_model(align_lang)
+            
             # Align for word-level timestamps
             result = processor.align_segments(result, audio_file, align_lang)
 
@@ -1401,7 +1543,7 @@ def main() -> Any:
     logger.info(f"Input audio: {audio_file}")
     logger.info(f"Output directory: {output_dir}")
     
-    # Get configuration parameters
+    # Get configuration parameters (defaults from system config)
     model_name = getattr(config, 'whisper_model', 'large-v3')
     source_lang = getattr(config, 'whisper_language', 'hi')
     target_lang = getattr(config, 'target_language', 'en')
@@ -1412,14 +1554,29 @@ def main() -> Any:
     # Default to 'whisperx' to ensure bias prompting support
     backend = getattr(config, 'whisper_backend', 'whisperx')
     
-    # Get workflow from job config (job.json)
+    # Get workflow and language overrides from job config (job.json)
+    # Job-specific parameters take precedence over system defaults (AD-006)
     workflow_mode = 'transcribe'  # Default
-    job_json_path = stage_io.job_dir / "job.json"
+    job_json_path = stage_io.output_base / "job.json"
+    logger.info(f"Looking for job.json at: {job_json_path}")
     if job_json_path.exists():
         import json
+        logger.info("Reading job-specific parameters from job.json...")
         with open(job_json_path) as f:
             job_data = json.load(f)
             workflow_mode = job_data.get('workflow', 'transcribe')
+            # Override source/target languages from job if specified
+            if 'source_language' in job_data and job_data['source_language']:
+                old_source = source_lang
+                source_lang = job_data['source_language']
+                logger.info(f"  source_language override: {old_source} → {source_lang} (from job.json)")
+            if 'target_languages' in job_data and job_data['target_languages']:
+                # For translation, first target language is the target
+                old_target = target_lang
+                target_lang = job_data['target_languages'][0] if job_data['target_languages'] else target_lang
+                logger.info(f"  target_language override: {old_target} → {target_lang} (from job.json)")
+    else:
+        logger.warning(f"job.json not found at {job_json_path}, using system defaults")
     
     # Get HF token from secrets or environment
     hf_token = None
@@ -1501,7 +1658,7 @@ def main() -> Any:
     
     if bias_enabled:
         try:
-            from bias_window_generator import create_bias_windows, save_bias_windows
+            from shared.bias_window_generator import create_bias_windows, save_bias_windows
             import soundfile as sf
             
             # Collect entity names from multiple sources
