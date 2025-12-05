@@ -302,11 +302,168 @@ class BiasPromptingStrategy:
         Processes audio in chunks matching bias windows, using window-specific
         bias terms for each chunk. Best accuracy but slower.
         
-        TODO: Implement window-specific chunking
-        Currently falls back to hybrid strategy.
+        Best for:
+        - High-accuracy requirements
+        - Context-aware transcription (subtitles, character names)
+        - Time-specific terminology (scene-dependent)
+        
+        Process:
+        - Split audio into chunks matching bias windows
+        - Each chunk uses window-specific bias terms
+        - Merge overlapping segments intelligently
         """
-        self.logger.warning("  ⚠️  Windowed chunks not yet implemented, using hybrid")
-        return self._transcribe_hybrid(audio_file, source_lang, task, bias_windows, batch_size)
+        # Import load_audio with fallback
+        try:
+            from whisperx.audio import load_audio as _load_audio
+        except ImportError:
+            try:
+                import librosa
+                def _load_audio(file: str, sr: int = 16000) -> Any:
+                    """Load audio with librosa fallback"""
+                    audio, _ = librosa.load(file, sr=sr, mono=True)
+                    return audio
+            except ImportError:
+                self.logger.error("  ✗ Cannot load audio (no whisperx or librosa)", exc_info=True)
+                raise ImportError("Need whisperx or librosa for audio loading")
+        
+        if not bias_windows:
+            # Fall back to regular transcription
+            return self.backend.transcribe(
+                audio_file,
+                language=source_lang,
+                task=task,
+                batch_size=batch_size
+            )
+        
+        self.logger.info(f"  🎯 Windowed chunks strategy")
+        self.logger.info(f"    • Processing {len(bias_windows)} bias windows")
+        self.logger.info(f"    • Window-specific bias terms (time-aware)")
+        
+        # Load full audio
+        audio = _load_audio(audio_file)
+        sample_rate = 16000  # Whisper standard sample rate
+        
+        all_segments = []
+        total_windows = len(bias_windows)
+        
+        # Process each bias window
+        for i, window in enumerate(bias_windows, 1):
+            self.logger.info(f"  Window {i}/{total_windows}: {window.start_time:.1f}s - {window.end_time:.1f}s")
+            
+            # Extract audio chunk for this window
+            start_sample = int(window.start_time * sample_rate)
+            end_sample = int(window.end_time * sample_rate)
+            chunk_audio = audio[start_sample:end_sample]
+            
+            # Skip if chunk is too short
+            if len(chunk_audio) < sample_rate * 0.5:  # Skip chunks < 0.5 seconds
+                self.logger.warning(f"    ⚠️  Skipping window (too short)")
+                continue
+            
+            # Create window-specific bias prompt
+            window_terms = list(window.bias_terms)[:50]  # Up to 50 terms
+            initial_prompt = ", ".join(window_terms) if window_terms else None
+            
+            self.logger.info(f"    • Bias: {len(window_terms)} terms")
+            self.logger.debug(f"    • Preview: {', '.join(window_terms[:3])}...")
+            
+            # Transcribe chunk with window-specific bias
+            try:
+                chunk_result = self.backend.transcribe(
+                    chunk_audio,  # NumPy array (WhisperX/MLX supports this)
+                    language=source_lang,
+                    task=task,
+                    batch_size=batch_size,
+                    initial_prompt=initial_prompt
+                )
+                
+                # Adjust timestamps to global timeline
+                for segment in chunk_result.get('segments', []):
+                    segment['start'] += window.start_time
+                    segment['end'] += window.start_time
+                    # Add window-specific metadata
+                    segment['bias_window_id'] = window.window_id
+                    segment['bias_terms'] = window.bias_terms
+                    segment['bias_strategy'] = 'chunked_windows'
+                
+                all_segments.extend(chunk_result.get('segments', []))
+                self.logger.info(f"    ✓ Window complete: {len(chunk_result.get('segments', []))} segments")
+                
+            except Exception as e:
+                self.logger.error(f"    ✗ Window {i} failed: {e}", exc_info=True)
+                # Continue with other windows - partial results better than none
+                continue
+        
+        self.logger.info(f"  Merging {len(all_segments)} segments from {total_windows} windows...")
+        
+        # Merge overlapping segments from adjacent windows
+        merged_segments = self._merge_overlapping_segments(all_segments)
+        
+        # Apply confidence-based filtering
+        filtered_segments = self._filter_segments({'segments': merged_segments})['segments']
+        
+        self.logger.info(f"  ✓ Windowed transcription complete: {len(filtered_segments)} merged segments")
+        
+        return {
+            "segments": filtered_segments,
+            "language": source_lang,
+            "bias_strategy": "chunked_windows",
+            "num_windows": total_windows
+        }
+    
+    def _merge_overlapping_segments(self, segments: List[Dict]) -> List[Dict]:
+        """
+        Merge duplicate segments from overlapping bias windows.
+        
+        When windows overlap (stride < window_size), we get duplicate transcriptions
+        for the overlapping region. This merges them intelligently.
+        
+        Args:
+            segments: List of segments from multiple windows
+            
+        Returns:
+            Merged list with duplicates removed
+        """
+        if not segments:
+            return []
+        
+        # Sort by start time
+        sorted_segments = sorted(segments, key=lambda s: s.get('start', 0))
+        
+        merged = []
+        for segment in sorted_segments:
+            start = segment.get('start', 0)
+            end = segment.get('end', 0)
+            
+            # Check if this segment overlaps significantly with the last merged segment
+            if merged:
+                last = merged[-1]
+                last_end = last.get('end', 0)
+                
+                # If significant overlap (>50% of current segment)
+                overlap = min(last_end, end) - max(last.get('start', 0), start)
+                segment_duration = end - start
+                
+                if overlap > 0 and segment_duration > 0:
+                    overlap_ratio = overlap / segment_duration
+                    
+                    if overlap_ratio > 0.5:
+                        # Merge: choose segment with higher confidence or longer text
+                        last_text = last.get('text', '').strip()
+                        curr_text = segment.get('text', '').strip()
+                        
+                        # Prefer segment with more text (likely more complete)
+                        if len(curr_text) > len(last_text):
+                            # Replace last with current
+                            merged[-1] = segment
+                            self.logger.debug(f"    Merged overlap: kept newer segment")
+                        # else: keep existing segment
+                        continue
+            
+            # No significant overlap, add as new segment
+            merged.append(segment)
+        
+        return merged
     
     def _transcribe_chunked(
         self,
@@ -320,14 +477,118 @@ class BiasPromptingStrategy:
         """
         Chunked strategy with checkpointing - For very large files.
         
-        Splits large files into manageable chunks with checkpointing
-        for stability. Best for files > 30 minutes.
+        Best for:
+        - Very large files (> 30 minutes)
+        - Stability over speed
+        - Resume-able processing
         
-        TODO: Implement chunked processing with checkpoints
-        Currently falls back to whole-file strategy.
+        Process:
+        - Split into 5-minute chunks
+        - Process with checkpointing (resume on failure)
+        - Merge all chunks into final result
         """
-        self.logger.warning("  ⚠️  Chunked strategy not yet implemented, using whole-file")
-        return self._transcribe_whole(audio_file, source_lang, task, bias_windows, batch_size)
+        from shared.asr_chunker import ChunkedASRProcessor
+        
+        if not output_dir:
+            # Fallback to temp directory if no output_dir provided
+            import tempfile
+            output_dir = Path(tempfile.mkdtemp())
+            self.logger.warning(f"  No output_dir provided, using temp: {output_dir}")
+        
+        self.logger.info(f"  📦 Chunked strategy (large file support)")
+        
+        chunker = ChunkedASRProcessor(self.logger, chunk_duration=300)  # 5 min chunks
+        
+        # Create chunks output directory
+        chunks_dir = output_dir / 'chunks' / task
+        chunks_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Create chunks (audio_file, output_dir)
+        chunks = chunker.create_chunks(audio_file, chunks_dir)
+        self.logger.info(f"    • Created {len(chunks)} chunks")
+        
+        # Process each chunk with checkpointing
+        chunk_results = []
+        checkpoint_dir = output_dir / 'chunks' / task
+        checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        
+        for i, chunk in enumerate(chunks):
+            self.logger.info(f"  Chunk {i+1}/{len(chunks)}: {chunk.start_time:.1f}s - {chunk.end_time:.1f}s")
+            
+            # Try to load from checkpoint
+            cached_result = chunker.load_checkpoint(chunk.chunk_id, checkpoint_dir)
+            
+            if cached_result:
+                self.logger.info(f"    ✓ Loading cached chunk {chunk.chunk_id}")
+                chunk_results.append(cached_result)
+            else:
+                # Process chunk with retry
+                try:
+                    result = self._process_chunk_with_retry(
+                        chunker, chunk, source_lang, task, batch_size
+                    )
+                    
+                    # Save checkpoint
+                    chunker.save_checkpoint(chunk.chunk_id, result, checkpoint_dir)
+                    chunk_results.append(result)
+                    
+                    self.logger.info(f"    ✓ Chunk complete: {len(result.get('segments', []))} segments")
+                    
+                except Exception as e:
+                    self.logger.error(f"    ✗ Chunk {chunk.chunk_id} failed: {e}", exc_info=True)
+                    # Continue with other chunks, partial results better than none
+                    continue
+        
+        # Merge all chunks
+        self.logger.info(f"  Merging {len(chunk_results)} processed chunks...")
+        merged_result = chunker.merge_chunk_results(chunk_results)
+        
+        # Apply confidence-based filtering
+        filtered_result = self._filter_segments(merged_result)
+        
+        self.logger.info(f"  ✓ Chunked transcription complete: {len(filtered_result['segments'])} segments")
+        
+        return filtered_result
+    
+    def _process_chunk_with_retry(
+        self,
+        chunker: Any,
+        chunk: Any,
+        language: str,
+        task: str,
+        batch_size: int,
+        max_retries: int = 3
+    ) -> Dict[str, Any]:
+        """
+        Process a single chunk with retry logic.
+        
+        Args:
+            chunker: ChunkedASRProcessor instance
+            chunk: Chunk to process
+            language: Language code
+            task: Task type (transcribe/translate)
+            batch_size: Batch size for processing
+            max_retries: Maximum retry attempts
+            
+        Returns:
+            Chunk transcription result
+        """
+        for attempt in range(max_retries):
+            try:
+                return chunker.process_chunk_with_bias(
+                    chunk, self.backend, language, task, batch_size
+                )
+            except Exception as e:
+                self.logger.warning(f"    ⚠️  Attempt {attempt + 1} failed: {e}")
+                
+                if attempt < max_retries - 1:
+                    # Reduce batch size for retry
+                    batch_size = max(batch_size // 2, 4)
+                    self.logger.warning(f"    🔄 Retrying with batch_size={batch_size}")
+                else:
+                    raise
+        
+        raise RuntimeError(f"All {max_retries} retries failed")
     
     # ─────────────────────────────────────────────────────────────────────
     # Post-Processing
