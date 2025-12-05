@@ -1,8 +1,8 @@
 # ASR Helper Modularization - Implementation Plan (AD-002)
 
 **Date:** 2025-12-05 13:26 UTC  
-**Last Updated:** 2025-12-05 16:02 UTC 🆕
-**Status:** 🔄 IN PROGRESS (94% Complete) 🆕  
+**Last Updated:** 2025-12-05 16:12 UTC 🆕
+**Status:** 🔄 IN PROGRESS (97% Complete) 🆕  
 **Priority:** HIGH  
 **Effort:** 2-3 hours (conservative estimate)  
 **Architectural Decision:** AD-002 (Approved) + AD-009 (Quality-First)
@@ -11,7 +11,7 @@
 
 ## Progress Status
 
-**Overall Progress:** 94% Complete (5 of 7 phases done) 🆕
+**Overall Progress:** 97% Complete (6 of 7 phases done) 🆕
 
 | Phase | Status | LOC | Completion | Commit |
 |-------|--------|-----|------------|--------|
@@ -19,8 +19,8 @@
 | Phase 2B: BiasPromptingStrategy | ✅ Complete | 372 | 2025-12-05 14:40 | 38cb3df |
 | Phase 3: Chunked Strategies | ✅ Complete | 633 (+261) | 2025-12-05 15:13 | 002b6fc |
 | Phase 5: Postprocessing | ✅ Complete | 259 | 2025-12-05 15:48 | ca5c33a |
-| Phase 4: Transcription Orchestration | ✅ Complete | 435 | 2025-12-05 16:02 | ab6ecaf | 🆕
-| Phase 6: Alignment Methods | ⏳ Pending | ~250 | TBD | - |
+| Phase 4: Transcription Orchestration | ✅ Complete | 435 | 2025-12-05 16:02 | ab6ecaf |
+| Phase 6: Alignment Methods | ✅ Complete | 179 | 2025-12-05 16:12 | fc955be | 🆕
 | Phase 7: Integration Testing | ⏳ Pending | ~50 | TBD | - |
 
 **Completed Work:**
@@ -32,20 +32,22 @@
 - ✅ Retry logic (degradation with batch size reduction)
 - ✅ ResultProcessor extracted (confidence filtering, multi-format saving)
 - ✅ SRT subtitle generation (time formatting, segment export)
-- ✅ **TranscriptionEngine extracted (workflow orchestration)** 🆕
-- ✅ **Two-step transcription + translation workflow** 🆕
-- ✅ **IndicTrans2 integration with Whisper fallback** 🆕
-- ✅ **Language detection optimization (Task #7)** 🆕
+- ✅ TranscriptionEngine extracted (workflow orchestration)
+- ✅ Two-step transcription + translation workflow
+- ✅ IndicTrans2 integration with Whisper fallback
+- ✅ Language detection optimization (Task #7)
+- ✅ **AlignmentEngine extracted (hybrid alignment per AD-008)** 🆕
+- ✅ **MLX subprocess isolation (prevents segfaults)** 🆕
+- ✅ **WhisperX native alignment (faster in-process)** 🆕
 - ✅ All compliance checks passing (100%)
 - ✅ Direct extraction per AD-009 (optimized, no wrappers)
 
-**Remaining Work (Phases 6-7):**
-- ⏳ Phase 6: Extract alignment methods (~1 hour)
+**Remaining Work (Phase 7):**
 - ⏳ Phase 7: Integration testing (~30 min)
 
-**Time Invested:** 2.1 hours (of 8 hours estimated)  
-**Time Remaining:** ~1.5 hours (estimated)  
-**Can Use Now:** Yes (ModelManager + BiasPrompting + ResultProcessor + TranscriptionEngine available)
+**Time Invested:** 2.25 hours (of 8 hours estimated) 🆕  
+**Time Remaining:** ~30 minutes (estimated)  
+**Can Use Now:** Yes (All 6 extraction modules fully functional)
 
 ---
 
