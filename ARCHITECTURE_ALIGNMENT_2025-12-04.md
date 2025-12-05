@@ -16,10 +16,10 @@ This document reconciles **planned refactorings** with **current implementation*
 2. ⚠️ **ASR subsystem needs modularization** - Keep as single stage, split helper modules
 3. ⚠️ **Translation stage is large but cohesive** - Keep as single stage (for now)
 4. ✅ **Virtual environment structure is COMPLETE** - No new venvs needed
-5. ✅ **WhisperX backend is production-ready** - Avoid MLX due to instability
+5. ✅ **Hybrid MLX backend is production-ready** - 8-9x performance improvement 🆕
 6. ✅ **Job-specific parameters are MANDATORY** - All stages must honor user's explicit choices
 7. ✅ **Shared imports must be consistent** - All shared/ imports must use "shared." prefix
-8. ✅ **Hybrid MLX backend is production-ready** - 8-9x performance improvement
+8. ✅ **Hybrid alignment architecture** - Process isolation prevents segfaults
 9. ✅ **Prioritize quality over backward compatibility** - Active development optimization
 
 **Architectural Decisions:** 9 total (AD-001 through AD-009)
@@ -294,6 +294,38 @@ scripts/11_subtitle_generation.py  (225 LOC) - Production, actively used
 - Bootstrap scripts already handle all environments
 
 **Status:** ✅ APPROVED
+
+### AD-005: Hybrid MLX Backend Architecture 🆕
+**Decision:** ~~WhisperX only (avoid MLX)~~ → **Hybrid MLX + WhisperX for optimal performance**  
+**Rationale:**
+- MLX-Whisper provides 8-9x faster transcription (84s vs 11+ min for 12min audio)
+- WhisperX subprocess for alignment prevents segfaults
+- Hybrid approach combines speed (MLX) with stability (WhisperX)
+- Process isolation ensures 100% reliability
+- Graceful fallback to WhisperX if MLX unavailable
+
+**Implementation:**
+```
+Transcription: MLX backend (fast)
+       ↓
+Alignment: WhisperX subprocess (stable)
+       ↓
+Result: 8-9x faster, 100% stable
+```
+
+**Configuration:**
+```bash
+WHISPER_BACKEND=mlx           # Or auto (detects MPS)
+ALIGNMENT_BACKEND=whisperx    # Subprocess isolation
+```
+
+**Status:** ✅ APPROVED & PRODUCTION READY  
+**Updated:** 2025-12-05 (replaced original "avoid MLX" decision)  
+**Cross-References:**
+- AD-008: Hybrid Alignment Architecture (subprocess details)
+- HYBRID_ARCHITECTURE_IMPLEMENTATION_COMPLETE.md (test results)
+- MLX_ARCHITECTURE_DECISION.md (original decision)
+- § 2.7 in copilot-instructions.md (implementation guide)
 
 ---
 

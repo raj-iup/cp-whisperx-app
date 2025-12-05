@@ -5687,6 +5687,428 @@ venv/mlx/bin/python -c "import mlx_whisper; print('MLX OK')"
 
 ---
 
+## 20. ARCHITECTURAL DECISIONS REFERENCE
+
+This section documents all approved Architectural Decisions (ADs) and their implementation guidelines.
+
+**Authoritative Source:** ARCHITECTURE_ALIGNMENT_2025-12-04.md  
+**Total Decisions:** 9 (AD-001 through AD-009)  
+**Purpose:** Provide developer guidance on architectural patterns
+
+---
+
+### § 20.1 AD-002: ASR Module Structure
+
+**Decision:** ASR code modularized into `scripts/whisperx_module/`
+
+**Why:** Previous `whisperx_integration.py` was a 1888-line monolith that was difficult to test and maintain.
+
+**Module Structure:**
+```
+scripts/whisperx_module/
+├── __init__.py              # Module exports
+├── model_manager.py         # Backend selection, model loading (170 LOC)
+├── bias_prompting.py        # Bias window strategies (633 LOC)
+├── postprocessing.py        # Result filtering, output generation (259 LOC)
+├── transcription.py         # Workflow orchestration (435 LOC)
+├── alignment.py             # Hybrid alignment engine (179 LOC)
+└── chunking.py              # Large file chunking (stub)
+```
+
+**When to Use:**
+- ✅ **New ASR features:** Add to appropriate module, not to stage wrapper
+- ✅ **Testing:** Import and test modules independently
+- ✅ **Maintenance:** Each module has single responsibility
+
+**Usage Pattern:**
+```python
+# In 06_whisperx_asr.py (stage wrapper)
+from whisperx_module.transcription import TranscriptionEngine
+from whisperx_module.alignment import AlignmentEngine
+
+# Create engine instances
+transcription = TranscriptionEngine(processor, logger, get_indictrans2_fn)
+alignment = AlignmentEngine(backend, device, logger)
+
+# Use for processing
+result = transcription.run_pipeline(...)
+aligned = alignment.align(result, audio_file, language)
+```
+
+**Do:**
+- ✅ Keep stage wrapper (`06_whisperx_asr.py`) minimal (< 200 LOC)
+- ✅ Add complex logic to modules, not stage
+- ✅ Use dependency injection (pass objects, not globals)
+- ✅ Follow extraction patterns (see ASR_MODULARIZATION_PLAN.md)
+
+**Don't:**
+- ❌ Add business logic to stage wrapper
+- ❌ Import from `whisperx_integration.py` directly
+- ❌ Create circular dependencies between modules
+
+**Reference:** ASR_MODULARIZATION_PLAN.md, AD-002 in ARCHITECTURE_ALIGNMENT_2025-12-04.md
+
+---
+
+### § 20.2 AD-003: Translation Stage Decision
+
+**Decision:** Translation stage remains single stage (`10_translation.py`)
+
+**Why:** Splitting into 4 separate stages would:
+- Require renumbering all subsequent stages (11 → 14, 12 → 15)
+- Add complexity without clear benefit
+- Current 1045 LOC is cohesive and manageable
+- Can refactor to helper modules later if needed
+
+**Current Structure:**
+```
+Stage 10: 10_translation.py (1045 LOC)
+├── IndicTrans2 translation (Indic languages)
+├── NLLB translation (fallback)
+├── Language detection
+├── Batch processing
+└── Error handling
+```
+
+**Deferred Split (Future):**
+```
+Potential future structure (if ever needed):
+├── 10a_indictrans2.py    (Indic → English/others)
+├── 10b_nllb.py            (Universal fallback)
+├── 10c_glossary_apply.py  (Term substitution)
+└── 10d_quality_check.py   (Translation validation)
+```
+
+**Implementation Guidance:**
+- ✅ Keep translation logic in single stage
+- ✅ Use helper functions for organization
+- ✅ Consider extracting to helper module (like ASR) if LOC grows > 1500
+- ❌ Don't split into separate stages unless clear benefit
+
+**When to Revisit:**
+- Translation stage exceeds 1500 LOC
+- Need independent testing of translation engines
+- Want to enable/disable translation engines separately
+- Performance profiling shows optimization potential
+
+**Reference:** AD-003 in ARCHITECTURE_ALIGNMENT_2025-12-04.md
+
+---
+
+### § 20.3 AD-004: Virtual Environment Structure
+
+**Decision:** 8 isolated virtual environments, no more needed
+
+**Why:** Each ML model requires specific dependencies that often conflict.
+
+**Current Structure:**
+```
+venv/
+├── base/         # Core utilities (shared across stages)
+├── whisperx/     # WhisperX ASR (Stage 06)
+├── mlx/          # MLX-optimized ASR/alignment (Stage 06-07, Apple Silicon)
+├── pyannote/     # VAD + diarization (Stage 05)
+├── demucs/       # Source separation (Stage 04)
+├── indictrans2/  # Indic translation (Stage 10)
+├── nllb/         # Universal translation (Stage 10)
+└── tmdb/         # TMDB metadata (Stage 02)
+```
+
+**Usage Guidelines:**
+
+**1. Which venv for which stage:**
+```python
+# Stage determines venv in shebang
+# Stage 04: source separation
+#!/path/to/venv/demucs/bin/python
+
+# Stage 05: VAD/diarization
+#!/path/to/venv/pyannote/bin/python
+
+# Stage 06: ASR
+#!/path/to/venv/whisperx/bin/python
+# OR (on Apple Silicon with MPS)
+#!/path/to/venv/mlx/bin/python
+
+# Stage 10: Translation
+#!/path/to/venv/indictrans2/bin/python
+# OR (fallback)
+#!/path/to/venv/nllb/bin/python
+```
+
+**2. Bootstrap script handles setup:**
+```bash
+# Creates all 8 venvs
+./bootstrap.sh
+
+# Each venv has requirements file
+requirements/whisperx.txt
+requirements/mlx.txt
+requirements/pyannote.txt
+# etc.
+```
+
+**3. Adding dependencies:**
+```bash
+# Add to appropriate requirements file
+echo "new-package==1.2.3" >> requirements/whisperx.txt
+
+# Reinstall venv
+rm -rf venv/whisperx
+./bootstrap.sh  # Recreates whisperx venv only
+```
+
+**Do:**
+- ✅ Use correct venv for stage (matches ML model)
+- ✅ Add dependencies to requirements file, not manual pip
+- ✅ Document which venv each helper script uses
+- ✅ Test new stages in correct venv
+
+**Don't:**
+- ❌ Install packages across multiple venvs
+- ❌ Create new venvs (8 is optimal)
+- ❌ Share heavy ML dependencies (causes conflicts)
+- ❌ Use system Python (always use venv)
+
+**Troubleshooting:**
+```bash
+# Check which venv stage uses
+head -1 scripts/06_whisperx_asr.py
+# Shows: #!/path/to/venv/whisperx/bin/python
+
+# Verify venv has package
+venv/whisperx/bin/pip list | grep whisperx
+
+# Recreate corrupted venv
+rm -rf venv/whisperx
+./bootstrap.sh
+```
+
+**Reference:** AD-004 in ARCHITECTURE_ALIGNMENT_2025-12-04.md
+
+---
+
+### § 20.4 AD-005: Backend Selection Strategy
+
+**Decision:** Hybrid MLX + WhisperX architecture for optimal performance
+
+**Evolution:**
+- **Original:** Use WhisperX only, avoid MLX (unstable)
+- **Updated:** Hybrid approach (MLX transcription + WhisperX alignment)
+- **Reason:** MLX is 8-9x faster, but needs subprocess isolation for stability
+
+**When to Use Each Backend:**
+
+**1. MLX Backend (Apple Silicon Only):**
+```python
+# Use when:
+- Device has MPS (Metal Performance Shaders)
+- Need maximum performance (8-9x faster)
+- Processing large files (> 10 minutes)
+- Apple M1/M2/M3/M4 processors
+
+# Configuration:
+WHISPER_BACKEND=mlx          # Or 'auto' (auto-detects)
+ALIGNMENT_BACKEND=whisperx   # MUST use subprocess
+```
+
+**2. WhisperX Backend (All Platforms):**
+```python
+# Use when:
+- CPU or CUDA device (no MPS)
+- Stability more important than speed
+- Short files (< 5 minutes)
+- Non-Apple hardware
+
+# Configuration:
+WHISPER_BACKEND=whisperx
+ALIGNMENT_BACKEND=whisperx   # Native in-process
+```
+
+**Automatic Selection:**
+```python
+from whisper_backends import create_backend, get_recommended_backend
+
+# Let system choose optimal backend
+recommended = get_recommended_backend(device="auto")
+# Returns: "mlx" on Apple Silicon with MPS
+#          "whisperx" on CPU/CUDA
+
+backend = create_backend(
+    backend_type=recommended,
+    model_name="large-v3",
+    device="auto"
+)
+```
+
+**Performance Comparison:**
+```
+12-minute audio file:
+├── CTranslate2 (CPU):  11+ minutes (CRASHED)
+├── WhisperX (CPU):     ~8-10 minutes
+├── WhisperX (CUDA):    ~3-4 minutes
+└── MLX (MPS):          84 sec transcription + 39 sec alignment = 123 sec ✅
+
+Result: MLX is 8-9x faster than CPU, 100% stable with subprocess
+```
+
+**Implementation Pattern:**
+```python
+# Stage 06 wrapper delegates to module
+from whisperx_module.transcription import TranscriptionEngine
+
+# Engine handles backend selection
+engine = TranscriptionEngine(
+    processor=processor,  # Has backend instance
+    logger=logger,
+    get_indictrans2_fn=_get_indictrans2
+)
+
+# Processor.backend.name determines alignment strategy
+# If "mlx-whisper" → uses subprocess
+# If "whisperx" → uses native alignment
+```
+
+**Do:**
+- ✅ Use `backend="auto"` for automatic selection
+- ✅ Set `ALIGNMENT_BACKEND=whisperx` with MLX
+- ✅ Test both backends in your environment
+- ✅ Monitor logs for backend selection
+
+**Don't:**
+- ❌ Use MLX alignment in-process (causes segfaults)
+- ❌ Force MLX on non-Apple hardware
+- ❌ Skip subprocess isolation with MLX
+- ❌ Hardcode backend (use auto-detection)
+
+**Reference:** 
+- AD-005 in ARCHITECTURE_ALIGNMENT_2025-12-04.md
+- AD-008 (subprocess isolation details)
+- § 8 MLX Backend Architecture (this document)
+- HYBRID_ARCHITECTURE_IMPLEMENTATION_COMPLETE.md
+
+---
+
+### § 20.5 AD-008: Hybrid Alignment Architecture
+
+**Decision:** Use subprocess isolation for MLX alignment to prevent segfaults
+
+**Problem:** MLX backend segfaults when running alignment in same process as transcription
+
+**Solution: Process Isolation**
+```
+┌─────────────────────────────────────┐
+│  Main Process (MLX Transcription)   │
+│  ├─ Load MLX model                  │
+│  ├─ Transcribe audio (fast)         │
+│  └─ Get segments                    │
+└─────────────────────────────────────┘
+              ↓
+┌─────────────────────────────────────┐
+│  Subprocess (WhisperX Alignment)    │
+│  ├─ Load WhisperX align model       │
+│  ├─ Process segments                │
+│  └─ Return word timestamps          │
+└─────────────────────────────────────┘
+              ↓
+         Combined Result
+```
+
+**Implementation:**
+```python
+# In whisperx_module/alignment.py
+class AlignmentEngine:
+    def align(self, result, audio_file, language):
+        # Check backend type
+        if self.backend.name == "mlx-whisper":
+            # Use subprocess (prevents segfaults)
+            return self.align_subprocess(
+                result["segments"],
+                audio_file,
+                language
+            )
+        else:
+            # Use native alignment (faster)
+            return self.backend.align_segments(
+                result["segments"],
+                audio_file,
+                language
+            )
+    
+    def align_subprocess(self, segments, audio_file, language):
+        # Write segments to temp file
+        with tempfile.NamedTemporaryFile(...) as f:
+            json.dump({"segments": segments}, f)
+            segments_file = f.name
+        
+        # Run alignment in subprocess
+        cmd = [
+            "venv/whisperx/bin/python",
+            "scripts/align_segments.py",
+            "--audio", audio_file,
+            "--segments", segments_file,
+            "--language", language
+        ]
+        
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            timeout=300  # 5 minute timeout
+        )
+        
+        # Parse and return aligned segments
+        return json.loads(result.stdout)
+```
+
+**Key Features:**
+1. **5-minute timeout:** Prevents hanging
+2. **Graceful fallback:** Returns segments without words on failure
+3. **Temp file IPC:** JSON-based inter-process communication
+4. **Automatic cleanup:** Temp files deleted after use
+5. **Error logging:** Full error context captured
+
+**Configuration:**
+```bash
+# .env.pipeline
+WHISPER_BACKEND=mlx          # Fast transcription
+ALIGNMENT_BACKEND=whisperx   # Stable alignment via subprocess
+```
+
+**Do:**
+- ✅ Always use subprocess with MLX backend
+- ✅ Set reasonable timeout (5 minutes)
+- ✅ Clean up temp files
+- ✅ Log subprocess errors with context
+- ✅ Return segments without words on failure (graceful degradation)
+
+**Don't:**
+- ❌ Run MLX alignment in-process (segfaults)
+- ❌ Use infinite timeout
+- ❌ Leave temp files lying around
+- ❌ Fail completely on alignment error (degrade gracefully)
+
+**Troubleshooting:**
+```bash
+# Check if subprocess is being used
+grep "subprocess" out/*/logs/99_pipeline_*.log
+# Should show: "Running alignment in subprocess"
+
+# Check for segfaults
+grep -i "segfault" out/*/logs/*.log
+# Should show: nothing (if properly isolated)
+
+# Verify alignment backend
+grep ALIGNMENT_BACKEND config/.env.pipeline
+# Should show: ALIGNMENT_BACKEND=whisperx (not mlx or same)
+```
+
+**Reference:**
+- AD-008 in ARCHITECTURE_ALIGNMENT_2025-12-04.md
+- whisperx_module/alignment.py (implementation)
+- HYBRID_ARCHITECTURE_IMPLEMENTATION_COMPLETE.md (test results)
+
+---
+
 ## Document History
 
 | Version | Date | Changes | Author |

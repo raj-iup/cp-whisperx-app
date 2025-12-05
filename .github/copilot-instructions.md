@@ -77,6 +77,49 @@
 
 ---
 
+## 🏛️ Architectural Decisions Quick Reference (NEW) 🆕
+
+**Authoritative Source:** ARCHITECTURE_ALIGNMENT_2025-12-04.md  
+**Developer Guide:** DEVELOPER_STANDARDS.md § 20
+
+**All 9 Approved Architectural Decisions:**
+
+- **AD-001:** 12-stage architecture (optimal, no major refactoring) ✅
+- **AD-002:** ASR modularization (use `whisperx_module/`, not monolith) ✅
+- **AD-003:** Translation single-stage (defer 4-stage split) ✅
+- **AD-004:** 8 virtual environments (no new venvs needed) ✅
+- **AD-005:** Hybrid MLX backend (8-9x faster with subprocess isolation) ✅
+- **AD-006:** Job-specific parameters MANDATORY (read job.json first) ✅
+- **AD-007:** Consistent shared/ imports (always use "shared." prefix) ✅
+- **AD-008:** Hybrid alignment architecture (subprocess prevents segfaults) ✅
+- **AD-009:** Quality over compatibility (optimize aggressively) ✅
+
+**Quick Patterns:**
+
+```python
+# Per AD-002: Use ASR modules
+from whisperx_module.transcription import TranscriptionEngine
+from whisperx_module.alignment import AlignmentEngine
+
+# Per AD-004: Use correct venv (in shebang)
+#!/path/to/venv/whisperx/bin/python  # Stage 06
+
+# Per AD-005 + AD-008: Hybrid MLX
+backend = create_backend("auto")  # Auto-selects MLX on Apple Silicon
+# Alignment automatically uses subprocess with MLX
+
+# Per AD-006: Read job.json first
+config = load_config()  # System defaults
+job_data = json.load(open(job_dir / "job.json"))  # Override
+param = job_data.get('key', config.get('key', default))
+
+# Per AD-007: Shared imports
+from shared.module import function  # ✅ Correct
+# NOT: from module import function  # ❌ Wrong
+```
+
+---
+
 ## 📍 Standard Test Media (ALWAYS USE THESE)
 
 **Sample 1: English Technical**
@@ -412,11 +455,16 @@ ML_LEARNING_FROM_HISTORY=true              # Learn from past jobs
 
 ## § 2.7 MLX Backend Architecture (NEW in v6.7)
 
-**Hybrid MLX Architecture for Apple Silicon**
+**Hybrid MLX Architecture for Apple Silicon (AD-005 + AD-008)** 🆕
+
+**Architectural Decisions:**
+- **AD-005:** Hybrid MLX backend for optimal performance
+- **AD-008:** Subprocess isolation prevents segfaults
+- **Reference:** ARCHITECTURE_ALIGNMENT_2025-12-04.md
 
 ### When to Use MLX Backend
 
-✅ **Use MLX when:**
+✅ **Use MLX when (per AD-005):**
 - Running on Apple Silicon (M1/M2/M3/M4)
 - Need maximum performance (8-9x faster than CPU)
 - Transcription or subtitle workflows
