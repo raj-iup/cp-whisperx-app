@@ -359,3 +359,130 @@ grep "Stage.*completed in" logs/pipeline-*.log
 **Last Updated:** 2025-12-04 04:38 UTC  
 **Next Review:** After Test 1 completion  
 **Status:** 🔄 Fixes Applied - Ready to Resume Testing
+
+---
+
+## 🚨 Known Issues
+
+### Issue 1: MLX Backend Segmentation Fault (CRITICAL)
+
+**Discovered:** 2025-12-04  
+**Status:** 🔴 BLOCKING E2E tests  
+**Severity:** HIGH  
+**Impact:** All workflows using ASR stage
+
+**Symptoms:**
+- Stage 06 (whisperx_asr) crashes with exit code -11 (SIGSEGV)
+- Crash occurs AFTER 100% processing complete
+- Happens during cleanup/finalization phase
+- Memory access violation in MLX backend
+
+**Test Case That Failed:**
+- Test: Transcribe Workflow (Test 1)
+- Media: Energy Demand in AI.mp4 (14 MB, English)
+- Job: job-20251203-rpatel-0020
+- Backend: MLX (Apple Silicon optimization)
+- Model: large-v3
+
+**Stages Completed Successfully:**
+- ✅ 01_demux - 1.7s
+- ✅ 04_source_separation - 299.4s
+- ✅ 05_pyannote_vad - 11.8s
+- ❌ 06_whisperx_asr - SEGFAULT
+
+**Root Cause:**
+- MLX backend memory/process issue on Apple Silicon
+- Known instability with large audio files
+- Memory pressure during cleanup phase
+- **NOT a bug in our pipeline code**
+
+**Workarounds (Priority Order):**
+
+1. **Switch to WhisperX Backend** ⭐ RECOMMENDED
+   ```bash
+   # Update job config: WHISPER_BACKEND=whisperx
+   # More stable, widely tested, proven reliability
+   ```
+
+2. **Use Smaller Model**
+   ```bash
+   # WHISPERX_MODEL=base  # or small
+   # Reduces memory pressure
+   ```
+
+3. **Use Shorter Audio Files**
+   ```bash
+   # Test with <1 minute clips first
+   # Validate stability before full files
+   ```
+
+4. **Use CPU Backend**
+   ```bash
+   # WHISPER_DEVICE=cpu
+   # Slower but stable fallback
+   ```
+
+**Recommended Configuration for E2E Tests:**
+```bash
+# config/.env.pipeline or job-specific config
+WHISPER_BACKEND=whisperx     # Use WhisperX instead of MLX
+WHISPERX_MODEL=large-v3      # Keep large model
+WHISPER_DEVICE=mps           # Use MPS (Apple Silicon GPU)
+COMPUTE_TYPE=float32         # Use float32 for MPS stability
+```
+
+**Action Items:**
+- [ ] Test WhisperX backend with same file
+- [ ] Compare performance: MLX vs WhisperX
+- [ ] Document backend stability matrix
+- [ ] Update copilot-instructions with backend guidance
+- [ ] Retry Test 1 with WhisperX backend
+- [ ] Consider deprecating MLX backend for production
+
+**Related Documents:**
+- SESSION_FINAL_2025-12-04.md - Test failure details
+- ARCHITECTURE_ALIGNMENT_2025-12-04.md - Architecture context
+
+---
+
+## 📊 Backend Stability Matrix (Updated 2025-12-04)
+
+| Backend | Platform | Stability | Performance | Recommendation |
+|---------|----------|-----------|-------------|----------------|
+| **WhisperX** | All | ✅ Excellent | ✅ Fast | ⭐ RECOMMENDED |
+| **MLX** | Apple Silicon | ❌ Unstable | ✅ Fastest | ⚠️ USE WITH CAUTION |
+| **CUDA** | NVIDIA GPU | ✅ Excellent | ✅ Fastest | ⭐ RECOMMENDED |
+| **CPU** | All | ✅ Excellent | ⚠️ Slow | 🔄 FALLBACK ONLY |
+
+**Production Recommendation:** Use WhisperX or CUDA backends, avoid MLX until stability improves.
+
+---
+
+## 📋 Test Execution Checklist (Updated)
+
+**Before Running Tests:**
+- [ ] Choose stable backend (WhisperX recommended)
+- [ ] Verify virtual environments installed
+- [ ] Check disk space (need ~5GB for outputs)
+- [ ] Review test media samples exist
+- [ ] Set appropriate compute type for device
+
+**During Test Execution:**
+- [ ] Monitor resource usage (CPU, memory, GPU)
+- [ ] Watch for segfaults or crashes
+- [ ] Check stage logs for errors
+- [ ] Validate manifest.json files
+
+**After Test Completion:**
+- [ ] Review all stage logs
+- [ ] Validate output quality
+- [ ] Check performance metrics
+- [ ] Document any issues found
+- [ ] Update this plan with findings
+
+---
+
+**Document Version:** 1.1  
+**Last Updated:** 2025-12-04 12:42 UTC  
+**Status:** 🔄 IN PROGRESS - Test 1 blocked, investigating backend stability  
+**Next Update:** After backend testing complete

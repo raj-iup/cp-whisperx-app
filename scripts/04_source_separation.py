@@ -196,8 +196,10 @@ def main() -> int:
         logger.info("SOURCE SEPARATION STAGE: Extract Vocals")
         logger.info("=" * 60)
         
-        # Load job configuration (BEST PRACTICE: Read from job.json)
-        # job.json is at the job directory root, which is output_base
+        # Load job configuration (AD-006: Job-specific parameter override)
+        # This stage reads configuration from job.json which contains user's
+        # explicit CLI choices (source_separation.enabled, quality, etc.)
+        # Falls back to system defaults if job.json is missing.
         job_config_file = stage_io.output_base / "job.json"
         
         if not job_config_file.exists():

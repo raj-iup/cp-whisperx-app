@@ -6,6 +6,9 @@ This is a thin wrapper around whisperx_integration.py which contains
 the actual ASR logic. The separation allows for easier testing and
 maintains compatibility with the pipeline architecture.
 
+AD-006 Compliance: Parameter override logic is implemented in
+whisperx_integration.py (delegated implementation pattern).
+
 Stage: 04_asr (Stage 4)
 Input: audio.wav from demux or source_separation
 Output: transcript.json with word-level timestamps
@@ -86,12 +89,13 @@ def run_stage(job_dir: Path, stage_name: str = "04_asr") -> int:
             io.finalize(status="failed")
             return exit_code
         
-        # Track outputs (ASR creates these in job_dir/04_asr or transcripts/)
+        # Track outputs (ASR creates these in job_dir/06_asr/)
         output_locations = [
             io.stage_dir / "transcript.json",
             io.stage_dir / "whisperx_output.json",
             io.stage_dir / "segments.json",
-            job_dir / "transcripts" / "segments.json"
+            io.stage_dir / "asr_segments.json",
+            io.stage_dir / "asr_transcript.txt"
         ]
         
         for output_file in output_locations:
@@ -129,10 +133,12 @@ def main() -> int:
     try:
         return whisperx_main()
     except KeyboardInterrupt:
-        logger.info("\n✗ ASR stage interrupted by user", file=sys.stderr)
+        logger.error("\n✗ ASR stage interrupted by user", exc_info=True)
         return 130
     except Exception as e:
-        logger.info(f"\n✗ ASR stage failed with unexpected error: {e}", file=sys.stderr)
+        import traceback
+        error_msg = f"\n✗ ASR stage failed with unexpected error: {e}"
+        logger.error(error_msg, exc_info=True)
         return 1
 
 

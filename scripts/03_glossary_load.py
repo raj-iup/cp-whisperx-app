@@ -128,12 +128,41 @@ def run_stage(job_dir: Path, stage_name: str = "03_glossary_load") -> int:
         logger.info("STAGE: Glossary Load")
         logger.info("=" * 80)
         
-        # Load configuration
+        # 1. Load system defaults from config
         config = load_config()
         
         # Get glossary directory (project root / glossary)
         project_root = Path(__file__).parent.parent.parent
-        glossary_dir = project_root / "glossary"
+        glossary_dir_default = project_root / "glossary"
+        glossary_dir = glossary_dir_default
+        workflow = config.get("WORKFLOW", "transcribe")
+        
+        # 2. Override with job.json parameters (AD-006)
+        job_json_path = job_dir / "job.json"
+        if job_json_path.exists():
+            logger.info("Reading job-specific parameters from job.json...")
+            with open(job_json_path) as f:
+                job_data = json.load(f)
+                
+                # Override glossary path if specified
+                if 'glossary' in job_data:
+                    glossary_config = job_data['glossary']
+                    if 'path' in glossary_config and glossary_config['path']:
+                        old_value = glossary_dir
+                        glossary_dir = Path(glossary_config['path'])
+                        logger.info(f"  glossary_path override: {old_value} → {glossary_dir} (from job.json)")
+                
+                # Override workflow if specified
+                if 'workflow' in job_data and job_data['workflow']:
+                    old_value = workflow
+                    workflow = job_data['workflow']
+                    logger.info(f"  workflow override: {old_value} → {workflow} (from job.json)")
+        else:
+            logger.warning(f"job.json not found at {job_json_path}, using system defaults")
+        
+        # 3. Track config in manifest
+        io.add_config("glossary_dir", str(glossary_dir))
+        io.add_config("workflow", workflow)
         
         if not glossary_dir.exists():
             logger.warning(f"Glossary directory not found: {glossary_dir}")

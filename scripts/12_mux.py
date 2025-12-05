@@ -43,6 +43,45 @@ def main() -> int:
             stage_io.add_error(f"Config load failed: {e}", e)
             stage_io.finalize(status="failed", error=str(e))
             return 1
+        
+        # Get mux parameters from config
+        output_format = getattr(config, 'mux_output_format', 'mkv')
+        default_subtitle_track = getattr(config, 'mux_default_subtitle', 'en')
+        target_langs = getattr(config, 'target_language', 'en').split(',')
+        
+        # Override with job.json parameters (AD-006)
+        job_json_path = stage_io.output_base / "job.json"
+        if job_json_path.exists():
+            logger.info("Reading job-specific parameters from job.json...")
+            try:
+                with open(job_json_path) as f:
+                    job_data = json.load(f)
+                    
+                    # Override target_languages
+                    if 'target_languages' in job_data and job_data['target_languages']:
+                        old_targets = target_langs
+                        target_langs = job_data['target_languages'] if isinstance(job_data['target_languages'], list) else job_data['target_languages'].split(',')
+                        logger.info(f"  target_languages override: {old_targets} → {target_langs} (from job.json)")
+                    
+                    # Override mux parameters
+                    if 'mux' in job_data:
+                        mux_config = job_data['mux']
+                        if 'output_format' in mux_config and mux_config['output_format']:
+                            old_format = output_format
+                            output_format = mux_config['output_format']
+                            logger.info(f"  mux.output_format override: {old_format} → {output_format} (from job.json)")
+                        if 'default_subtitle_track' in mux_config and mux_config['default_subtitle_track']:
+                            old_default = default_subtitle_track
+                            default_subtitle_track = mux_config['default_subtitle_track']
+                            logger.info(f"  mux.default_subtitle_track override: {old_default} → {default_subtitle_track} (from job.json)")
+            except Exception as e:
+                logger.warning(f"Failed to read job.json parameters: {e}")
+        else:
+            logger.warning(f"job.json not found at {job_json_path}, using system defaults")
+        
+        logger.info(f"Using output_format: {output_format}")
+        logger.info(f"Using default_subtitle_track: {default_subtitle_track}")
+        logger.info(f"Using target_languages: {target_langs}")
     
         logger.info(f"Output directory: {stage_io.output_base}")
         logger.info(f"Stage directory: {stage_io.stage_dir}")

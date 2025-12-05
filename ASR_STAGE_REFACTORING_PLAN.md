@@ -1,9 +1,28 @@
 # ASR Stage Refactoring Plan
 
 **Date:** 2025-12-04  
-**Status:** 📋 Analysis Complete  
-**Impact:** CRITICAL (largest subsystem)  
-**Complexity:** High
+**Status:** ✅ **APPROVED - Option 2** (Modularize Helper, Keep Stage)  
+**Decision Date:** 2025-12-04  
+**Impact:** MEDIUM (refactor helper module, no workflow disruption)  
+**Complexity:** LOW  
+**Timeline:** 1-2 days (after E2E tests stabilize)
+
+**🎯 DECISION:** See [ARCHITECTURE_ALIGNMENT_2025-12-04.md § AD-002](./ARCHITECTURE_ALIGNMENT_2025-12-04.md) for authoritative decision.
+
+---
+
+## ✅ Executive Summary
+
+**APPROVED SOLUTION:** Option 2 - Modularize Helper Module (Not Stage)
+
+**Rationale:**
+- ✅ Improves testability without workflow disruption
+- ✅ No stage renumbering required
+- ✅ Same virtual environment (venv/whisperx)
+- ✅ Gradual migration path
+- ✅ Better code organization
+
+**Timeline:** 1-2 days (waiting for E2E tests to stabilize)
 
 ---
 
@@ -49,9 +68,49 @@ TOTAL ASR SYSTEM:                   1837 LOC ⚠️
 
 ---
 
-## 💡 Refactoring Options
+## ✅ APPROVED: Option 2 - Modularize Helper Module
 
-### Option 1: Split into Multiple Stages (RADICAL)
+**Decision:** Keep Stage 06 as-is, split helper module into organized directory structure.
+
+**New Architecture:**
+```
+Stage 06: whisperx_asr.py (140 LOC wrapper) ← NO CHANGE
+          ↓ uses
+scripts/whisperx/ (NEW MODULE DIRECTORY)
+├── __init__.py             (~50 LOC) - Module exports
+├── model_manager.py        (~200 LOC) - Model loading, caching
+├── backend_abstraction.py  (~300 LOC) - MLX/WhisperX/CUDA switching
+├── bias_prompting.py       (~400 LOC) - Global/chunked/hybrid strategies
+├── chunking.py             (~300 LOC) - Large file handling
+├── transcription.py        (~300 LOC) - Core ASR execution
+└── postprocessing.py       (~200 LOC) - Filtering, quality checks
+```
+
+**Benefits:**
+- ✅ Better code organization
+- ✅ Easier to test components independently
+- ✅ No workflow disruption
+- ✅ No stage renumbering
+- ✅ Same venv (venv/whisperx)
+- ✅ Gradual migration path
+
+**Virtual Environment:** `venv/whisperx` (no changes)
+
+**Timeline:** 1-2 days
+
+**Migration Steps:**
+1. Create `scripts/whisperx/` directory
+2. Split `whisperx_integration.py` into modules
+3. Update imports in `06_whisperx_asr.py`
+4. Add unit tests for each module
+5. Validate with integration tests
+
+**Status:** ✅ APPROVED (2025-12-04)  
+**Next:** Wait for E2E tests to stabilize, then implement
+
+---
+
+## ❌ REJECTED: Option 1 - Split into Multiple Stages
 
 **New Architecture:**
 ```
@@ -71,14 +130,108 @@ TOTAL ASR SYSTEM:                   1837 LOC ⚠️
 - Better resource management
 
 **Cons:**
-- Major workflow disruption
-- More I/O overhead
-- Requires renumbering ALL subsequent stages
-- Higher migration complexity
+- ❌ Major workflow disruption
+- ❌ More I/O overhead
+- ❌ Requires renumbering ALL subsequent stages (7→11, 8→12, etc.)
+- ❌ Higher migration complexity
+- ❌ No clear benefit over Option 2
+
+**Verdict:** REJECTED - Not worth the disruption
 
 ---
 
-### Option 2: Keep Stage, Split Helper Module (MODERATE)
+## 📊 Comparison: Option 1 vs Option 2
+
+| Aspect | Option 1 (Split Stages) | Option 2 (Modularize Helper) |
+|--------|------------------------|------------------------------|
+| Workflow Disruption | ❌ HIGH | ✅ NONE |
+| Code Organization | ✅ Excellent | ✅ Excellent |
+| Testability | ✅ Excellent | ✅ Excellent |
+| Migration Effort | ❌ HIGH (1-2 weeks) | ✅ LOW (1-2 days) |
+| Stage Renumbering | ❌ Required (7→11) | ✅ Not needed |
+| I/O Overhead | ⚠️ Increases | ✅ No change |
+| Virtual Envs | ❌ May need new | ✅ Same (whisperx) |
+| **DECISION** | **❌ REJECTED** | **✅ APPROVED** |
+
+---
+
+## 📋 Implementation Checklist
+
+**Phase 1: Preparation (Day 0)**
+- [ ] Create `scripts/whisperx/` directory
+- [ ] Create `__init__.py` with exports
+- [ ] Set up test infrastructure
+
+**Phase 2: Module Extraction (Day 1)**
+- [ ] Extract `model_manager.py` (model loading, caching)
+- [ ] Extract `backend_abstraction.py` (MLX/WhisperX/CUDA)
+- [ ] Extract `bias_prompting.py` (bias strategies)
+- [ ] Extract `chunking.py` (large file handling)
+- [ ] Test each module independently
+
+**Phase 3: Core Logic (Day 1-2)**
+- [ ] Extract `transcription.py` (core ASR)
+- [ ] Extract `postprocessing.py` (filtering, cleanup)
+- [ ] Update `06_whisperx_asr.py` imports
+- [ ] Verify no functionality lost
+
+**Phase 4: Testing & Validation (Day 2)**
+- [ ] Unit tests for each module
+- [ ] Integration test with sample audio
+- [ ] Run E2E transcribe workflow
+- [ ] Performance benchmark (compare before/after)
+- [ ] Update documentation
+
+**Phase 5: Cleanup (Day 2)**
+- [ ] Archive old `whisperx_integration.py`
+- [ ] Update IMPLEMENTATION_TRACKER.md
+- [ ] Update architecture.md references
+
+**Estimated Time:** 1-2 days  
+**Risk:** LOW  
+**Rollback Plan:** Restore `whisperx_integration.py` from archive
+
+---
+
+## 🔗 Related Documents
+
+**Primary:**
+- [ARCHITECTURE_ALIGNMENT_2025-12-04.md § AD-002](./ARCHITECTURE_ALIGNMENT_2025-12-04.md) - Authoritative decision
+- [IMPLEMENTATION_TRACKER.md](./IMPLEMENTATION_TRACKER.md) - Task tracking
+
+**Supporting:**
+- [CANONICAL_PIPELINE.md](./CANONICAL_PIPELINE.md) - Stage 06 definition
+- [docs/developer/DEVELOPER_STANDARDS.md](./docs/developer/DEVELOPER_STANDARDS.md) - Module patterns
+
+---
+
+## 📈 Expected Outcomes
+
+**Code Quality:**
+- ✅ Better separation of concerns
+- ✅ Easier to understand and modify
+- ✅ More maintainable
+
+**Testing:**
+- ✅ Unit tests for individual components
+- ✅ Easier to mock dependencies
+- ✅ Better test coverage
+
+**Performance:**
+- ✅ No degradation expected
+- ✅ Same execution path
+- ✅ Same virtual environment
+
+**Developer Experience:**
+- ✅ Easier to navigate code
+- ✅ Faster debugging
+- ✅ Clear module boundaries
+
+---
+
+**Status:** ✅ APPROVED - Ready to implement after E2E tests stabilize  
+**Approved By:** Architecture Alignment (2025-12-04)  
+**Next Review:** After implementation complete
 
 **New Architecture:**
 ```

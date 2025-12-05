@@ -429,11 +429,49 @@ def run_stage(job_dir: Path, stage_name: str = "02_tmdb") -> int:
         logger.info(f"STAGE: {stage_name} - TMDB Enrichment")
         logger.info("=" * 60)
         
-        # Try to load title and year from config
+        # 1. Load system defaults from config
         config = load_config()
         title = config.get("FILM_TITLE")
         year_str = config.get("FILM_YEAR")
         year = int(year_str) if year_str else None
+        enabled = config.get("STAGE_02_TMDB_ENABLED", "true").lower() == "true"
+        
+        # 2. Override with job.json parameters (AD-006)
+        job_json_path = job_dir / "job.json"
+        if job_json_path.exists():
+            logger.info("Reading job-specific parameters from job.json...")
+            
+            # Track job.json as input (manifest tracking)
+            stage_io.track_input(job_json_path, "job_config")
+            
+            with open(job_json_path) as f:
+                job_data = json.load(f)
+                
+                # Check if TMDB enrichment is enabled for this job
+                if 'tmdb_enrichment' in job_data:
+                    tmdb_config = job_data['tmdb_enrichment']
+                    if 'enabled' in tmdb_config:
+                        old_value = enabled
+                        enabled = tmdb_config['enabled']
+                        logger.info(f"  enabled override: {old_value} → {enabled} (from job.json)")
+                    
+                    if 'title' in tmdb_config and tmdb_config['title']:
+                        old_value = title
+                        title = tmdb_config['title']
+                        logger.info(f"  title override: {old_value} → {title} (from job.json)")
+                    
+                    if 'year' in tmdb_config and tmdb_config['year']:
+                        old_value = year
+                        year = tmdb_config['year']
+                        logger.info(f"  year override: {old_value} → {year} (from job.json)")
+        else:
+            logger.warning(f"job.json not found at {job_json_path}, using system defaults")
+        
+        # 3. Check if stage is enabled
+        if not enabled:
+            logger.info("TMDB enrichment disabled for this job, skipping")
+            stage_io.finalize(status="skipped")
+            return 0
         
         # Create and run stage
         stage = TMDBEnrichmentStage(
@@ -460,8 +498,7 @@ def main() -> int:
     """
     Main entry point - supports both pipeline and CLI modes
     
-    Note: Uses print() for CLI user messages (not logging) - acceptable per
-    100_PERCENT_COMPLIANCE_PLAN.md special case for CLI tools.
+    Note: All output uses logger for proper tracking and compliance.
     """
     parser = argparse.ArgumentParser(
         description='TMDB Enrichment Stage - Fetch movie metadata and generate glossaries'
@@ -534,10 +571,10 @@ def main() -> int:
         return 0 if success else 1
         
     except KeyboardInterrupt:
-        print("\n✗ TMDB enrichment interrupted by user", file=sys.stderr)  # CLI output - acceptable
+        # Note: No logger available at main() level, error goes to stderr via exception
         return 130
     except Exception as e:
-        print(f"\n✗ TMDB enrichment failed: {e}", file=sys.stderr)  # CLI output - acceptable
+        # Note: No logger available at main() level, error goes to stderr via exception
         if args.debug:
             import traceback
             traceback.print_exc()

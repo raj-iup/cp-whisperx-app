@@ -1,30 +1,185 @@
 # Translation Stage Refactoring Plan (Numeric-Only Architecture)
 
 **Date:** 2025-12-04  
-**Status:** ✅ Ready to Implement  
+**Status:** ❌ **DEFERRED INDEFINITELY**  
+**Decision Date:** 2025-12-04  
 **Architecture:** Numeric-Only (No sub-letters)  
-**Impact:** High (splits largest stage)
+**Impact:** Would be HIGH (requires stage renumbering)
+
+**🎯 DECISION:** See [ARCHITECTURE_ALIGNMENT_2025-12-04.md § AD-003](./ARCHITECTURE_ALIGNMENT_2025-12-04.md) for authoritative decision.
 
 ---
 
-## 🎯 Objective
+## ❌ Executive Summary
 
-Refactor Stage 10 (Translation - 1045 LOC) into **4 separate stages (10, 11, 12, 13)** following numeric-only architecture.
+**DECISION: DEFERRED INDEFINITELY**
+
+**Rationale:**
+- ❌ Current implementation (1045 LOC) is already cohesive (single responsibility: translate)
+- ❌ Would require renumbering ALL subsequent stages (11→14, 12→15)
+- ❌ Adds 3 new stages for minimal benefit
+- ❌ Increases I/O overhead (more intermediate files)
+- ❌ Breaking translation into prep/execute/merge adds artificial boundaries
+
+**Alternative (if needed later):**
+- ✅ Refactor as helper modules (like ASR Option 2)
+- ✅ Keep stage as-is, split helper into module directory
+- ✅ No workflow disruption
 
 ---
 
-## 📊 New Stage Architecture
+## 📊 Analysis: Why This Was Proposed
+
+**Original Problem Identified:**
+- Stage 10 (Translation) = 1045 LOC (largest stage)
+- Handles IndicTrans2 + NLLB in single stage
+- Multiple language pairs in one execution
+
+**Proposed Solution:**
+
+Split Stage 10 into 4 stages:
+```
+Stage 10: Translation Prep       (~200 LOC, venv/common)
+Stage 11: IndicTrans2 Translation (~400 LOC, venv/indictrans2)
+Stage 12: NLLB Translation        (~400 LOC, venv/nllb)
+Stage 13: Translation Merge       (~150 LOC, venv/common)
+Stage 14: Subtitle Generation     (renamed from 11)
+Stage 15: Mux                     (renamed from 12)
+```
+
+---
+
+## ❌ Why This Was REJECTED
+
+### Problem 1: Unjustified Disruption
+
+**What would be required:**
+- Renumber stages 11→14, 12→15
+- Update ALL documentation references
+- Update run-pipeline.py logic
+- Update all test references
+- Modify workflow routing
+- Update copilot-instructions.md
+- Update CANONICAL_PIPELINE.md
+
+**Estimated effort:** 1-2 days of pure busywork
+
+**Benefit:** Minimal - stage is already cohesive
+
+### Problem 2: Current Implementation is Cohesive
+
+**Stage 10 Analysis:**
+```
+Components:
+├── Language pair detection      (~150 LOC)
+├── IndicTrans2 model management (~250 LOC)
+├── NLLB fallback logic          (~200 LOC)
+├── Batch translation            (~200 LOC)
+├── Glossary integration         (~150 LOC)
+└── Quality scoring              (~95 LOC)
+```
+
+**Single Responsibility:** Translate text from source language(s) to target language(s)
+
+**Verdict:** This is ONE logical task, not four.
+
+### Problem 3: Artificial Boundaries
+
+**Proposed split:**
+1. Prep: Load config, validate languages
+2. IndicTrans2: Translate some pairs
+3. NLLB: Translate other pairs
+4. Merge: Combine results
+
+**Reality:** These are implementation details of ONE task (translation), not separate concerns.
+
+### Problem 4: Increases Complexity
+
+**Current (1 stage):**
+- Read input once
+- Translate all pairs
+- Write all outputs
+- Simple, clean, fast
+
+**Proposed (4 stages):**
+- Read input 4 times
+- Write intermediate files 3 times
+- More error points
+- More I/O overhead
+- More complex orchestration
+
+**Verdict:** INCREASES complexity without benefit
+
+---
+
+## ✅ Alternative: Helper Module Pattern (If Needed)
+
+**If translation stage becomes unmaintainable in the future:**
 
 ```
-Current: Stage 10 (Translation - 1045 LOC) → Stage 11 (Subtitle) → Stage 12 (Mux)
-
-New:     Stage 10 (Translation Prep - ~200 LOC)
-         Stage 11 (IndicTrans2 - ~400 LOC)
-         Stage 12 (NLLB - ~400 LOC)
-         Stage 13 (Translation Merge - ~150 LOC)
-         Stage 14 (Subtitle Generation - renamed from 11)
-         Stage 15 (Mux - renamed from 12)
+Stage 10: translation.py (keep as 150 LOC wrapper) ← NO CHANGE
+          ↓ uses
+scripts/translation/ (NEW MODULE)
+├── __init__.py
+├── language_router.py       (~150 LOC) - Language pair routing
+├── indictrans2_engine.py    (~400 LOC) - IndicTrans2 implementation
+├── nllb_engine.py           (~400 LOC) - NLLB implementation
+└── glossary_processor.py    (~150 LOC) - Glossary handling
 ```
+
+**Benefits:**
+- ✅ Better code organization
+- ✅ Easier to test
+- ✅ NO workflow disruption
+- ✅ NO stage renumbering
+- ✅ Same venvs (indictrans2, nllb)
+
+**This is the ASR Option 2 pattern - proven to work**
+
+---
+
+## 📊 Comparison: Split vs Keep vs Module
+
+| Aspect | Split (4 stages) | Keep (1 stage) | Module Pattern |
+|--------|-----------------|----------------|----------------|
+| Workflow Disruption | ❌ HIGH | ✅ NONE | ✅ NONE |
+| Code Organization | ⚠️ Artificial | ⚠️ Monolithic | ✅ Excellent |
+| Testability | ✅ Good | ⚠️ Limited | ✅ Excellent |
+| Stage Renumbering | ❌ Required | ✅ Not needed | ✅ Not needed |
+| I/O Overhead | ❌ Increases | ✅ Minimal | ✅ Minimal |
+| Migration Effort | ❌ HIGH (1-2 days) | ✅ NONE | ✅ LOW (1 day) |
+| **DECISION** | **❌ REJECTED** | **✅ CURRENT** | **⏳ IF NEEDED** |
+
+---
+
+## 🔗 Related Documents
+
+**Primary:**
+- [ARCHITECTURE_ALIGNMENT_2025-12-04.md § AD-003](./ARCHITECTURE_ALIGNMENT_2025-12-04.md) - Authoritative decision
+- [IMPLEMENTATION_TRACKER.md](./IMPLEMENTATION_TRACKER.md) - Task tracking
+
+**Comparison:**
+- [ASR_STAGE_REFACTORING_PLAN.md](./ASR_STAGE_REFACTORING_PLAN.md) - Similar analysis, approved Option 2
+
+---
+
+## 📈 Current Stage 10 Status
+
+**File:** `scripts/10_translation.py`  
+**Size:** 1045 LOC  
+**Complexity:** Manageable  
+**Maintainability:** Good  
+**Test Coverage:** Adequate  
+**Bug Rate:** Low
+
+**Verdict:** No refactoring needed at this time.
+
+---
+
+**Status:** ❌ DEFERRED INDEFINITELY  
+**Decision By:** Architecture Alignment (2025-12-04)  
+**Next Review:** If stage 10 becomes unmaintainable (>2000 LOC or high bug rate)  
+**Alternative:** Use helper module pattern (ASR Option 2) if needed
 
 ---
 

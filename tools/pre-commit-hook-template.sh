@@ -46,11 +46,7 @@ VALIDATOR_EXIT=$?
 
 echo ""
 
-if [ $VALIDATOR_EXIT -eq 0 ]; then
-    echo "✅ All files passed compliance checks!"
-    echo "✓ Commit allowed"
-    exit 0
-else
+if [ $VALIDATOR_EXIT -ne 0 ]; then
     echo "❌ Compliance violations found!"
     echo ""
     echo "To maintain 100% compliance, please fix the violations before committing."
@@ -60,6 +56,10 @@ else
     echo "  2. Add missing docstrings: \"\"\"Function description.\"\"\""
     echo "  3. Use logger instead of print()"
     echo "  4. Organize imports: Standard / Third-party / Local"
+    echo "  5. AD-006: Read job.json and override parameters (see ARCHITECTURE_ALIGNMENT_2025-12-04.md)"
+    echo "  6. AD-007: Use 'shared.' prefix for all shared/ imports"
+    echo ""
+    echo "See docs/developer/DEVELOPER_STANDARDS.md for detailed guidance."
     echo ""
     echo "To bypass this check (NOT RECOMMENDED):"
     echo "  git commit --no-verify"
@@ -67,3 +67,29 @@ else
     echo "❌ Commit rejected"
     exit 1
 fi
+
+echo "✅ All files passed compliance checks!"
+echo ""
+
+# Run file naming standard tests (if pytest available)
+if command -v pytest &> /dev/null; then
+    echo "🔍 Running file naming standard tests..."
+    python3 -m pytest tests/test_file_naming_standard.py -v --tb=short -q 2>&1 | grep -E "(PASSED|FAILED|ERROR|test_)"
+    NAMING_EXIT=${PIPESTATUS[0]}
+    
+    if [ $NAMING_EXIT -ne 0 ]; then
+        echo ""
+        echo "❌ File naming tests failed!"
+        echo "   This indicates the file naming standard (§ 1.3.1) has been violated."
+        echo "   Please ensure all output files follow the pattern: {stage}_{descriptor}.{ext}"
+        echo ""
+        echo "❌ Commit rejected"
+        exit 1
+    fi
+    
+    echo "✅ File naming tests passed!"
+fi
+
+echo ""
+echo "✓ All checks passed - Commit allowed"
+exit 0

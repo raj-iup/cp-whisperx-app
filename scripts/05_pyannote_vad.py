@@ -11,6 +11,7 @@ warnings.filterwarnings('ignore', category=UserWarning, module='torchaudio')
 
 import sys
 import os
+import json
 from pathlib import Path
 
 # Add parent directory to path for imports
@@ -40,6 +41,48 @@ if __name__ == "__main__":
         stage_io.add_error(f"Config load failed: {e}", e)
         stage_io.finalize(status="failed", error=str(e))
         sys.exit(1)
+    
+    # Get VAD enabled flag from config (use dict access with defaults)
+    vad_enabled = True  # Default: enabled
+    vad_threshold = 0.5  # Default: 0.5
+    
+    # Try to get from config if available
+    if hasattr(config, 'get'):
+        vad_enabled = config.get('PYANNOTE_VAD_ENABLED', 'true').lower() == 'true'
+        vad_threshold = float(config.get('PYANNOTE_VAD_THRESHOLD', '0.5'))
+    
+    # Override with job.json parameters (AD-006)
+    job_json_path = stage_io.output_base / "job.json"
+    if job_json_path.exists():
+        logger.info("Reading job-specific parameters from job.json...")
+        try:
+            with open(job_json_path) as f:
+                job_data = json.load(f)
+                
+                # Override VAD parameters
+                if 'vad' in job_data:
+                    vad_config = job_data['vad']
+                    if 'enabled' in vad_config and vad_config['enabled'] is not None:
+                        old_enabled = vad_enabled
+                        vad_enabled = vad_config['enabled']
+                        logger.info(f"  vad.enabled override: {old_enabled} → {vad_enabled} (from job.json)")
+                    if 'threshold' in vad_config and vad_config['threshold']:
+                        old_threshold = vad_threshold
+                        vad_threshold = float(vad_config['threshold'])
+                        logger.info(f"  vad.threshold override: {old_threshold} → {vad_threshold} (from job.json)")
+        except Exception as e:
+            logger.warning(f"Failed to read job.json parameters: {e}")
+    else:
+        logger.warning(f"job.json not found at {job_json_path}, using system defaults")
+    
+    logger.info(f"Using VAD enabled: {vad_enabled}")
+    logger.info(f"Using VAD threshold: {vad_threshold}")
+    
+    # Check if VAD is disabled
+    if not vad_enabled:
+        logger.info("PyAnnote VAD disabled, skipping")
+        stage_io.finalize(status="skipped")
+        sys.exit(0)
     
     # Get input audio using StageIO
     audio_input = stage_io.get_input_path("audio.wav", from_stage="demux")
@@ -127,10 +170,12 @@ if __name__ == "__main__":
             logger.info(f"Merged to {len(merged_segments)} segments (gap threshold: {merge_gap}s)")
             segments = merged_segments
         
-        # Save to JSON
+        # Save to JSON with proper format expected by pipeline
+        # Pipeline expects {"segments": [...]} not just [...]
         output_json.parent.mkdir(parents=True, exist_ok=True)
+        output_data = {"segments": segments}
         with open(output_json, 'w') as f:
-            json.dump(segments, f, indent=2)
+            json.dump(output_data, f, indent=2)
         
         logger.info(f"✓ Saved speech segments to: {output_json}")
         exit_code = 0

@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """
-NER Stage (05_ner)
+NER Stage (05_ner) - EXPERIMENTAL
 
 Named Entity Recognition for improving translation quality.
 Extracts person names, organizations, and locations from ASR transcript.
+
+AD-006 Note: This experimental stage uses system config only.
+No job-specific parameters currently supported.
 
 Input: ASR transcript with segments
 Output: NER annotations, entity frequency table

@@ -862,6 +862,64 @@ def run_stage(job_dir: Path, stage_name: str = "08_translation") -> int:
         # Check if translation is enabled
         config = load_config()
         translation_enabled = config.get("STAGE_08_TRANSLATION_ENABLED", "true").lower() == "true"
+        translation_model = config.get("TRANSLATION_MODEL", "indictrans2")
+        source_language = config.get("SOURCE_LANGUAGE", "hi")
+        target_langs = config.get("TARGET_LANGUAGE", "en").split(",")
+        device = config.get("TRANSLATION_DEVICE", "auto")
+        num_beams = int(config.get("TRANSLATION_NUM_BEAMS", "4"))
+        workflow = config.get("WORKFLOW", "transcribe")
+        
+        # Override with job.json parameters (AD-006)
+        job_json_path = job_dir / "job.json"
+        if job_json_path.exists():
+            logger_stage.info("Reading job-specific parameters from job.json...")
+            try:
+                with open(job_json_path) as f:
+                    job_data = json.load(f)
+                    
+                    # Override source_language
+                    if 'source_language' in job_data and job_data['source_language']:
+                        old_source = source_language
+                        source_language = job_data['source_language']
+                        logger_stage.info(f"  source_language override: {old_source} → {source_language} (from job.json)")
+                    
+                    # Override target_languages
+                    if 'target_languages' in job_data and job_data['target_languages']:
+                        old_targets = target_langs
+                        target_langs = job_data['target_languages'] if isinstance(job_data['target_languages'], list) else job_data['target_languages'].split(',')
+                        logger_stage.info(f"  target_languages override: {old_targets} → {target_langs} (from job.json)")
+                    
+                    # Override translation parameters
+                    if 'translation' in job_data:
+                        trans_config = job_data['translation']
+                        if 'model' in trans_config and trans_config['model']:
+                            old_model = translation_model
+                            translation_model = trans_config['model']
+                            logger_stage.info(f"  translation.model override: {old_model} → {translation_model} (from job.json)")
+                        if 'device' in trans_config and trans_config['device']:
+                            old_device = device
+                            device = trans_config['device']
+                            logger_stage.info(f"  translation.device override: {old_device} → {device} (from job.json)")
+                        if 'num_beams' in trans_config and trans_config['num_beams']:
+                            old_beams = num_beams
+                            num_beams = int(trans_config['num_beams'])
+                            logger_stage.info(f"  translation.num_beams override: {old_beams} → {num_beams} (from job.json)")
+                    
+                    # Override workflow
+                    if 'workflow' in job_data and job_data['workflow']:
+                        old_workflow = workflow
+                        workflow = job_data['workflow']
+                        logger_stage.info(f"  workflow override: {old_workflow} → {workflow} (from job.json)")
+            except Exception as e:
+                logger_stage.warning(f"Failed to read job.json parameters: {e}")
+        else:
+            logger_stage.warning(f"job.json not found at {job_json_path}, using system defaults")
+        
+        logger_stage.info(f"Using source_language: {source_language}")
+        logger_stage.info(f"Using target_languages: {target_langs}")
+        logger_stage.info(f"Using translation_model: {translation_model}")
+        logger_stage.info(f"Using device: {device}")
+        logger_stage.info(f"Using workflow: {workflow}")
         
         if not translation_enabled:
             logger_stage.info("Translation stage disabled in configuration, skipping")
@@ -896,13 +954,11 @@ def run_stage(job_dir: Path, stage_name: str = "08_translation") -> int:
             io.finalize(status="success")
             return 0
         
-        # Get target languages
-        target_langs = config.get("TARGET_LANGUAGE", "en").split(",")
+        # Get target languages (already loaded from job.json above)
         logger_stage.info(f"Target languages: {target_langs}")
         
-        # Get translation configuration
-        device = config.get("TRANSLATION_DEVICE", "auto")
-        num_beams = int(config.get("TRANSLATION_NUM_BEAMS", "4"))
+        # Get translation configuration (already loaded from job.json above)
+        # device and num_beams are set above
         
         # Create translator configuration
         trans_config = TranslationConfig(

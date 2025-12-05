@@ -103,6 +103,55 @@ def run_stage(job_dir: Path, stage_name: str = "09_hallucination_removal") -> in
         
         # Load configuration
         config = load_config()
+        hallucination_enabled = config.get("STAGE_09_HALLUCINATION_ENABLED", "true").lower() == "true"
+        confidence_threshold = float(config.get("HALLUCINATION_CONFIDENCE_THRESHOLD", "0.5"))
+        workflow = config.get("WORKFLOW", "transcribe")
+        
+        # Override with job.json parameters (AD-006)
+        job_json_path = job_dir / "job.json"
+        if job_json_path.exists():
+            logger.info("Reading job-specific parameters from job.json...")
+            try:
+                with open(job_json_path) as f:
+                    job_data = json.load(f)
+                    
+                    # Override hallucination_removal parameters
+                    if 'hallucination_removal' in job_data:
+                        hall_config = job_data['hallucination_removal']
+                        if 'enabled' in hall_config and hall_config['enabled'] is not None:
+                            old_enabled = hallucination_enabled
+                            hallucination_enabled = hall_config['enabled']
+                            logger.info(f"  hallucination_removal.enabled override: {old_enabled} → {hallucination_enabled} (from job.json)")
+                        if 'confidence_threshold' in hall_config and hall_config['confidence_threshold']:
+                            old_threshold = confidence_threshold
+                            confidence_threshold = float(hall_config['confidence_threshold'])
+                            logger.info(f"  hallucination_removal.confidence_threshold override: {old_threshold} → {confidence_threshold} (from job.json)")
+                    
+                    # Override workflow
+                    if 'workflow' in job_data and job_data['workflow']:
+                        old_workflow = workflow
+                        workflow = job_data['workflow']
+                        logger.info(f"  workflow override: {old_workflow} → {workflow} (from job.json)")
+            except Exception as e:
+                logger.warning(f"Failed to read job.json parameters: {e}")
+        else:
+            logger.warning(f"job.json not found at {job_json_path}, using system defaults")
+        
+        logger.info(f"Using hallucination_removal enabled: {hallucination_enabled}")
+        logger.info(f"Using confidence_threshold: {confidence_threshold}")
+        logger.info(f"Using workflow: {workflow}")
+        
+        if not hallucination_enabled:
+            logger.warning("Hallucination removal is MANDATORY for subtitle workflow")
+            if workflow == "subtitle":
+                logger.info("Continuing with hallucination removal for subtitle workflow")
+            else:
+                logger.info("Skipping hallucination removal for non-subtitle workflow")
+                io.finalize_stage_manifest(exit_code=0)
+                return 0
+        
+        # Load configuration
+        config = load_config()
         removal_enabled = config.get("STAGE_09_HALLUCINATION_ENABLED", "true").lower() == "true"
         
         if not removal_enabled:
@@ -113,20 +162,32 @@ def run_stage(job_dir: Path, stage_name: str = "09_hallucination_removal") -> in
         # Find input transcript (prefer lyrics detection output)
         input_file = None
         
-        # Try lyrics detection output first
+        # Try lyrics detection output first (Stage 08)
         lyrics_dir = io.output_base / "08_lyrics_detection"
         if lyrics_dir.exists():
             lyrics_file = lyrics_dir / "transcript_with_lyrics.json"
             if lyrics_file.exists():
                 input_file = lyrics_file
+                logger.info("Using transcript from lyrics detection stage")
         
-        # Fall back to ASR output
+        # Try alignment output (Stage 07)
         if not input_file:
-            asr_dir = io.output_base / "04_asr"
-            for pattern in ["transcript.json", "whisperx_output.json", "asr_output.json"]:
+            alignment_dir = io.output_base / "07_alignment"
+            for pattern in ["alignment_segments.json", "segments_aligned.json"]:
+                candidate = alignment_dir / pattern
+                if candidate.exists():
+                    input_file = candidate
+                    logger.info("Using transcript from alignment stage")
+                    break
+        
+        # Fall back to ASR output (Stage 06)
+        if not input_file:
+            asr_dir = io.output_base / "06_asr"
+            for pattern in ["asr_segments.json", "segments.json", "transcript.json"]:
                 candidate = asr_dir / pattern
                 if candidate.exists():
                     input_file = candidate
+                    logger.info("Using transcript from ASR stage")
                     break
         
         if not input_file:

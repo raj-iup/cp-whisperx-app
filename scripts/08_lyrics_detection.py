@@ -91,11 +91,51 @@ def run_stage(job_dir: Path, stage_name: str = "08_lyrics_detection") -> int:
         # Load configuration
         config = load_config()
         lyrics_enabled = config.get("STAGE_08_LYRICS_ENABLED", "true").lower() == "true"
+        lyrics_threshold = float(config.get("LYRICS_DETECTION_THRESHOLD", "0.7"))
+        workflow = config.get("WORKFLOW", "transcribe")
+        
+        # Override with job.json parameters (AD-006)
+        job_json_path = job_dir / "job.json"
+        if job_json_path.exists():
+            logger.info("Reading job-specific parameters from job.json...")
+            try:
+                with open(job_json_path) as f:
+                    job_data = json.load(f)
+                    
+                    # Override lyrics_detection parameters
+                    if 'lyrics_detection' in job_data:
+                        lyrics_config = job_data['lyrics_detection']
+                        if 'enabled' in lyrics_config and lyrics_config['enabled'] is not None:
+                            old_enabled = lyrics_enabled
+                            lyrics_enabled = lyrics_config['enabled']
+                            logger.info(f"  lyrics_detection.enabled override: {old_enabled} → {lyrics_enabled} (from job.json)")
+                        if 'threshold' in lyrics_config and lyrics_config['threshold']:
+                            old_threshold = lyrics_threshold
+                            lyrics_threshold = float(lyrics_config['threshold'])
+                            logger.info(f"  lyrics_detection.threshold override: {old_threshold} → {lyrics_threshold} (from job.json)")
+                    
+                    # Override workflow
+                    if 'workflow' in job_data and job_data['workflow']:
+                        old_workflow = workflow
+                        workflow = job_data['workflow']
+                        logger.info(f"  workflow override: {old_workflow} → {workflow} (from job.json)")
+            except Exception as e:
+                logger.warning(f"Failed to read job.json parameters: {e}")
+        else:
+            logger.warning(f"job.json not found at {job_json_path}, using system defaults")
+        
+        logger.info(f"Using lyrics_detection enabled: {lyrics_enabled}")
+        logger.info(f"Using lyrics_detection threshold: {lyrics_threshold}")
+        logger.info(f"Using workflow: {workflow}")
         
         if not lyrics_enabled:
             logger.warning("Lyrics detection is MANDATORY for subtitle workflow")
-            logger.info("Continuing with lyrics detection despite config setting")
-            # Don't skip - this is mandatory for subtitle workflow
+            if workflow == "subtitle":
+                logger.info("Continuing with lyrics detection for subtitle workflow")
+            else:
+                logger.info("Skipping lyrics detection for non-subtitle workflow")
+                io.finalize_stage_manifest(exit_code=0)
+                return 0
         
         # Find ASR transcript (or NER output if available)
         input_file = None

@@ -97,7 +97,51 @@ def run_stage(job_dir: Path, stage_name: str = "11_subtitle_generation") -> int:
         # Load configuration
         config = load_config()
         subtitle_enabled = config.get("STAGE_09_SUBTITLE_ENABLED", "true").lower() == "true"
+        subtitle_format = config.get("SUBTITLE_FORMAT", "srt")
+        target_langs = config.get("TARGET_LANGUAGE", "en").split(",")
+        workflow = config.get("WORKFLOW", "transcribe")
         
+        # Override with job.json parameters (AD-006)
+        job_json_path = job_dir / "job.json"
+        if job_json_path.exists():
+            logger.info("Reading job-specific parameters from job.json...")
+            try:
+                with open(job_json_path) as f:
+                    job_data = json.load(f)
+                    
+                    # Override target_languages
+                    if 'target_languages' in job_data and job_data['target_languages']:
+                        old_targets = target_langs
+                        target_langs = job_data['target_languages'] if isinstance(job_data['target_languages'], list) else job_data['target_languages'].split(',')
+                        logger.info(f"  target_languages override: {old_targets} → {target_langs} (from job.json)")
+                    
+                    # Override subtitle parameters
+                    if 'subtitle' in job_data:
+                        sub_config = job_data['subtitle']
+                        if 'format' in sub_config and sub_config['format']:
+                            old_format = subtitle_format
+                            subtitle_format = sub_config['format']
+                            logger.info(f"  subtitle.format override: {old_format} → {subtitle_format} (from job.json)")
+                    
+                    # Override workflow
+                    if 'workflow' in job_data and job_data['workflow']:
+                        old_workflow = workflow
+                        workflow = job_data['workflow']
+                        logger.info(f"  workflow override: {old_workflow} → {workflow} (from job.json)")
+            except Exception as e:
+                logger.warning(f"Failed to read job.json parameters: {e}")
+        else:
+            logger.warning(f"job.json not found at {job_json_path}, using system defaults")
+        
+        logger.info(f"Using subtitle_enabled: {subtitle_enabled}")
+        logger.info(f"Using subtitle_format: {subtitle_format}")
+        logger.info(f"Using target_languages: {target_langs}")
+        logger.info(f"Using workflow: {workflow}")
+        
+        if not subtitle_enabled:
+            logger.info("Subtitle generation disabled, skipping")
+            io.finalize_stage_manifest(exit_code=0)
+            return 0
         if not subtitle_enabled:
             logger.info("Subtitle generation disabled in configuration, skipping")
             io.finalize(status="success")

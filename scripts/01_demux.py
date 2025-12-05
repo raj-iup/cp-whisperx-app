@@ -40,11 +40,47 @@ def run_stage(job_dir: Path, stage_name: str = "01_demux") -> int:
         logger.info("DEMUX STAGE: Extract Audio from Video")
         logger.info("=" * 60)
         
-        # Load configuration
+        # 1. Load system defaults from config
         config = load_config()
         
-        # Get input file
+        # Get input file from config
         input_file = getattr(config, 'in_root', getattr(config, 'input_media', ''))
+        media_mode = getattr(config, 'media_processing_mode', 'full')
+        start_time = getattr(config, 'media_start_time', None)
+        end_time = getattr(config, 'media_end_time', None)
+        
+        # 2. Override with job.json parameters (AD-006)
+        job_json_path = job_dir / "job.json"
+        if job_json_path.exists():
+            logger.info("Reading job-specific parameters from job.json...")
+            with open(job_json_path) as f:
+                job_data = json.load(f)
+                
+                # Override input_media if specified
+                if 'input_media' in job_data and job_data['input_media']:
+                    old_value = input_file
+                    input_file = job_data['input_media']
+                    logger.info(f"  input_media override: {old_value} → {input_file} (from job.json)")
+                
+                # Override media_processing parameters if specified
+                if 'media_processing' in job_data:
+                    mp = job_data['media_processing']
+                    if 'mode' in mp:
+                        old_value = media_mode
+                        media_mode = mp['mode']
+                        logger.info(f"  media_mode override: {old_value} → {media_mode} (from job.json)")
+                    if 'start_time' in mp:
+                        old_value = start_time
+                        start_time = mp['start_time']
+                        logger.info(f"  start_time override: {old_value} → {start_time} (from job.json)")
+                    if 'end_time' in mp:
+                        old_value = end_time
+                        end_time = mp['end_time']
+                        logger.info(f"  end_time override: {old_value} → {end_time} (from job.json)")
+        else:
+            logger.warning(f"job.json not found at {job_json_path}, using system defaults")
+        
+        # 3. Validate input file exists
         if not input_file or not Path(input_file).exists():
             raise FileNotFoundError(f"Input media not found: {input_file}")
         
@@ -53,11 +89,6 @@ def run_stage(job_dir: Path, stage_name: str = "01_demux") -> int:
         io.track_input(input_path, "video", format=input_path.suffix)
         
         logger.info(f"Input media: {input_file}")
-        
-        # Check if we're processing a clip or full media
-        media_mode = getattr(config, 'media_processing_mode', 'full')
-        start_time = getattr(config, 'media_start_time', None)
-        end_time = getattr(config, 'media_end_time', None)
         
         if media_mode == "clip" and (start_time or end_time):
             logger.info(f"Processing mode: CLIP")
