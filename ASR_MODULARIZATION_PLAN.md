@@ -1,8 +1,8 @@
 # ASR Helper Modularization - Implementation Plan (AD-002)
 
 **Date:** 2025-12-05 13:26 UTC  
-**Last Updated:** 2025-12-05 15:13 UTC  
-**Status:** 🔄 IN PROGRESS (75% Complete)  
+**Last Updated:** 2025-12-05 15:48 UTC  
+**Status:** 🔄 IN PROGRESS (82% Complete)  
 **Priority:** HIGH  
 **Effort:** 2-3 hours (conservative estimate)  
 **Architectural Decision:** AD-002 (Approved) + AD-009 (Quality-First)
@@ -11,14 +11,17 @@
 
 ## Progress Status
 
-**Overall Progress:** 75% Complete (3 of 4 phases done)
+**Overall Progress:** 82% Complete (4 of 7 phases done)
 
 | Phase | Status | LOC | Completion | Commit |
 |-------|--------|-----|------------|--------|
 | Phase 1: Module Structure + ModelManager | ✅ Complete | 170 | 2025-12-05 14:23 | 6ba9248 |
 | Phase 2B: BiasPromptingStrategy | ✅ Complete | 372 | 2025-12-05 14:40 | 38cb3df |
 | Phase 3: Chunked Strategies | ✅ Complete | 633 (+261) | 2025-12-05 15:13 | 002b6fc |
-| Phase 4-7: Remaining Extraction | ⏳ Pending | ~1200 | TBD | - |
+| Phase 5: Postprocessing | ✅ Complete | 259 | 2025-12-05 15:48 | Pending |
+| Phase 4: Transcription Orchestration | ⏳ Pending | ~300 | TBD | - |
+| Phase 6: Alignment Methods | ⏳ Pending | ~250 | TBD | - |
+| Phase 7: Integration Testing | ⏳ Pending | ~50 | TBD | - |
 
 **Completed Work:**
 - ✅ Module structure established (scripts/whisperx_module/)
@@ -27,18 +30,19 @@
 - ✅ Chunked strategies implemented (windowed + checkpointing)
 - ✅ Overlap merging (intelligent segment deduplication)
 - ✅ Retry logic (degradation with batch size reduction)
+- ✅ **ResultProcessor extracted (confidence filtering, multi-format saving)** 🆕
+- ✅ **SRT subtitle generation (time formatting, segment export)** 🆕
 - ✅ All compliance checks passing (100%)
 - ✅ Direct extraction per AD-009 (optimized, no wrappers)
 
-**Remaining Work (Phases 4-7):**
+**Remaining Work (Phases 4, 6-7):**
 - ⏳ Phase 4: Extract transcription orchestration (~1 hour)
-- ⏳ Phase 5: Extract postprocessing methods (~1 hour)
 - ⏳ Phase 6: Extract alignment methods (~1 hour)
-- ⏳ Phase 7: Integration testing (~1 hour)
+- ⏳ Phase 7: Integration testing (~30 min)
 
-**Time Invested:** 1.5 hours (of 8 hours estimated)  
-**Time Remaining:** ~4 hours (estimated)  
-**Can Use Now:** Yes (ModelManager + BiasPrompting available, rest uses original)
+**Time Invested:** 1.7 hours (of 8 hours estimated)  
+**Time Remaining:** ~2.5 hours (estimated)  
+**Can Use Now:** Yes (ModelManager + BiasPrompting + ResultProcessor available)
 
 ---
 
