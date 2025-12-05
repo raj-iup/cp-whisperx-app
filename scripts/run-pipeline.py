@@ -436,7 +436,7 @@ class IndicTrans2Pipeline:
         target_lang = self._get_target_language()
         
         # Check if transcript exists, if not run transcribe stages first
-        segments_file = self.job_dir / "transcripts" / "segments.json"
+        segments_file = self.job_dir / "06_asr" / "segments.json"
         
         if not segments_file.exists():
             self.logger.info("📝 Transcript not found - auto-executing transcribe workflow first")
@@ -544,7 +544,7 @@ class IndicTrans2Pipeline:
             return False
         
         # Check if transcript exists, if not run transcribe stages first
-        segments_file = self.job_dir / "transcripts" / "segments.json"
+        segments_file = self.job_dir / "06_asr" / "segments.json"
         
         if not segments_file.exists():
             self.logger.info("📝 Transcript not found - auto-executing transcribe workflow first")
@@ -1267,29 +1267,12 @@ class IndicTrans2Pipeline:
                 self.logger.error(f"  Directory contents: {list(output_dir.glob('*'))}")
                 return False
         
-        # File exists, proceed with verification and copy
+        # File exists, proceed with verification
         file_size = segments_file.stat().st_size
         self.logger.info(f"✓ Transcription completed: {segments_file.relative_to(self.job_dir)}")
         self.logger.info(f"  File size: {file_size} bytes")
         
-        # Copy to transcripts/ for compatibility
-        import shutil
-        transcripts_dir = self.job_dir / "transcripts"
-        transcripts_dir.mkdir(parents=True, exist_ok=True)
-        dest_file = transcripts_dir / "segments.json"
-        shutil.copy2(segments_file, dest_file)
-        
-        # Verify copy
-        if dest_file.exists() and dest_file.stat().st_size == file_size:
-            self.logger.info(f"✓ Copied to: transcripts/segments.json ({file_size} bytes)")
-            return True
-        else:
-            self.logger.error(f"Copy verification failed")
-            self.logger.error(f"  Source: {segments_file} ({file_size} bytes)")
-            self.logger.error(f"  Dest exists: {dest_file.exists()}")
-            if dest_file.exists():
-                self.logger.error(f"  Dest size: {dest_file.stat().st_size} bytes")
-            return False
+        return True
     
     def _stage_asr_mlx(self, audio_file: Path, output_dir: Path, 
                        source_lang: str, model: str, vad_segments: list = None) -> bool:
@@ -1394,14 +1377,6 @@ logger.info(f"Transcription completed: {{len(segments)}} segments")
             segments_file = output_dir / "segments.json"
             if segments_file.exists():
                 self.logger.info(f"✓ Transcription completed: {segments_file.relative_to(self.job_dir)}")
-                
-                # Copy to transcripts/ for compatibility
-                transcripts_dir = self.job_dir / "transcripts"
-                transcripts_dir.mkdir(parents=True, exist_ok=True)
-                import shutil
-                shutil.copy2(segments_file, transcripts_dir / "segments.json")
-                self.logger.info(f"✓ Copied to: transcripts/segments.json")
-                
                 return True
             else:
                 self.logger.error("Transcription failed - no output")
@@ -1466,14 +1441,6 @@ logger.info(f"Transcription completed: {{len(segments)}} segments")
             segments_file = output_dir / "segments.json"
             if segments_file.exists():
                 self.logger.info(f"✓ Transcription completed: {segments_file.relative_to(self.job_dir)}")
-                
-                # Copy to transcripts/ for compatibility
-                transcripts_dir = self.job_dir / "transcripts"
-                transcripts_dir.mkdir(parents=True, exist_ok=True)
-                import shutil
-                shutil.copy2(segments_file, transcripts_dir / "segments.json")
-                self.logger.info(f"✓ Copied to: transcripts/segments.json")
-                
                 return True
             else:
                 self.logger.error("Transcription failed - no output")
@@ -1584,15 +1551,15 @@ logger.info(f"Transcription completed: {{len(segments)}} segments")
         self.logger.info(f"Model: {mlx_model}")
         self.logger.info(f"Language: {source_lang}")
         
-        # Use mlx_alignment.py script
-        alignment_script = self.scripts_dir / "mlx_alignment.py"
+        # Use align_segments.py script (WhisperX subprocess for MLX stability)
+        alignment_script = self.scripts_dir / "align_segments.py"
         
         if not alignment_script.exists():
-            self.logger.error(f"MLX alignment script not found: {alignment_script}")
+            self.logger.error(f"Alignment script not found: {alignment_script}")
             return False
         
-        # Get Python executable from MLX environment
-        python_exe = self.env_manager.get_python_executable("mlx")
+        # Get Python executable from WhisperX environment (not MLX - for stability)
+        python_exe = self.env_manager.get_python_executable("whisperx")
         
         try:
             import subprocess
@@ -1711,9 +1678,9 @@ logger.info(f"Transcription completed: {{len(segments)}} segments")
     def _stage_export_transcript(self) -> bool:
         """Stage: Export plain text transcript"""
         
-        # Read from ASR stage output (already copied to transcripts/)
-        segments_file = self.job_dir / "transcripts" / "segments.json"
-        output_txt = self.job_dir / "transcripts" / "transcript.txt"
+        # Read from alignment stage output
+        segments_file = self.job_dir / "07_alignment" / "alignment_segments.json"
+        output_txt = self.job_dir / "07_alignment" / "transcript.txt"
         
         # Log input/output
         self.logger.info(f"📥 Input: {segments_file.relative_to(self.job_dir)}")
@@ -1754,20 +1721,24 @@ logger.info(f"Transcription completed: {{len(segments)}} segments")
     def _stage_load_transcript(self) -> bool:
         """Stage: Load transcript from ASR stage"""
         
-        # Prefer cleaned transcript from transcripts/ (after hallucination removal)
-        # Fall back to raw ASR output if not available
-        transcript_file = self.job_dir / "transcripts" / "segments.json"
+        # Prefer cleaned transcript from hallucination removal stage
+        # Fall back to alignment, then raw ASR output if not available
+        cleaned_file = self.job_dir / "09_hallucination_removal" / "segments_cleaned.json"
+        alignment_file = self.job_dir / "07_alignment" / "alignment_segments.json"
         segments_file = self._stage_path("asr") / "segments.json"
         
-        # Use cleaned transcript if available, otherwise raw ASR output
-        if transcript_file.exists():
-            load_file = transcript_file
+        # Use cleaned transcript if available, otherwise alignment or raw ASR output
+        if cleaned_file.exists():
+            load_file = cleaned_file
             self.logger.info("Using cleaned transcript (after hallucination removal)")
+        elif alignment_file.exists():
+            load_file = alignment_file
+            self.logger.info("Using aligned transcript")
         elif segments_file.exists():
             load_file = segments_file
             self.logger.info("Using raw ASR transcript")
         else:
-            self.logger.error("Transcript not found in transcripts/ or asr stage!")
+            self.logger.error("Transcript not found in any stage!")
             self.logger.error("Run transcribe workflow first!")
             return False
         
@@ -1946,14 +1917,7 @@ logger.info(f"Transcription completed: {{len(segments)}} segments")
                     except Exception as e:
                         self.logger.warning(f"Failed to apply glossary: {e}")
                 
-                # Copy to transcripts/ for compatibility
-                transcripts_dir = self.job_dir / "transcripts"
-                transcripts_dir.mkdir(parents=True, exist_ok=True)
-                import shutil
-                shutil.copy2(output_file, transcripts_dir / "segments_translated.json")
-                
                 self.logger.info(f"✓ Hybrid translation completed: {output_file.relative_to(self.job_dir)}")
-                self.logger.info(f"✓ Copied to: transcripts/segments_translated.json")
                 return True
             else:
                 self.logger.error("Hybrid translation failed - no output file")
@@ -2098,14 +2062,7 @@ logger.info(f"Translated {{len(translated['segments'])}} segments")
                     except Exception as e:
                         self.logger.warning(f"Failed to apply glossary: {e}")
                 
-                # Copy to transcripts/ for compatibility
-                transcripts_dir = self.job_dir / "transcripts"
-                transcripts_dir.mkdir(parents=True, exist_ok=True)
-                import shutil
-                shutil.copy2(output_file, transcripts_dir / "segments_translated.json")
-                
                 self.logger.info(f"✓ Translation completed: {output_file.relative_to(self.job_dir)}")
-                self.logger.info(f"✓ Copied to: transcripts/segments_translated.json")
                 return True
             else:
                 self.logger.error("Translation failed")
@@ -2124,8 +2081,8 @@ logger.info(f"Translated {{len(translated['segments'])}} segments")
         segments_file = self._stage_path("translation") / f"segments_{target_lang}.json"
         
         if not segments_file.exists():
-            # Fallback to old location
-            segments_file = self.job_dir / "transcripts" / "segments_translated.json"
+            # Fallback to alignment stage (no translation)
+            segments_file = self.job_dir / "07_alignment" / "alignment_segments.json"
         
         if not segments_file.exists():
             self.logger.error(f"Translated segments not found: {segments_file}")
@@ -2179,10 +2136,8 @@ logger.info(f"Translated {{len(translated['segments'])}} segments")
         
         source_lang = self.job_config["source_language"]
         
-        # Read from ASR stage (or transcripts copy)
+        # Read from ASR stage
         segments_file = self._stage_path("asr") / "segments.json"
-        if not segments_file.exists():
-            segments_file = self.job_dir / "transcripts" / "segments.json"
         
         if not segments_file.exists():
             self.logger.error(f"Segments not found: {segments_file}")
@@ -2251,8 +2206,9 @@ logger.info(f"Translated {{len(translated['segments'])}} segments")
             
             # If successful, rename output file to include language code
             if result:
-                generic_output = self.job_dir / "transcripts" / "segments_translated.json"
-                lang_specific_output = self.job_dir / "transcripts" / f"segments_translated_{target_lang}.json"
+                # Files are now in translation stage directory
+                generic_output = self._stage_path("translation") / "segments_translated.json"
+                lang_specific_output = self._stage_path("translation") / f"segments_translated_{target_lang}.json"
                 
                 if generic_output.exists():
                     # Copy to language-specific file
@@ -2273,8 +2229,8 @@ logger.info(f"Translated {{len(translated['segments'])}} segments")
         """Translate to specific target language (for multi-language support)"""
         self.logger.info(f"Translating to {target_lang.upper()}...")
         
-        segments_file = self.job_dir / "transcripts" / "segments.json"
-        output_file = self.job_dir / "transcripts" / f"segments_translated_{target_lang}.json"
+        segments_file = self._stage_path("asr") / "segments.json"
+        output_file = self._stage_path("translation") / f"segments_translated_{target_lang}.json"
         
         source_lang = self.job_config["source_language"]
         
@@ -2350,8 +2306,8 @@ logger.info(f"Translated {{len(translated['segments'])}} segments to {target_lan
         """Stage 2 (translate): Translate using NLLB for non-Indic languages"""
         self.logger.info("Translating with NLLB...")
         
-        segments_file = self.job_dir / "transcripts" / "segments.json"
-        output_file = self.job_dir / "transcripts" / "segments_translated.json"
+        segments_file = self._stage_path("asr") / "segments.json"
+        output_file = self._stage_path("translation") / "segments_translated.json"
         
         source_lang = self.job_config["source_language"]
         target_lang = self._get_target_language()
@@ -2439,8 +2395,8 @@ logger.info(f"Translated {{len(translated['segments'])}} segments")
         """Translate to specific target language using NLLB (for multi-language support)"""
         self.logger.info(f"Translating to {target_lang.upper()} with NLLB...")
         
-        segments_file = self.job_dir / "transcripts" / "segments.json"
-        output_file = self.job_dir / "transcripts" / f"segments_translated_{target_lang}.json"
+        segments_file = self._stage_path("asr") / "segments.json"
+        output_file = self._stage_path("translation") / f"segments_translated_{target_lang}.json"
         
         source_lang = self.job_config["source_language"]
         
@@ -2527,7 +2483,7 @@ logger.info(f"Translated {{len(translated['segments'])}} segments to {target_lan
         """Generate subtitle file for specific target language"""
         self.logger.info(f"Generating {target_lang.upper()} subtitles...")
         
-        segments_file = self.job_dir / "transcripts" / f"segments_translated_{target_lang}.json"
+        segments_file = self._stage_path("translation") / f"segments_translated_{target_lang}.json"
         
         # Generate filename
         title = self.job_config.get("title", "output")
@@ -2554,7 +2510,7 @@ logger.info(f"Translated {{len(translated['segments'])}} segments to {target_lan
         """Stage 3b (subtitle workflow): Generate SRT subtitle file in target language"""
         self.logger.info("Generating target language subtitles...")
         
-        segments_file = self.job_dir / "transcripts" / "segments_translated.json"
+        segments_file = self._stage_path("translation") / "segments_translated.json"
         target_lang = self._get_target_language()
         
         # Generate filename
@@ -2934,7 +2890,7 @@ logger.info(f"Translated {{len(translated['segments'])}} segments to {target_lan
         self.logger.info(f"  Max repeats: {max_repeats} (max occurrences to keep)")
         
         # Input/output paths
-        segments_file = self.job_dir / "transcripts" / "segments.json"
+        segments_file = self._stage_path("asr") / "segments.json"
         if not segments_file.exists():
             self.logger.error(f"Segments file not found: {segments_file}")
             self.logger.error("Run ASR stage first!")
@@ -2960,9 +2916,46 @@ logger.info(f"Translated {{len(translated['segments'])}} segments to {target_lan
             original_count = len(segments)
             self.logger.info(f"Processing {original_count} segments...")
             
-            # Import hallucination remover (late import to avoid issues)
-            sys.path.insert(0, str(SCRIPT_DIR))
-            from hallucination_removal import HallucinationRemover
+            # Call stage script instead of embedded logic
+            script_path = SCRIPT_DIR / "09_hallucination_removal.py"
+            
+            try:
+                # Import and run stage
+                import importlib.util
+                spec = importlib.util.spec_from_file_location("stage_09", script_path)
+                stage_module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(stage_module)
+                
+                # Run stage
+                exit_code = stage_module.run_stage(self.job_dir, "hallucination_removal")
+                
+                if exit_code == 0:
+                    self.logger.info("✅ Hallucination removal completed")
+                    return True
+                else:
+                    self.logger.error(f"Stage failed with exit code {exit_code}")
+                    # Fall through to graceful degradation
+            except Exception as e:
+                self.logger.error(f"Stage execution failed: {e}", exc_info=True)
+                # Fall through to graceful degradation
+            
+            # Graceful degradation fallback deleted (old embedded logic)
+            # If we reach here, stage failed - copy segments through
+            asr_segments = self.job_dir / "06_asr" / "segments.json"
+            output_dir = self._stage_path("hallucination_removal")
+            output_dir.mkdir(parents=True, exist_ok=True)
+            output_segments = output_dir / "segments.json"
+            
+            if asr_segments.exists():
+                import shutil
+                shutil.copy2(asr_segments, output_segments)
+                self.logger.warning("Copied segments without modification (graceful degradation)")
+                return True
+            
+            return False  # No segments to copy
+            
+            # OLD EMBEDDED LOGIC REMOVED (lines 2956-3036)
+            # Now calls scripts/09_hallucination_removal.py instead
             
             # Create remover instance
             remover = HallucinationRemover(
