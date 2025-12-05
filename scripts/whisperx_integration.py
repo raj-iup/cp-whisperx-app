@@ -1317,11 +1317,15 @@ def run_whisperx_pipeline(
     Returns:
         WhisperX result dict
     """
+    # Import extracted transcription orchestration engine
+    from whisperx_module.transcription import TranscriptionEngine
+    
+    # Create processor instance
     processor = WhisperXProcessor(
         model_name=model_name,
         device=device,
         compute_type=compute_type,
-        backend=backend,  # Pass backend parameter
+        backend=backend,
         hf_token=hf_token,
         temperature=temperature,
         beam_size=beam_size,
@@ -1332,204 +1336,27 @@ def run_whisperx_pipeline(
     )
 
     try:
-        # Load models
-        processor.load_model()
+        # Create transcription engine with processor and IndicTrans2 support
+        engine = TranscriptionEngine(
+            processor=processor,
+            logger=logger,
+            get_indictrans2_fn=_get_indictrans2
+        )
         
-        # Determine if we need two-step processing for transcribe workflow
-        # For auto-detection, we'll check after transcription
-        needs_two_step = False
-        if workflow_mode == 'transcribe' and target_lang != 'auto':
-            # If source is specified and different from target, we need two-step
-            if source_lang != 'auto':
-                needs_two_step = (source_lang != target_lang)
-            # If source is auto, we'll do single-step first, then check detected language
+        # Run the complete pipeline (handles two-step and single-step workflows)
+        result = engine.run_pipeline(
+            audio_file=audio_file,
+            output_dir=output_dir,
+            basename=basename,
+            source_lang=source_lang,
+            target_lang=target_lang,
+            bias_windows=bias_windows,
+            bias_strategy=bias_strategy,
+            workflow_mode=workflow_mode
+        )
         
-        # For transcribe mode with translation: Two-step process
-        # Step 1: Transcribe in source language → save source files
-        # Step 2: Translate source transcript → save target files
-        if needs_two_step:
-            logger.info("=" * 60)
-            logger.info("TWO-STEP TRANSCRIPTION + TRANSLATION")
-            logger.info(f"  {source_lang} → {target_lang}")
-            logger.info("=" * 60)
-            
-            # STEP 1: Transcribe in source language
-            logger.info("STEP 1: Transcribing in source language...")
-            processor.load_align_model(source_lang)
-            
-            source_result = processor.transcribe_with_bias(
-                audio_file,
-                source_lang,
-                source_lang,  # Same as source - no translation
-                bias_windows,
-                output_dir=output_dir,
-                bias_strategy=bias_strategy,
-                workflow_mode='transcribe-only'  # Force transcribe-only for step 1
-            )
-            
-            # Extract detected language (shouldn't be auto here since source_lang != auto)
-            detected_lang = source_result.get("language", source_lang)
-            if source_lang == "auto" and detected_lang != "auto":
-                logger.info(f"Using detected language for alignment: {detected_lang}")
-                align_lang = detected_lang
-            else:
-                align_lang = source_lang
-            
-            # Align to source language (use detected language if auto-detected)
-            source_result = processor.align_segments(source_result, audio_file, align_lang)
-            
-            # Save source language files (no language suffix)
-            logger.info(f"Saving source language files ({source_lang})...")
-            processor.save_results(source_result, output_dir, basename, target_lang=None)
-            
-            logger.info("✓ Step 1 completed: Source language files saved")
-            logger.info("")
-            
-            # STEP 2: Translate to target language
-            logger.info("STEP 2: Translating to target language...")
-            
-            # Use IndicTrans2 for Indic→English/non-Indic translation (better quality than Whisper)
-            # Supports all 22 scheduled Indian languages (Hindi, Tamil, Telugu, Bengali, etc.)
-            indictrans2, available = _get_indictrans2()
-            if available and indictrans2['can_use_indictrans2'](source_lang, target_lang):
-                logger.info(f"  Using IndicTrans2 for {source_lang}→{target_lang} translation")
-                logger.info(f"  Source segments: {len(source_result.get('segments', []))}")
-                
-                try:
-                    # Translate using IndicTrans2
-                    target_result = indictrans2['translate_whisperx_result'](
-                        source_result,
-                        source_lang=source_lang,
-                        target_lang=target_lang,
-                        logger=logger
-                    )
-                    
-                    # Check if translation actually happened (not fallback)
-                    if target_result == source_result:
-                        logger.warning("  IndicTrans2 returned source unchanged - falling back to Whisper")
-                        raise RuntimeError("IndicTrans2 fallback triggered")
-                    
-                    # Align to target language
-                    logger.info(f"  Aligning translated segments to {target_lang}...")
-                    processor.load_align_model(target_lang)
-                    target_result = processor.align_segments(target_result, audio_file, target_lang)
-                    
-                except (RuntimeError, Exception) as e:
-                    error_msg = str(e)
-                    if "authentication" in error_msg.lower() or "gated" in error_msg.lower():
-                        logger.error("=" * 70, exc_info=True)
-                        logger.error("IndicTrans2 authentication required", exc_info=True)
-                        logger.error("=" * 70, exc_info=True)
-                        logger.warning("Falling back to Whisper translation (slower)")
-                        logger.info("To enable IndicTrans2 for future runs:")
-                        logger.info("  1. Visit: https://huggingface.co/ai4bharat/indictrans2-indic-en-1B")
-                        logger.info("  2. Click: 'Agree and access repository'")
-                        logger.info("  3. Run: huggingface-cli login")
-                        logger.error("=" * 70)
-                    else:
-                        logger.error(f"IndicTrans2 translation failed: {e}")
-                        logger.warning("Falling back to Whisper translation")
-                    
-                    # Fallback to Whisper
-                    logger.info("  Using Whisper translation (fallback)")
-                    processor.load_align_model(target_lang)
-                    
-                    target_result = processor.transcribe_with_bias(
-                        audio_file,
-                        source_lang,
-                        target_lang,  # Translate to target
-                        bias_windows,
-                        output_dir=output_dir,
-                        bias_strategy=bias_strategy,
-                        workflow_mode='transcribe'  # Use transcribe mode for translation
-                    )
-                    
-            else:
-                # Fallback to Whisper translation for other language pairs
-                indictrans2, available = _get_indictrans2()
-                if not available:
-                    # Check if this would have been an Indic language pair
-                    if available and indictrans2['can_use_indictrans2'](source_lang, target_lang):
-                        logger.warning("  IndicTrans2 not available, falling back to Whisper translation")
-                        logger.warning("  Install with: pip install 'transformers>=4.44' sentencepiece sacremoses")
-                
-                logger.info("  Using Whisper translation")
-                processor.load_align_model(target_lang)
-                
-                target_result = processor.transcribe_with_bias(
-                    audio_file,
-                    source_lang,
-                    target_lang,  # Translate to target
-                    bias_windows,
-                    output_dir=output_dir,
-                    bias_strategy=bias_strategy,
-                    workflow_mode='transcribe'  # Use transcribe mode for translation
-                )
-                
-                # Align to target language
-                target_result = processor.align_segments(target_result, audio_file, target_lang)
-            
-            # Save target language files (with language suffix)
-            logger.info(f"Saving target language files ({target_lang})...")
-            processor.save_results(target_result, output_dir, basename, target_lang=target_lang)
-            
-            logger.info("✓ Step 2 completed: Target language files saved")
-            logger.info("=" * 60)
-            
-            return target_result  # Return target result as main result
+        return result
         
-        else:
-            # Single-step transcription (original behavior)
-            # Determine alignment language:
-            # - transcribe-only: always source language
-            # - other workflows: target language
-            if workflow_mode == 'transcribe-only':
-                align_lang = source_lang
-            else:
-                align_lang = source_lang if workflow_mode == 'transcribe' else target_lang
-            
-            processor.load_align_model(align_lang)
-
-            # Transcribe with bias strategy
-            result = processor.transcribe_with_bias(
-                audio_file,
-                source_lang,
-                target_lang,
-                bias_windows,
-                output_dir=output_dir,
-                bias_strategy=bias_strategy,
-                workflow_mode=workflow_mode
-            )
-
-            # Extract detected language if auto-detected
-            detected_lang = result.get("language", source_lang)
-            if source_lang == "auto" and detected_lang != "auto":
-                logger.info(f"Detected language: {detected_lang}")
-                
-                # Check if detected language matches target (Task #7 fix)
-                # If so, we're doing transcribe-only, not translation
-                if workflow_mode == 'transcribe' and detected_lang == target_lang:
-                    logger.info(f"✓ Detected language ({detected_lang}) matches target ({target_lang})")
-                    logger.info("  Single-pass transcription (no translation needed)")
-                    workflow_mode = 'transcribe-only'  # Update mode to avoid translation logic
-                
-                # Update alignment language to detected language
-                logger.info(f"Using detected language for alignment: {detected_lang}")
-                if workflow_mode == 'transcribe-only' or workflow_mode == 'transcribe':
-                    align_lang = detected_lang
-                    # Reload alignment model for detected language
-                    processor.load_align_model(align_lang)
-            
-            # Align for word-level timestamps
-            result = processor.align_segments(result, audio_file, align_lang)
-
-            # Save results
-            # In transcribe mode, we only transcribe (no translation), so don't add language suffix
-            # In other modes, add language suffix if target differs from source
-            save_target_lang = None if workflow_mode in ['transcribe', 'transcribe-only'] else (target_lang if source_lang != target_lang else None)
-            processor.save_results(result, output_dir, basename, target_lang=save_target_lang)
-
-            return result
     finally:
         # Clean up resources
         processor.cleanup()
