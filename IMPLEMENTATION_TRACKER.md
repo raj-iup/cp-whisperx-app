@@ -688,16 +688,17 @@
 ---
 
 #### 4. ASR Helper Modularization 🔄 IN PROGRESS (AD-002 + AD-009)
-**Status:** Phase 2B Complete (BiasPromptingStrategy extracted)  
-**Progress:** 60% (Structure + ModelManager + BiasPrompting extracted)  
+**Status:** Phase 3 Complete (Chunked strategies implemented)  
+**Progress:** 75% (Structure + ModelManager + BiasPrompting + Chunked complete)  
 **Priority:** HIGH  
-**Effort:** 3-4 hours total (1.5 hours completed)  
+**Effort:** 4-5 hours total (1.5 hours completed)  
 **Decision:** AD-002 (ARCHITECTURE_ALIGNMENT_2025-12-04.md) + AD-009 (Quality-First)  
-**Plan:** ASR_MODULARIZATION_PLAN.md (23 KB, 883 lines)  
+**Plan:** ASR_MODULARIZATION_PLAN.md (24 KB, 920 lines)  
 **Created:** 2025-12-05 13:26 UTC  
 **Phase 1 Completed:** 2025-12-05 14:23 UTC  
 **Phase 2B Completed:** 2025-12-05 14:40 UTC  
-**Commits:** 6ba9248 (Phase 1), 38cb3df (Phase 2B)  
+**Phase 3 Completed:** 2025-12-05 15:13 UTC 🆕
+**Commits:** 6ba9248 (Phase 1), 38cb3df (Phase 2B), 002b6fc (Phase 3) 🆕
 **Branch:** feature/asr-modularization-ad002
 
 **Plan:** (See AD-002 and AD-009 for rationale)
@@ -707,29 +708,35 @@ Current State:
   scripts/whisperx_integration.py (1888 LOC monolith) ← BEING EXTRACTED
 
 Phase 1 Complete - Module Structure:
-  scripts/whisperx_module/ (928 LOC total)
+  scripts/whisperx_module/ (633 LOC total - was 928)
   ├── __init__.py             (✅ Module exports)
   ├── processor.py            (✅ Wraps original for compatibility)
   ├── model_manager.py        (✅ EXTRACTED & FUNCTIONAL - 170 LOC)
-  ├── bias_prompting.py       (✅ EXTRACTED & FUNCTIONAL - 372 LOC) 🆕
+  ├── bias_prompting.py       (✅ EXTRACTED & FUNCTIONAL - 633 LOC) 🆕
   ├── chunking.py             (📋 Stub - future extraction)
   ├── transcription.py        (📋 Stub - future extraction)
   ├── postprocessing.py       (📋 Stub - future extraction)
   └── alignment.py            (📋 Stub - future extraction)
 
-BiasPromptingStrategy Extracted (Phase 2B): ✅
+BiasPromptingStrategy Extracted (Phase 2B + 3): ✅
   ✅ transcribe_with_bias() - Main entry point
   ✅ _transcribe_whole() - Global strategy (fast, comprehensive)
   ✅ _transcribe_hybrid() - Hybrid strategy (balanced speed/accuracy)
-  ⏳ _transcribe_windowed_chunks() - Windowed strategy (TODO)
-  ⏳ _transcribe_chunked() - Large file support (TODO)
+  ✅ _transcribe_windowed_chunks() - Windowed strategy (time-aware bias) 🆕
+  ✅ _transcribe_chunked() - Large file support (checkpointing) 🆕
+  ✅ _merge_overlapping_segments() - Intelligent overlap handling 🆕
+  ✅ _process_chunk_with_retry() - Retry with degradation 🆕
   ✅ _filter_segments() - Quality filtering
   ✅ Helper methods - Duration, task, MPS optimization
 
 Benefits Achieved:
   ✅ Module structure established
   ✅ ModelManager extracted (backend selection, loading, lifecycle)
-  ✅ BiasPromptingStrategy extracted (3 strategies functional) 🆕
+  ✅ BiasPromptingStrategy extracted (ALL strategies functional) 🆕
+  ✅ Window-specific bias for high accuracy 🆕
+  ✅ Large file support (>30 min with checkpoints) 🆕
+  ✅ Intelligent overlap merging 🆕
+  ✅ Retry logic with batch size degradation 🆕
   ✅ Direct extraction per AD-009 (optimized, no wrappers)
   ✅ Import paths working (whisperx_module.BiasPromptingStrategy)
   ✅ 100% backward compatible (original still functional)
@@ -737,7 +744,7 @@ Benefits Achieved:
 ```
 
 **Benefits:**
-- Better code organization (928 LOC modular vs 1888 LOC monolith)
+- Better code organization (633 LOC BiasPrompting + 170 LOC ModelManager = 803 LOC vs 1888 LOC monolith)
 - Easier to test components (ModelManager + BiasPrompting independently testable)
 - No workflow disruption (06_whisperx_asr.py unchanged)
 - Direct extraction per AD-009 (optimized during extraction)
@@ -746,7 +753,7 @@ Benefits Achieved:
 - No new venvs needed (per AD-004)
 - Incremental extraction path established
 
-**Status:** ✅ Phase 2B COMPLETE (BiasPromptingStrategy extracted per AD-009)
+**Status:** ✅ Phase 3 COMPLETE (Chunked strategies implemented per AD-009)
 
 **Phase 1 Completed:** 2025-12-05 14:23 UTC (1 hour)
 - ✅ Module structure established (scripts/whisperx_module/)
@@ -767,16 +774,27 @@ Benefits Achieved:
 - ✅ All compliance checks passing
 - ✅ Committed: 38cb3df
 
+**Phase 3 Completed:** 2025-12-05 15:13 UTC (33 minutes - AHEAD OF SCHEDULE!) 🆕
+- ✅ _transcribe_windowed_chunks() implemented (261 LOC added)
+- ✅ Window-specific bias terms per chunk
+- ✅ Intelligent overlap merging logic
+- ✅ _transcribe_chunked() implemented with checkpointing
+- ✅ 5-minute chunks with resume capability
+- ✅ Retry logic with batch size degradation
+- ✅ All strategies now functional (global, hybrid, windowed, chunked)
+- ✅ All compliance checks passing
+- ✅ Total: 633 LOC (was 372, +261)
+- ✅ Committed: 002b6fc
+
 **Remaining Phases (Future Sessions):**
-- ⏳ Phase 3: Complete chunked strategies (~2 hours)
 - ⏳ Phase 4: Extract transcription orchestration (~1 hour)
 - ⏳ Phase 5: Extract postprocessing methods (~1 hour)
 - ⏳ Phase 6: Extract alignment methods (~1 hour)
 - ⏳ Phase 7: Integration testing (~1 hour)
 
-**Total Progress:** 60% complete (Phases 1 + 2B done, 5 phases remaining)
-**Time Invested:** 1.3 hours (of 8 hours estimated)
-**Can Use Now:** Yes (ModelManager + BiasPrompting available, rest uses original)
+**Total Progress:** 75% complete (Phases 1 + 2B + 3 done, 4 phases remaining)
+**Time Invested:** 1.9 hours (of 8 hours estimated)
+**Can Use Now:** Yes (ModelManager + BiasPrompting FULLY functional, rest uses original)
 **Quality Improvement:** Modular, optimized, testable code per AD-009
 
 ---
