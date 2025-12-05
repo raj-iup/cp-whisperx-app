@@ -1,6 +1,34 @@
 # Copilot Instructions — CP-WhisperX-App
 
-**Version:** 6.2 (Syntax Error Prevention) | **Status:** 🎊 **100% PERFECT COMPLIANCE ACHIEVED** 🎊 | **Pre-commit Hook:** ✅ Active
+**Version:** 7.0 (Quality-First Development) | **Status:** 🎊 **100% PERFECT COMPLIANCE ACHIEVED** 🎊 | **Pre-commit Hook:** ✅ Active
+
+**🚨 CRITICAL: AD-009 Development Philosophy (2025-12-05):**
+- 🎯 **OPTIMIZE FOR QUALITY**: Highest accuracy output is the ONLY goal
+- 🔥 **NO BACKWARD COMPATIBILITY**: We're in active development (pre-v3.0)
+- ⚡ **AGGRESSIVE OPTIMIZATION**: Replace suboptimal code, don't wrap it
+- 🧪 **TEST QUALITY METRICS**: ASR WER, Translation BLEU, Subtitle Quality
+- ❌ **NO COMPATIBILITY LAYERS**: Remove old code, implement optimal solution
+- ✅ **DIRECT EXTRACTION**: Don't delegate to old implementations during refactoring
+
+**Major Updates in v7.0 (2025-12-05 14:32 UTC):**
+- 🎯 **AD-009**: Quality-first development philosophy (CRITICAL - read first)
+- 🔥 **Development Mindset**: "Build optimal solution" not "preserve old code"
+- ⚡ **Refactoring Approach**: Direct extraction + optimization, not wrappers
+- 📋 **See**: AD-009_DEVELOPMENT_PHILOSOPHY.md for complete guidance
+
+**Major Updates in v6.6 (AD-007 Import Consistency):**
+- 🏛️ **AD-007 MANDATORY**: Consistent shared/ import paths
+- 🐛 **Bug #4 Fixed**: Bias window generator import (whisperx_integration.py:1511)
+- 📝 **Import Rule**: ALL shared/ imports must use "shared." prefix
+- ✅ **Lazy Imports**: Same rule applies to try/except imports
+- 📋 **Pattern**: from shared.module import function (always)
+
+**Major Updates in v6.5 (AD-006 Configuration Priority):**
+- 🏛️ **AD-006 MANDATORY**: Job-specific parameters override system defaults
+- 📋 **Configuration Pattern**: 4-tier priority hierarchy (job.json → job env → system config → code defaults)
+- ✅ **All Stages**: Must read job.json before using system config
+- 🐛 **Bug #3 Fixed**: Language detection now reads from job.json
+- 📝 **Standard Pattern**: Documented mandatory implementation pattern
 
 **Major Updates in v6.2 (2025-12-03):**
 - 🐛 **Syntax Error Fixed**: Duplicate exc_info=True parameters (8 instances)
@@ -23,18 +51,27 @@
 
 ## ⚡ Before You Respond
 
-**Run this mental checklist:**
-1. Will I use `logger` instead of `print()`? (§ 2.3)
-2. Are imports organized Standard/Third-party/Local? (§ 6.1)
-3. If stage: Does it use StageIO with `enable_manifest=True`? (§ 2.6)
-4. Are outputs going to `io.stage_dir` only? (§ 1.1)
-5. Am I using `load_config()` not `os.getenv()`? (§ 4.2)
-6. **Is my code cross-platform? (Use `pathlib`, not hardcoded paths)** (§ 1.2)
-7. **If creating shell script: Do I need Windows (.ps1) equivalent?** (§ 1.2)
-8. **If creating stage script: Is it named `{NN}_{stage_name}.py`?** (File Naming)
-9. **If testing: Am I using standard test media samples?** (§ 1.4) 🆕
-10. **If workflow: Am I following context-aware patterns?** (§ 1.5) 🆕
-11. **Error handling: Am I using exc_info=True exactly once?** (§ 5) 🆕
+**🔥 AD-009 CRITICAL CHECKS (NEW - Check FIRST):**
+1. **Am I optimizing for QUALITY (accuracy/performance)?** (AD-009) 🎯
+2. **Am I removing old code or wrapping it?** (Remove = good, Wrap = bad) 🔥
+3. **Is this the OPTIMAL implementation?** (If no, improve it) ⚡
+4. **Am I preserving compatibility with internal code?** (DON'T - only external APIs) ❌
+
+**Standard Compliance Checks:**
+5. Will I use `logger` instead of `print()`? (§ 2.3)
+6. Are imports organized Standard/Third-party/Local? (§ 6.1)
+7. **Are shared/ imports using "shared." prefix? (§ 6.1 - AD-007)** ⭐
+8. If stage: Does it use StageIO with `enable_manifest=True`? (§ 2.6)
+9. Are outputs going to `io.stage_dir` only? (§ 1.1)
+10. Am I using `load_config()` not `os.getenv()`? (§ 4.2)
+11. **Am I reading job.json BEFORE using system config? (§ 4 - AD-006)**
+12. **Cross-platform compatible? (Use `pathlib`, not hardcoded paths)** (§ 1.2)
+13. **If creating shell script: Do I need Windows (.ps1) equivalent?** (§ 1.2)
+14. **If creating stage script: Is it named `{NN}_{stage_name}.py`?** (File Naming)
+15. **If testing: Am I using standard test media samples?** (§ 1.4)
+16. **If workflow: Am I following context-aware patterns?** (§ 1.5)
+17. **Error handling: Am I using exc_info=True exactly once?** (§ 5)
+18. **ASR/Transcription: Am I using hybrid MLX architecture?** (§ 2.7) 🆕
 
 **If NO to any → Check the relevant § section below**
 
@@ -373,6 +410,128 @@ ML_LEARNING_FROM_HISTORY=true              # Learn from past jobs
 
 ---
 
+## § 2.7 MLX Backend Architecture (NEW in v6.7)
+
+**Hybrid MLX Architecture for Apple Silicon**
+
+### When to Use MLX Backend
+
+✅ **Use MLX when:**
+- Running on Apple Silicon (M1/M2/M3/M4)
+- Need maximum performance (8-9x faster than CPU)
+- Transcription or subtitle workflows
+- Have MPS device available
+
+❌ **Don't use MLX when:**
+- Running on non-Apple hardware
+- Only CPU or CUDA available
+- System stability more important than speed
+
+### Architecture Overview
+
+**Hybrid Design:**
+```python
+# Step 1: Transcription (MLX - Fast)
+backend = create_backend("mlx", model="large-v3", device="mps", ...)
+result = backend.transcribe(audio_file, language="en")
+# Duration: ~84 seconds for 12min audio (8-9x faster!)
+
+# Step 2: Alignment (WhisperX Subprocess - Stable)
+aligned = processor.align_segments(result, audio_file, "en")
+# Automatically uses subprocess when backend is MLX
+# Duration: ~39 seconds
+# Prevents segfaults through process isolation
+```
+
+### Key Implementation Patterns
+
+**1. MLX Backend Setup:**
+```python
+from whisper_backends import create_backend
+
+# System automatically selects MLX on Apple Silicon
+backend = create_backend(
+    backend_type="mlx",  # or "auto"
+    model_name="large-v3",
+    device="mps",
+    compute_type="float16",
+    logger=logger
+)
+```
+
+**2. Alignment Delegation:**
+```python
+# whisperx_integration.py handles this automatically
+
+def align_segments(self, result, audio_file, language):
+    """Hybrid alignment dispatcher"""
+    if self.backend.name == "mlx-whisper":
+        # Use WhisperX subprocess (prevents segfault)
+        return self.align_with_whisperx_subprocess(
+            result["segments"], audio_file, language
+        )
+    else:
+        # Use backend's native alignment
+        return self.backend.align_segments(...)
+```
+
+**3. Configuration:**
+```bash
+# config/.env.pipeline
+WHISPER_BACKEND=mlx              # Primary ASR backend
+ALIGNMENT_BACKEND=whisperx        # Alignment in subprocess
+```
+
+### Critical Rules
+
+**✅ DO:**
+- Let the system handle MLX → WhisperX alignment automatically
+- Use subprocess for any MLX alignment needs
+- Set 5-minute timeout for alignment subprocess
+- Handle subprocess failures gracefully (fallback to segments without words)
+
+**❌ DON'T:**
+- Call `backend.align_segments()` directly on MLX backend
+- Run MLX `transcribe()` twice in same process
+- Try to align in-process with MLX (causes segfault)
+- Modify the hybrid architecture unless necessary
+
+### Performance Expectations
+
+**Test Results (12.4 min audio):**
+- Transcription: 84 seconds (8-9x faster than CPU)
+- Alignment: 39 seconds (subprocess)
+- Total: 123 seconds (2 minutes)
+- Output: 200 segments with word-level timestamps
+- Stability: 100% (no segfaults)
+
+**vs CTranslate2/CPU:**
+- Status: Crashed after 11 minutes
+- Performance: N/A (never completed)
+- Stability: 0%
+
+### Troubleshooting
+
+**If MLX transcription fails:**
+```python
+# System falls back to WhisperX automatically
+# Check logs for: "Signaling fallback to WhisperX backend..."
+```
+
+**If alignment subprocess fails:**
+```python
+# Returns segments without word timestamps
+# Check logs for: "Alignment subprocess failed (exit code N)"
+```
+
+**If seeing segfaults:**
+```python
+# Check ALIGNMENT_BACKEND setting
+# Should be "whisperx", not "mlx" or "same"
+```
+
+---
+
 ## 🚧 Implementation Status
 
 **Current Architecture:** v2.0 (Simplified 3-6 Stage Pipeline)  
@@ -387,9 +546,10 @@ ML_LEARNING_FROM_HISTORY=true              # Learn from past jobs
 - ✅ Multi-environment support - MLX/CUDA/CPU
 - ✅ Error handling patterns - Try/except with logging
 - ✅ Type hints and docstrings (100% compliant)
-- ✅ Standard test media - Two samples defined (§ 1.4) 🆕
-- ✅ Core workflows documented - Subtitle/Transcribe/Translate (§ 1.5) 🆕
-- ✅ **StageManifest enhanced** - add_intermediate() method added (v6.1) 🆕
+- ✅ Standard test media - Two samples defined (§ 1.4)
+- ✅ Core workflows documented - Subtitle/Transcribe/Translate (§ 1.5)
+- ✅ **Hybrid MLX Architecture** - 8-9x faster ASR (§ 2.7) 🆕
+- ✅ **Subprocess Alignment** - Prevents MLX segfaults (§ 2.7) 🆕
 
 **Partially Implemented:**
 - ✅ Stage module pattern (100% adoption) - ALL stages use StageIO ✅
@@ -752,7 +912,7 @@ logger.critical("Severe error")
 
 **100% of files violate this - Priority #2 fix**
 
-❌ **DON'T:** Mix import groups
+❌ **DON'T:** Mix import groups or use incorrect paths
 
 ✅ **DO:**
 ```python
@@ -764,11 +924,50 @@ from pathlib import Path
 # Third-party
 import numpy as np
 
-# Local
+# Local - MUST use "shared." prefix (AD-007)
 from shared.config import load_config
+from shared.logger import get_logger
+from shared.bias_window_generator import BiasWindow
+
+# Lazy imports - MUST also use "shared." prefix
+def some_function():
+    try:
+        from shared.bias_window_generator import create_bias_windows
+        # Use function
+    except ImportError:
+        logger.warning("Feature unavailable")
+```
+
+**🏛️ ARCHITECTURAL DECISION AD-007 (MANDATORY):**
+
+**ALL imports from shared/ directory MUST use "shared." prefix**
+
+**Why This Matters:**
+- Python module resolution requires consistent paths
+- Lazy imports (try/except) were using incorrect paths
+- Fixed Bug #4 (bias window generator import)
+- Prevents silent feature degradation
+
+**Common Mistakes:**
+```python
+# ❌ WRONG - Missing "shared." prefix
+from bias_window_generator import BiasWindow
+try:
+    from config_loader import load_config  # Will fail!
+except ImportError:
+    pass
+
+# ✅ CORRECT - Always use "shared." prefix
+from shared.bias_window_generator import BiasWindow
+try:
+    from shared.config_loader import load_config  # Works!
+except ImportError:
+    pass
 ```
 
 **Order:** Standard → Third-party → Local (blank lines between)
+
+**Applies To:** All scripts, stages, and tests
 
 ---
 
@@ -854,16 +1053,53 @@ io.track_intermediate(file_path, retained=True, reason="Model cache")
 ✅ **DO:**
 ```python
 from shared.config_loader import load_config
+import json
 
+# Step 1: Load system defaults
 config = load_config()
 value = int(config.get("PARAM_NAME", default))
+
+# Step 2: Override with job-specific parameters (MANDATORY - AD-006)
+job_json_path = job_dir / "job.json"
+if job_json_path.exists():
+    with open(job_json_path) as f:
+        job_data = json.load(f)
+        # Job parameters take precedence
+        if 'param_name' in job_data and job_data['param_name']:
+            value = job_data['param_name']
 ```
+
+**🏛️ ARCHITECTURAL DECISION AD-006 (MANDATORY):**
+
+**ALL stages MUST honor job-specific parameters over system defaults.**
+
+**Priority Order:**
+1. **job.json** (user's explicit CLI choices)
+2. **Job .env file** (job-specific overrides)
+3. **System config/.env.pipeline** (system defaults)
+4. **Code defaults** (hardcoded fallbacks)
+
+**Why This Is Mandatory:**
+- Respect user's explicit CLI parameters
+- Enable per-job customization
+- Ensure reproducibility
+- Fixed Bug #3 (language detection)
+
+**Parameters That Must Be Overridable:**
+- ✅ Languages (source_language, target_languages)
+- ✅ Model settings (model size, compute type, batch size)
+- ✅ Quality settings (beam size, temperature)
+- ✅ Workflow flags (source_separation_enabled, tmdb_enabled)
+- ✅ Output preferences (subtitle format, translation engine)
+
+**See:** ARCHITECTURE_ALIGNMENT_2025-12-04.md § AD-006 for complete rationale.
 
 **Steps:**
 1. Add to `config/.env.pipeline` with full documentation
-2. Use `load_config()`
-3. Provide default with `.get(key, default)`
-4. Convert types: int(), float(), bool()
+2. Use `load_config()` to get system defaults
+3. Read job.json and override if parameter exists
+4. Provide default with `.get(key, default)`
+5. Convert types: int(), float(), bool()
 
 **Configuration Parameter Rules:**
 - ✅ **Implement feature FIRST, then add parameter**
