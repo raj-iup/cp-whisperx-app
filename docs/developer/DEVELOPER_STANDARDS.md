@@ -1,13 +1,20 @@
 # CP-WhisperX Developer Standards & Best Practices
 
-**Document Version:** 6.5  
-**Date:** December 4, 2025  
-**Last Updated:** December 4, 2025 (Architectural Decision AD-007)
+**Document Version:** 6.6  
+**Date:** December 5, 2025  
+**Last Updated:** December 5, 2025 (Architectural Decision AD-009)
 **Status:** ACTIVE - All development must follow these standards  
 **Compliance Target:** 80% minimum  
 **Current Status:** 🎊 **100% COMPLIANCE ACHIEVED** 🎊
 
-**🎯 ARCHITECTURE REFERENCE:** See [ARCHITECTURE_ALIGNMENT_2025-12-04.md](../../ARCHITECTURE_ALIGNMENT_2025-12-04.md) for authoritative architecture decisions (7 total: AD-001 through AD-007).
+**🎯 ARCHITECTURE REFERENCE:** See [ARCHITECTURE_ALIGNMENT_2025-12-04.md](../../ARCHITECTURE_ALIGNMENT_2025-12-04.md) for authoritative architecture decisions (9 total: AD-001 through AD-009).
+
+**Major Updates in v6.6 (December 5, 2025):**
+- 🏛️ **AD-009 ACTIVE**: Prioritize Quality Over Backward Compatibility
+- 📝 **Development Philosophy**: Optimize for best output quality during active development
+- ✅ **Refactoring Strategy**: Direct implementation over compatibility wrappers
+- 📋 **Pre-v3.0**: Aggressive optimization allowed, backward compatibility NOT required
+- 🎯 **Quality First**: ASR WER < 5%, Translation BLEU > 90%, Subtitle Quality > 88%
 
 **Major Updates in v6.5 (December 4, 2025 14:00 UTC):**
 - 🏛️ **AD-007 MANDATORY**: Consistent shared/ import paths
