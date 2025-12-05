@@ -1018,8 +1018,7 @@ class WhisperXProcessor:
         """
         Run WhisperX alignment in separate subprocess for stability
         
-        This prevents MLX segfaults by using WhisperX alignment model
-        in an isolated subprocess. Used when ALIGNMENT_BACKEND=whisperx.
+        DELEGATED to AlignmentEngine (Phase 6 extraction)
         
         Args:
             segments: Transcription segments
@@ -1029,61 +1028,15 @@ class WhisperXProcessor:
         Returns:
             Dict with aligned segments including word-level timestamps
         """
-        import subprocess
-        import json
-        import tempfile
+        from whisperx_module.alignment import AlignmentEngine
         
-        self.logger.info("  Running alignment in subprocess (WhisperX)...")
+        engine = AlignmentEngine(
+            backend=self.backend,
+            device=self.device,
+            logger=self.logger
+        )
         
-        # Write segments to temp file
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-            json.dump({"segments": segments}, f)
-            segments_file = f.name
-        
-        try:
-            # Run alignment in subprocess using WhisperX environment
-            cmd = [
-                str(PROJECT_ROOT / "venv" / "whisperx" / "bin" / "python"),
-                str(PROJECT_ROOT / "scripts" / "align_segments.py"),
-                "--audio", str(audio_file),
-                "--segments", segments_file,
-                "--language", language,
-                "--device", self.device
-            ]
-            
-            self.logger.debug(f"  Subprocess command: {' '.join(cmd)}")
-            
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=300  # 5 minute timeout
-            )
-            
-            if result.returncode == 0:
-                aligned = json.loads(result.stdout)
-                num_segments = len(aligned.get("segments", []))
-                self.logger.info(f"  ✓ Alignment complete: {num_segments} segments with word timestamps")
-                return aligned
-            else:
-                self.logger.warning(f"  ⚠ Alignment subprocess failed (exit code {result.returncode})")
-                if result.stderr:
-                    self.logger.warning(f"  Error output: {result.stderr}")
-                self.logger.info("  Returning segments without word-level timestamps")
-                return {"segments": segments}  # Return original
-        
-        except subprocess.TimeoutExpired:
-            self.logger.error("  ✗ Alignment subprocess timed out after 5 minutes")
-            return {"segments": segments}
-        except Exception as e:
-            self.logger.error(f"  ✗ Alignment subprocess error: {e}", exc_info=True)
-            return {"segments": segments}
-        finally:
-            # Clean up temp file
-            try:
-                Path(segments_file).unlink(missing_ok=True)
-            except:
-                pass
+        return engine.align_subprocess(segments, audio_file, language)
 
     def align_segments(
         self,
@@ -1094,9 +1047,7 @@ class WhisperXProcessor:
         """
         Add word-level alignment to segments
         
-        Uses hybrid architecture:
-        - If backend is MLX: Uses WhisperX subprocess (prevents segfault)
-        - If backend is WhisperX: Uses backend's built-in alignment
+        DELEGATED to AlignmentEngine (Phase 6 extraction)
         
         Args:
             result: Whisper transcription result
@@ -1106,35 +1057,15 @@ class WhisperXProcessor:
         Returns:
             Result with word-level timestamps
         """
-        if not self.backend:
-            self.logger.warning("Backend not loaded, skipping alignment")
-            return result
-
-        self.logger.info("Aligning segments for word-level timestamps...")
-
-        try:
-            # Check if using MLX backend - use subprocess for stability
-            if self.backend.name == "mlx-whisper":
-                self.logger.info("  MLX backend detected: using WhisperX subprocess")
-                aligned_result = self.align_with_whisperx_subprocess(
-                    result.get("segments", []),
-                    audio_file,
-                    target_lang
-                )
-                return aligned_result
-            else:
-                # WhisperX or other backend - use native alignment
-                aligned_result = self.backend.align_segments(
-                    result.get("segments", []),
-                    audio_file,
-                    target_lang
-                )
-                self.logger.info("  ✓ Alignment complete")
-                return aligned_result
-
-        except Exception as e:
-            self.logger.warning(f"  ⚠ Alignment failed: {e}")
-            return result
+        from whisperx_module.alignment import AlignmentEngine
+        
+        engine = AlignmentEngine(
+            backend=self.backend,
+            device=self.device,
+            logger=self.logger
+        )
+        
+        return engine.align(result, audio_file, target_lang)
 
     def save_results(
         self,
