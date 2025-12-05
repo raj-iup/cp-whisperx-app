@@ -1165,24 +1165,27 @@ class WhisperXProcessor:
         # Create language suffix for filenames if target_lang is provided
         lang_suffix = ""
         if target_lang and target_lang != 'auto':
-            lang_name = lang_names.get(target_lang, target_lang.upper())
-            lang_suffix = f"-{lang_name}"
+            lang_name = lang_names.get(target_lang, target_lang.lower())
+            lang_suffix = f"_{lang_name}"
 
         # Save full JSON result with basename
-        json_file = output_dir / f"{basename}{lang_suffix}.whisperx.json"
+        # Pattern: {stage}_{lang}_whisperx.json or {stage}_whisperx.json
+        json_file = output_dir / f"{basename}{lang_suffix}_whisperx.json"
         with open(json_file, "w", encoding="utf-8") as f:
             json.dump(result, f, indent=2, ensure_ascii=False)
         self.logger.info(f"  Saved: {json_file}")
 
         # Save segments as JSON (cleaner format) with basename
-        segments_file = output_dir / f"{basename}{lang_suffix}.segments.json"
+        # Pattern: {stage}_{lang}_segments.json or {stage}_segments.json
+        segments_file = output_dir / f"{basename}{lang_suffix}_segments.json"
         segments = result.get("segments", [])
         with open(segments_file, "w", encoding="utf-8") as f:
             json.dump(segments, f, indent=2, ensure_ascii=False)
         self.logger.info(f"  Saved: {segments_file}")
 
         # Save as plain text transcript with basename
-        txt_file = output_dir / f"{basename}.transcript{lang_suffix}.txt"
+        # Pattern: {stage}_{lang}_transcript.txt or {stage}_transcript.txt
+        txt_file = output_dir / f"{basename}{lang_suffix}_transcript.txt"
         with open(txt_file, "w", encoding="utf-8") as f:
             for segment in segments:
                 text = segment.get("text", "").strip()
@@ -1191,25 +1194,36 @@ class WhisperXProcessor:
         self.logger.info(f"  Saved: {txt_file}")
 
         # Save as SRT with basename
-        srt_file = output_dir / f"{basename}{lang_suffix}.srt"
+        # Pattern: {stage}_{lang}_subtitles.srt or {stage}_subtitles.srt
+        srt_file = output_dir / f"{basename}{lang_suffix}_subtitles.srt"
         self._save_as_srt(segments, srt_file)
         self.logger.info(f"  Saved: {srt_file}")
         
-        # ALSO save with standard names for downstream stages
-        # These are the filenames that other stages expect
-        standard_json = output_dir / "transcript.json"
-        with open(standard_json, "w", encoding="utf-8") as f:
+        # Save primary files with proper stage naming (Task #5)
+        # Pattern: {stage}_transcript.json and {stage}_segments.json
+        primary_json = output_dir / f"{basename}_transcript.json"
+        with open(primary_json, "w", encoding="utf-8") as f:
             json.dump(result, f, indent=2, ensure_ascii=False)
             f.flush()
             os.fsync(f.fileno())  # Ensure data is written to disk
-        self.logger.info(f"  Saved with sync: {standard_json}")
+        self.logger.info(f"  Saved: {primary_json}")
         
-        standard_segments = output_dir / "segments.json"
-        with open(standard_segments, "w", encoding="utf-8") as f:
+        primary_segments = output_dir / f"{basename}_segments.json"
+        with open(primary_segments, "w", encoding="utf-8") as f:
             json.dump(segments, f, indent=2, ensure_ascii=False)
             f.flush()
             os.fsync(f.fileno())  # Ensure data is written to disk
-        self.logger.info(f"  Saved with sync: {standard_segments}")
+        self.logger.info(f"  Saved: {primary_segments}")
+        
+        # Also save with legacy names for backward compatibility
+        # TODO: Remove after all stages updated to use new naming
+        legacy_json = output_dir / "transcript.json"
+        with open(legacy_json, "w", encoding="utf-8") as f:
+            json.dump(result, f, indent=2, ensure_ascii=False)
+        
+        legacy_segments = output_dir / "segments.json"
+        with open(legacy_segments, "w", encoding="utf-8") as f:
+            json.dump(segments, f, indent=2, ensure_ascii=False)
 
     def _save_as_srt(self, segments: List[Dict], srt_file: Path) -> None:
         """
@@ -1642,8 +1656,9 @@ def main() -> Any:
     logger.info(f"  Logprob threshold: {logprob_threshold}")
     logger.info(f"  Compression ratio threshold: {compression_ratio_threshold}")
     
-    # Get basename from config or use default
-    basename = getattr(config, 'job_id', 'transcript') if config else 'transcript'
+    # Use stage name as basename for consistent file naming (Task #5)
+    # Pattern: {stage_name}_{descriptor}.{ext} (e.g., asr_segments.json)
+    basename = "asr"
     
     # Check for bias windows (from pre-NER or TMDB)
     bias_windows = None
