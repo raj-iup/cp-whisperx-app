@@ -1335,12 +1335,22 @@ def run_whisperx_pipeline(
         # Load models
         processor.load_model()
         
+        # Determine if we need two-step processing for transcribe workflow
+        # For auto-detection, we'll check after transcription
+        needs_two_step = False
+        if workflow_mode == 'transcribe' and target_lang != 'auto':
+            # If source is specified and different from target, we need two-step
+            if source_lang != 'auto':
+                needs_two_step = (source_lang != target_lang)
+            # If source is auto, we'll do single-step first, then check detected language
+        
         # For transcribe mode with translation: Two-step process
         # Step 1: Transcribe in source language → save source files
         # Step 2: Translate source transcript → save target files
-        if workflow_mode == 'transcribe' and source_lang != target_lang and target_lang != 'auto':
+        if needs_two_step:
             logger.info("=" * 60)
             logger.info("TWO-STEP TRANSCRIPTION + TRANSLATION")
+            logger.info(f"  {source_lang} → {target_lang}")
             logger.info("=" * 60)
             
             # STEP 1: Transcribe in source language
@@ -1357,7 +1367,7 @@ def run_whisperx_pipeline(
                 workflow_mode='transcribe-only'  # Force transcribe-only for step 1
             )
             
-            # Extract detected language if auto-detected
+            # Extract detected language (shouldn't be auto here since source_lang != auto)
             detected_lang = source_result.get("language", source_lang)
             if source_lang == "auto" and detected_lang != "auto":
                 logger.info(f"Using detected language for alignment: {detected_lang}")
@@ -1494,8 +1504,17 @@ def run_whisperx_pipeline(
             # Extract detected language if auto-detected
             detected_lang = result.get("language", source_lang)
             if source_lang == "auto" and detected_lang != "auto":
-                logger.info(f"Using detected language for alignment: {detected_lang}")
+                logger.info(f"Detected language: {detected_lang}")
+                
+                # Check if detected language matches target (Task #7 fix)
+                # If so, we're doing transcribe-only, not translation
+                if workflow_mode == 'transcribe' and detected_lang == target_lang:
+                    logger.info(f"✓ Detected language ({detected_lang}) matches target ({target_lang})")
+                    logger.info("  Single-pass transcription (no translation needed)")
+                    workflow_mode = 'transcribe-only'  # Update mode to avoid translation logic
+                
                 # Update alignment language to detected language
+                logger.info(f"Using detected language for alignment: {detected_lang}")
                 if workflow_mode == 'transcribe-only' or workflow_mode == 'transcribe':
                     align_lang = detected_lang
                     # Reload alignment model for detected language
@@ -1507,7 +1526,7 @@ def run_whisperx_pipeline(
             # Save results
             # In transcribe mode, we only transcribe (no translation), so don't add language suffix
             # In other modes, add language suffix if target differs from source
-            save_target_lang = None if workflow_mode == 'transcribe' else (target_lang if source_lang != target_lang else None)
+            save_target_lang = None if workflow_mode in ['transcribe', 'transcribe-only'] else (target_lang if source_lang != target_lang else None)
             processor.save_results(result, output_dir, basename, target_lang=save_target_lang)
 
             return result
