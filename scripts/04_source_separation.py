@@ -31,16 +31,11 @@ logger = get_logger(__name__)
 
 
 def check_demucs_installed() -> bool:
-    """Check if Demucs is installed"""
+    """Check if Demucs is installed in the current Python environment"""
     try:
-        result = subprocess.run(
-            ["demucs", "--help"],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
-        return result.returncode == 0
-    except (subprocess.TimeoutExpired, FileNotFoundError):
+        import demucs
+        return True
+    except ImportError:
         return False
 
 
