@@ -124,19 +124,28 @@ def validate_language(lang_code: str, is_source: bool = True, workflow: str = "t
         
     Note:
         - transcribe: Any language supported by WhisperX (100+ languages)
-        - translate: Source must be Indian language (IndicTrans2 constraint)
-        - subtitle: Source must be Indian language (IndicTrans2 constraint)
+        - translate: Any source language, any target language
+                    (IndicTrans2 for Indic, NLLB-200 for others)
+        - subtitle: Source must be Indian language (movie/TV context)
     """
     if workflow == "transcribe":
         # Transcribe supports any language via WhisperX
         return True
     
-    if is_source:
-        # For translate/subtitle: Source must be Indian language
-        return lang_code in INDIAN_LANGUAGES
-    else:
-        # Target can be any language
+    if workflow == "translate":
+        # Translate supports any source and target language
+        # Routing: IndicTrans2 if source OR target is Indic, else NLLB-200
         return True
+    
+    if workflow == "subtitle":
+        # Subtitle workflow requires Indian source (Bollywood/regional content)
+        if is_source:
+            return lang_code in INDIAN_LANGUAGES
+        else:
+            return True
+    
+    # Default: allow any language
+    return True
 
 
 def get_next_job_number(user_id: str, date_str: str) -> int:
@@ -647,8 +656,8 @@ def main() -> None:
     # Validate languages (skip validation for 'auto')
     if args.source_language != "auto" and not validate_language(args.source_language, is_source=True, workflow=args.workflow):
         logger.error(f"❌ Error: Unsupported source language: {args.source_language}")
-        if args.workflow in ["translate", "subtitle"]:
-            logger.info(f"   For {args.workflow} workflow, source must be an Indian language")
+        if args.workflow == "subtitle":
+            logger.info(f"   For subtitle workflow, source must be an Indian language")
             logger.info(f"   Supported languages: {', '.join(INDIAN_LANGUAGES.keys())}")
         sys.exit(1)
     
