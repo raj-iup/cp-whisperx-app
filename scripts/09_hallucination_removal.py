@@ -209,9 +209,13 @@ def run_stage(job_dir: Path, stage_name: str = "09_hallucination_removal") -> in
         with open(input_file, 'r') as f:
             data = json.load(f)
         
-        segments = data.get("segments", [])
-        if not segments:
-            segments = data if isinstance(data, list) else []
+        # Handle both dict and list formats
+        if isinstance(data, dict):
+            segments = data.get("segments", [])
+        elif isinstance(data, list):
+            segments = data
+        else:
+            segments = []
         
         logger.info(f"Processing {len(segments)} segments for hallucination removal")
         

@@ -1679,7 +1679,7 @@ logger.info(f"Transcription completed: {{len(segments)}} segments")
         """Stage: Export plain text transcript"""
         
         # Read from alignment stage output
-        segments_file = self.job_dir / "07_alignment" / "alignment_segments.json"
+        segments_file = self.job_dir / "07_alignment" / "segments_aligned.json"
         output_txt = self.job_dir / "07_alignment" / "transcript.txt"
         
         # Log input/output
@@ -1724,7 +1724,7 @@ logger.info(f"Transcription completed: {{len(segments)}} segments")
         # Prefer cleaned transcript from hallucination removal stage
         # Fall back to alignment, then raw ASR output if not available
         cleaned_file = self.job_dir / "09_hallucination_removal" / "segments_cleaned.json"
-        alignment_file = self.job_dir / "07_alignment" / "alignment_segments.json"
+        alignment_file = self.job_dir / "07_alignment" / "segments_aligned.json"
         segments_file = self._stage_path("asr") / "segments.json"
         
         # Use cleaned transcript if available, otherwise alignment or raw ASR output
@@ -2082,7 +2082,7 @@ logger.info(f"Translated {{len(translated['segments'])}} segments")
         
         if not segments_file.exists():
             # Fallback to alignment stage (no translation)
-            segments_file = self.job_dir / "07_alignment" / "alignment_segments.json"
+            segments_file = self.job_dir / "07_alignment" / "segments_aligned.json"
         
         if not segments_file.exists():
             self.logger.error(f"Translated segments not found: {segments_file}")

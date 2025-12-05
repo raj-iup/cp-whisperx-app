@@ -1,1 +1,36 @@
-<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="6" time="2.446" timestamp="2025-12-05T06:43:37.819728-06:00" hostname="Rajs-MacBook-Pro.local"><testcase classname="tests.test_file_naming_standard.TestFileNamingStandard" name="test_valid_filenames" time="0.001" /><testcase classname="tests.test_file_naming_standard.TestFileNamingStandard" name="test_invalid_leading_dot" time="0.000" /><testcase classname="tests.test_file_naming_standard.TestFileNamingStandard" name="test_invalid_leading_dash" time="0.000" /><testcase classname="tests.test_file_naming_standard.TestFileNamingStandard" name="test_invalid_no_stage_prefix" time="0.000" /><testcase classname="tests.test_file_naming_standard.TestFileNamingStandard" name="test_invalid_stage_prefix" time="0.000" /><testcase classname="tests.test_file_naming_standard.TestFileNamingStandard" name="test_legacy_files_allowed" time="0.000" /></testsuite></testsuites>
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="7" skipped="1" tests="10" time="8.803" timestamp="2025-12-05T10:39:28.741119-06:00" hostname="Rajs-MacBook-Pro.local"><testcase classname="tests.test_asr_module_integration.TestModuleIntegration" name="test_model_manager_creation" time="0.001"><failure message="AssertionError: assert 'auto' in ['whisperx', 'mlx', 'ctranslate2']&#10; +  where 'auto' = &lt;whisperx_module.model_manager.ModelManager object at 0x10ec49c50&gt;.backend_type">tests/test_asr_module_integration.py:84: in test_model_manager_creation
+    assert manager.backend_type in ["whisperx", "mlx", "ctranslate2"]
+E   AssertionError: assert 'auto' in ['whisperx', 'mlx', 'ctranslate2']
+E    +  where 'auto' = &lt;whisperx_module.model_manager.ModelManager object at 0x10ec49c50&gt;.backend_type</failure></testcase><testcase classname="tests.test_asr_module_integration.TestModuleIntegration" name="test_bias_prompting_strategies" time="0.000"><failure message="TypeError: BiasPromptingStrategy.__init__() got an unexpected keyword argument 'mode'">tests/test_asr_module_integration.py:89: in test_bias_prompting_strategies
+    strategy = BiasPromptingStrategy(
+E   TypeError: BiasPromptingStrategy.__init__() got an unexpected keyword argument 'mode'</failure></testcase><testcase classname="tests.test_asr_module_integration.TestModuleIntegration" name="test_result_processor_filtering" time="0.000"><failure message="TypeError: ResultProcessor.filter_low_confidence_segments() got an unexpected keyword argument 'confidence_threshold'">tests/test_asr_module_integration.py:114: in test_result_processor_filtering
+    filtered = processor.filter_low_confidence_segments(
+E   TypeError: ResultProcessor.filter_low_confidence_segments() got an unexpected keyword argument 'confidence_threshold'</failure></testcase><testcase classname="tests.test_asr_module_integration.TestModuleIntegration" name="test_result_processor_save_formats" time="0.002"><failure message="TypeError: ResultProcessor.save_results() got an unexpected keyword argument 'language'">tests/test_asr_module_integration.py:132: in test_result_processor_save_formats
+    processor.save_results(
+E   TypeError: ResultProcessor.save_results() got an unexpected keyword argument 'language'</failure></testcase><testcase classname="tests.test_asr_module_integration.TestModuleIntegration" name="test_alignment_engine_dispatcher" time="0.001" /><testcase classname="tests.test_asr_module_integration.TestModuleIntegration" name="test_transcription_engine_workflow_detection" time="0.000"><failure message="TypeError: TranscriptionEngine._needs_two_step_processing() got an unexpected keyword argument 'source_language'">tests/test_asr_module_integration.py:191: in test_transcription_engine_workflow_detection
+    needs_two_step = engine._needs_two_step_processing(
+E   TypeError: TranscriptionEngine._needs_two_step_processing() got an unexpected keyword argument 'source_language'</failure></testcase><testcase classname="tests.test_asr_module_integration.TestModuleIntegration" name="test_module_imports" time="0.000" /><testcase classname="tests.test_asr_module_integration.TestModuleIntegration" name="test_backward_compatibility" time="0.002"><failure message="OSError: [Errno 30] Read-only file system: '/app'">../../../.pyenv/versions/3.11.13/lib/python3.11/pathlib.py:1116: in mkdir
+    os.mkdir(self, mode)
+E   FileNotFoundError: [Errno 2] No such file or directory: '/app/logs'
+
+During handling of the above exception, another exception occurred:
+tests/test_asr_module_integration.py:237: in test_backward_compatibility
+    processor = WhisperXProcessor(
+scripts/whisperx_integration.py:152: in __init__
+    self.logger = logger or self._create_default_logger()
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts/whisperx_integration.py:186: in _create_default_logger
+    return PipelineLogger("whisperx")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+shared/logger.py:251: in __init__
+    self.logger = setup_logger(
+shared/logger.py:163: in setup_logger
+    log_path.mkdir(parents=True, exist_ok=True)
+../../../.pyenv/versions/3.11.13/lib/python3.11/pathlib.py:1120: in mkdir
+    self.parent.mkdir(parents=True, exist_ok=True)
+../../../.pyenv/versions/3.11.13/lib/python3.11/pathlib.py:1116: in mkdir
+    os.mkdir(self, mode)
+E   OSError: [Errno 30] Read-only file system: '/app'</failure></testcase><testcase classname="tests.test_asr_module_integration.TestEndToEndIntegration" name="test_full_pipeline_with_modules" time="0.001"><skipped type="pytest.skip" message="Full E2E test - run manually">/Users/rpatel/Projects/Active/cp-whisperx-app/tests/test_asr_module_integration.py:262: Full E2E test - run manually</skipped></testcase><testcase classname="tests.test_asr_module_integration" name="test_compliance_checks" time="0.020"><failure message="AssertionError: model_manager.py missing __all__ export&#10;assert False">tests/test_asr_module_integration.py:300: in test_compliance_checks
+    assert has_all, f"{module_name} missing __all__ export"
+E   AssertionError: model_manager.py missing __all__ export
+E   assert False</failure></testcase></testsuite></testsuites>
