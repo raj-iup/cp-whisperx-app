@@ -257,7 +257,7 @@ def main() -> int:
         
         # Check if Demucs is installed
         if not check_demucs_installed():
-            logger.warning("Demucs is not installed")
+            logger.info("Demucs not found. Installing...")
             # Try to install it
             if not install_demucs(logger):
                 logger.error("Cannot proceed without Demucs")
