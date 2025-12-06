@@ -408,6 +408,7 @@ def get_stage_logger(
             stage_dir = output_dir / f"99_{stage_name}"
     
     stage_log_file = stage_dir / "stage.log"
-    main_log_dir = stage_dir.parent / "logs"
+    # AD-001: Main log goes to job root, not separate logs/ directory
+    main_log_dir = stage_dir.parent  # Job root
     
     return setup_dual_logger(stage_name, stage_log_file, main_log_dir, log_level)
