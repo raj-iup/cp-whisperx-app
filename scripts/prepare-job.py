@@ -209,8 +209,8 @@ def create_job_directory(input_media: Path, workflow: str, user_id: Optional[str
     job_dir = PROJECT_ROOT / "out" / year / month / day / user_id / str(job_number)
     job_dir.mkdir(parents=True, exist_ok=True)
     
-    # Create logs directory (only shared directory needed)
-    (job_dir / "logs").mkdir(exist_ok=True)
+    # AD-001: No shared logs/ directory - pipeline log goes to job root
+    # Stage logs go to their respective stage directories
     
     # Create stage subdirectories using centralized stage order
     # Each stage will write outputs to its own directory
