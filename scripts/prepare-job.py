@@ -779,7 +779,7 @@ def main() -> None:
     logger.info("")
     logger.info(f"Next steps:")
     logger.info(f"  1. Run pipeline: ./run-pipeline.sh -j {job_id}")
-    logger.info(f"  2. Monitor logs: tail -f {job_dir}/logs/*.log")
+    logger.info(f"  2. Monitor logs: tail -f {job_dir}/99_pipeline_*.log")
     logger.info("")
     
     return 0
