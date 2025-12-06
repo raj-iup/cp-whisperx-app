@@ -412,11 +412,17 @@ class WhisperXProcessor:
 
         # Determine task
         # For transcribe-only workflows, always transcribe (never translate)
+        # For subtitle workflow, always transcribe in source language (translation happens in separate stage)
         # For transcribe mode with target language, can translate
         # For other workflows, translate if source != target
         if workflow_mode == 'transcribe-only':
             task = "transcribe"
             self.logger.info(f"  Task: {task} (workflow_mode={workflow_mode}, keeping source language)")
+        elif workflow_mode == 'subtitle':
+            # Subtitle workflow: ALWAYS transcribe in source language
+            # Translation happens in separate translation stage (Stage 10)
+            task = "transcribe"
+            self.logger.info(f"  Task: {task} (workflow_mode={workflow_mode}, source language only)")
         elif workflow_mode == 'transcribe':
             # Allow translation in transcribe mode if target is different
             task = "translate" if (source_lang != target_lang and target_lang != 'auto') else "transcribe"
@@ -1337,7 +1343,7 @@ def main() -> Any:
     # Get configuration parameters (defaults from system config)
     model_name = getattr(config, 'whisper_model', 'large-v3')
     source_lang = getattr(config, 'whisper_language', 'hi')
-    target_lang = getattr(config, 'target_language', 'en')
+    target_lang = getattr(config, 'target_language', 'en')  # Default fallback only
     device = getattr(config, 'device', 'cpu').lower()
     compute_type = getattr(config, 'whisper_compute_type', 'float16')
     
@@ -1356,13 +1362,22 @@ def main() -> Any:
         with open(job_json_path) as f:
             job_data = json.load(f)
             workflow_mode = job_data.get('workflow', 'transcribe')
-            # Override source/target languages from job if specified
+            # Override source language from job if specified
             if 'source_language' in job_data and job_data['source_language']:
                 old_source = source_lang
                 source_lang = job_data['source_language']
                 logger.info(f"  source_language override: {old_source} → {source_lang} (from job.json)")
-            if 'target_languages' in job_data and job_data['target_languages']:
-                # For translation, first target language is the target
+            
+            # For subtitle workflow, target_language should NOT be used by ASR
+            # ASR transcribes in source language only; translation happens in Stage 10
+            if workflow_mode == 'subtitle':
+                # Ignore target_languages for ASR stage
+                logger.info(f"  Subtitle workflow: ASR will transcribe in source language ({source_lang}) only")
+                logger.info(f"  Translation to target languages will happen in Stage 10")
+                # Keep target_lang as source_lang for ASR (no translation)
+                target_lang = source_lang
+            elif 'target_languages' in job_data and job_data['target_languages']:
+                # For non-subtitle workflows, use first target language
                 old_target = target_lang
                 target_lang = job_data['target_languages'][0] if job_data['target_languages'] else target_lang
                 logger.info(f"  target_language override: {old_target} → {target_lang} (from job.json)")

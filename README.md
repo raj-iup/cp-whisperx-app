@@ -1,8 +1,12 @@
 # WhisperX Speech Processing Pipeline
 
+**Version:** 3.0 (Context-Aware Modular Pipeline) | **Status:** 🎉 97% Complete - Production Ready
+
 Professional-grade speech transcription, translation, and subtitle generation pipeline powered by WhisperX, MLX, and IndicTrans2.
 
+[![Pipeline](https://img.shields.io/badge/Pipeline-v3.0%20(12%20Stages)-success)](docs/technical/architecture.md)
 [![Compliance](https://img.shields.io/badge/Standards%20Compliance-100%25-brightgreen)](docs/DEVELOPER_STANDARDS.md)
+[![Architecture](https://img.shields.io/badge/Architecture-9%20Decisions-blue)](ARCHITECTURE_ALIGNMENT_2025-12-04.md)
 [![Documentation](https://img.shields.io/badge/Documentation-Complete-blue)](docs/INDEX.md)
 [![License](https://img.shields.io/badge/License-View-lightgrey)](LICENSE)
 
@@ -30,15 +34,25 @@ Professional-grade speech transcription, translation, and subtitle generation pi
 ./run-pipeline.sh --job-dir out/LATEST
 ```
 
-**Output Structure:**
+**Output Structure (v3.0 - 12 Stage Architecture):**
 ```
 out/YYYY/MM/DD/user/NNNN/
-├── 10_mux/                        # Final output (subtitle workflow)
-│   └── media_name/
-│       ├── media_name_subtitled.mkv  # Video with soft-embedded subtitles
-│       └── subtitles/             # Individual subtitle files
-├── 08_translate/                  # Translation output
-│   └── transcript_{lang}.txt
+├── 01_demux/                      # Audio extraction
+├── 02_tmdb/                       # TMDB metadata (subtitle workflow only)
+├── 03_glossary_load/              # Terminology loading
+├── 04_source_separation/          # Vocal isolation (adaptive)
+├── 05_pyannote_vad/               # Voice activity + diarization
+├── 06_asr/                        # ASR transcription
+├── 07_alignment/                  # Word-level alignment
+│   └── transcript.txt             # Final transcript (transcribe workflow)
+├── 08_lyrics_detection/           # Lyrics detection (subtitle workflow)
+├── 09_hallucination_removal/      # ASR cleanup (subtitle workflow)
+├── 10_translation/                # Translation (translate/subtitle workflows)
+│   └── transcript_{lang}.txt      # Translated transcript
+├── 11_subtitle_generation/        # Subtitle files (subtitle workflow)
+│   └── *.vtt                      # VTT subtitle tracks
+├── 12_mux/                        # Final video (subtitle workflow)
+│   └── *_subtitled.mkv            # Video with soft-embedded subtitles
 └── logs/                          # Pipeline and stage logs
 ```
 
@@ -46,44 +60,76 @@ out/YYYY/MM/DD/user/NNNN/
 - `in/Energy Demand in AI.mp4` - English technical (transcribe/translate)
 - `in/test_clips/jaane_tu_test_clip.mp4` - Hinglish Bollywood (subtitle)
 
-**Complete Guide:** [Quick Start Documentation](docs/QUICKSTART.md) | **Workflows:** [Workflow Guide](docs/user-guide/workflows.md)
+**Complete Guide:** [Quick Start Documentation](docs/QUICKSTART.md) | **Workflows:** [Workflow Guide](docs/user-guide/workflows.md) | **Troubleshooting:** [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
+
+---
+
+## 🎉 What's New in v3.0
+
+### 12-Stage Modular Pipeline
+- **Context-Aware Processing**: Character names, cultural terms, temporal consistency
+- **Mandatory Quality Stages**: Lyrics detection + hallucination removal (subtitle workflow)
+- **Stage Isolation**: Each stage operates independently with full manifest tracking
+- **Resume Support**: Continue from any stage after interruption
+
+### Hybrid MLX Architecture (8-9x Faster)
+- **MLX-Whisper**: Ultra-fast transcription on Apple Silicon
+- **Subprocess Alignment**: Prevents segfaults, maintains stability
+- **Production Validated**: 100% test success rate
+- **Architecture Decision AD-008**: [Hybrid MLX Backend](ARCHITECTURE_ALIGNMENT_2025-12-04.md)
+
+### Architectural Decisions Framework
+- **9 Authoritative Decisions**: AD-001 through AD-009
+- **Quality-First Development**: Optimize for accuracy, not backward compatibility
+- **Job-Specific Parameters**: Per-job configuration overrides (AD-006)
+- **Consistent Import Paths**: Standardized module structure (AD-007)
+- **Reference**: [ARCHITECTURE_ALIGNMENT_2025-12-04.md](ARCHITECTURE_ALIGNMENT_2025-12-04.md)
+
+### Enhanced Quality & Reliability
+- **100% Standards Compliance**: Automated pre-commit validation
+- **Comprehensive Testing**: E2E tests for all 3 workflows
+- **File Naming Standards**: Professional, predictable output structure
+- **Stage Manifests**: Full input/output/intermediate file tracking
 
 ---
 
 ## ✨ Key Features
 
 ### 🎯 Context-Aware Transcription (Highest Accuracy)
-- WhisperX large-v3 with forced alignment
-- Multi-speaker diarization with speaker attribution
-- Domain terminology and proper noun recognition
-- Hallucination removal and lyrics detection
-- Native script output (Devanagari for Hindi)
+- **WhisperX large-v3** with word-level forced alignment
+- **Hybrid MLX Architecture**: 8-9x faster on Apple Silicon (AD-008)
+- **Multi-speaker diarization** with speaker attribution
+- **Domain terminology** and proper noun recognition via glossary
+- **Hallucination removal** (stage 09) - removes ASR artifacts
+- **Lyrics detection** (stage 08) - identifies song segments
+- **Native script output** (Devanagari for Hindi, etc.)
 
 ### 🌍 Context-Aware Translation (Cultural Preservation)
 - **Indic Languages**: IndicTrans2 (AI4Bharat) for highest quality
 - **Non-Indic**: NLLB-200 (Meta) with broad language support
-- Cultural adaptation (idioms, metaphors, formality)
-- Glossary-based terminology enforcement (100% application)
-- Temporal consistency across segments
-- 22+ Indian languages + 100+ global languages
+- **Cultural adaptation**: Idioms, metaphors, formality preservation
+- **Glossary-based terminology**: 100% consistency enforcement
+- **Temporal coherence**: Same term translated consistently
+- **22+ Indian languages** + 100+ global languages supported
 
 ### 🎬 Professional Multi-Language Subtitles
-- **Soft-embedding**: All subtitle tracks in one video file
-- **Context-Aware**: Character names, cultural terms, speaker diarization
+- **Soft-embedding**: All subtitle tracks in one video file (MKV)
+- **Context-Aware**: Character names (TMDB), cultural terms, speaker diarization
 - **Multi-Language**: Hindi, English, Gujarati, Tamil, Spanish, Russian, Chinese, Arabic
-- **Quality**: ±200ms timing accuracy, 88%+ subtitle quality score
-- SRT/VTT formats with comprehensive metadata
+- **Quality Metrics**: ±200ms timing accuracy, 88%+ subtitle quality score
+- **Formats**: SRT/VTT with comprehensive metadata
+- **Workflow-Specific**: Lyrics italic styling, hallucination removal
 
-### ⚡ Intelligent Caching & ML Optimization
-- **Audio Fingerprinting**: Skip processing for identical media (95% time reduction)
-- **ASR Results Cache**: Reuse transcriptions (70% cache hit rate target)
-- **Translation Memory**: Context-aware translation reuse (60% hit rate)
-- **Glossary Learning**: Improve accuracy on similar content over time
-- **Adaptive Quality**: ML-based model selection for optimal speed/quality
-- **Performance**: 2x faster on cached similar content
+### ⚡ Intelligent Architecture (v3.0)
+- **12-Stage Pipeline**: Modular, testable, resumable (AD-001)
+- **Stage Isolation**: Each stage operates independently
+- **Manifest Tracking**: Full lineage of inputs/outputs/intermediates
+- **Job-Specific Config**: Per-job parameter overrides (AD-006)
+- **8 Virtual Environments**: Dependency isolation (AD-004)
+- **Hybrid Backends**: MLX + WhisperX optimal combination (AD-005, AD-008)
 
 ### 💻 Multi-Environment Support
-- **MLX**: Optimized for Apple Silicon (M1/M2/M3) with hardware acceleration
+- **MLX**: Optimized for Apple Silicon (M1/M2/M3/M4) with MPS acceleration
 - **CUDA**: NVIDIA GPU acceleration for maximum speed
 - **CPU**: Universal fallback mode for any system
 
@@ -98,23 +144,31 @@ out/YYYY/MM/DD/user/NNNN/
 
 ## 🏗️ Architecture Status
 
-**Current:** v2.0 (Simplified Pipeline) | **Target:** v3.0 (Modular Pipeline) | **Progress:** 55%
+**Current:** v3.0 (12-Stage Modular Pipeline) | **Status:** 🎉 97% Complete - Production Ready
 
 ### What's Working Now ✅
-- Multi-environment support (MLX/CUDA/CPU)
-- Core transcription and translation workflows
-- Dual logging system (main + stage logs)
-- Configuration management
-- 3-6 stage workflows based on needs
+- **12-Stage Pipeline**: Fully modular with stage isolation (AD-001)
+- **Hybrid MLX Architecture**: 8-9x faster on Apple Silicon (AD-008)
+- **Multi-environment support**: 8 isolated venvs (MLX/WhisperX/PyAnnote/Demucs/IndicTrans2/NLLB/LLM/Common)
+- **Universal StageIO pattern**: 100% adoption across all stages
+- **Complete manifest tracking**: 100% adoption with full lineage
+- **Job-specific configuration**: Parameter overrides per job (AD-006)
+- **3 Production Workflows**: Subtitle, Transcribe, Translate
+- **100% Standards Compliance**: Automated validation
 
-### In Development ⏳
-- Modular 10-stage pipeline with selective stage enable/disable
-- Universal StageIO pattern (currently 5% adoption)
-- Complete manifest tracking (currently 40%)
-- Stage-level testing infrastructure
-- Advanced features (retry logic, caching, circuit breakers)
+### Recently Completed 🆕
+- **ASR Module Refactoring**: Clean modular structure (AD-002)
+- **File Naming Standards**: Professional output structure
+- **Architectural Decisions Framework**: 9 authoritative decisions (AD-001 to AD-009)
+- **Hybrid MLX Backend**: Transcription + subprocess alignment (AD-008)
+- **E2E Testing Infrastructure**: Comprehensive workflow validation
 
-**See:** [Architecture Implementation Roadmap](docs/ARCHITECTURE_IMPLEMENTATION_ROADMAP.md) for 21-week migration plan.
+### Upcoming (Phase 5) ⏳
+- **Intelligent Caching**: Audio fingerprinting, ASR cache, translation memory
+- **ML Optimization**: Adaptive model selection, quality prediction
+- **Performance Monitoring**: Cost tracking, usage analytics
+
+**See:** [Implementation Tracker](IMPLEMENTATION_TRACKER.md) for detailed progress | [Architecture Decisions](ARCHITECTURE_ALIGNMENT_2025-12-04.md) for design rationale
 
 ---
 
@@ -129,10 +183,12 @@ out/YYYY/MM/DD/user/NNNN/
 - **[User Guide](docs/user-guide/)** - Usage, workflows, configuration
 - **[Workflows](docs/user-guide/workflows.md)** - Common usage patterns
 - **[Configuration](docs/user-guide/configuration.md)** - Configuration reference
-- **[Troubleshooting](docs/user-guide/troubleshooting.md)** - Problem solving
+- **[Troubleshooting](TROUBLESHOOTING.md)** - Problem solving & debugging 🆕
 
 ### Technical Documentation
-- **[Architecture](docs/technical/architecture.md)** - System design
+- **[Architecture](docs/technical/architecture.md)** - System design (v3.0)
+- **[Architecture Decisions](ARCHITECTURE_ALIGNMENT_2025-12-04.md)** - 9 authoritative decisions 🆕
+- **[Implementation Tracker](IMPLEMENTATION_TRACKER.md)** - Development progress 🆕
 - **[Pipeline Details](docs/technical/pipeline.md)** - Stage-by-stage flow
 - **[Logging Architecture](docs/LOGGING_ARCHITECTURE.md)** - Dual logging system
 - **[Multi-Environment](docs/technical/multi-environment.md)** - MLX/CUDA/CPU support

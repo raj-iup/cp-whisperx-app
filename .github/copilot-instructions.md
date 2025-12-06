@@ -1,6 +1,6 @@
 # Copilot Instructions — CP-WhisperX-App
 
-**Version:** 7.0 (Quality-First Development) | **Status:** 🎊 **100% PERFECT COMPLIANCE ACHIEVED** 🎊 | **Pre-commit Hook:** ✅ Active
+**Version:** 7.1 (M-001 Alignment Audit) | **Status:** 🎊 **100% PERFECT COMPLIANCE ACHIEVED** 🎊 | **Pre-commit Hook:** ✅ Active
 
 **🚨 CRITICAL: AD-009 Development Philosophy (2025-12-05):**
 - 🎯 **OPTIMIZE FOR QUALITY**: Highest accuracy output is the ONLY goal
@@ -9,6 +9,12 @@
 - 🧪 **TEST QUALITY METRICS**: ASR WER, Translation BLEU, Subtitle Quality
 - ❌ **NO COMPATIBILITY LAYERS**: Remove old code, implement optimal solution
 - ✅ **DIRECT EXTRACTION**: Don't delegate to old implementations during refactoring
+
+**Major Updates in v7.1 (2025-12-06 15:20 UTC):**
+- 🏛️ **AD-010 ADDED**: Workflow-specific output requirements
+- 📋 **M-001 Complete**: Monthly alignment audit (95% → 100% coverage)
+- ✅ **All 10 ADs**: Documented across all 4 documentation layers
+- 📝 **Workflow Updates**: Added AD-010 references to § 1.5 (transcribe, translate, subtitle)
 
 **Major Updates in v7.0 (2025-12-05 14:32 UTC):**
 - 🎯 **AD-009**: Quality-first development philosophy (CRITICAL - read first)
@@ -79,10 +85,10 @@
 
 ## 🏛️ Architectural Decisions Quick Reference (NEW) 🆕
 
-**Authoritative Source:** ARCHITECTURE_ALIGNMENT_2025-12-04.md  
+**Authoritative Source:** ARCHITECTURE.md  
 **Developer Guide:** DEVELOPER_STANDARDS.md § 20
 
-**All 9 Approved Architectural Decisions:**
+**All 10 Approved Architectural Decisions:**
 
 - **AD-001:** 12-stage architecture (optimal, no major refactoring) ✅
 - **AD-002:** ASR modularization (use `whisperx_module/`, not monolith) ✅
@@ -93,6 +99,7 @@
 - **AD-007:** Consistent shared/ imports (always use "shared." prefix) ✅
 - **AD-008:** Hybrid alignment architecture (subprocess prevents segfaults) ✅
 - **AD-009:** Quality over compatibility (optimize aggressively) ✅
+- **AD-010:** Workflow-specific outputs (transcribe → txt, translate → txt, subtitle → srt/vtt) ✅
 
 **Quick Patterns:**
 
@@ -116,6 +123,17 @@ param = job_data.get('key', config.get('key', default))
 # Per AD-007: Shared imports
 from shared.module import function  # ✅ Correct
 # NOT: from module import function  # ❌ Wrong
+
+# Per AD-010: Workflow-specific outputs
+if workflow == "transcribe":
+    # Skip subtitle generation, export transcript only
+    stages = stages[:7]  # Stop at alignment
+elif workflow == "translate":
+    # Skip subtitle generation, export translated transcript
+    stages = stages[:7] + ["10_translation"]
+else:  # subtitle workflow
+    # Generate all subtitle tracks
+    stages = stages  # Full pipeline
 ```
 
 ---
@@ -245,10 +263,10 @@ from shared.module import function  # ✅ Correct
 **Purpose:** Generate context-aware multilingual subtitles for Bollywood/Indic media
 
 **Input:** Indic/Hinglish movie media source  
-**Output:** Original media + soft-embedded subtitle tracks (hi, en, gu, ta, es, ru, zh, ar)  
+**Output:** Original media + soft-embedded subtitle tracks (hi, en, gu, ta, es, ru, zh, ar) **(per AD-010)**  
 **Output Location:** `out/{date}/{user}/{job}/12_mux/`
 
-**Pipeline:** demux → tmdb ✅ → glossary_load → source_sep → pyannote_vad → whisperx_asr → alignment → translate → subtitle_gen → mux
+**Pipeline:** demux → tmdb ✅ → glossary_load → source_sep → pyannote_vad → whisperx_asr → alignment → translate → subtitle_gen → mux **(full 12-stage pipeline)**
 
 **Context-Aware Features:**
 - Character names preserved via glossary
@@ -278,10 +296,10 @@ from shared.module import function  # ✅ Correct
 **Purpose:** Create high-accuracy transcript in SOURCE language
 
 **Input:** Any media source (YouTube, podcasts, lectures, general content)
-**Output:** Text transcript in SAME language as source  
+**Output:** Text transcript in SAME language as source **(per AD-010 - NO subtitles)**  
 **Output Location:** `out/{date}/{user}/{job}/07_alignment/transcript.txt`
 
-**Pipeline:** demux → glossary_load → source_sep (optional) → pyannote_vad → whisperx_asr → alignment
+**Pipeline:** demux → glossary_load → source_sep (optional) → pyannote_vad → whisperx_asr → alignment **(stops at stage 07)**
 
 **TMDB:** ❌ **Disabled** (not needed for non-movie content)
 
@@ -309,10 +327,10 @@ from shared.module import function  # ✅ Correct
 **Purpose:** Create high-accuracy transcript in TARGET language
 
 **Input:** Indian language media (IndicTrans2 constraint)
-**Output:** Text transcript in SPECIFIED target language  
-**Output Location:** `out/{date}/{user}/{job}/08_translate/transcript_{target_lang}.txt`
+**Output:** Text transcript in SPECIFIED target language **(per AD-010 - NO subtitles)**  
+**Output Location:** `out/{date}/{user}/{job}/10_translation/transcript_{target_lang}.txt`
 
-**Pipeline:** demux → glossary_load → source_sep (optional) → pyannote_vad → whisperx_asr → alignment → translate
+**Pipeline:** demux → glossary_load → source_sep (optional) → pyannote_vad → whisperx_asr → alignment → translate **(stops at stage 10)**
 
 **TMDB:** ❌ **Disabled** (not needed for non-movie content)
 

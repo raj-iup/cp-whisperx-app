@@ -1,13 +1,19 @@
 # CP-WhisperX Developer Standards & Best Practices
 
-**Document Version:** 6.6  
-**Date:** December 5, 2025  
-**Last Updated:** December 5, 2025 (Architectural Decision AD-009)
+**Document Version:** 6.7  
+**Date:** December 6, 2025  
+**Last Updated:** December 6, 2025 (M-001 Alignment Audit)
 **Status:** ACTIVE - All development must follow these standards  
 **Compliance Target:** 80% minimum  
 **Current Status:** 🎊 **100% COMPLIANCE ACHIEVED** 🎊
 
-**🎯 ARCHITECTURE REFERENCE:** See [ARCHITECTURE_ALIGNMENT_2025-12-04.md](../../ARCHITECTURE_ALIGNMENT_2025-12-04.md) for authoritative architecture decisions (9 total: AD-001 through AD-009).
+**🎯 ARCHITECTURE REFERENCE:** See [ARCHITECTURE.md](../../ARCHITECTURE.md) for authoritative architecture decisions (10 total: AD-001 through AD-010).
+
+**Major Updates in v6.7 (December 6, 2025):**
+- 🏛️ **AD-010 ADDED**: Workflow-Specific Output Requirements
+- 📝 **§ 20.6**: Documented workflow output patterns (transcribe, translate, subtitle)
+- 📋 **M-001 Audit**: Monthly alignment audit completed (95% → 100% coverage)
+- ✅ **10 ADs**: All architectural decisions now fully documented
 
 **Major Updates in v6.6 (December 5, 2025):**
 - 🏛️ **AD-009 ACTIVE**: Prioritize Quality Over Backward Compatibility
@@ -6106,6 +6112,194 @@ grep ALIGNMENT_BACKEND config/.env.pipeline
 - AD-008 in ARCHITECTURE_ALIGNMENT_2025-12-04.md
 - whisperx_module/alignment.py (implementation)
 - HYBRID_ARCHITECTURE_IMPLEMENTATION_COMPLETE.md (test results)
+
+---
+
+### § 20.6 AD-010: Workflow-Specific Output Requirements
+
+**Decision:** Each workflow generates only the outputs relevant to its purpose
+
+**Problem:** Generating unnecessary outputs wastes time and confuses users
+
+**Workflow Output Requirements:**
+
+```
+┌─────────────────────────────────────┐
+│  TRANSCRIBE WORKFLOW                │
+│  Input:  Media file                 │
+│  Output: transcript.txt ONLY        │
+│  Skip:   Subtitle generation        │
+│  Skip:   Video muxing                │
+└─────────────────────────────────────┘
+
+┌─────────────────────────────────────┐
+│  TRANSLATE WORKFLOW                 │
+│  Input:  Media file                 │
+│  Output: transcript_{lang}.txt ONLY │
+│  Skip:   Subtitle generation        │
+│  Skip:   Video muxing                │
+└─────────────────────────────────────┘
+
+┌─────────────────────────────────────┐
+│  SUBTITLE WORKFLOW                  │
+│  Input:  Media file                 │
+│  Output: Video + 8 subtitle tracks  │
+│  Include: All subtitle formats       │
+│  Include: Soft-embedded tracks       │
+└─────────────────────────────────────┘
+```
+
+**Rationale:**
+1. **User Expectations:** Users specify workflow based on desired output
+2. **Performance:** Skip unnecessary processing (15-20% faster)
+3. **Clarity:** Output directory contains only relevant files
+4. **Resource Usage:** Don't generate unused subtitle tracks
+
+**Implementation Pattern:**
+
+```python
+# In run-pipeline.py
+
+def run_transcribe_workflow(self) -> int:
+    """Transcribe workflow: Audio → Transcript only"""
+    stages = [
+        "01_demux",
+        "02_tmdb",           # Skip (not needed)
+        "03_glossary_load",
+        "04_source_separation",
+        "05_pyannote_vad",
+        "06_whisperx_asr",
+        "07_alignment",
+        # Stop here - no subtitle generation
+    ]
+    
+    # Export transcript to alignment directory
+    self._stage_export_transcript()
+    return 0
+
+def run_translate_workflow(self) -> int:
+    """Translate workflow: Audio → Translated transcript only"""
+    stages = [
+        "01_demux",
+        "02_tmdb",           # Skip (not needed)
+        "03_glossary_load",
+        "04_source_separation",
+        "05_pyannote_vad",
+        "06_whisperx_asr",
+        "07_alignment",
+        "10_translation",    # Translate to target language
+        # Stop here - no subtitle generation
+    ]
+    
+    # Export translated transcript
+    self._stage_export_translated_transcript()
+    return 0
+
+def run_subtitle_workflow(self) -> int:
+    """Subtitle workflow: Audio → Video with embedded subtitles"""
+    stages = [
+        "01_demux",
+        "02_tmdb",           # Required (character names)
+        "03_glossary_load",
+        "04_source_separation",
+        "05_pyannote_vad",
+        "06_whisperx_asr",
+        "07_alignment",
+        "08_lyrics_detection",
+        "09_hallucination_removal",
+        "10_translation",
+        "11_subtitle_generation",  # Generate subtitle files
+        "12_mux",                   # Embed subtitles
+    ]
+    return self._run_stages(stages)
+```
+
+**Output Locations:**
+
+| Workflow | Output | Location |
+|----------|--------|----------|
+| Transcribe | `transcript.txt` | `07_alignment/transcript.txt` |
+| Translate | `transcript_{lang}.txt` | `10_translation/transcript_{lang}.txt` |
+| Subtitle | `*_subtitled.mp4` | `12_mux/{filename}_subtitled.mp4` |
+| Subtitle | `*.srt`, `*.vtt` | `11_subtitle_generation/{lang}.srt` |
+
+**Configuration:**
+
+```python
+# Check workflow in stage
+workflow = load_config().get("WORKFLOW", "transcribe")
+
+if workflow == "subtitle":
+    # Enable TMDB enrichment
+    tmdb_enabled = True
+else:
+    # Skip TMDB for transcribe/translate
+    tmdb_enabled = False
+```
+
+**Benefits:**
+1. ✅ **Faster:** 15-20% time savings (no subtitle generation)
+2. ✅ **Cleaner:** Output directory only has relevant files
+3. ✅ **User-Friendly:** Users get exactly what they asked for
+4. ✅ **Resource-Efficient:** Don't translate to 8 languages if not needed
+
+**Do:**
+- ✅ Skip subtitle generation for transcribe workflow
+- ✅ Skip subtitle generation for translate workflow
+- ✅ Export transcript to stage directory (not job root)
+- ✅ Generate all 8 language tracks for subtitle workflow
+- ✅ Use workflow-specific stage routing
+
+**Don't:**
+- ❌ Generate subtitles for all workflows
+- ❌ Copy outputs to legacy directories (logs/, transcripts/, media/)
+- ❌ Mux video for transcribe/translate workflows
+- ❌ Run TMDB for non-subtitle workflows
+
+**Troubleshooting:**
+
+```bash
+# Verify workflow setting
+grep WORKFLOW out/*/job-*/job.json
+# Should match user's --workflow flag
+
+# Check which stages ran
+ls out/*/job-*/
+# Transcribe: Should have 01-07 only
+# Translate: Should have 01-07, 10 only
+# Subtitle: Should have 01-12
+
+# Verify no unwanted outputs
+find out/*/job-*/ -name "*.srt" -o -name "*_subtitled.mp4"
+# Transcribe/Translate: Should return nothing
+# Subtitle: Should return files
+```
+
+**Testing:**
+
+```bash
+# Test transcribe (should NOT generate subtitles)
+./prepare-job.sh --media in/file.mp4 --workflow transcribe
+./run-pipeline.sh job-*
+ls out/*/job-*/11_subtitle_generation/  # Should not exist
+
+# Test translate (should NOT generate subtitles)
+./prepare-job.sh --media in/file.mp4 --workflow translate -s hi -t en
+./run-pipeline.sh job-*
+ls out/*/job-*/11_subtitle_generation/  # Should not exist
+
+# Test subtitle (should generate subtitles)
+./prepare-job.sh --media in/file.mp4 --workflow subtitle -s hi
+./run-pipeline.sh job-*
+ls out/*/job-*/11_subtitle_generation/*.srt  # Should list 8 files
+```
+
+**Reference:**
+- AD-010 in ARCHITECTURE.md
+- AD-010_IMPLEMENTATION_COMPLETE.md (implementation report)
+- TEST_1_FINAL_VALIDATION.md (transcribe workflow validation)
+- TEST_2_FINAL_VALIDATION.md (translate workflow validation)
+- TEST_3_SUBTITLE_WORKFLOW_SUCCESS.md (subtitle workflow validation)
 
 ---
 

@@ -35,12 +35,22 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+# Suppress whisperx warnings that interfere with JSON output
+import warnings
+warnings.filterwarnings('ignore')
+logging.getLogger('whisperx').setLevel(logging.ERROR)
+
 
 def load_segments(segments_file: Path) -> List[Dict[str, Any]]:
     """Load segments from JSON file"""
     with open(segments_file) as f:
         data = json.load(f)
-        return data["segments"]
+        if isinstance(data, list):
+            return data
+        elif isinstance(data, dict) and "segments" in data:
+            return data["segments"]
+        else:
+            raise ValueError(f"Unexpected segments file format: {type(data)}")
 
 
 def align_with_whisperx(
@@ -111,8 +121,14 @@ def main() -> int:
     parser.add_argument("--segments", required=True, help="Path to segments JSON file")
     parser.add_argument("--language", required=True, help="Language code (en, hi, etc.)")
     parser.add_argument("--device", default="mps", help="Device (mps, cuda, cpu)")
+    parser.add_argument("--output", help="Output file path (optional, defaults to stdout)")
+    parser.add_argument("--debug", action="store_true", help="Enable debug logging")
     
     args = parser.parse_args()
+    
+    # Adjust log level if debug
+    if args.debug:
+        logging.getLogger().setLevel(logging.DEBUG)
     
     try:
         # Load segments
@@ -126,9 +142,16 @@ def main() -> int:
             args.device
         )
         
-        # Output result as JSON to stdout
-        sys.stdout.write(json.dumps(result))
-        sys.stdout.flush()
+        # Output result - either to file or stdout
+        if args.output:
+            with open(args.output, 'w', encoding='utf-8') as f:
+                json.dump(result, f, indent=2, ensure_ascii=False)
+            logger.info(f"Alignment written to: {args.output}")
+        else:
+            # Output to stdout (may be mixed with logs)
+            sys.stdout.write(json.dumps(result))
+            sys.stdout.flush()
+        
         return 0
         
     except Exception as e:

@@ -331,7 +331,7 @@ def translate_whisperx_result(
     # Initialize translator
     translator = NLLBTranslator(
         config=config,
-        logger: logging.Logger=logger,
+        logger=logger,
         source_lang=source_lang,
         target_lang=target_lang
     )

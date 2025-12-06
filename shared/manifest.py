@@ -229,6 +229,22 @@ class StageManifest:
         else:
             self.set_error(message)
     
+    def add_warning(self, message: str) -> None:
+        """
+        Add warning message to manifest metadata.
+        
+        Args:
+            message: Warning message
+        """
+        if not hasattr(self, 'warnings'):
+            self.warnings = []
+        self.warnings.append({
+            "message": message,
+            "timestamp": datetime.now().isoformat()
+        })
+        if self.logger:
+            self.logger.warning(message)
+    
     def finalize(self, status: str = "success", **kwargs: Any) -> None:
         """
         Finalize stage and save manifest.
@@ -282,6 +298,9 @@ class StageManifest:
         
         if self.error:
             stage_data["error"] = self.error
+        
+        if hasattr(self, 'warnings') and self.warnings:
+            stage_data["warnings"] = self.warnings
         
         # Update manifest
         self.data["stages"][self.stage_name] = stage_data
