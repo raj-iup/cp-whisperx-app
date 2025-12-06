@@ -77,6 +77,8 @@ def normalize_segments_data(data: Dict[str, Any]) -> Any:
 def generate_srt_from_segments(segments: List[Dict], output_path: Path) -> bool:
     """Generate SRT subtitle file from segments"""
     try:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        
         with open(output_path, 'w', encoding='utf-8') as f:
             for i, segment in enumerate(segments, 1):
                 # Segment number
@@ -96,6 +98,7 @@ def generate_srt_from_segments(segments: List[Dict], output_path: Path) -> bool:
         
         return True
     except Exception as e:
+        logging.getLogger(__name__).error(f"Error generating SRT: {e}", exc_info=True)
         return False
 
 
@@ -129,14 +132,11 @@ class IndicTrans2Pipeline:
         log_level = "DEBUG" if self.debug else "INFO"
         
         # Setup logging - DUAL logging architecture:
-        # 1. Main pipeline log: High-level orchestration
+        # 1. Main pipeline log: High-level orchestration (job root per AD-001)
         # 2. Stage logs: Detailed logs in each stage subdirectory
-        log_dir = job_dir / "logs"
-        log_dir.mkdir(exist_ok=True)
-        
-        # Create main pipeline log file (99_pipeline_*.log for clarity)
+        # AD-001: Pipeline log goes to job root, not separate logs/ directory
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        log_file = log_dir / f"99_pipeline_{timestamp}.log"
+        log_file = job_dir / f"99_pipeline_{timestamp}.log"
         
         self.logger = PipelineLogger(
             module_name="pipeline",
@@ -425,8 +425,10 @@ class IndicTrans2Pipeline:
         2. ASR - Transcribe (if needed)
         3. Alignment - Word timestamps (if needed)
         4. Load Transcript - Load segments.json
-        5. IndicTrans2 Translation - Translate text
-        6. Subtitle Generation - Create SRT in target language
+        5. Translation - Translate text (IndicTrans2 or NLLB)
+        6. Export Translated Transcript - Create plain text file (target language)
+        
+        Output: transcript_{target_lang}.txt (plain text, no subtitles)
         """
         self.logger.info("=" * 80)
         self.logger.info("TRANSLATE WORKFLOW")
@@ -503,7 +505,8 @@ class IndicTrans2Pipeline:
             self.logger.info(f"Using NLLB for non-Indic language: {target_lang}")
             translate_stages.append(("nllb_translation", self._stage_nllb_translation))
         
-        translate_stages.append(("subtitle_generation", self._stage_subtitle_generation))
+        # Export translated transcript (text-only output for translate workflow)
+        translate_stages.append(("export_translated_transcript", self._stage_export_translated_transcript))
         
         return self._execute_stages(translate_stages)
     
@@ -916,7 +919,7 @@ class IndicTrans2Pipeline:
             return True
             
         except subprocess.CalledProcessError as e:
-            self.logger.error(f"TMDB enrichment failed: {e.stderr if e.stderr else str(e, exc_info=True)}")
+            self.logger.error(f"TMDB enrichment failed: {e.stderr if e.stderr else str(e)}", exc_info=True)
             self.logger.warning("Continuing without TMDB metadata")
             return True  # Non-blocking failure
     
@@ -1567,11 +1570,10 @@ logger.info(f"Transcription completed: {{len(segments)}} segments")
             cmd = [
                 str(python_exe),
                 str(alignment_script),
-                str(audio_file),
-                str(segments_file),
-                str(output_file),
-                "--model", mlx_model,
-                "--language", source_lang
+                "--audio", str(audio_file),
+                "--segments", str(segments_file),
+                "--language", source_lang,
+                "--output", str(output_file)
             ]
             
             if self.debug:
@@ -1585,8 +1587,9 @@ logger.info(f"Transcription completed: {{len(segments)}} segments")
                 cwd=str(PROJECT_ROOT)
             )
             
-            if self.debug:
-                self.logger.debug(f"Alignment output: {result.stdout}")
+            # Output file is written by script, just check stderr for issues
+            if self.debug and result.stderr:
+                self.logger.debug(f"Alignment stderr: {result.stderr}")
             
             # Verify output
             if output_file.exists():
@@ -1718,6 +1721,70 @@ logger.info(f"Transcription completed: {{len(segments)}} segments")
             self.logger.error(f"Error exporting transcript: {e}", exc_info=True)
             return False
     
+    def _stage_export_translated_transcript(self) -> bool:
+        """
+        Stage: Export plain text translated transcript (translate workflow only)
+        
+        Reads translated segments from translation stage and exports plain text.
+        This is the final output for the translate workflow.
+        """
+        target_lang = self._get_target_language()
+        
+        # Input: Translated segments from translation stage
+        # Try both possible filenames (hybrid vs standard translation)
+        translation_dir = self._stage_path("translation")
+        segments_file = translation_dir / f"segments_translated_{target_lang}.json"
+        
+        # Fallback to segments_translated.json if language-specific file doesn't exist
+        if not segments_file.exists():
+            segments_file = translation_dir / "segments_translated.json"
+        
+        # Output: Plain text transcript in target language
+        output_txt = translation_dir / f"transcript_{target_lang}.txt"
+        
+        # Log input/output
+        self.logger.info(f"📥 Input: {segments_file.relative_to(self.job_dir)}")
+        self.logger.info(f"📤 Output: {output_txt.relative_to(self.job_dir)}")
+        self.logger.info(f"Exporting translated transcript ({target_lang})...")
+        
+        if not segments_file.exists():
+            self.logger.error(f"Translated segments not found: {segments_file}")
+            self.logger.error("Translation stage must run before export")
+            return False
+        
+        try:
+            with open(segments_file, encoding='utf-8') as f:
+                data = json.load(f)
+            
+            # Handle both dict format {'segments': [...]} and list format [...]
+            if isinstance(data, dict) and "segments" in data:
+                segments = data["segments"]
+            elif isinstance(data, list):
+                segments = data
+            else:
+                self.logger.error(f"Invalid segments format in {segments_file}")
+                return False
+            
+            # Extract translated text from all segments
+            lines = []
+            for segment in segments:
+                text = segment.get("text", "").strip()
+                if text:
+                    lines.append(text)
+            
+            # Write to text file with UTF-8 encoding (important for non-Latin scripts)
+            with open(output_txt, 'w', encoding='utf-8') as f:
+                f.write("\n".join(lines))
+            
+            self.logger.info(f"✓ Translated transcript exported: {output_txt.name}")
+            self.logger.info(f"Total lines: {len(lines)}")
+            self.logger.info(f"Language: {target_lang}")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error exporting translated transcript: {e}", exc_info=True)
+            return False
+    
     def _stage_load_transcript(self) -> bool:
         """Stage: Load transcript from ASR stage"""
         
@@ -1824,7 +1891,7 @@ logger.info(f"Transcription completed: {{len(segments)}} segments")
         # Output to translation stage directory
         output_dir = self._stage_path("translation")
         output_dir.mkdir(parents=True, exist_ok=True)
-        output_file = output_dir / f"segments_{target_lang}.json"
+        output_file = output_dir / f"segments_translated_{target_lang}.json"
         
         # Log input/output
         self.logger.info(f"📥 Input: {segments_file.relative_to(self.job_dir)}")
@@ -1925,15 +1992,53 @@ logger.info(f"Transcription completed: {{len(segments)}} segments")
                 
         except subprocess.CalledProcessError as e:
             self.logger.error(f"Hybrid translation error: {e.stderr}", exc_info=True)
-            self.logger.warning("Falling back to standard IndicTrans2")
-            return self._stage_indictrans2_translation()
+            self.logger.warning("Falling back to alternative translation method")
+            
+            # Check if IndicTrans2 can handle this language pair
+            source_lang = self.job_config["source_language"]
+            target_lang = self._get_target_language()
+            
+            # Import routing function from 10_translation.py
+            import importlib.util
+            spec = importlib.util.spec_from_file_location(
+                "translation_module",
+                PROJECT_ROOT / "scripts" / "10_translation.py"
+            )
+            trans_mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(trans_mod)
+            
+            if trans_mod.can_use_indictrans2(source_lang, target_lang):
+                self.logger.info(f"Using IndicTrans2 for {source_lang} → {target_lang}")
+                return self._stage_indictrans2_translation()
+            else:
+                self.logger.info(f"Using NLLB for {source_lang} → {target_lang}")
+                return self._stage_nllb_translation()
         except Exception as e:
             self.logger.error(f"Unexpected error in hybrid translation: {e}", exc_info=True)
             if self.debug:
                 import traceback
                 self.logger.debug(traceback.format_exc())
-            self.logger.warning("Falling back to standard IndicTrans2")
-            return self._stage_indictrans2_translation()
+            self.logger.warning("Falling back to alternative translation method")
+            
+            # Check if IndicTrans2 can handle this language pair
+            source_lang = self.job_config["source_language"]
+            target_lang = self._get_target_language()
+            
+            # Import routing function from 10_translation.py
+            import importlib.util
+            spec = importlib.util.spec_from_file_location(
+                "translation_module",
+                PROJECT_ROOT / "scripts" / "10_translation.py"
+            )
+            trans_mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(trans_mod)
+            
+            if trans_mod.can_use_indictrans2(source_lang, target_lang):
+                self.logger.info(f"Using IndicTrans2 for {source_lang} → {target_lang}")
+                return self._stage_indictrans2_translation()
+            else:
+                self.logger.info(f"Using NLLB for {source_lang} → {target_lang}")
+                return self._stage_nllb_translation()
     
     def _stage_indictrans2_translation(self) -> bool:
         """Stage 7: Translate using IndicTrans2"""
@@ -1955,7 +2060,7 @@ logger.info(f"Transcription completed: {{len(segments)}} segments")
         # Output to translation stage directory
         output_dir = self._stage_path("translation")
         output_dir.mkdir(parents=True, exist_ok=True)
-        output_file = output_dir / f"segments_{target_lang}.json"
+        output_file = output_dir / f"segments_translated_{target_lang}.json"
         
         # Log input/output
         self.logger.info(f"📥 Input: {segments_file.relative_to(self.job_dir)}")
@@ -1988,11 +2093,19 @@ from scripts.indictrans2_translator import translate_whisperx_result
 
 # Load segments
 with open('{segments_file}') as f:
-    segments = json.load(f)
+    segments_data = json.load(f)
+
+# Ensure proper format - wrap list in dict if needed
+if isinstance(segments_data, list):
+    segments = {{'segments': segments_data}}
+else:
+    segments = segments_data
 
 # Translate with job-configured settings
 from shared.logger import PipelineLogger
-log_file = Path('{self.job_dir / "logs"}') / 'indictrans2_translation.log'
+# AD-001: Translation logs go to 10_translation/ stage directory
+translation_dir = Path('{self.job_dir}') / '10_translation'
+log_file = translation_dir / 'indictrans2_translation.log'
 logger = PipelineLogger(module_name='indictrans2', log_file=log_file, log_level='{"DEBUG" if self.debug else "INFO"}')
 
 # Set device for IndicTrans2 (from job config)
@@ -2078,7 +2191,7 @@ logger.info(f"Translated {{len(translated['segments'])}} segments")
         target_lang = self._get_target_language()
         
         # Read from translation stage
-        segments_file = self._stage_path("translation") / f"segments_{target_lang}.json"
+        segments_file = self._stage_path("translation") / f"segments_translated_{target_lang}.json"
         
         if not segments_file.exists():
             # Fallback to alignment stage (no translation)
@@ -2112,20 +2225,8 @@ logger.info(f"Translated {{len(translated['segments'])}} segments")
         
         # Generate SRT file
         if generate_srt_from_segments(segments, output_srt):
-            # Copy to subtitles/ for compatibility
-            subtitles_dir = self.job_dir / "subtitles"
-            subtitles_dir.mkdir(parents=True, exist_ok=True)
-            final_output = subtitles_dir / output_srt.name
-            
-            # Only copy if source and destination are different
-            if output_srt != final_output:
-                import shutil
-                shutil.copy2(output_srt, final_output)
-                self.logger.info(f"✓ Subtitles generated: {output_srt.relative_to(self.job_dir)}")
-                self.logger.info(f"✓ Copied to: subtitles/{output_srt.name}")
-            else:
-                self.logger.info(f"✓ Subtitles generated: {output_srt.relative_to(self.job_dir)}")
-            
+            # AD-001: Keep subtitle in stage directory only (no copy to subtitles/)
+            self.logger.info(f"✓ Subtitles generated: {output_srt.relative_to(self.job_dir)}")
             return True
         else:
             self.logger.error("Subtitle generation failed")
@@ -2167,20 +2268,8 @@ logger.info(f"Translated {{len(translated['segments'])}} segments")
         
         # Generate SRT file
         if generate_srt_from_segments(segments, output_srt):
-            # Copy to subtitles/ for compatibility
-            subtitles_dir = self.job_dir / "subtitles"
-            subtitles_dir.mkdir(parents=True, exist_ok=True)
-            final_output = subtitles_dir / output_srt.name
-            
-            # Only copy if source and destination are different
-            if output_srt != final_output:
-                import shutil
-                shutil.copy2(output_srt, final_output)
-                self.logger.info(f"✓ Source subtitles generated: {output_srt.relative_to(self.job_dir)}")
-                self.logger.info(f"✓ Copied to: subtitles/{output_srt.name}")
-            else:
-                self.logger.info(f"✓ Source subtitles generated: {output_srt.relative_to(self.job_dir)}")
-            
+            # AD-001: Keep subtitle in stage directory only (no copy to subtitles/)
+            self.logger.info(f"✓ Source subtitles generated: {output_srt.relative_to(self.job_dir)}")
             return True
         else:
             self.logger.error("Source subtitle generation failed")
@@ -2193,9 +2282,11 @@ logger.info(f"Translated {{len(translated['segments'])}} segments")
         Wrapper around _stage_hybrid_translation for multi-language subtitle workflow.
         Temporarily updates job_config with current target language.
         """
+        # Save original target language(s)
+        original_target = self.job_config.get("target_language")
+        original_target_languages = self.job_config.get("target_languages", []).copy()
+        
         # Temporarily set target language for this translation
-        original_target = self._get_target_language()
-        # Set both formats for compatibility
         self.job_config["target_language"] = target_lang
         if "target_languages" in self.job_config:
             self.job_config["target_languages"] = [target_lang]
@@ -2219,11 +2310,11 @@ logger.info(f"Translated {{len(translated['segments'])}} segments")
             return result
             
         finally:
-            # Restore original target language
+            # Restore original target language(s)
             if original_target:
                 self.job_config["target_language"] = original_target
-                if "target_languages" in self.job_config:
-                    self.job_config["target_languages"] = [original_target]
+            if original_target_languages:
+                self.job_config["target_languages"] = original_target_languages
     
     def _stage_indictrans2_translation_multi(self, target_lang: str) -> bool:
         """Translate to specific target language (for multi-language support)"""
@@ -2256,11 +2347,19 @@ from scripts.indictrans2_translator import translate_whisperx_result
 
 # Load segments
 with open('{segments_file}') as f:
-    segments = json.load(f)
+    segments_data = json.load(f)
+
+# Ensure proper format - wrap list in dict if needed
+if isinstance(segments_data, list):
+    segments = {{'segments': segments_data}}
+else:
+    segments = segments_data
 
 # Translate with job-configured settings
 from shared.logger import PipelineLogger
-log_file = Path('{self.job_dir / "logs"}') / 'indictrans2_translation_{target_lang}.log'
+# AD-001: Translation logs go to 10_translation/ stage directory
+translation_dir = Path('{self.job_dir}') / '10_translation'
+log_file = translation_dir / 'indictrans2_translation_{target_lang}.log'
 logger = PipelineLogger(module_name='indictrans2_{target_lang}', log_file=log_file, log_level='{"DEBUG" if self.debug else "INFO"}')
 
 # Set device for IndicTrans2 (from job config)
@@ -2341,11 +2440,19 @@ from scripts.nllb_translator import translate_whisperx_result, NLLBConfig
 
 # Load segments
 with open('{segments_file}') as f:
-    segments = json.load(f)
+    segments_data = json.load(f)
+
+# Ensure proper format - wrap list in dict if needed
+if isinstance(segments_data, list):
+    segments = {{'segments': segments_data}}
+else:
+    segments = segments_data
 
 # Setup logging
 from shared.logger import PipelineLogger
-log_file = Path('{self.job_dir / "logs"}') / 'nllb_translation.log'
+# AD-001: Translation logs go to 10_translation/ stage directory
+translation_dir = Path('{self.job_dir}') / '10_translation'
+log_file = translation_dir / 'nllb_translation.log'
 logger = PipelineLogger(module_name='nllb', log_file=log_file, log_level='{"DEBUG" if self.debug else "INFO"}')
 
 # Configure NLLB
@@ -2355,7 +2462,7 @@ config = NLLBConfig(
 )
 
 # Translate
-translated = translate_whisperx_result(segments, '{source_lang}', '{target_lang}', logger: logging.Logger, config)
+translated = translate_whisperx_result(segments, '{source_lang}', '{target_lang}', logger, config)
 
 # Save
 with open('{output_file}', 'w') as f:
@@ -2433,7 +2540,9 @@ with open('{segments_file}') as f:
 
 # Setup logging
 from shared.logger import PipelineLogger
-log_file = Path('{self.job_dir / "logs"}') / 'nllb_{target_lang}_translation.log'
+# AD-001: Translation logs go to 10_translation/ stage directory
+translation_dir = Path('{self.job_dir}') / '10_translation'
+log_file = translation_dir / 'nllb_{target_lang}_translation.log'
 logger = PipelineLogger(module_name='nllb_{target_lang}', log_file=log_file, log_level='{"DEBUG" if self.debug else "INFO"}')
 
 # Configure NLLB
@@ -2485,9 +2594,10 @@ logger.info(f"Translated {{len(translated['segments'])}} segments to {target_lan
         
         segments_file = self._stage_path("translation") / f"segments_translated_{target_lang}.json"
         
-        # Generate filename
+        # Generate filename (AD-001: output to 11_subtitle_generation/ not subtitles/)
         title = self.job_config.get("title", "output")
-        output_srt = self.job_dir / "subtitles" / f"{title}.{target_lang}.srt"
+        output_dir = self._stage_path("subtitle_generation")
+        output_srt = output_dir / f"{title}.{target_lang}.srt"
         
         # Load translated segments
         try:
@@ -2503,7 +2613,7 @@ logger.info(f"Translated {{len(translated['segments'])}} segments to {target_lan
             self.logger.info(f"{target_lang.upper()} subtitles generated: {output_srt}")
             return True
         else:
-            self.logger.error(f"{target_lang} subtitle generation failed", exc_info=True)
+            self.logger.error(f"{target_lang} subtitle generation failed")
             return False
     
     def _stage_subtitle_generation_target(self) -> bool:
@@ -2513,9 +2623,10 @@ logger.info(f"Translated {{len(translated['segments'])}} segments to {target_lan
         segments_file = self._stage_path("translation") / "segments_translated.json"
         target_lang = self._get_target_language()
         
-        # Generate filename
+        # Generate filename (AD-001: output to 11_subtitle_generation/ not subtitles/)
         title = self.job_config.get("title", "output")
-        output_srt = self.job_dir / "subtitles" / f"{title}.{target_lang}.srt"
+        output_dir = self._stage_path("subtitle_generation")
+        output_srt = output_dir / f"{title}.{target_lang}.srt"
         
         # Load translated segments
         try:
@@ -2541,17 +2652,18 @@ logger.info(f"Translated {{len(translated['segments'])}} segments to {target_lan
         source_lang = self.job_config["source_language"]
         title = self.job_config.get("title", "output")
         
-        # Source subtitle file
-        source_srt = self.job_dir / "subtitles" / f"{title}.{source_lang}.srt"
+        # AD-001: Read from 11_subtitle_generation/ not subtitles/
+        subtitle_dir = self._stage_path("subtitle_generation")
+        source_srt = subtitle_dir / f"{title}.{source_lang}.srt"
         
         if not source_srt.exists():
             self.logger.warning(f"Source subtitle not found: {source_srt}")
             self.logger.warning("Skipping Hinglish detection")
             return True  # Not a failure, just skip
         
-        # Output files
-        tagged_srt = self.job_dir / "subtitles" / f"{title}.{source_lang}.tagged.srt"
-        analysis_json = self.job_dir / "subtitles" / f"{title}.{source_lang}.analysis.json"
+        # Output files (same directory as input)
+        tagged_srt = subtitle_dir / f"{title}.{source_lang}.tagged.srt"
+        analysis_json = subtitle_dir / f"{title}.{source_lang}.analysis.json"
         
         self.logger.info(f"Analyzing: {source_srt}")
         
@@ -2610,38 +2722,35 @@ logger.info(f"Translated {{len(translated['segments'])}} segments to {target_lan
         end_time = media_config.get("end_time", "")
         
         # Collect all subtitle files (target languages + source)
-        # Try from 08_subtitle_generation first, fallback to subtitles/
+        # AD-001: Read from 11_subtitle_generation/ only (no fallback to subtitles/)
         subtitle_files = []
         subtitle_langs = []
         
         subtitle_dir = self._stage_path("subtitle_generation")
-        fallback_dir = self.job_dir / "subtitles"
         
         # Add target language subtitles
         for target_lang in target_languages:
             target_srt = subtitle_dir / f"{title}.{target_lang}.srt"
-            if not target_srt.exists():
-                target_srt = fallback_dir / f"{title}.{target_lang}.srt"
             
             if not target_srt.exists():
                 self.logger.error(f"Target subtitle not found: {target_lang}")
+                self.logger.error(f"Expected location: {target_srt.relative_to(self.job_dir)}")
                 return False
             subtitle_files.append(target_srt)
             subtitle_langs.append(target_lang)
         
         # Add source language subtitle
         source_srt = subtitle_dir / f"{title}.{source_lang}.srt"
-        if not source_srt.exists():
-            source_srt = fallback_dir / f"{title}.{source_lang}.srt"
         
         if not source_srt.exists():
             self.logger.error(f"Source subtitle not found: {source_lang}")
+            self.logger.error(f"Expected location: {source_srt.relative_to(self.job_dir)}")
             return False
         subtitle_files.append(source_srt)
         subtitle_langs.append(source_lang)
         
         # Output directory
-        output_dir = self.job_dir / "10_mux"
+        output_dir = self._stage_path("mux")
         output_dir.mkdir(parents=True, exist_ok=True)
         
         # Log input/output
@@ -2671,15 +2780,10 @@ logger.info(f"Translated {{len(translated['segments'])}} segments to {target_lan
             subtitle_codec = 'srt'
             self.logger.info(f"Unknown format {source_ext}, using MKV for subtitle support")
         
-        # Output video file in 09_mux directory
+        # Output video file in 12_mux directory
         output_video = output_dir / f"{title}_subtitled{output_ext}"
         
-        # Also create copy in media subdirectory for user convenience
-        media_name = input_media.stem
-        media_output_subdir = self.job_dir / "media" / media_name
-        media_output_subdir.mkdir(parents=True, exist_ok=True)
-        media_output_video = media_output_subdir / f"{title}_subtitled{output_ext}"
-        
+        # AD-001: Final video stays in 12_mux/ only (no copy to media/)
         self.logger.info(f"📤 Output: {output_video.relative_to(self.job_dir)}")
         self.logger.info(f"Output format: {output_ext} (source: {source_ext})")
         
@@ -2739,6 +2843,13 @@ logger.info(f"Translated {{len(translated['segments'])}} segments to {target_lan
             "sd": "snd",  # Sindhi
             "si": "sin",  # Sinhala
             "sa": "san",  # Sanskrit
+            "es": "spa",  # Spanish
+            "ru": "rus",  # Russian
+            "zh": "chi",  # Chinese
+            "ar": "ara",  # Arabic
+            "fr": "fra",  # French
+            "de": "deu",  # German
+            "pt": "por",  # Portuguese
         }
         
         # Map to full language names for display
@@ -2760,6 +2871,13 @@ logger.info(f"Translated {{len(translated['segments'])}} segments to {target_lan
             "snd": "Sindhi", "sd": "Sindhi",
             "sin": "Sinhala", "si": "Sinhala",
             "san": "Sanskrit", "sa": "Sanskrit",
+            "spa": "Spanish", "es": "Spanish",
+            "rus": "Russian", "ru": "Russian",
+            "chi": "Chinese", "zh": "Chinese",
+            "ara": "Arabic", "ar": "Arabic",
+            "fra": "French", "fr": "French",
+            "deu": "German", "de": "German",
+            "por": "Portuguese", "pt": "Portuguese",
         }
         
         for i, lang in enumerate(subtitle_langs):
@@ -2805,11 +2923,7 @@ logger.info(f"Translated {{len(translated['segments'])}} segments to {target_lan
                 self.logger.info(f"✓ Video created: {output_video.relative_to(self.job_dir)} ({size_mb:.1f} MB)")
                 self.logger.info(f"✓ Video contains {len(subtitle_files)} subtitle tracks: {', '.join([l.upper() for l in subtitle_langs])}")
                 
-                # Also copy to media subdirectory for user convenience
-                import shutil
-                shutil.copy2(output_video, media_output_video)
-                self.logger.info(f"✓ Copy saved to: {media_output_video.relative_to(self.job_dir)}")
-                
+                # AD-001: Final video stays in 12_mux/ only (no copy to media/)
                 return True
             else:
                 self.logger.error("Video muxing failed - no output file")
