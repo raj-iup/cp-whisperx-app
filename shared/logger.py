@@ -220,7 +220,7 @@ class PipelineLogger:
         # Try to load log level from config/environment if not explicitly set
         if log_level == "INFO":
             try:
-                from config import load_config
+                from shared.config import load_config
                 config = load_config()
                 if hasattr(config, 'log_level') and config.log_level:
                     log_level = config.log_level.upper()
@@ -241,7 +241,7 @@ class PipelineLogger:
         else:
             # Load log directory from config if available
             try:
-                from config import load_config
+                from shared.config import load_config
                 config = load_config()
                 log_dir = config.log_root
             except:
