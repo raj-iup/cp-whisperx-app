@@ -3194,33 +3194,134 @@ See [PRE_COMMIT_HOOK_GUIDE.md](../PRE_COMMIT_HOOK_GUIDE.md) for complete documen
 
 ## 9. TESTING STANDARDS
 
-### 9.1 Test Organization
+### 9.1 Test Organization (AD-013) 🆕
 
+**Architectural Decision:** All test files must be organized in tests/ directory by test type.
+
+**Directory Structure:**
 ```
 tests/
-├── unit/                  # Unit tests (fast, isolated)
-│   ├── test_config.py
-│   ├── test_stage_io.py
-│   ├── test_glossary.py
-│   └── test_logger.py
-├── integration/           # Integration tests (slower, multi-component)
-│   ├── test_asr_pipeline.py
-│   ├── test_translation.py
-│   └── test_end_to_end.py
-├── performance/           # Performance regression tests
-│   └── test_benchmarks.py
-├── fixtures/              # Test data
+├── README.md              # Testing guidelines (per AD-013)
+├── conftest.py            # Pytest configuration
+├── __init__.py            # Package marker
+├── run-tests.sh           # Test runner script
+├── unit/                  # Unit tests (fast, isolated, < 1s each)
+│   ├── test_config_loader.py
+│   ├── test_stage_utils.py
+│   ├── test_glossary_manager.py
+│   ├── stages/           # Stage-specific unit tests
+│   │   └── test_core_stages.py
+│   └── shared/           # Shared module tests
+│       └── test_stage_dependencies.py
+├── integration/           # Integration tests (module interaction)
+│   ├── test_asr_module_integration.py
+│   ├── test_alignment_language_detection.py
+│   └── test_stage_data_flow.py
+├── functional/            # Functional/E2E tests (complete workflows) [NEW]
+│   ├── test_transcribe_workflow.py
+│   ├── test_translate_workflow.py
+│   ├── test_subtitle_workflow.py
+│   └── test_file_naming_standard.py
+├── manual/                # Manual test scripts (developer tools) [NEW]
+│   ├── glossary/
+│   │   ├── test-glossary-quickstart.sh
+│   │   └── test-glossary-quickstart.ps1
+│   ├── source-separation/
+│   │   └── test-source-separation.sh
+│   ├── venv/
+│   │   └── test-venv-dependencies.sh
+│   └── health-check.sh
+├── fixtures/              # Test data and expected outputs
 │   ├── audio/
 │   │   ├── test_1min.wav
 │   │   └── test_5min.mp3
+│   ├── video/
+│   │   └── sample.mp4
 │   ├── config/
 │   │   └── test_config.json
 │   └── expected/
 │       └── expected_output.json
-└── conftest.py           # Pytest configuration
+├── helpers/               # Test utilities (renamed from utils/)
+│   └── test_helpers.py
+└── reports/               # Test reports (renamed from test_output/)
+    └── .gitkeep
 ```
 
-### 7.2 Test Coverage Requirements
+**Test Categories:**
+
+1. **Unit Tests (`unit/`):**
+   - Test single functions/classes in isolation
+   - Mock external dependencies
+   - Fast execution (< 1 second each)
+   - Example: Testing config_loader functions
+
+2. **Integration Tests (`integration/`):**
+   - Test module interaction
+   - Test data flow between components
+   - May use real dependencies
+   - Example: Testing ASR module with alignment
+
+3. **Functional Tests (`functional/`):** 🆕
+   - Test complete workflows end-to-end
+   - Test with real or representative data
+   - Longer execution time (minutes)
+   - Example: Complete transcribe workflow
+
+4. **Manual Tests (`manual/`):** 🆕
+   - Shell scripts for developer testing
+   - Convenience scripts for common tasks
+   - Not run by CI (optional execution)
+   - Example: Glossary quickstart script
+
+**Naming Conventions:**
+- Python tests: `test_<module>_<feature>.py`
+- Shell scripts: `test-<feature>-<detail>.sh`
+- PowerShell scripts: `test-<feature>-<detail>.ps1`
+
+**Running Tests:**
+```bash
+# All tests
+pytest tests/
+
+# By category
+pytest tests/unit/          # Fast unit tests
+pytest tests/integration/   # Integration tests
+pytest tests/functional/    # Slower E2E tests
+
+# Specific test file
+pytest tests/unit/test_config_loader.py
+
+# Manual scripts (not pytest)
+./tests/manual/glossary/test-glossary-quickstart.sh
+```
+
+**Rules:**
+1. ❌ **NEVER** create test files in project root
+2. ✅ **ALWAYS** place tests in appropriate category
+3. ✅ **ALWAYS** follow naming conventions
+4. ✅ **ALWAYS** add docstrings to test functions
+
+**Common Mistakes:**
+```bash
+# ❌ WRONG - Test script in project root
+./test-my-feature.sh
+
+# ❌ WRONG - Test file in tests/ root (unorganized)
+tests/test_my_feature.py
+
+# ✅ CORRECT - Categorized by type
+tests/unit/test_my_feature.py           # Unit test
+tests/integration/test_my_integration.py # Integration
+tests/functional/test_my_workflow.py     # Functional
+tests/manual/my-feature/test-script.sh   # Manual script
+```
+
+**See Also:**
+- AD-013 in ARCHITECTURE.md (Organized Test Structure)
+- IMPLEMENTATION_TRACKER.md Task #14
+- tests/README.md (detailed guidelines)
+
+### 9.2 Test Coverage Requirements
 
 **Minimum coverage targets:**
 - Unit tests: **80% coverage**

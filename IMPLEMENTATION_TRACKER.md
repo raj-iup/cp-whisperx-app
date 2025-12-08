@@ -1170,6 +1170,295 @@ with open(log_file, 'w') as f:
 
 ---
 
+#### Task #14: Test Script Organization - Centralize to tests/ Directory ⏳
+**Status:** ⏳ Not Started  
+**Progress:** 0%  
+**Priority:** 🟡 MEDIUM (Code organization)  
+**Effort:** 2-3 hours  
+**Added:** 2025-12-08  
+**Issue:** Test scripts scattered across project root and tests/ directory
+
+**Problem:**
+Multiple test scripts and files are disorganized:
+
+**In Project Root (2 files):**
+- `test-glossary-quickstart.sh` (26K)
+- `test-glossary-quickstart.ps1` (7.1K)
+
+**In tests/ Root (23 files unorganized):**
+- Integration tests mixed with unit tests
+- Shell scripts alongside Python tests
+- No clear categorization
+- Difficult to find specific test types
+
+**Current tests/ Structure:**
+```
+tests/
+├── unit/                    # ✅ Organized (8 files)
+├── integration/             # ⚠️ Empty (0 files)
+├── performance/             # ⚠️ Empty (0 files)
+├── stages/                  # ⚠️ Unclear purpose
+├── utils/                   # ⚠️ Empty
+├── test_output/             # ⚠️ Unclear purpose
+└── (23 test files in root)  # ❌ Unorganized
+```
+
+**Root Cause:**
+- No standard for test file placement
+- Existing structure not consistently used
+- Test scripts created ad-hoc in convenient locations
+- No clear categorization guidelines
+
+**Solution:**
+Create **AD-013: Organized Test Structure**
+
+**Architectural Decision Requirements:**
+1. **All test files MUST go in `tests/` directory**
+2. **Organize by test type and scope:**
+   ```
+   tests/
+   ├── README.md                    # Testing guidelines
+   ├── conftest.py                  # Pytest configuration
+   ├── __init__.py                  # Test package marker
+   ├── unit/                        # Unit tests (existing, keep)
+   │   ├── test_*.py               # Unit test files
+   │   ├── stages/                 # Stage-specific tests
+   │   └── shared/                 # Shared module tests
+   ├── integration/                 # Integration tests
+   │   ├── test_workflow_*.py      # Workflow tests
+   │   ├── test_pipeline_*.py      # Pipeline tests
+   │   └── test_stage_*.py         # Stage integration
+   ├── functional/                  # Functional/E2E tests (NEW)
+   │   ├── test_transcribe.py      # Transcribe workflow
+   │   ├── test_translate.py       # Translate workflow
+   │   └── test_subtitle.py        # Subtitle workflow
+   ├── manual/                      # Manual test scripts (NEW)
+   │   ├── glossary/               # Glossary tests
+   │   │   ├── test-glossary-quickstart.sh
+   │   │   └── test-glossary-quickstart.ps1
+   │   ├── source-separation/
+   │   │   └── test-source-separation.sh
+   │   └── venv/
+   │       └── test-venv-dependencies.sh
+   ├── fixtures/                    # Test data/fixtures (NEW)
+   │   ├── audio/                  # Test audio files
+   │   ├── video/                  # Test video files
+   │   └── expected/               # Expected outputs
+   ├── helpers/                     # Test utilities (rename from utils/)
+   │   └── test_helpers.py         # Helper functions
+   └── reports/                     # Test reports (rename from test_output/)
+       └── .gitkeep
+   ```
+3. **Naming conventions:**
+   - Python tests: `test_<module>_<feature>.py`
+   - Shell scripts: `test-<feature>-<detail>.sh`
+   - Manual scripts: Organized by subdirectory
+
+4. **No test files in project root** (except pytest.ini, tox.ini)
+
+**Implementation Tasks:**
+
+1. **Create directory structure:**
+   ```bash
+   cd tests
+   mkdir -p {functional,manual/{glossary,source-separation,venv},fixtures/{audio,video,expected},helpers,reports}
+   mv utils helpers  # Rename for clarity
+   mv test_output reports  # Rename for clarity
+   ```
+
+2. **Categorize and move test files:**
+   ```bash
+   # From project root to tests/manual/
+   git mv test-glossary-quickstart.sh tests/manual/glossary/
+   git mv test-glossary-quickstart.ps1 tests/manual/glossary/
+   
+   # From tests/ root to appropriate categories
+   # Integration tests (module interaction)
+   git mv tests/test_asr_module_integration.py tests/integration/
+   git mv tests/test_alignment_language_detection.py tests/integration/
+   
+   # Functional tests (end-to-end workflows)
+   git mv tests/test_glossary_system.py tests/functional/
+   git mv tests/test_file_naming_standard.py tests/functional/
+   
+   # Manual test scripts
+   git mv tests/test-source-separation.sh tests/manual/source-separation/
+   git mv tests/test-venv-dependencies.sh tests/manual/venv/
+   git mv tests/health-check.sh tests/manual/
+   
+   # Keep in tests/ root: conftest.py, __init__.py, run-tests.sh
+   ```
+
+3. **Create categorization guide:**
+   ```bash
+   cat > tests/README.md << 'EOF'
+   # Tests Directory
+   
+   Organized test suite for CP-WhisperX-App.
+   
+   ## Structure
+   
+   - `unit/` - Unit tests (single module/function)
+   - `integration/` - Integration tests (module interaction)
+   - `functional/` - Functional/E2E tests (workflow tests)
+   - `manual/` - Manual test scripts (shell scripts)
+   - `fixtures/` - Test data and expected outputs
+   - `helpers/` - Test utilities and helper functions
+   - `reports/` - Test execution reports
+   
+   ## Test Categories
+   
+   ### Unit Tests (`unit/`)
+   - Test single functions/classes in isolation
+   - Mock external dependencies
+   - Fast execution (< 1 second each)
+   - Example: `test_config_loader.py`
+   
+   ### Integration Tests (`integration/`)
+   - Test module interaction
+   - Test stage data flow
+   - May use real dependencies
+   - Example: `test_asr_module_integration.py`
+   
+   ### Functional Tests (`functional/`)
+   - Test complete workflows end-to-end
+   - Test with real or representative data
+   - Longer execution time (minutes)
+   - Example: `test_transcribe_workflow.py`
+   
+   ### Manual Tests (`manual/`)
+   - Shell scripts for manual testing
+   - Developer convenience scripts
+   - Not run by CI (optional execution)
+   - Example: `glossary/test-glossary-quickstart.sh`
+   
+   ## Naming Conventions
+   
+   - Python: `test_<module>_<feature>.py`
+   - Shell: `test-<feature>-<detail>.sh`
+   - PowerShell: `test-<feature>-<detail>.ps1`
+   
+   ## Running Tests
+   
+   ```bash
+   # All tests
+   pytest tests/
+   
+   # Unit tests only
+   pytest tests/unit/
+   
+   # Integration tests
+   pytest tests/integration/
+   
+   # Functional tests (slower)
+   pytest tests/functional/
+   
+   # Specific test file
+   pytest tests/unit/test_config_loader.py
+   
+   # With coverage
+   pytest --cov=shared --cov=scripts tests/
+   ```
+   
+   ## See Also
+   
+   - AD-013 in ARCHITECTURE.md
+   - § 7.2 in DEVELOPER_STANDARDS.md (Test Organization)
+   EOF
+   ```
+
+4. **Update test discovery:**
+   ```python
+   # pytest.ini (already exists, verify)
+   [pytest]
+   testpaths = tests
+   python_files = test_*.py
+   python_classes = Test*
+   python_functions = test_*
+   ```
+
+**Files to Create:**
+- `tests/README.md` - Testing guidelines
+- `tests/functional/README.md` - Functional test guide
+- `tests/manual/README.md` - Manual script guide
+- `tests/fixtures/README.md` - Test data guide
+
+**Files to Update:**
+- `ARCHITECTURE.md` - Add AD-013
+- `DEVELOPER_STANDARDS.md` - Add § 7.2 (Test Organization)
+- `.github/copilot-instructions.md` - Add AD-013 reference
+- `tests/run-tests.sh` - Update paths if needed
+
+**Validation:**
+```bash
+# After implementation
+ls test*.sh test*.ps1 2>/dev/null  # Should show: No such file
+find tests -maxdepth 1 -type f -name "test_*.py" | wc -l  # Should show: 0-2 (only special files)
+find tests/unit -name "test_*.py" | wc -l  # Unit tests
+find tests/integration -name "test_*.py" | wc -l  # Integration tests
+find tests/functional -name "test_*.py" | wc -l  # Functional tests
+find tests/manual -name "test-*.sh" | wc -l  # Manual scripts
+```
+
+**Categorization Matrix:**
+
+| Current File | Category | New Location | Reason |
+|-------------|----------|--------------|--------|
+| `test-glossary-quickstart.sh` | Manual | `manual/glossary/` | Manual test script |
+| `test-glossary-quickstart.ps1` | Manual | `manual/glossary/` | Manual test script |
+| `test_asr_module_integration.py` | Integration | `integration/` | Module interaction |
+| `test_alignment_language_detection.py` | Integration | `integration/` | Module interaction |
+| `test_glossary_system.py` | Functional | `functional/` | End-to-end test |
+| `test_file_naming_standard.py` | Functional | `functional/` | Workflow test |
+| `test-source-separation.sh` | Manual | `manual/source-separation/` | Manual script |
+| `test-venv-dependencies.sh` | Manual | `manual/venv/` | Environment check |
+| `health-check.sh` | Manual | `manual/` | Health check script |
+| (Keep in tests/ root) | Config | `tests/` | conftest.py, __init__.py, run-tests.sh |
+
+**Documentation:**
+- Add to ARCHITECTURE.md (AD-013: Organized Test Structure)
+- Add to DEVELOPER_STANDARDS.md (§ 7.2: Test Organization)
+- Update copilot-instructions.md (AD-013 reference)
+
+**Benefits:**
+- ✅ Clean project root (no test scripts)
+- ✅ Clear test categorization
+- ✅ Easy to run specific test types
+- ✅ Better test discovery
+- ✅ Consistent organization
+
+**Example Test File Locations:**
+```python
+# Unit test
+tests/unit/test_config_loader.py
+
+# Integration test
+tests/integration/test_asr_module_integration.py
+
+# Functional test
+tests/functional/test_transcribe_workflow.py
+
+# Manual script
+tests/manual/glossary/test-glossary-quickstart.sh
+
+# Test fixture
+tests/fixtures/audio/sample_16khz.wav
+```
+
+**Migration Plan:**
+1. Create directory structure
+2. Create README files for each category
+3. Categorize all test files (use matrix above)
+4. Move files with git mv (preserve history)
+5. Update import paths if needed
+6. Run all tests to verify
+7. Update documentation
+
+**Status:** ⏳ Ready to implement  
+**Estimated Time:** 2-3 hours (audit + categorize + move + docs + verify)
+
+---
+
 ### Current Sprint (2025-12-04 to 2025-12-18)
 
 #### 1. Architecture Alignment ✅ COMPLETE
@@ -1652,6 +1941,12 @@ ls out/*/job-*/07_alignment/transcript.txt
 **Effort:** 1-2 hours  
 **Added:** 2025-12-08
 
+#### Task #14: Test Script Organization - Centralize to tests/ Directory
+**Status:** ⏳ Not Started (See Active Work section)  
+**Priority:** 🟡 MEDIUM  
+**Effort:** 2-3 hours  
+**Added:** 2025-12-08
+
 ---
 
 #### 0. Documentation Alignment (Architecture Audit Follow-up) ✅ COMPLETE 🆕
@@ -1982,12 +2277,23 @@ Target:  Both at 100%
 
 ---
 
-**Last Updated:** 2025-12-08 06:35 UTC  
+**Last Updated:** 2025-12-08 11:45 UTC  
 **Next Review:** 2025-12-11 or after E2E tests complete  
-**Status:** 🟢 ON TRACK (100% Phase 4 complete, AD-011 enhanced, AD-012 added)
+**Status:** 🟢 ON TRACK (100% Phase 4 complete, AD-011 enhanced, AD-012+013 added)
 
 **Major Changes This Update:**
-- 🆕 **AD-012 ADDED**: Centralized Log File Management (NEW architectural decision)
+- 🆕 **AD-013 ADDED**: Organized Test Structure (NEW architectural decision)
+  - Issue: 2 test scripts in project root + 23 unorganized in tests/
+  - Solution: Categorized test directory (unit/integration/functional/manual)
+  - Structure: Clear separation by test type and scope
+  - Benefits: Easy to run specific test types, clean project root
+  - Guidelines: Comprehensive testing documentation
+- 📋 **Task #14 ADDED**: Test Script Organization implementation
+  - Status: ⏳ Not Started
+  - Priority: 🟡 MEDIUM
+  - Effort: 2-3 hours
+  - Includes: Audit + categorize + move + docs + verify
+- 🆕 **AD-012 ADDED**: Centralized Log File Management (architectural decision)
   - Issue: 24 log files scattered in project root
   - Solution: Structured logs/ directory with hierarchy
   - Structure: pipeline/, testing/, debug/, model-usage/, errors/
@@ -2017,16 +2323,16 @@ Target:  Both at 100%
   - Pattern: Path.resolve() + pre-flight validation + str() conversion
   - Testing: Files with spaces, apostrophes, special chars all supported
   - Error handling: Clear messages for common issues (no audio, corruption, format)
-- 📋 **Documentation Updated**: 4 files synchronized (AD-011 + AD-012)
-  - ✅ ARCHITECTURE.md (added AD-011 +100 lines, AD-012 +60 lines)
-  - ✅ DEVELOPER_STANDARDS.md (added § 7.1.1, § 7.1.2, § 5.10, +200 lines)
-  - ✅ copilot-instructions.md (added AD-011, AD-012 to quick ref + checklist, +80 lines)
-  - ✅ IMPLEMENTATION_TRACKER.md (Tasks #11, #12, #13 tracked)
+- 📋 **Documentation Updated**: 4 files synchronized (AD-011 + AD-012 + AD-013)
+  - ✅ ARCHITECTURE.md (added AD-011 +100 lines, AD-012 +60, AD-013 +90 lines)
+  - ✅ DEVELOPER_STANDARDS.md (added § 7.1.1, § 7.1.2, § 5.10, § 9.1, +270 lines)
+  - ✅ copilot-instructions.md (added AD-011, AD-012, AD-013 to quick ref + checklist, +100 lines)
+  - ✅ IMPLEMENTATION_TRACKER.md (Tasks #11, #12, #13, #14 tracked)
 - 🎯 **Impact**: Files with special characters now work correctly
   - ✅ Tested: `Energy Demand in AI.mp4` (SUCCESS - 22.7 MB extracted)
   - ✅ Tested: Video-only file (CLEAR ERROR - actionable guidance)
   - ✅ Pattern established for Stages 04, 12 (Demucs, FFmpeg mux)
-- 📊 **Architectural Decisions**: 10 → 12 total (AD-011 in progress, AD-012 added)
+- 📊 **Architectural Decisions**: 10 → 13 total (AD-011 in progress, AD-012+013 added)
 - 💾 **Commits**: 3 total (AD-011)
   - a88b563: feat(demux) - Initial AD-011 implementation
   - 6f4133b: fix(demux) - Output path absolute

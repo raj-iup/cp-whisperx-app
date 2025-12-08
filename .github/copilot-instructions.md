@@ -76,12 +76,14 @@
 14. **If subprocess with files: Did I use str(path) for command args? (AD-011)** ⭐
 15. **If creating log files: Am I using logs/ directory? (AD-012)** 🆕 ⭐
 16. **If creating log files: Am I using get_log_path() helper? (AD-012)** 🆕 ⭐
-17. **If creating shell script: Do I need Windows (.ps1) equivalent?** (§ 1.2)
-18. **If creating stage script: Is it named `{NN}_{stage_name}.py`?** (File Naming)
-19. **If testing: Am I using standard test media samples?** (§ 1.4)
-20. **If workflow: Am I following context-aware patterns?** (§ 1.5)
-21. **Error handling: Am I using exc_info=True exactly once?** (§ 5)
-22. **ASR/Transcription: Am I using hybrid MLX architecture?** (§ 2.7)
+17. **If creating test files: Am I using tests/ directory? (AD-013)** 🆕 ⭐
+18. **If creating test files: Is it in the correct category? (unit/integration/functional/manual)** 🆕 ⭐
+19. **If creating shell script: Do I need Windows (.ps1) equivalent?** (§ 1.2)
+20. **If creating stage script: Is it named `{NN}_{stage_name}.py`?** (File Naming)
+21. **If testing: Am I using standard test media samples?** (§ 1.4)
+22. **If workflow: Am I following context-aware patterns?** (§ 1.5)
+23. **Error handling: Am I using exc_info=True exactly once?** (§ 5)
+24. **ASR/Transcription: Am I using hybrid MLX architecture?** (§ 2.7)
 
 **If NO to any → Check the relevant § section below**
 
@@ -92,7 +94,7 @@
 **Authoritative Source:** ARCHITECTURE.md  
 **Developer Guide:** DEVELOPER_STANDARDS.md § 20
 
-**All 12 Approved Architectural Decisions:** 🆕
+**All 13 Approved Architectural Decisions:** 🆕
 
 - **AD-001:** 12-stage architecture (optimal, no major refactoring) ✅
 - **AD-002:** ASR modularization (use `whisperx_module/`, not monolith) ✅
@@ -106,6 +108,7 @@
 - **AD-010:** Workflow-specific outputs (transcribe → txt, translate → txt, subtitle → srt/vtt) ✅
 - **AD-011:** Robust file path handling (pathlib + pre-flight validation for subprocess) 🔄
 - **AD-012:** Centralized log management (all logs in logs/ directory) 🆕 ⏳
+- **AD-013:** Organized test structure (all tests categorized in tests/ directory) 🆕 ⏳
 
 **Quick Patterns:**
 
@@ -193,6 +196,17 @@ with open(log_file, 'w') as f:
 
 # ❌ NEVER write logs to project root
 # with open("test.log", "w") as f:  # WRONG!
+
+# Per AD-013: Test file placement (NEW) 🆕
+# ❌ NEVER create test files in project root
+# test-my-feature.sh  # WRONG!
+# test_my_feature.py  # WRONG!
+
+# ✅ ALWAYS place in appropriate tests/ category
+tests/unit/test_my_feature.py           # Unit test
+tests/integration/test_my_integration.py # Integration test
+tests/functional/test_my_workflow.py     # Functional/E2E test
+tests/manual/feature/test-script.sh      # Manual script
 ```
 
 ---

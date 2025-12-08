@@ -35,9 +35,10 @@ This document is the **authoritative source** for all architectural decisions in
 10. ✅ **Workflow-specific outputs enforced** - Clear output requirements (AD-010)
 11. 🔄 **Robust file path handling** - pathlib + validation for all subprocess calls (AD-011) 🆕
 12. ⏳ **Centralized log file management** - All logs in logs/ directory (AD-012) 🆕
+13. ⏳ **Organized test structure** - All tests categorized in tests/ directory (AD-013) 🆕
 
-**Total Architectural Decisions:** 12 (AD-001 through AD-012) 🆕  
-**Implementation Status:** 10/12 (83%) - AD-011 in progress, AD-012 pending 🆕
+**Total Architectural Decisions:** 13 (AD-001 through AD-013) 🆕  
+**Implementation Status:** 10/13 (77%) - AD-011 in progress, AD-012+013 pending 🆕
 
 ---
 
@@ -719,6 +720,111 @@ with open(log_file, 'w') as f:
 **Effort:** 1-2 hours (structure + migration + helper + docs)  
 **Priority:** 🟡 MEDIUM  
 **Tracked:** IMPLEMENTATION_TRACKER.md Task #13
+
+---
+
+### AD-013: Organized Test Structure
+**Decision:** All test files must be organized in the tests/ directory by test type and scope  
+**Date:** 2025-12-08  
+**Rationale:**
+- 2 test scripts in project root (test-glossary-quickstart.sh/.ps1)
+- 23 test files unorganized in tests/ root
+- Existing structure (unit/, integration/, performance/) not consistently used
+- Difficult to find and run specific test types
+- No clear categorization guidelines
+
+**Implementation Requirements:**
+1. **All test files in `tests/` directory** - No test scripts in project root
+2. **Organized by test type:**
+   ```
+   tests/
+   ├── unit/              # Unit tests (single module/function)
+   ├── integration/       # Integration tests (module interaction)
+   ├── functional/        # Functional/E2E tests (workflow tests) [NEW]
+   ├── manual/            # Manual test scripts (shell scripts) [NEW]
+   │   ├── glossary/     # Glossary-specific tests
+   │   ├── source-separation/
+   │   └── venv/         # Environment checks
+   ├── fixtures/          # Test data and expected outputs [NEW]
+   │   ├── audio/
+   │   ├── video/
+   │   └── expected/
+   ├── helpers/           # Test utilities (renamed from utils/)
+   └── reports/           # Test reports (renamed from test_output/)
+   ```
+
+3. **Naming conventions:**
+   - Python: `test_<module>_<feature>.py`
+   - Shell: `test-<feature>-<detail>.sh`
+   - PowerShell: `test-<feature>-<detail>.ps1`
+
+4. **Test categorization:**
+   - **Unit:** Test single functions/classes (fast, < 1s each)
+   - **Integration:** Test module interaction (real dependencies)
+   - **Functional:** Test complete workflows (end-to-end, minutes)
+   - **Manual:** Shell scripts for developer testing (not CI)
+
+**Code Pattern:**
+```python
+# Unit test location
+tests/unit/test_config_loader.py
+
+# Integration test location
+tests/integration/test_asr_module_integration.py
+
+# Functional test location
+tests/functional/test_transcribe_workflow.py
+
+# Manual script location
+tests/manual/glossary/test-glossary-quickstart.sh
+
+# Test fixture location
+tests/fixtures/audio/sample_16khz.wav
+```
+
+**Migration:**
+- Move 2 scripts from project root to `tests/manual/glossary/`
+- Categorize 23 test files in tests/ root
+- Move to appropriate subdirectories (unit/integration/functional/manual)
+- Update import paths if needed
+
+**Files to Create:**
+- `tests/README.md` - Testing guidelines and structure
+- `tests/functional/README.md` - Functional test guide
+- `tests/manual/README.md` - Manual script guide
+- `tests/fixtures/README.md` - Test data guide
+
+**Files to Update:**
+- Move test files to appropriate categories
+- Update `run-tests.sh` if needed
+- Update CI configuration if paths change
+
+**Running Tests:**
+```bash
+# All tests
+pytest tests/
+
+# By category
+pytest tests/unit/          # Fast unit tests
+pytest tests/integration/   # Integration tests
+pytest tests/functional/    # Slower E2E tests
+
+# Manual scripts (not pytest)
+./tests/manual/glossary/test-glossary-quickstart.sh
+```
+
+**Benefits:**
+- ✅ Clean project root (no test scripts)
+- ✅ Clear test type categorization
+- ✅ Easy to run specific test types
+- ✅ Better test discovery
+- ✅ Consistent organization
+- ✅ Separate manual scripts from automated tests
+
+**Status:** ⏳ **NOT STARTED**  
+**Effort:** 2-3 hours (audit + categorize + move + docs + verify)  
+**Priority:** 🟡 MEDIUM  
+**Tracked:** IMPLEMENTATION_TRACKER.md Task #14
 
 ---
 
