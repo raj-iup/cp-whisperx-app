@@ -2537,6 +2537,84 @@ class CorrelationFilter(logging.Filter):
 logger.addFilter(CorrelationFilter())
 ```
 
+### 5.10 Log File Placement (AD-012) 🆕
+
+**Architectural Decision:** All log files must be organized in the `logs/` directory.
+
+**Directory Structure:**
+```
+logs/
+├── pipeline/           # Pipeline execution logs
+│   └── {date}/         # Organized by date
+├── testing/            # Test execution logs
+│   ├── integration/    # Integration test logs
+│   ├── unit/           # Unit test logs
+│   └── manual/         # Manual test logs
+├── debug/              # Debug/development logs
+├── model-usage/        # Model usage statistics
+└── errors/             # Error-specific logs (optional)
+```
+
+**Naming Convention:**
+```
+{date}_{timestamp}_{purpose}_{detail}.log
+
+Examples:
+- 20251208_103045_transcribe_mlx.log
+- 20251208_110230_translate_indictrans2.log
+- 20251208_120015_integration_workflow.log
+```
+
+**Helper Function:**
+```python
+from shared.log_paths import get_log_path
+
+# Get log path for manual test
+log_file = get_log_path("testing", "transcribe", "mlx")
+# Returns: logs/testing/manual/20251208_103045_transcribe_mlx.log
+
+# Get log path for debug
+log_file = get_log_path("debug", "whisperx", "alignment")
+# Returns: logs/debug/20251208_103045_whisperx_alignment.log
+
+# Use in script
+with open(log_file, 'w') as f:
+    subprocess.run(cmd, stdout=f, stderr=subprocess.STDOUT)
+```
+
+**Rules:**
+1. ❌ **NEVER** write logs to project root
+2. ✅ **ALWAYS** use `logs/` directory with appropriate subdirectory
+3. ✅ **ALWAYS** include date and timestamp in filename
+4. ✅ **ALWAYS** use helper function for consistency
+
+**Common Mistakes:**
+```python
+# ❌ WRONG - Log in current directory
+with open("test-output.log", "w") as f:
+    ...
+
+# ❌ WRONG - Log in project root
+log_file = Path("debug.log")
+
+# ✅ CORRECT - Use helper function
+from shared.log_paths import get_log_path
+log_file = get_log_path("testing", "output", "debug")
+```
+
+**Migration:**
+If you find log files in the project root:
+```bash
+# Move to appropriate location
+mv test-*.log logs/testing/manual/
+mv debug-*.log logs/debug/
+mv task*.log logs/testing/manual/
+```
+
+**See Also:**
+- AD-012 in ARCHITECTURE.md (Centralized Log Management)
+- IMPLEMENTATION_TRACKER.md Task #13
+
 ---
 
 ## 6. DATA LINEAGE & AUDIT TRAILS

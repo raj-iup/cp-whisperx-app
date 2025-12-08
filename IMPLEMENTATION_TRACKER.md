@@ -1008,6 +1008,168 @@ def handle_ffmpeg_error(error: subprocess.CalledProcessError, logger, stage_io):
 
 ---
 
+#### Task #13: Log File Organization - Centralize to logs/ Directory ⏳
+**Status:** ⏳ Not Started  
+**Progress:** 0%  
+**Priority:** 🟡 MEDIUM (Code organization)  
+**Effort:** 1-2 hours  
+**Added:** 2025-12-08  
+**Issue:** Log files scattered in project root (24 files)
+
+**Problem:**
+Multiple log files are being created in the project root directory, making it cluttered:
+- `task10-test1-transcribe.log`
+- `test-fixed-johny.log`
+- `test-hybrid-architecture.log`
+- `test-mlx-final.log`
+- `test-translation-en-to-hi.log`
+- And 19 more files...
+
+**Root Cause:**
+- No standard for log file placement
+- Test/debug logs written to current directory
+- No automatic organization by date/purpose
+- Manual testing creates ad-hoc log files
+
+**Solution:**
+Create **AD-012: Centralized Log File Management**
+
+**Architectural Decision Requirements:**
+1. **All log files MUST go to `logs/` directory**
+2. **Organize by hierarchy:**
+   ```
+   logs/
+   ├── pipeline/           # Pipeline execution logs (moved from out/*/logs/)
+   │   ├── 2025-12-08/
+   │   └── 2025-12-07/
+   ├── testing/            # Test execution logs
+   │   ├── integration/
+   │   ├── unit/
+   │   └── manual/         # Manual test logs (test-*.log files)
+   ├── debug/              # Debug/development logs
+   ├── model-usage/        # Model usage stats (already exists)
+   └── errors/             # Error-specific logs (optional)
+   ```
+3. **Naming convention:** `{date}_{purpose}_{detail}.log`
+4. **Automatic cleanup:** Logs older than 30 days archived/deleted
+
+**Implementation Tasks:**
+
+1. **Create log directory structure:**
+   ```bash
+   mkdir -p logs/{pipeline,testing/{integration,unit,manual},debug,errors}
+   ```
+
+2. **Move existing logs:**
+   ```bash
+   # Move test logs
+   mv test*.log logs/testing/manual/
+   mv task*.log logs/testing/manual/
+   
+   # Add README to explain structure
+   ```
+
+3. **Update scripts to use logs/ directory:**
+   - Test scripts: Write to `logs/testing/manual/`
+   - Debug logs: Write to `logs/debug/`
+   - Pipeline logs: Already in `out/*/logs/` (good)
+
+4. **Update .gitignore:**
+   ```
+   # Keep structure, ignore content
+   logs/**/*.log
+   !logs/README.md
+   !logs/**/README.md
+   ```
+
+5. **Create helper function:**
+   ```python
+   from pathlib import Path
+   from datetime import datetime
+   
+   def get_log_path(category: str, purpose: str, detail: str = "") -> Path:
+       """
+       Get standardized log file path.
+       
+       Args:
+           category: 'testing', 'debug', 'pipeline', 'errors'
+           purpose: What the log is for (e.g., 'transcribe', 'translate')
+           detail: Additional detail (e.g., 'mlx', 'hybrid')
+       
+       Returns:
+           Path to log file in logs/ directory
+       """
+       date = datetime.now().strftime("%Y%m%d")
+       timestamp = datetime.now().strftime("%H%M%S")
+       
+       if detail:
+           filename = f"{date}_{timestamp}_{purpose}_{detail}.log"
+       else:
+           filename = f"{date}_{timestamp}_{purpose}.log"
+       
+       log_dir = Path("logs") / category
+       log_dir.mkdir(parents=True, exist_ok=True)
+       
+       return log_dir / filename
+   ```
+
+**Files to Create:**
+- `logs/README.md` - Explain directory structure
+- `logs/testing/README.md` - Testing log guidelines
+- `shared/log_paths.py` - Helper functions (NEW)
+
+**Files to Update:**
+- `.gitignore` - Keep structure, ignore log files
+- `ARCHITECTURE.md` - Add AD-012
+- `DEVELOPER_STANDARDS.md` - Add § 2.3.6 (Log File Placement)
+- `.github/copilot-instructions.md` - Add AD-012 reference
+
+**Validation:**
+```bash
+# After implementation
+ls *.log 2>/dev/null  # Should show: No such file
+ls logs/testing/manual/*.log | wc -l  # Should show: 24 files
+```
+
+**Documentation:**
+- Add to ARCHITECTURE.md (AD-012: Centralized Log Management)
+- Add to DEVELOPER_STANDARDS.md (§ 2.3.6: Log File Placement)
+- Update copilot-instructions.md (AD-012 reference)
+
+**Benefits:**
+- ✅ Clean project root
+- ✅ Organized logs by purpose
+- ✅ Easy to find historical logs
+- ✅ Automatic cleanup possible
+- ✅ Better .gitignore control
+
+**Example Usage:**
+```python
+# In test script
+from shared.log_paths import get_log_path
+
+log_file = get_log_path("testing", "transcribe", "mlx")
+# Returns: logs/testing/20251208_103045_transcribe_mlx.log
+
+# Redirect output
+with open(log_file, 'w') as f:
+    # Run test, write to log
+    pass
+```
+
+**Migration Plan:**
+1. Create directory structure
+2. Move existing logs with git mv (preserve history)
+3. Update documentation (AD-012)
+4. Create helper functions
+5. Update active scripts
+6. Add to pre-commit checklist
+
+**Status:** ⏳ Ready to implement  
+**Estimated Time:** 1-2 hours (structure + docs + helper)
+
+---
+
 ### Current Sprint (2025-12-04 to 2025-12-18)
 
 #### 1. Architecture Alignment ✅ COMPLETE
@@ -1473,13 +1635,21 @@ ls out/*/job-*/07_alignment/transcript.txt
 ### Immediate Actions (This Week - HIGH PRIORITY)
 
 #### Task #11: FFmpeg Error Handling - Input File Validation
-**Status:** ⏳ Not Started (See Active Work section)  
+**Status:** ✅ Complete (See Active Work section)  
 **Priority:** 🔴 HIGH  
-**Added:** 2025-12-08
+**Added:** 2025-12-08  
+**Completed:** 2025-12-08
 
 #### Task #12: Error Message Clarity - FFmpeg Output Parsing
+**Status:** ✅ Complete (See Active Work section)  
+**Priority:** 🟡 MEDIUM  
+**Added:** 2025-12-08  
+**Completed:** 2025-12-08
+
+#### Task #13: Log File Organization - Centralize to logs/ Directory
 **Status:** ⏳ Not Started (See Active Work section)  
 **Priority:** 🟡 MEDIUM  
+**Effort:** 1-2 hours  
 **Added:** 2025-12-08
 
 ---
@@ -1812,31 +1982,55 @@ Target:  Both at 100%
 
 ---
 
-**Last Updated:** 2025-12-08 00:58 UTC  
+**Last Updated:** 2025-12-08 06:35 UTC  
 **Next Review:** 2025-12-11 or after E2E tests complete  
-**Status:** 🟢 ON TRACK (100% Phase 4 complete, AD-011 implemented)
+**Status:** 🟢 ON TRACK (100% Phase 4 complete, AD-011 enhanced, AD-012 added)
 
 **Major Changes This Update:**
+- 🆕 **AD-012 ADDED**: Centralized Log File Management (NEW architectural decision)
+  - Issue: 24 log files scattered in project root
+  - Solution: Structured logs/ directory with hierarchy
+  - Structure: pipeline/, testing/, debug/, model-usage/, errors/
+  - Helper: get_log_path() function for consistent naming
+  - Naming: {date}_{timestamp}_{purpose}_{detail}.log
+  - Benefits: Clean root, organized by purpose, easy to find
+- 📋 **Task #13 ADDED**: Log File Organization implementation
+  - Status: ⏳ Not Started
+  - Priority: 🟡 MEDIUM
+  - Effort: 1-2 hours
+  - Includes: Directory structure + migration + helper + docs
+- ✅ **Enhanced Error Messages**: Improved FFmpeg error detection for no-audio files
+  - Reordered logic: Check specific patterns before generic exit codes
+  - Clear message: "File does not contain an audio stream (video-only file)"
+  - Actionable tip: Provides ffprobe command to verify file
+  - Testing: Validated with video-only file (clear, helpful guidance)
 - ✅ **Task #11 COMPLETE**: FFmpeg error handling - Input file validation (1 hour)
   - Issue: FFmpeg exit code 234 with file paths containing spaces/apostrophes
   - Solution: Pre-flight validation + enhanced error parsing
-  - Files: run-pipeline.py demux stage (75+ lines added)
+  - Files: run-pipeline.py demux stage (110+ lines total)
 - ✅ **Task #12 COMPLETE**: Error message clarity - FFmpeg output parsing (30 min)
   - Solution: Pattern-based stderr parsing with actionable user messages
   - Common exit codes: 234, 1, 255 all documented
-- 🏛️ **AD-011 ADDED**: Robust File Path Handling (NEW architectural decision)
-  - Status: 🔄 In Progress (Stage 01 complete, 2 stages remaining)
+  - Enhanced: Video-only file detection with helpful tip
+- 🏛️ **AD-011 STATUS**: Robust File Path Handling
+  - Status: 🔄 In Progress (Stage 01 complete + validated, 2 stages remaining)
   - Pattern: Path.resolve() + pre-flight validation + str() conversion
   - Testing: Files with spaces, apostrophes, special chars all supported
-- 📋 **Documentation Updated**: 4 files synchronized
-  - ✅ ARCHITECTURE.md (added AD-011, +100 lines)
-  - ✅ DEVELOPER_STANDARDS.md (added § 7.1.1, § 7.1.2, +130 lines)
-  - ✅ copilot-instructions.md (added AD-011 to quick ref + checklist, +60 lines)
-  - ✅ IMPLEMENTATION_TRACKER.md (Tasks #11, #12 complete)
+  - Error handling: Clear messages for common issues (no audio, corruption, format)
+- 📋 **Documentation Updated**: 4 files synchronized (AD-011 + AD-012)
+  - ✅ ARCHITECTURE.md (added AD-011 +100 lines, AD-012 +60 lines)
+  - ✅ DEVELOPER_STANDARDS.md (added § 7.1.1, § 7.1.2, § 5.10, +200 lines)
+  - ✅ copilot-instructions.md (added AD-011, AD-012 to quick ref + checklist, +80 lines)
+  - ✅ IMPLEMENTATION_TRACKER.md (Tasks #11, #12, #13 tracked)
 - 🎯 **Impact**: Files with special characters now work correctly
-  - ✅ Tested: `Johny Lever's Iconic Michael Jackson Spoof.mp4`
+  - ✅ Tested: `Energy Demand in AI.mp4` (SUCCESS - 22.7 MB extracted)
+  - ✅ Tested: Video-only file (CLEAR ERROR - actionable guidance)
   - ✅ Pattern established for Stages 04, 12 (Demucs, FFmpeg mux)
-- 📊 **Architectural Decisions**: 10 → 11 total (AD-011 added)
+- 📊 **Architectural Decisions**: 10 → 12 total (AD-011 in progress, AD-012 added)
+- 💾 **Commits**: 3 total (AD-011)
+  - a88b563: feat(demux) - Initial AD-011 implementation
+  - 6f4133b: fix(demux) - Output path absolute
+  - 03c7f30: feat(demux) - Enhanced error messages
 
 
 ---

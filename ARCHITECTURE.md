@@ -34,9 +34,10 @@ This document is the **authoritative source** for all architectural decisions in
 9. ✅ **Prioritize quality over backward compatibility** - Active development optimization (AD-009)
 10. ✅ **Workflow-specific outputs enforced** - Clear output requirements (AD-010)
 11. 🔄 **Robust file path handling** - pathlib + validation for all subprocess calls (AD-011) 🆕
+12. ⏳ **Centralized log file management** - All logs in logs/ directory (AD-012) 🆕
 
-**Total Architectural Decisions:** 11 (AD-001 through AD-011) 🆕  
-**Implementation Status:** 10/11 (91%) - AD-011 in progress 🆕
+**Total Architectural Decisions:** 12 (AD-001 through AD-012) 🆕  
+**Implementation Status:** 10/12 (83%) - AD-011 in progress, AD-012 pending 🆕
 
 ---
 
@@ -649,6 +650,75 @@ except subprocess.CalledProcessError as e:
 **Status:** 🔄 **IN PROGRESS** (Stage 01 complete, 2 stages remaining)  
 **Compliance:** AD-006 (job config), AD-009 (quality-first)  
 **Documentation:** TROUBLESHOOTING.md § FFmpeg Error Codes
+
+---
+
+### AD-012: Centralized Log File Management
+**Decision:** All log files must be organized in the logs/ directory with structured hierarchy  
+**Date:** 2025-12-08  
+**Rationale:**
+- 24 log files scattered in project root causing clutter
+- No standard for log file placement or naming
+- Difficult to find historical test/debug logs
+- Manual cleanup required
+
+**Implementation Requirements:**
+1. **All logs go to `logs/` directory** - No logs in project root
+2. **Structured hierarchy:**
+   ```
+   logs/
+   ├── pipeline/           # Pipeline execution logs
+   │   └── {date}/         # Organized by date
+   ├── testing/            # Test execution logs
+   │   ├── integration/    # Integration test logs
+   │   ├── unit/           # Unit test logs
+   │   └── manual/         # Manual test logs
+   ├── debug/              # Debug/development logs
+   ├── model-usage/        # Model usage statistics
+   └── errors/             # Error-specific logs (optional)
+   ```
+3. **Naming convention:** `{date}_{timestamp}_{purpose}_{detail}.log`
+4. **Helper function:** `get_log_path(category, purpose, detail)` in shared/
+5. **Automatic cleanup:** Archive/delete logs older than 30 days
+
+**Code Pattern:**
+```python
+from shared.log_paths import get_log_path
+
+# Get log path for test
+log_file = get_log_path("testing", "transcribe", "mlx")
+# Returns: logs/testing/manual/20251208_103045_transcribe_mlx.log
+
+# Use in script
+with open(log_file, 'w') as f:
+    subprocess.run(cmd, stdout=f, stderr=subprocess.STDOUT)
+```
+
+**Migration:**
+- Move 24 existing log files from root to `logs/testing/manual/`
+- Use `git mv` to preserve history
+- Update active scripts to use helper function
+
+**Files to Create:**
+- `logs/README.md` - Directory structure documentation
+- `logs/testing/README.md` - Testing log guidelines
+- `shared/log_paths.py` - Log path helper functions
+
+**Files to Update:**
+- `.gitignore` - Keep directory structure, ignore log content
+- Test scripts - Use `get_log_path()` instead of root directory
+
+**Benefits:**
+- ✅ Clean project root (no log files)
+- ✅ Organized by purpose and date
+- ✅ Easy to find historical logs
+- ✅ Automatic cleanup possible
+- ✅ Consistent naming convention
+
+**Status:** ⏳ **NOT STARTED**  
+**Effort:** 1-2 hours (structure + migration + helper + docs)  
+**Priority:** 🟡 MEDIUM  
+**Tracked:** IMPLEMENTATION_TRACKER.md Task #13
 
 ---
 

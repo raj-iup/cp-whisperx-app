@@ -378,5 +378,77 @@ touch in/empty.mp4
 
 **Status:** ✅ READY FOR COMMIT  
 **Validation:** ✅ Code compiles, pattern established  
-**Testing:** ⏳ Manual testing pending (with real media files)  
-**Next:** Commit → Test → Apply to Stages 04, 12
+**Testing:** ✅ **COMPLETE** - Validated with real media files  
+**Next:** Apply to Stages 04, 12
+
+---
+
+## Testing Summary
+
+### Test 1: File with Spaces (SUCCESS ✅)
+**File:** `Energy Demand in AI.mp4`  
+**Result:** Audio extracted successfully (22.7 MB, 1.1 seconds)  
+**Validation:**
+- ✅ Pre-flight checks: PASS
+- ✅ Path handling: PASS (absolute paths for input/output)
+- ✅ FFmpeg execution: PASS
+- ✅ Audio extraction: COMPLETE
+
+### Test 2: Video-Only File (ERROR HANDLING VALIDATED ✅)
+**File:** `Johny Lever's Iconic Michael Jackson Spoof At Filmfare Steals The Show.mp4`  
+**Result:** Clear error message with actionable guidance  
+**Validation:**
+- ✅ Pre-flight checks: PASS (file exists, readable, 430 MB)
+- ✅ Path handling: PASS (spaces and apostrophe handled)
+- ✅ FFmpeg error detection: PASS (exit code 234, "no audio stream")
+- ✅ Error message: EXCELLENT
+  ```
+  ❌ Cannot extract audio from input file
+     Possible causes:
+     - File does not contain an audio stream (video-only file)
+     - File is corrupted or incomplete
+     - Audio codec not supported by FFmpeg
+     
+     💡 Tip: Check file with: ffprobe -v error -show_entries stream=codec_type "file.mp4"
+  ```
+
+**File Analysis (via ffprobe):**
+- Codec: VP9 (video only)
+- Audio streams: 0
+- Conclusion: Video-only file (not a bug, legitimate error)
+
+---
+
+## Commits
+
+1. **a88b563** - feat(demux): Add robust file path handling (AD-011) - Tasks #11, #12
+2. **6f4133b** - fix(demux): Make output path absolute for FFmpeg (AD-011)
+3. **03c7f30** - feat(demux): Improve FFmpeg error messages for no-audio files (AD-011)
+
+**Total Changes:**
+- Lines added: ~110 (validation + error handling + improvements)
+- Lines modified: ~4 (logging fixes)
+- Net change: +110 lines
+
+---
+
+## Improvements Delivered
+
+### User Experience
+- ✅ Files with spaces/apostrophes now work
+- ✅ Clear error messages with ❌ prefix
+- ✅ Actionable guidance ("💡 Tip: Check file with...")
+- ✅ Primary cause listed first (video-only file)
+- ✅ Diagnostic command provided (ffprobe)
+
+### Developer Experience
+- ✅ Reusable validation pattern (AD-011)
+- ✅ Pattern-based error detection (check specific → generic)
+- ✅ Debug logs with full stderr
+- ✅ Code examples in DEVELOPER_STANDARDS.md
+
+### System Robustness
+- ✅ Pre-flight validation (5 checks)
+- ✅ Absolute path handling (no relative path issues)
+- ✅ Enhanced error parsing (4 patterns + exit codes)
+- ✅ Better error recovery (fail fast with clear message)

@@ -72,14 +72,16 @@
 10. Am I using `load_config()` not `os.getenv()`? (§ 4.2)
 11. **Am I reading job.json BEFORE using system config? (§ 4 - AD-006)**
 12. **Cross-platform compatible? (Use `pathlib`, not hardcoded paths)** (§ 1.2)
-13. **If subprocess with files: Did I validate path + use Path.resolve()? (AD-011)** 🆕 ⭐
-14. **If subprocess with files: Did I use str(path) for command args? (AD-011)** 🆕 ⭐
-15. **If creating shell script: Do I need Windows (.ps1) equivalent?** (§ 1.2)
-16. **If creating stage script: Is it named `{NN}_{stage_name}.py`?** (File Naming)
-17. **If testing: Am I using standard test media samples?** (§ 1.4)
-18. **If workflow: Am I following context-aware patterns?** (§ 1.5)
-19. **Error handling: Am I using exc_info=True exactly once?** (§ 5)
-20. **ASR/Transcription: Am I using hybrid MLX architecture?** (§ 2.7) 🆕
+13. **If subprocess with files: Did I validate path + use Path.resolve()? (AD-011)** ⭐
+14. **If subprocess with files: Did I use str(path) for command args? (AD-011)** ⭐
+15. **If creating log files: Am I using logs/ directory? (AD-012)** 🆕 ⭐
+16. **If creating log files: Am I using get_log_path() helper? (AD-012)** 🆕 ⭐
+17. **If creating shell script: Do I need Windows (.ps1) equivalent?** (§ 1.2)
+18. **If creating stage script: Is it named `{NN}_{stage_name}.py`?** (File Naming)
+19. **If testing: Am I using standard test media samples?** (§ 1.4)
+20. **If workflow: Am I following context-aware patterns?** (§ 1.5)
+21. **Error handling: Am I using exc_info=True exactly once?** (§ 5)
+22. **ASR/Transcription: Am I using hybrid MLX architecture?** (§ 2.7)
 
 **If NO to any → Check the relevant § section below**
 
@@ -90,7 +92,7 @@
 **Authoritative Source:** ARCHITECTURE.md  
 **Developer Guide:** DEVELOPER_STANDARDS.md § 20
 
-**All 11 Approved Architectural Decisions:** 🆕
+**All 12 Approved Architectural Decisions:** 🆕
 
 - **AD-001:** 12-stage architecture (optimal, no major refactoring) ✅
 - **AD-002:** ASR modularization (use `whisperx_module/`, not monolith) ✅
@@ -102,7 +104,8 @@
 - **AD-008:** Hybrid alignment architecture (subprocess prevents segfaults) ✅
 - **AD-009:** Quality over compatibility (optimize aggressively) ✅
 - **AD-010:** Workflow-specific outputs (transcribe → txt, translate → txt, subtitle → srt/vtt) ✅
-- **AD-011:** Robust file path handling (pathlib + pre-flight validation for subprocess) 🆕 🔄
+- **AD-011:** Robust file path handling (pathlib + pre-flight validation for subprocess) 🔄
+- **AD-012:** Centralized log management (all logs in logs/ directory) 🆕 ⏳
 
 **Quick Patterns:**
 
@@ -176,6 +179,20 @@ except subprocess.CalledProcessError as e:
         logger.error("❌ FFmpeg error 234: Invalid input/output")
         logger.error("   Possible: special chars, corruption, format")
     # Parse stderr for actionable messages...
+
+# Per AD-012: Log file placement (NEW) 🆕
+from shared.log_paths import get_log_path
+
+# Get log path for test/debug
+log_file = get_log_path("testing", "transcribe", "mlx")
+# Returns: logs/testing/manual/20251208_103045_transcribe_mlx.log
+
+# Use in script
+with open(log_file, 'w') as f:
+    subprocess.run(cmd, stdout=f, stderr=subprocess.STDOUT)
+
+# ❌ NEVER write logs to project root
+# with open("test.log", "w") as f:  # WRONG!
 ```
 
 ---
