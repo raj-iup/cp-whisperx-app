@@ -704,7 +704,7 @@ class IndicTrans2Pipeline:
         # Input/output setup - use absolute path to handle special characters
         input_media = Path(self.job_config["input_media"]).resolve()
         stage_dir = stage_io.stage_dir
-        audio_output = stage_io.get_output_path("audio.wav")
+        audio_output = stage_io.get_output_path("audio.wav").resolve()  # Make output absolute too
         
         # PRE-FLIGHT VALIDATION: Check input file before calling FFmpeg
         if not input_media.exists():
@@ -756,7 +756,7 @@ class IndicTrans2Pipeline:
         
         # Log input/output (to both stage log and pipeline log)
         self.logger.info(f"📥 Input: {input_media.relative_to(PROJECT_ROOT) if input_media.is_relative_to(PROJECT_ROOT) else input_media}")
-        self.logger.info(f"📤 Output: {audio_output.relative_to(self.job_dir)}")
+        self.logger.info(f"📤 Output: {audio_output.relative_to(Path.cwd()) if audio_output.is_relative_to(Path.cwd()) else audio_output}")
         stage_logger.info(f"Input media: {input_media}")
         stage_logger.info(f"Output directory: {stage_dir}")
         
