@@ -2746,6 +2746,169 @@ logger.error(f"Failed to process: {e}")
 
 **Historical Note:** This syntax error occurred in job-20251203-rpatel-0015, affecting 8 instances across 2 files (05_pyannote_vad.py, 07_alignment.py). The duplicate parameter caused immediate SyntaxError on script load.
 
+### 7.1.1 File Path Validation Pattern (AD-011) 🆕
+
+**Problem:** Files with spaces, apostrophes, and special characters cause subprocess failures (e.g., FFmpeg exit code 234).
+
+**Solution:** Pre-flight validation + pathlib + proper string conversion.
+
+```python
+from pathlib import Path
+
+def validate_and_process_file(file_path: str, logger, stage_io) -> bool:
+    """
+    Validate file accessibility before subprocess calls.
+    
+    Pattern per AD-011: Robust File Path Handling
+    """
+    # Convert to absolute Path object
+    input_file = Path(file_path).resolve()
+    
+    # 1. Check existence
+    if not input_file.exists():
+        error_msg = f"Input file not found: {input_file}"
+        logger.error(f"❌ {error_msg}")
+        logger.error("   Please check that the file exists at the specified path")
+        stage_io.add_error(error_msg)
+        return False
+    
+    # 2. Check it's a file (not directory)
+    if not input_file.is_file():
+        error_msg = f"Input path is not a file: {input_file}"
+        logger.error(f"❌ {error_msg}")
+        stage_io.add_error(error_msg)
+        return False
+    
+    # 3. Check not empty
+    if input_file.stat().st_size == 0:
+        error_msg = f"Input file is empty (0 bytes): {input_file}"
+        logger.error(f"❌ {error_msg}")
+        stage_io.add_error(error_msg)
+        return False
+    
+    # 4. Test accessibility (can we read it?)
+    try:
+        with open(input_file, 'rb') as f:
+            f.read(1)
+    except PermissionError:
+        error_msg = f"Cannot read file (permission denied): {input_file}"
+        logger.error(f"❌ {error_msg}")
+        stage_io.add_error(error_msg)
+        return False
+    except Exception as e:
+        error_msg = f"Cannot access file: {e}"
+        logger.error(f"❌ {error_msg}")
+        stage_io.add_error(error_msg)
+        return False
+    
+    return True
+
+# Usage in subprocess calls
+if not validate_and_process_file(media_path, logger, stage_io):
+    return False
+
+# Build command with proper string conversion
+# Path objects automatically handle spaces, apostrophes, special chars
+output_file = output_dir / "result.wav"
+cmd = [
+    'ffmpeg', '-i', str(input_file),  # Convert Path to string
+    '-acodec', 'pcm_s16le',
+    str(output_file)  # Convert Path to string
+]
+
+try:
+    result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+except subprocess.CalledProcessError as e:
+    # Enhanced error parsing (see § 7.1.2)
+    handle_ffmpeg_error(e, logger, stage_io)
+    return False
+```
+
+**Why This Works:**
+- ✅ `Path.resolve()` creates absolute path (no relative path issues)
+- ✅ `str(path)` handles spaces, apostrophes, Unicode automatically
+- ✅ Pre-flight checks catch issues before subprocess call
+- ✅ User-friendly error messages with actionable guidance
+
+**When to Use:**
+- ✅ **ALL** subprocess calls with file paths (FFmpeg, Demucs, etc.)
+- ✅ Stage 01 (demux) - **IMPLEMENTED** ✅
+- ⏳ Stage 04 (source_separation) - Uses Demucs
+- ⏳ Stage 12 (mux) - Uses FFmpeg for embedding
+
+**Test Cases:**
+```bash
+# These should all work correctly:
+./prepare-job.sh --media "in/File with spaces.mp4"
+./prepare-job.sh --media "in/Johny Lever's Movie.mp4"  # apostrophe
+./prepare-job.sh --media "in/Movie (2024) [HD].mp4"    # parentheses
+./prepare-job.sh --media "in/मूवी_हिंदी.mp4"           # Unicode
+```
+
+### 7.1.2 FFmpeg Error Parsing Pattern 🆕
+
+**Problem:** FFmpeg errors are cryptic and confusing.
+
+**Solution:** Parse stderr and provide user-friendly messages.
+
+```python
+def handle_ffmpeg_error(error: subprocess.CalledProcessError, logger, stage_io):
+    """
+    Parse FFmpeg errors and provide actionable guidance.
+    
+    Pattern per AD-011: Enhanced Error Messages
+    """
+    stderr = error.stderr if error.stderr else ""
+    exit_code = error.returncode
+    
+    # Exit code 234: Invalid input/output
+    if exit_code == 234:
+        logger.error("❌ FFmpeg error 234: Invalid input/output file")
+        logger.error("   Possible causes:")
+        logger.error("   - Special characters in file path (spaces, apostrophes, etc.)")
+        logger.error("   - File is corrupted or unreadable")
+        logger.error("   - Unsupported file format")
+        stage_io.add_error(f"FFmpeg exit 234: {stderr[:100]}")
+    
+    # File not found
+    elif "No such file or directory" in stderr:
+        logger.error("❌ Input file not found by FFmpeg")
+        logger.error("   Please check the file path and try again")
+        stage_io.add_error(f"File not found: {stderr[:100]}")
+    
+    # No audio stream
+    elif "does not contain any stream" in stderr or "Output file does not contain" in stderr:
+        logger.error("❌ Cannot extract audio from input file")
+        logger.error("   Possible causes:")
+        logger.error("   - File is corrupted")
+        logger.error("   - File format not supported by FFmpeg")
+        logger.error("   - File does not contain an audio stream")
+        stage_io.add_error("No audio stream found")
+    
+    # Invalid argument
+    elif "Invalid argument" in stderr:
+        logger.error("❌ FFmpeg processing error (invalid argument)")
+        logger.error("   Check that the input file is a valid media file")
+        stage_io.add_error("Invalid FFmpeg argument")
+    
+    # Generic error
+    else:
+        logger.error(f"❌ FFmpeg failed with exit code {exit_code}")
+        if stderr:
+            logger.error(f"   FFmpeg error: {stderr[:200]}")  # First 200 chars
+        stage_io.add_error(f"FFmpeg exit {exit_code}")
+    
+    # Always log full error for debugging
+    logger.debug(f"Full FFmpeg stderr:\n{stderr}")
+```
+
+**Common FFmpeg Exit Codes:**
+- `234` - Invalid input/output file (path issues, corruption, format)
+- `1` - Generic error (check stderr for details)
+- `255` - Critical error (permissions, disk space)
+
+**Reference:** AD-011 (Robust File Path Handling)
+
 ### 7.2 Graceful Degradation with Warnings
 
 ```python

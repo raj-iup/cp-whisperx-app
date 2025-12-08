@@ -33,9 +33,10 @@ This document is the **authoritative source** for all architectural decisions in
 8. ✅ **Hybrid alignment architecture** - Process isolation prevents segfaults (AD-008)
 9. ✅ **Prioritize quality over backward compatibility** - Active development optimization (AD-009)
 10. ✅ **Workflow-specific outputs enforced** - Clear output requirements (AD-010)
+11. 🔄 **Robust file path handling** - pathlib + validation for all subprocess calls (AD-011) 🆕
 
-**Total Architectural Decisions:** 10 (AD-001 through AD-010)  
-**Implementation Status:** 10/10 (100%) ✅
+**Total Architectural Decisions:** 11 (AD-001 through AD-011) 🆕  
+**Implementation Status:** 10/11 (91%) - AD-011 in progress 🆕
 
 ---
 
@@ -570,6 +571,84 @@ After (Quality-First per AD-009):
 **Date:** 2025-12-05  
 **Scope:** All development until v3.0 production  
 **Document:** AD-009_DEVELOPMENT_PHILOSOPHY.md
+
+---
+
+### AD-011: Robust File Path Handling (FFmpeg)
+**Decision:** All subprocess calls with file paths must use pathlib and pre-flight validation  
+**Date:** 2025-12-08  
+**Rationale:**
+- Files with spaces, apostrophes, special characters cause FFmpeg exit code 234
+- Confusing error messages ("output file" errors when input is the problem)
+- No pre-flight validation leads to cryptic errors
+- Cross-platform path handling inconsistencies
+
+**Implementation Requirements:**
+1. **Use pathlib.Path.resolve()** for all file paths (absolute paths)
+2. **Pre-flight validation** before subprocess calls:
+   - File existence check
+   - File type check (is_file())
+   - File size check (not empty)
+   - File accessibility check (can read)
+3. **Proper string conversion** when passing to subprocess: `str(path)`
+4. **Enhanced error parsing** for FFmpeg exit codes
+5. **User-friendly error messages** with actionable guidance
+
+**Code Pattern:**
+```python
+from pathlib import Path
+
+# Get absolute path
+input_file = Path(file_path).resolve()
+
+# Pre-flight validation
+if not input_file.exists():
+    logger.error(f"❌ Input file not found: {input_file}")
+    return False
+
+if not input_file.is_file():
+    logger.error(f"❌ Input path is not a file: {input_file}")
+    return False
+
+if input_file.stat().st_size == 0:
+    logger.error(f"❌ Input file is empty: {input_file}")
+    return False
+
+# Test accessibility
+try:
+    with open(input_file, 'rb') as f:
+        f.read(1)
+except PermissionError:
+    logger.error(f"❌ Cannot read file (permission denied): {input_file}")
+    return False
+
+# Build command with proper string conversion
+cmd = ['ffmpeg', '-i', str(input_file), str(output_file)]
+
+# Enhanced error handling
+try:
+    subprocess.run(cmd, capture_output=True, text=True, check=True)
+except subprocess.CalledProcessError as e:
+    if e.returncode == 234:
+        logger.error("❌ FFmpeg error 234: Invalid input/output file")
+        logger.error("   Possible causes: special characters, corruption, format")
+    # Parse stderr for specific errors...
+```
+
+**Affected Components:**
+- ✅ Stage 01 (demux) - **IMPLEMENTED** (2025-12-08)
+- ⏳ Stage 04 (source_separation) - Uses Demucs subprocess
+- ⏳ Stage 12 (mux) - Uses FFmpeg for subtitle embedding
+
+**Testing:**
+- ✅ Files with spaces: `Johny Lever's Iconic Michael Jackson Spoof.mp4`
+- ✅ Files with apostrophes: `Lever's Iconic.mp4`
+- ⏳ Files with Unicode: `मूवी_हिंदी.mp4`
+- ⏳ Files with special chars: `Movie (2024) [HD].mp4`
+
+**Status:** 🔄 **IN PROGRESS** (Stage 01 complete, 2 stages remaining)  
+**Compliance:** AD-006 (job config), AD-009 (quality-first)  
+**Documentation:** TROUBLESHOOTING.md § FFmpeg Error Codes
 
 ---
 

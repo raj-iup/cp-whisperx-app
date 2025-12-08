@@ -72,12 +72,14 @@
 10. Am I using `load_config()` not `os.getenv()`? (§ 4.2)
 11. **Am I reading job.json BEFORE using system config? (§ 4 - AD-006)**
 12. **Cross-platform compatible? (Use `pathlib`, not hardcoded paths)** (§ 1.2)
-13. **If creating shell script: Do I need Windows (.ps1) equivalent?** (§ 1.2)
-14. **If creating stage script: Is it named `{NN}_{stage_name}.py`?** (File Naming)
-15. **If testing: Am I using standard test media samples?** (§ 1.4)
-16. **If workflow: Am I following context-aware patterns?** (§ 1.5)
-17. **Error handling: Am I using exc_info=True exactly once?** (§ 5)
-18. **ASR/Transcription: Am I using hybrid MLX architecture?** (§ 2.7) 🆕
+13. **If subprocess with files: Did I validate path + use Path.resolve()? (AD-011)** 🆕 ⭐
+14. **If subprocess with files: Did I use str(path) for command args? (AD-011)** 🆕 ⭐
+15. **If creating shell script: Do I need Windows (.ps1) equivalent?** (§ 1.2)
+16. **If creating stage script: Is it named `{NN}_{stage_name}.py`?** (File Naming)
+17. **If testing: Am I using standard test media samples?** (§ 1.4)
+18. **If workflow: Am I following context-aware patterns?** (§ 1.5)
+19. **Error handling: Am I using exc_info=True exactly once?** (§ 5)
+20. **ASR/Transcription: Am I using hybrid MLX architecture?** (§ 2.7) 🆕
 
 **If NO to any → Check the relevant § section below**
 
@@ -88,7 +90,7 @@
 **Authoritative Source:** ARCHITECTURE.md  
 **Developer Guide:** DEVELOPER_STANDARDS.md § 20
 
-**All 10 Approved Architectural Decisions:**
+**All 11 Approved Architectural Decisions:** 🆕
 
 - **AD-001:** 12-stage architecture (optimal, no major refactoring) ✅
 - **AD-002:** ASR modularization (use `whisperx_module/`, not monolith) ✅
@@ -100,6 +102,7 @@
 - **AD-008:** Hybrid alignment architecture (subprocess prevents segfaults) ✅
 - **AD-009:** Quality over compatibility (optimize aggressively) ✅
 - **AD-010:** Workflow-specific outputs (transcribe → txt, translate → txt, subtitle → srt/vtt) ✅
+- **AD-011:** Robust file path handling (pathlib + pre-flight validation for subprocess) 🆕 🔄
 
 **Quick Patterns:**
 
@@ -134,6 +137,45 @@ elif workflow == "translate":
 else:  # subtitle workflow
     # Generate all subtitle tracks
     stages = stages  # Full pipeline
+
+# Per AD-011: File path validation (NEW) 🆕
+from pathlib import Path
+
+# Always use absolute paths
+input_file = Path(file_path).resolve()
+
+# Pre-flight validation BEFORE subprocess
+if not input_file.exists():
+    logger.error(f"❌ Input file not found: {input_file}")
+    return False
+
+if not input_file.is_file():
+    logger.error(f"❌ Not a file: {input_file}")
+    return False
+
+if input_file.stat().st_size == 0:
+    logger.error(f"❌ File is empty: {input_file}")
+    return False
+
+# Test accessibility
+try:
+    with open(input_file, 'rb') as f:
+        f.read(1)
+except PermissionError:
+    logger.error(f"❌ Permission denied: {input_file}")
+    return False
+
+# Build subprocess command with proper string conversion
+cmd = ['ffmpeg', '-i', str(input_file), str(output_file)]  # str() handles special chars
+
+# Enhanced FFmpeg error handling
+try:
+    subprocess.run(cmd, capture_output=True, text=True, check=True)
+except subprocess.CalledProcessError as e:
+    if e.returncode == 234:
+        logger.error("❌ FFmpeg error 234: Invalid input/output")
+        logger.error("   Possible: special chars, corruption, format")
+    # Parse stderr for actionable messages...
 ```
 
 ---

@@ -701,12 +701,57 @@ class IndicTrans2Pipeline:
         stage_io = StageIO("demux", self.job_dir, enable_manifest=True)
         stage_logger = stage_io.get_stage_logger("DEBUG" if self.debug else "INFO")
         
-        # Input/output setup
-        input_media = Path(self.job_config["input_media"])
+        # Input/output setup - use absolute path to handle special characters
+        input_media = Path(self.job_config["input_media"]).resolve()
         stage_dir = stage_io.stage_dir
         audio_output = stage_io.get_output_path("audio.wav")
         
-        # Track input in manifest
+        # PRE-FLIGHT VALIDATION: Check input file before calling FFmpeg
+        if not input_media.exists():
+            error_msg = f"Input file not found: {input_media}"
+            self.logger.error(f"❌ {error_msg}")
+            self.logger.error(f"   Please check that the file exists at the specified path")
+            stage_logger.error(error_msg)
+            stage_io.add_error(error_msg)
+            stage_io.finalize(status="failed", error="Input file not found")
+            return False
+        
+        if not input_media.is_file():
+            error_msg = f"Input path is not a file: {input_media}"
+            self.logger.error(f"❌ {error_msg}")
+            stage_logger.error(error_msg)
+            stage_io.add_error(error_msg)
+            stage_io.finalize(status="failed", error="Input path not a file")
+            return False
+        
+        if input_media.stat().st_size == 0:
+            error_msg = f"Input file is empty (0 bytes): {input_media}"
+            self.logger.error(f"❌ {error_msg}")
+            stage_logger.error(error_msg)
+            stage_io.add_error(error_msg)
+            stage_io.finalize(status="failed", error="Input file empty")
+            return False
+        
+        # Test file accessibility (can we actually read it?)
+        try:
+            with open(input_media, 'rb') as f:
+                f.read(1)
+        except PermissionError:
+            error_msg = f"Cannot read file (permission denied): {input_media}"
+            self.logger.error(f"❌ {error_msg}")
+            stage_logger.error(error_msg)
+            stage_io.add_error(error_msg)
+            stage_io.finalize(status="failed", error="Permission denied")
+            return False
+        except Exception as e:
+            error_msg = f"Cannot access file: {e}"
+            self.logger.error(f"❌ {error_msg}")
+            stage_logger.error(error_msg)
+            stage_io.add_error(error_msg)
+            stage_io.finalize(status="failed", error=str(e))
+            return False
+        
+        # Track input in manifest (after validation)
         stage_io.track_input(input_media, "video", format=input_media.suffix[1:])
         
         # Log input/output (to both stage log and pipeline log)
@@ -811,9 +856,43 @@ class IndicTrans2Pipeline:
                 return False
                 
         except subprocess.CalledProcessError as e:
-            self.logger.error(f"FFmpeg failed: {e}", exc_info=True)
-            stage_logger.error(f"FFmpeg command failed: {e.stderr if e.stderr else str(e, exc_info=True)}", exc_info=True)
-            stage_io.add_error(f"FFmpeg command failed: {e}")
+            # Parse FFmpeg error for better user feedback
+            stderr = e.stderr if e.stderr else ""
+            
+            # Enhanced error messages based on exit code and stderr content
+            if e.returncode == 234:
+                self.logger.error("❌ FFmpeg error 234: Invalid input/output file")
+                self.logger.error("   Possible causes:")
+                self.logger.error("   - Special characters in file path (spaces, apostrophes, etc.)")
+                self.logger.error("   - File is corrupted or unreadable")
+                self.logger.error("   - Unsupported file format")
+                stage_logger.error(f"FFmpeg exit code 234: {stderr}")
+            elif "No such file or directory" in stderr:
+                self.logger.error(f"❌ Input file not found by FFmpeg: {input_media}")
+                self.logger.error(f"   Please check the file path and try again")
+                stage_logger.error(f"FFmpeg cannot find file: {stderr}")
+            elif "Output file does not contain any stream" in stderr or "does not contain any stream" in stderr:
+                self.logger.error(f"❌ Cannot extract audio from input file")
+                self.logger.error(f"   Possible causes:")
+                self.logger.error(f"   - File is corrupted")
+                self.logger.error(f"   - File format not supported by FFmpeg")
+                self.logger.error(f"   - File does not contain an audio stream")
+                stage_logger.error(f"FFmpeg stream error: {stderr}")
+            elif "Invalid argument" in stderr:
+                self.logger.error(f"❌ FFmpeg processing error (invalid argument)")
+                self.logger.error(f"   Check that the input file is a valid media file")
+                stage_logger.error(f"FFmpeg invalid argument: {stderr}")
+            else:
+                self.logger.error(f"❌ FFmpeg failed with exit code {e.returncode}")
+                if stderr:
+                    self.logger.error(f"   FFmpeg error: {stderr[:200]}")  # First 200 chars
+                stage_logger.error(f"FFmpeg command failed: {stderr}")
+            
+            # Always log full error for debugging
+            stage_logger.error(f"FFmpeg command: {' '.join(cmd)}")
+            stage_logger.error(f"Full FFmpeg output:\n{stderr}")
+            
+            stage_io.add_error(f"FFmpeg failed (exit {e.returncode}): {stderr[:100]}")
             stage_io.finalize(status="failed", error="Demux failed")
             return False
         
