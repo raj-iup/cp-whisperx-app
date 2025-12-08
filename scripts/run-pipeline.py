@@ -859,29 +859,32 @@ class IndicTrans2Pipeline:
             # Parse FFmpeg error for better user feedback
             stderr = e.stderr if e.stderr else ""
             
-            # Enhanced error messages based on exit code and stderr content
-            if e.returncode == 234:
-                self.logger.error("❌ FFmpeg error 234: Invalid input/output file")
-                self.logger.error("   Possible causes:")
-                self.logger.error("   - Special characters in file path (spaces, apostrophes, etc.)")
-                self.logger.error("   - File is corrupted or unreadable")
-                self.logger.error("   - Unsupported file format")
-                stage_logger.error(f"FFmpeg exit code 234: {stderr}")
-            elif "No such file or directory" in stderr:
+            # Enhanced error messages - check specific patterns first, then exit codes
+            if "No such file or directory" in stderr:
                 self.logger.error(f"❌ Input file not found by FFmpeg: {input_media}")
                 self.logger.error(f"   Please check the file path and try again")
                 stage_logger.error(f"FFmpeg cannot find file: {stderr}")
             elif "Output file does not contain any stream" in stderr or "does not contain any stream" in stderr:
                 self.logger.error(f"❌ Cannot extract audio from input file")
                 self.logger.error(f"   Possible causes:")
-                self.logger.error(f"   - File is corrupted")
-                self.logger.error(f"   - File format not supported by FFmpeg")
-                self.logger.error(f"   - File does not contain an audio stream")
+                self.logger.error(f"   - File does not contain an audio stream (video-only file)")
+                self.logger.error(f"   - File is corrupted or incomplete")
+                self.logger.error(f"   - Audio codec not supported by FFmpeg")
+                self.logger.error(f"")
+                self.logger.error(f"   💡 Tip: Check file with: ffprobe -v error -show_entries stream=codec_type \"{input_media}\"")
                 stage_logger.error(f"FFmpeg stream error: {stderr}")
             elif "Invalid argument" in stderr:
                 self.logger.error(f"❌ FFmpeg processing error (invalid argument)")
                 self.logger.error(f"   Check that the input file is a valid media file")
                 stage_logger.error(f"FFmpeg invalid argument: {stderr}")
+            elif e.returncode == 234:
+                # Generic exit code 234 - only if no specific pattern matched
+                self.logger.error("❌ FFmpeg error 234: Invalid input/output file")
+                self.logger.error("   Possible causes:")
+                self.logger.error("   - Special characters in file path (spaces, apostrophes, etc.)")
+                self.logger.error("   - File is corrupted or unreadable")
+                self.logger.error("   - Unsupported file format")
+                stage_logger.error(f"FFmpeg exit code 234: {stderr}")
             else:
                 self.logger.error(f"❌ FFmpeg failed with exit code {e.returncode}")
                 if stderr:
