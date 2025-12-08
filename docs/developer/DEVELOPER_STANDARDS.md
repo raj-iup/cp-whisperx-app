@@ -3531,6 +3531,346 @@ with track_performance("asr", logger):
 
 ---
 
+## 9B. BASELINE, GLOSSARY & CACHE PATTERNS (AD-014) 🆕
+
+### 9B.1 Overview
+
+**Architectural Decision:** Subtitle workflow must reuse baseline, glossary, and cache artifacts for iterative quality improvement.
+
+**Three-Phase Workflow:**
+1. **Phase 1: Baseline Generation** (First run only, 15-20 min)
+2. **Phase 2: Glossary Enhancement** (First run + updates, 2-3 min)
+3. **Phase 3: Translation & Subtitles** (Every run, 3-5 min per language)
+
+### 9B.2 Media Identity
+
+**Compute stable identifier for media source:**
+
+```python
+from shared.media_identity import compute_media_id
+
+# Compute media ID
+media_id = compute_media_id(Path("movie.mp4"))
+# Returns: "a3f2e8b9..." (sha256 of file_size + duration + audio_hash)
+
+# Use for cache directory
+cache_dir = Path(f"cache/media/{media_id}")
+```
+
+**Implementation:**
+```python
+# shared/media_identity.py
+import hashlib
+from pathlib import Path
+
+def compute_media_id(media_file: Path) -> str:
+    """
+    Compute stable identifier for media file.
+    
+    Based on:
+    - File size (constant for same file)
+    - Duration (constant for same content)
+    - First 10s audio hash (content fingerprint)
+    
+    Returns:
+        SHA256 hash string (64 chars)
+    """
+    file_stats = media_file.stat()
+    duration = get_media_duration(media_file)
+    audio_hash = hash_first_10s_audio(media_file)
+    
+    id_string = f"{file_stats.st_size}_{duration}_{audio_hash}"
+    return hashlib.sha256(id_string.encode()).hexdigest()
+```
+
+### 9B.3 Cache Manager
+
+**Access cached artifacts:**
+
+```python
+from shared.cache_manager import MediaCacheManager
+
+# Initialize cache manager
+cache_mgr = MediaCacheManager(base_dir=Path("cache/media"))
+
+# Check for baseline
+if cache_mgr.has_baseline(media_id):
+    baseline = cache_mgr.get_baseline(media_id)
+    logger.info("✅ Reusing baseline from previous run")
+else:
+    # Generate baseline
+    baseline = run_baseline_generation(...)
+    cache_mgr.store_baseline(media_id, baseline)
+
+# Check for glossary
+if cache_mgr.has_glossary(media_id):
+    glossary = cache_mgr.get_glossary(media_id)
+else:
+    glossary = build_glossary(baseline, tmdb_data)
+    cache_mgr.store_glossary(media_id, glossary)
+
+# Check for translation
+if cache_mgr.has_translation(media_id, "en"):
+    translation = cache_mgr.get_translation(media_id, "en")
+else:
+    translation = run_translation(baseline, glossary, "en")
+    cache_mgr.store_translation(media_id, "en", translation)
+```
+
+### 9B.4 Baseline Generation
+
+**First run - generate and cache baseline:**
+
+```python
+def run_baseline_generation(media_file: Path, cache_dir: Path) -> dict:
+    """
+    Execute Phase 1: Generate baseline artifacts.
+    
+    Stages:
+    - 01_demux: Extract audio
+    - 02_tmdb: Fetch metadata (if movie)
+    - 03_glossary_load: Load base glossary
+    - 04_source_separation: Isolate vocals
+    - 05_pyannote_vad: Voice activity detection
+    - 06_whisperx_asr: Transcription
+    - 07_alignment: Word-level timestamps
+    
+    Returns:
+        Baseline artifacts dictionary
+    """
+    baseline_dir = cache_dir / "baseline"
+    baseline_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Run stages 01-07
+    demux_output = run_stage_demux(media_file, baseline_dir)
+    tmdb_output = run_stage_tmdb(media_file, baseline_dir)
+    # ... continue through alignment
+    
+    # Store artifacts
+    baseline = {
+        "asr_transcript": asr_output,
+        "aligned_segments": alignment_output,
+        "vad_segments": vad_output,
+        "speaker_diarization": diarization_output,
+        "quality_metrics": compute_quality_metrics(asr_output),
+        "generated_at": datetime.now().isoformat()
+    }
+    
+    # Save to cache
+    with open(baseline_dir / "baseline.json", "w") as f:
+        json.dump(baseline, f, indent=2)
+    
+    return baseline
+```
+
+### 9B.5 Glossary Enhancement
+
+**Build enhanced glossary from baseline:**
+
+```python
+def run_glossary_enhancement(baseline: dict, cache_dir: Path) -> dict:
+    """
+    Execute Phase 2: Build enhanced glossary.
+    
+    - Extract proper nouns from ASR
+    - Merge TMDB cast/crew names
+    - Add learned terms from corrections
+    """
+    glossary_dir = cache_dir / "glossary"
+    glossary_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Extract terms from ASR
+    asr_terms = extract_proper_nouns(baseline["asr_transcript"])
+    
+    # Merge TMDB metadata
+    tmdb_terms = extract_tmdb_terms(baseline.get("tmdb_metadata"))
+    
+    # Load manual corrections (if any)
+    corrections = load_corrections(glossary_dir)
+    
+    # Build enhanced glossary
+    glossary = {
+        "asr": merge_terms(asr_terms, corrections.get("asr", {})),
+        "translation": merge_terms(tmdb_terms, corrections.get("translation", {})),
+        "learned": asr_terms,
+        "updated_at": datetime.now().isoformat()
+    }
+    
+    # Save to cache
+    with open(glossary_dir / "glossary.json", "w") as f:
+        json.dump(glossary, f, indent=2)
+    
+    return glossary
+```
+
+### 9B.6 Workflow Orchestration
+
+**Multi-phase subtitle workflow:**
+
+```python
+def subtitle_workflow(job_config: dict) -> int:
+    """
+    Execute multi-phase subtitle workflow with caching.
+    """
+    media_file = Path(job_config["input_media"])
+    target_languages = job_config["target_languages"]
+    
+    # Compute media ID
+    media_id = compute_media_id(media_file)
+    cache_dir = Path(f"cache/media/{media_id}")
+    
+    logger.info(f"📦 Media ID: {media_id}")
+    
+    # Phase 1: Baseline
+    if not (cache_dir / "baseline").exists():
+        logger.info("🆕 First run - generating baseline (15-20 min)")
+        baseline = run_baseline_generation(media_file, cache_dir)
+    else:
+        logger.info("✅ Reusing baseline from previous run")
+        baseline = load_baseline(cache_dir)
+    
+    # Phase 2: Glossary
+    if not (cache_dir / "glossary").exists():
+        logger.info("🆕 Building glossary (2-3 min)")
+        glossary = run_glossary_enhancement(baseline, cache_dir)
+    else:
+        logger.info("✅ Reusing enhanced glossary")
+        glossary = load_glossary(cache_dir)
+    
+    # Phase 3: Translation & Subtitles
+    for lang in target_languages:
+        logger.info(f"🔄 Generating {lang} subtitles (3-5 min)")
+        
+        # Run stages 08-12
+        run_stage_lyrics_detection(baseline, job_dir)
+        run_stage_hallucination_removal(baseline, job_dir)
+        run_stage_translation(baseline, glossary, lang, job_dir)
+        run_stage_subtitle_generation(baseline, lang, job_dir)
+        run_stage_mux(media_file, lang, job_dir)
+    
+    logger.info("✅ Subtitle workflow complete")
+    return 0
+```
+
+### 9B.7 Quality Tracking
+
+**Track and compare quality metrics:**
+
+```python
+def compute_quality_metrics(asr_output: dict) -> dict:
+    """Compute quality metrics for baseline."""
+    return {
+        "asr_confidence": np.mean([s["confidence"] for s in asr_output["segments"]]),
+        "alignment_score": compute_alignment_score(asr_output),
+        "word_error_rate": estimate_wer(asr_output),
+        "hallucination_count": count_hallucinations(asr_output)
+    }
+
+def should_update_baseline(current_metrics: dict, new_metrics: dict) -> bool:
+    """Check if new quality exceeds baseline by threshold."""
+    threshold = 1.05  # 5% improvement
+    
+    return (new_metrics["asr_confidence"] > current_metrics["asr_confidence"] * threshold and
+            new_metrics["word_error_rate"] < current_metrics["word_error_rate"] / threshold)
+```
+
+### 9B.8 Cache Cleanup
+
+**Manage cache size:**
+
+```python
+from shared.cache_manager import MediaCacheManager
+
+# Initialize cache manager
+cache_mgr = MediaCacheManager()
+
+# Cleanup old cache (beyond size limit)
+cache_mgr.cleanup_by_size(max_size_gb=100)
+
+# Cleanup old cache (beyond age limit)
+cache_mgr.cleanup_by_age(max_age_days=90)
+
+# Remove specific cache
+cache_mgr.remove_cache(media_id)
+```
+
+### 9B.9 Configuration
+
+**Cache settings in config/.env.pipeline:**
+
+```bash
+# Baseline & Cache Configuration
+ENABLE_BASELINE_CACHE=true              # Master switch
+BASELINE_CACHE_DIR=cache/media          # Cache location
+BASELINE_CACHE_MAX_SIZE_GB=100          # Cache size limit (GB)
+BASELINE_REUSE_THRESHOLD=0.85           # Min quality to reuse (0-1)
+BASELINE_AUTO_UPDATE=true               # Update if quality improves
+GLOSSARY_AUTO_EXTRACT=true              # Extract terms from ASR
+CACHE_CLEANUP_ON_START=false            # Cleanup before each run
+```
+
+**Access in code:**
+
+```python
+from shared.config_loader import load_config
+
+config = load_config()
+
+# Check if caching enabled
+if config.get("ENABLE_BASELINE_CACHE", "true").lower() == "true":
+    cache_dir = Path(config.get("BASELINE_CACHE_DIR", "cache/media"))
+    max_size = int(config.get("BASELINE_CACHE_MAX_SIZE_GB", "100"))
+    
+    # Use cache manager
+    cache_mgr = MediaCacheManager(base_dir=cache_dir, max_size_gb=max_size)
+```
+
+### 9B.10 Rules
+
+1. ❌ **NEVER** skip baseline generation on first run
+2. ✅ **ALWAYS** check for cached artifacts before processing
+3. ✅ **ALWAYS** store quality metrics with baseline
+4. ✅ **ALWAYS** use media_id for cache directory naming
+5. ✅ **ALWAYS** validate cached artifacts before reuse
+
+**Common Mistakes:**
+
+```python
+# ❌ WRONG - Don't compute media ID inconsistently
+media_id = hashlib.sha256(str(media_file).encode()).hexdigest()  # Changes with path!
+
+# ✅ CORRECT - Use stable media ID
+media_id = compute_media_id(media_file)  # Based on content
+
+
+# ❌ WRONG - Don't hardcode cache paths
+cache_dir = Path("cache/media/some-id")
+
+# ✅ CORRECT - Use cache manager
+cache_mgr = MediaCacheManager()
+cache_dir = cache_mgr.get_cache_dir(media_id)
+
+
+# ❌ WRONG - Don't ignore quality metrics
+if cache_exists:
+    baseline = load_baseline(cache_dir)  # What if quality is poor?
+
+# ✅ CORRECT - Check quality before reuse
+if cache_exists:
+    baseline = load_baseline(cache_dir)
+    if baseline["quality_metrics"]["asr_confidence"] >= 0.85:
+        use_baseline(baseline)
+    else:
+        regenerate_baseline()
+```
+
+**See Also:**
+- AD-014 in ARCHITECTURE.md (Multi-Phase Subtitle Workflow)
+- IMPLEMENTATION_TRACKER.md Task #15
+- cache/media/README.md (cache structure)
+
+---
+
 ## 10. CI/CD STANDARDS
 
 ### 9.1 GitHub Actions Workflows

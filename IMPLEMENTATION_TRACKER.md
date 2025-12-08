@@ -1459,6 +1459,333 @@ tests/fixtures/audio/sample_16khz.wav
 
 ---
 
+#### Task #15: Multi-Phase Subtitle Workflow - Baseline, Glossary, Cache ⏳
+**Status:** ⏳ Not Started  
+**Progress:** 0%  
+**Priority:** 🟢 HIGH (Quality optimization)  
+**Effort:** 3-4 hours  
+**Added:** 2025-12-08  
+**Issue:** Subtitle workflow doesn't reuse learning from previous runs
+
+**Problem:**
+Current subtitle workflow processes media from scratch every time:
+- **No baseline generation** - First-run quality benchmark not stored
+- **No glossary persistence** - Character names, cultural terms lost between runs
+- **No cache reuse** - ASR, alignment, translation redone even for same source
+- **Quality degradation** - No learning from previous corrections
+
+**Impact:**
+- **Wasted processing time** - Re-transcribe/translate same media
+- **Inconsistent quality** - Can't compare against baseline
+- **Lost knowledge** - Manual corrections don't carry forward
+- **No iterative improvement** - Can't refine quality over multiple runs
+
+**Use Case Example:**
+```
+Run 1: Generate subtitles for "Movie.mp4" (hi → en, es, ru)
+  - Takes 20 minutes
+  - ASR accuracy: 85%
+  - Translation quality: Good
+  - Output: subtitles + corrections
+
+Run 2: Generate subtitles for "Movie.mp4" (hi → zh, ar, ta) [SAME SOURCE]
+  - Takes 20 minutes AGAIN (should be 5 minutes)
+  - ASR redone (should reuse)
+  - Translations redone for same segments
+  - Previous corrections ignored
+```
+
+**Root Cause:**
+- No concept of "source media identity" tracking
+- No persistent artifact storage between runs
+- Each job is isolated (good for independence, bad for reuse)
+- Workflow doesn't check for existing artifacts
+
+**Solution:**
+Create **AD-014: Multi-Phase Subtitle Workflow with Learning**
+
+**Architectural Decision Requirements:**
+
+1. **Three-Phase Execution Model:**
+   ```
+   Phase 1: BASELINE GENERATION (First Run Only)
+   ├─ Execute: demux → tmdb → glossary_load → source_sep → 
+   │           pyannote_vad → whisperx_asr → alignment
+   ├─ Output: baseline artifacts (ASR, alignment, glossary)
+   ├─ Store: In media-specific cache directory
+   └─ Duration: 15-20 minutes (one-time cost)
+   
+   Phase 2: GLOSSARY ENHANCEMENT (First Run + Manual Updates)
+   ├─ Input: Baseline ASR transcripts
+   ├─ Extract: Character names, cultural terms, proper nouns
+   ├─ Enrich: TMDB metadata, manual corrections
+   ├─ Output: Enhanced glossary (ASR + translation)
+   └─ Duration: 2-3 minutes
+   
+   Phase 3: TRANSLATION & SUBTITLE GENERATION (Every Run)
+   ├─ Input: Baseline ASR + Enhanced glossary + Target languages
+   ├─ Execute: lyrics_detection → hallucination_removal → 
+   │           translation → subtitle_gen → mux
+   ├─ Reuse: ASR, alignment, glossary from baseline
+   ├─ Output: Clean, accurate subtitles for target languages
+   └─ Duration: 3-5 minutes per language
+   ```
+
+2. **Media Source Identity:**
+   ```python
+   # Compute stable identifier for source media
+   media_id = sha256(file_size + duration + first_10s_audio_hash)
+   
+   # Cache directory structure
+   cache/media/{media_id}/
+   ├── metadata.json           # File info, duration, etc.
+   ├── baseline/
+   │   ├── asr_transcript.json    # Full ASR output
+   │   ├── aligned_segments.json  # Word-level alignment
+   │   ├── vad_segments.json      # Voice activity
+   │   └── speaker_diarization.json
+   ├── glossary/
+   │   ├── glossary_asr.json      # ASR bias terms
+   │   ├── glossary_translation.json  # Translation terms
+   │   └── learned_terms.json     # Auto-extracted terms
+   └── translations/
+       ├── en/                    # Per-language cache
+       │   ├── segments.json
+       │   └── subtitles.srt
+       └── es/
+           └── ...
+   ```
+
+3. **Artifact Reuse Logic:**
+   ```python
+   def prepare_subtitle_workflow(media_file, target_languages):
+       media_id = compute_media_id(media_file)
+       cache_dir = Path(f"cache/media/{media_id}")
+       
+       # Phase 1: Check for baseline
+       if not (cache_dir / "baseline").exists():
+           logger.info("🆕 First run - generating baseline")
+           run_baseline_generation(media_file, cache_dir)
+       else:
+           logger.info("✅ Reusing baseline from previous run")
+           baseline = load_baseline(cache_dir)
+       
+       # Phase 2: Check for glossary
+       if not (cache_dir / "glossary").exists():
+           logger.info("🆕 First run - building glossary")
+           run_glossary_enhancement(baseline, cache_dir)
+       else:
+           logger.info("✅ Reusing glossary from previous run")
+           glossary = load_glossary(cache_dir)
+       
+       # Phase 3: Generate subtitles for target languages
+       for lang in target_languages:
+           if (cache_dir / f"translations/{lang}").exists():
+               logger.info(f"✅ Reusing {lang} translation")
+               # Optional: regenerate if quality can be improved
+           else:
+               logger.info(f"🆕 Generating {lang} subtitles")
+               run_translation_and_subtitle_gen(baseline, glossary, lang)
+   ```
+
+4. **Quality Tracking:**
+   ```python
+   # Store quality metrics with baseline
+   baseline_metrics = {
+       "asr_confidence": 0.85,
+       "alignment_score": 0.92,
+       "word_error_rate": 0.12,
+       "hallucination_count": 15,
+       "generated_at": "2025-12-08T12:00:00Z"
+   }
+   
+   # Compare subsequent runs
+   if new_run_quality > baseline_quality:
+       logger.info("✅ Quality improved - updating baseline")
+       update_baseline(cache_dir, new_artifacts)
+   ```
+
+5. **Manual Correction Workflow:**
+   ```bash
+   # User reviews subtitles, makes corrections
+   # Corrections stored in glossary
+   
+   # Next run reuses corrections
+   ./prepare-job.sh --media movie.mp4 --workflow subtitle \
+     --target-languages zh,ar --reuse-baseline
+   # Uses cached ASR + enhanced glossary with corrections
+   ```
+
+**Implementation Tasks:**
+
+1. **Media Identity System:**
+   ```python
+   # shared/media_identity.py
+   def compute_media_id(media_file: Path) -> str:
+       """Compute stable identifier for media file."""
+       file_stats = media_file.stat()
+       duration = get_media_duration(media_file)
+       audio_hash = hash_first_10s_audio(media_file)
+       
+       return sha256(f"{file_stats.st_size}_{duration}_{audio_hash}")
+   ```
+
+2. **Baseline Generation Stage:**
+   ```python
+   # scripts/00_baseline_generation.py
+   def run_baseline_generation(media_file, cache_dir):
+       """
+       Execute stages 01-07 (demux through alignment).
+       Store artifacts in cache_dir/baseline/.
+       """
+       # Run standard pipeline stages
+       # Save outputs to cache instead of job directory
+   ```
+
+3. **Glossary Enhancement:**
+   ```python
+   # scripts/glossary_enhancement.py
+   def enhance_glossary(baseline_dir, tmdb_data):
+       """
+       Extract terms from ASR, enrich with TMDB.
+       Store in cache_dir/glossary/.
+       """
+       # Auto-extract proper nouns, character names
+       # Merge with TMDB cast/crew
+       # Save enhanced glossary
+   ```
+
+4. **Cache Management:**
+   ```python
+   # shared/cache_manager.py
+   class MediaCacheManager:
+       def get_baseline(media_id): ...
+       def store_baseline(media_id, artifacts): ...
+       def get_glossary(media_id): ...
+       def has_translation(media_id, lang): ...
+       def cleanup_old_cache(max_age_days): ...
+   ```
+
+5. **Workflow Orchestration:**
+   ```python
+   # scripts/run-pipeline.py
+   def subtitle_workflow(job_config):
+       media_id = compute_media_id(job_config['input_media'])
+       cache_mgr = MediaCacheManager()
+       
+       # Phase 1: Baseline
+       if not cache_mgr.has_baseline(media_id):
+           run_baseline_generation(...)
+       
+       # Phase 2: Glossary
+       if not cache_mgr.has_glossary(media_id):
+           run_glossary_enhancement(...)
+       
+       # Phase 3: Translation & Subtitles
+       for lang in job_config['target_languages']:
+           run_translation_pipeline(...)
+   ```
+
+**Files to Create:**
+- `shared/media_identity.py` - Media ID computation
+- `shared/cache_manager.py` - Cache operations
+- `scripts/00_baseline_generation.py` - Baseline stage
+- `scripts/glossary_enhancement.py` - Glossary builder
+- `cache/media/README.md` - Cache structure docs
+
+**Files to Update:**
+- `scripts/run-pipeline.py` - Multi-phase logic
+- `ARCHITECTURE.md` - Add AD-014
+- `DEVELOPER_STANDARDS.md` - Add § 8.4 (Baseline/Cache patterns)
+- `.github/copilot-instructions.md` - Add AD-014 reference
+
+**Configuration:**
+```bash
+# config/.env.pipeline
+ENABLE_BASELINE_CACHE=true              # Master switch
+BASELINE_CACHE_DIR=cache/media          # Cache location
+BASELINE_CACHE_MAX_SIZE_GB=100          # Cache size limit
+BASELINE_REUSE_THRESHOLD=0.85           # Min quality to reuse
+BASELINE_AUTO_UPDATE=true               # Update if quality improves
+GLOSSARY_AUTO_EXTRACT=true              # Extract terms from ASR
+```
+
+**Validation:**
+```bash
+# First run (baseline generation)
+./prepare-job.sh --media movie.mp4 --workflow subtitle --target-languages en,es
+# Duration: 20 minutes (full pipeline)
+
+# Check cache created
+ls -lh cache/media/{media_id}/baseline/
+# Should show: asr_transcript.json, aligned_segments.json, etc.
+
+# Second run (cache reuse)
+./prepare-job.sh --media movie.mp4 --workflow subtitle --target-languages zh,ar
+# Duration: 6 minutes (reuses baseline, only translates)
+
+# Verify reuse
+grep "Reusing baseline" out/.../logs/99_pipeline_*.log
+# Should show: "✅ Reusing baseline from previous run"
+```
+
+**Categorization Matrix:**
+
+| Artifact | Phase | Location | Reusable | Lifespan |
+|----------|-------|----------|----------|----------|
+| ASR transcript | 1 (Baseline) | `cache/media/{id}/baseline/` | ✅ Yes | Until media changes |
+| Alignment | 1 (Baseline) | `cache/media/{id}/baseline/` | ✅ Yes | Until media changes |
+| VAD segments | 1 (Baseline) | `cache/media/{id}/baseline/` | ✅ Yes | Until media changes |
+| Glossary (ASR) | 2 (Glossary) | `cache/media/{id}/glossary/` | ✅ Yes | Manual updates |
+| Glossary (Translation) | 2 (Glossary) | `cache/media/{id}/glossary/` | ✅ Yes | Manual updates |
+| Translation (per lang) | 3 (Subtitles) | `cache/media/{id}/translations/{lang}/` | ⚠️ Optional | Configurable |
+| Subtitles (per lang) | 3 (Subtitles) | Job output directory | ❌ No | Job-specific |
+
+**Documentation:**
+- Add to ARCHITECTURE.md (AD-014: Multi-Phase Subtitle Workflow)
+- Add to DEVELOPER_STANDARDS.md (§ 8.4: Baseline & Cache Patterns)
+- Update copilot-instructions.md (AD-014 reference)
+- Create cache/media/README.md (cache structure guide)
+
+**Benefits:**
+- ✅ **85% time reduction** for subsequent runs (6 min vs 20 min)
+- ✅ **Consistent quality** - Baseline establishes quality floor
+- ✅ **Iterative improvement** - Manual corrections carry forward
+- ✅ **Cost optimization** - Avoid redundant API calls
+- ✅ **Quality tracking** - Compare against baseline metrics
+
+**Example Timeline:**
+```
+First Run (Movie X, hi → en, es):
+├─ Phase 1: Baseline generation (15 min)
+├─ Phase 2: Glossary enhancement (2 min)
+└─ Phase 3: Translation (3 min) → Total: 20 minutes
+
+Second Run (Movie X, hi → zh, ar) [SAME SOURCE]:
+├─ Phase 1: ✅ Reused (0 min)
+├─ Phase 2: ✅ Reused (0 min)
+└─ Phase 3: Translation (6 min) → Total: 6 minutes (70% faster!)
+
+Third Run (Movie X, hi → en) [REGENERATE]:
+├─ Phase 1: ✅ Reused (0 min)
+├─ Phase 2: ✅ Reused with corrections (0 min)
+└─ Phase 3: Translation (3 min) → Total: 3 minutes (85% faster!)
+```
+
+**Migration Plan:**
+1. Implement media identity system
+2. Create cache manager
+3. Add baseline generation stage
+4. Update subtitle workflow orchestration
+5. Add cache cleanup utilities
+6. Update documentation
+7. Test with sample media
+
+**Status:** ⏳ Ready for implementation  
+**Estimated Time:** 3-4 hours (identity + cache + baseline + orchestration + docs)
+
+---
+
 ### Current Sprint (2025-12-04 to 2025-12-18)
 
 #### 1. Architecture Alignment ✅ COMPLETE
@@ -1947,6 +2274,12 @@ ls out/*/job-*/07_alignment/transcript.txt
 **Effort:** 2-3 hours  
 **Added:** 2025-12-08
 
+#### Task #15: Multi-Phase Subtitle Workflow - Baseline, Glossary, Cache
+**Status:** ⏳ Not Started (See Active Work section)  
+**Priority:** 🟢 HIGH  
+**Effort:** 3-4 hours  
+**Added:** 2025-12-08
+
 ---
 
 #### 0. Documentation Alignment (Architecture Audit Follow-up) ✅ COMPLETE 🆕
@@ -2277,12 +2610,24 @@ Target:  Both at 100%
 
 ---
 
-**Last Updated:** 2025-12-08 11:45 UTC  
+**Last Updated:** 2025-12-08 12:00 UTC  
 **Next Review:** 2025-12-11 or after E2E tests complete  
-**Status:** 🟢 ON TRACK (100% Phase 4 complete, AD-011 enhanced, AD-012+013 added)
+**Status:** 🟢 ON TRACK (100% Phase 4 complete, AD-011 enhanced, AD-012+013+014 added)
 
 **Major Changes This Update:**
-- 🆕 **AD-013 ADDED**: Organized Test Structure (NEW architectural decision)
+- 🆕 **AD-014 ADDED**: Multi-Phase Subtitle Workflow with Learning (NEW architectural decision) ⭐
+  - Issue: Subtitle workflow processes from scratch every time (20 min each)
+  - Solution: Three-phase execution (Baseline → Glossary → Translation)
+  - Benefits: 70-85% time reduction for subsequent runs (6 min vs 20 min)
+  - Features: Media ID tracking, artifact caching, quality metrics
+  - Cache: Reuse ASR, alignment, glossary between runs
+  - Quality: Iterative improvement with manual corrections
+- 📋 **Task #15 ADDED**: Multi-Phase Subtitle Workflow implementation ⭐
+  - Status: ⏳ Not Started
+  - Priority: 🟢 HIGH (Quality & performance optimization)
+  - Effort: 3-4 hours
+  - Includes: Media ID + cache manager + baseline generation + orchestration + docs
+- 🆕 **AD-013 ADDED**: Organized Test Structure (architectural decision)
   - Issue: 2 test scripts in project root + 23 unorganized in tests/
   - Solution: Categorized test directory (unit/integration/functional/manual)
   - Structure: Clear separation by test type and scope
@@ -2323,16 +2668,16 @@ Target:  Both at 100%
   - Pattern: Path.resolve() + pre-flight validation + str() conversion
   - Testing: Files with spaces, apostrophes, special chars all supported
   - Error handling: Clear messages for common issues (no audio, corruption, format)
-- 📋 **Documentation Updated**: 4 files synchronized (AD-011 + AD-012 + AD-013)
-  - ✅ ARCHITECTURE.md (added AD-011 +100 lines, AD-012 +60, AD-013 +90 lines)
-  - ✅ DEVELOPER_STANDARDS.md (added § 7.1.1, § 7.1.2, § 5.10, § 9.1, +270 lines)
-  - ✅ copilot-instructions.md (added AD-011, AD-012, AD-013 to quick ref + checklist, +100 lines)
-  - ✅ IMPLEMENTATION_TRACKER.md (Tasks #11, #12, #13, #14 tracked)
+- 📋 **Documentation Updated**: 4 files synchronized (AD-011 + AD-012 + AD-013 + AD-014)
+  - ✅ ARCHITECTURE.md (added AD-011 +100, AD-012 +60, AD-013 +90, AD-014 +120 lines)
+  - ✅ DEVELOPER_STANDARDS.md (§ 7.1.1, § 7.1.2, § 5.10, § 9.1, § 9B, +470 lines)
+  - ✅ copilot-instructions.md (all ADs in quick ref + checklist, +140 lines)
+  - ✅ IMPLEMENTATION_TRACKER.md (Tasks #11, #12, #13, #14, #15 tracked)
 - 🎯 **Impact**: Files with special characters now work correctly
   - ✅ Tested: `Energy Demand in AI.mp4` (SUCCESS - 22.7 MB extracted)
   - ✅ Tested: Video-only file (CLEAR ERROR - actionable guidance)
   - ✅ Pattern established for Stages 04, 12 (Demucs, FFmpeg mux)
-- 📊 **Architectural Decisions**: 10 → 13 total (AD-011 in progress, AD-012+013 added)
+- 📊 **Architectural Decisions**: 10 → 14 total (AD-011 in progress, AD-012+013+014 added)
 - 💾 **Commits**: 3 total (AD-011)
   - a88b563: feat(demux) - Initial AD-011 implementation
   - 6f4133b: fix(demux) - Output path absolute

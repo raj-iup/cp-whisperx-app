@@ -82,8 +82,10 @@
 20. **If creating stage script: Is it named `{NN}_{stage_name}.py`?** (File Naming)
 21. **If testing: Am I using standard test media samples?** (§ 1.4)
 22. **If workflow: Am I following context-aware patterns?** (§ 1.5)
-23. **Error handling: Am I using exc_info=True exactly once?** (§ 5)
-24. **ASR/Transcription: Am I using hybrid MLX architecture?** (§ 2.7)
+23. **If subtitle workflow: Am I checking for baseline/glossary/cache first? (AD-014)** 🆕 ⭐
+24. **If subtitle workflow: Am I computing media_id for caching? (AD-014)** 🆕 ⭐
+25. **Error handling: Am I using exc_info=True exactly once?** (§ 5)
+26. **ASR/Transcription: Am I using hybrid MLX architecture?** (§ 2.7)
 
 **If NO to any → Check the relevant § section below**
 
@@ -94,7 +96,7 @@
 **Authoritative Source:** ARCHITECTURE.md  
 **Developer Guide:** DEVELOPER_STANDARDS.md § 20
 
-**All 13 Approved Architectural Decisions:** 🆕
+**All 14 Approved Architectural Decisions:** 🆕
 
 - **AD-001:** 12-stage architecture (optimal, no major refactoring) ✅
 - **AD-002:** ASR modularization (use `whisperx_module/`, not monolith) ✅
@@ -109,6 +111,7 @@
 - **AD-011:** Robust file path handling (pathlib + pre-flight validation for subprocess) 🔄
 - **AD-012:** Centralized log management (all logs in logs/ directory) 🆕 ⏳
 - **AD-013:** Organized test structure (all tests categorized in tests/ directory) 🆕 ⏳
+- **AD-014:** Multi-phase subtitle workflow (reuse baseline/glossary/cache for quality) 🆕 ⏳
 
 **Quick Patterns:**
 
@@ -207,6 +210,25 @@ tests/unit/test_my_feature.py           # Unit test
 tests/integration/test_my_integration.py # Integration test
 tests/functional/test_my_workflow.py     # Functional/E2E test
 tests/manual/feature/test-script.sh      # Manual script
+
+# Per AD-014: Multi-phase subtitle workflow (NEW) 🆕
+from shared.media_identity import compute_media_id
+from shared.cache_manager import MediaCacheManager
+
+# Compute media ID for caching
+media_id = compute_media_id(Path("movie.mp4"))
+
+# Check for cached baseline
+cache_mgr = MediaCacheManager()
+if cache_mgr.has_baseline(media_id):
+    baseline = cache_mgr.get_baseline(media_id)
+    logger.info("✅ Reusing baseline from previous run")
+else:
+    baseline = run_baseline_generation(...)
+    cache_mgr.store_baseline(media_id, baseline)
+
+# ❌ NEVER skip baseline check on subtitle workflow
+# ❌ NEVER recompute ASR/alignment if baseline exists
 ```
 
 ---

@@ -36,9 +36,10 @@ This document is the **authoritative source** for all architectural decisions in
 11. 🔄 **Robust file path handling** - pathlib + validation for all subprocess calls (AD-011) 🆕
 12. ⏳ **Centralized log file management** - All logs in logs/ directory (AD-012) 🆕
 13. ⏳ **Organized test structure** - All tests categorized in tests/ directory (AD-013) 🆕
+14. ⏳ **Multi-phase subtitle workflow** - Reuse baseline/glossary/cache for iterative quality (AD-014) 🆕
 
-**Total Architectural Decisions:** 13 (AD-001 through AD-013) 🆕  
-**Implementation Status:** 10/13 (77%) - AD-011 in progress, AD-012+013 pending 🆕
+**Total Architectural Decisions:** 14 (AD-001 through AD-014) 🆕  
+**Implementation Status:** 10/14 (71%) - AD-011 in progress, AD-012+013+014 pending 🆕
 
 ---
 
@@ -825,6 +826,177 @@ pytest tests/functional/    # Slower E2E tests
 **Effort:** 2-3 hours (audit + categorize + move + docs + verify)  
 **Priority:** 🟡 MEDIUM  
 **Tracked:** IMPLEMENTATION_TRACKER.md Task #14
+
+---
+
+### AD-014: Multi-Phase Subtitle Workflow with Learning
+**Decision:** Subtitle workflow must reuse baseline, glossary, and cache artifacts from previous processing of the same media source  
+**Date:** 2025-12-08  
+**Rationale:**
+- Current workflow processes media from scratch every time
+- No reuse of ASR, alignment, or glossary between runs
+- Wasted processing time (20 min → should be 3-6 min for subsequent runs)
+- Lost knowledge from manual corrections
+- No quality baseline tracking
+
+**Implementation Requirements:**
+
+**1. Three-Phase Execution Model:**
+```
+Phase 1: BASELINE GENERATION (First Run Only, 15-20 minutes)
+├─ Stages: demux → tmdb → glossary_load → source_sep → 
+│          pyannote_vad → whisperx_asr → alignment
+├─ Output: ASR transcript, aligned segments, VAD, diarization
+├─ Store: cache/media/{media_id}/baseline/
+└─ Reusable: ✅ Until media content changes
+
+Phase 2: GLOSSARY ENHANCEMENT (First Run + Updates, 2-3 minutes)
+├─ Input: Baseline ASR transcripts + TMDB metadata
+├─ Extract: Character names, cultural terms, proper nouns
+├─ Enrich: Manual corrections, learned terms
+├─ Output: Enhanced glossary (ASR + translation)
+└─ Store: cache/media/{media_id}/glossary/
+
+Phase 3: TRANSLATION & SUBTITLES (Every Run, 3-5 min per language)
+├─ Input: Baseline + Glossary + Target languages
+├─ Stages: lyrics_detection → hallucination_removal → 
+│          translation → subtitle_gen → mux
+├─ Reuse: ASR, alignment, glossary from baseline
+└─ Output: Clean, accurate subtitles for target languages
+```
+
+**2. Media Source Identity:**
+```python
+# Compute stable identifier for media source
+media_id = sha256(file_size + duration + first_10s_audio_hash)
+
+# Cache directory structure
+cache/media/{media_id}/
+├── metadata.json              # File info, duration, languages
+├── baseline/
+│   ├── asr_transcript.json       # Full ASR output
+│   ├── aligned_segments.json     # Word-level alignment
+│   ├── vad_segments.json         # Voice activity
+│   ├── speaker_diarization.json  # Speaker labels
+│   └── quality_metrics.json      # Baseline quality
+├── glossary/
+│   ├── glossary_asr.json         # ASR bias terms
+│   ├── glossary_translation.json # Translation terms
+│   └── learned_terms.json        # Auto-extracted
+└── translations/
+    ├── en/segments.json          # Per-language cache
+    ├── es/segments.json
+    └── ...
+```
+
+**3. Artifact Reuse Logic:**
+```python
+def prepare_subtitle_workflow(media_file, target_languages):
+    media_id = compute_media_id(media_file)
+    cache_dir = Path(f"cache/media/{media_id}")
+    
+    # Phase 1: Baseline
+    if not cache_dir.exists() or not has_baseline(cache_dir):
+        logger.info("🆕 First run - generating baseline (15-20 min)")
+        run_baseline_generation(media_file, cache_dir)
+    else:
+        logger.info("✅ Reusing baseline from previous run")
+        baseline = load_baseline(cache_dir)
+    
+    # Phase 2: Glossary
+    if not has_glossary(cache_dir):
+        logger.info("🆕 Building glossary (2-3 min)")
+        run_glossary_enhancement(baseline, cache_dir)
+    else:
+        logger.info("✅ Reusing enhanced glossary")
+        glossary = load_glossary(cache_dir)
+    
+    # Phase 3: Subtitles (for each target language)
+    for lang in target_languages:
+        logger.info(f"🆕 Generating {lang} subtitles (3-5 min)")
+        run_translation_and_subtitle_gen(baseline, glossary, lang)
+```
+
+**4. Quality Tracking:**
+```python
+# Store baseline quality metrics
+baseline_metrics = {
+    "asr_confidence": 0.85,
+    "alignment_score": 0.92,
+    "word_error_rate": 0.12,
+    "hallucination_count": 15,
+    "generated_at": "2025-12-08T12:00:00Z"
+}
+
+# Compare subsequent runs
+if new_quality > baseline_quality * 1.05:  # 5% improvement
+    logger.info("✅ Quality improved - updating baseline")
+    update_baseline(cache_dir, new_artifacts, new_metrics)
+```
+
+**Files to Create:**
+- `shared/media_identity.py` - Compute stable media IDs
+- `shared/cache_manager.py` - Cache operations (get/store/cleanup)
+- `scripts/00_baseline_generation.py` - Baseline generation stage
+- `scripts/glossary_enhancement.py` - Glossary builder
+- `cache/media/README.md` - Cache structure documentation
+
+**Files to Update:**
+- `scripts/run-pipeline.py` - Multi-phase workflow orchestration
+- `scripts/prepare-job.py` - Add --reuse-baseline flag
+- Config: Add BASELINE_CACHE_DIR, BASELINE_REUSE_THRESHOLD
+
+**Configuration:**
+```bash
+# config/.env.pipeline
+ENABLE_BASELINE_CACHE=true              # Master switch
+BASELINE_CACHE_DIR=cache/media          # Cache location
+BASELINE_CACHE_MAX_SIZE_GB=100          # Cache size limit
+BASELINE_REUSE_THRESHOLD=0.85           # Min quality to reuse
+BASELINE_AUTO_UPDATE=true               # Update if quality improves
+GLOSSARY_AUTO_EXTRACT=true              # Extract terms from ASR
+```
+
+**Usage Example:**
+```bash
+# First run (generates baseline)
+./prepare-job.sh --media movie.mp4 --workflow subtitle \
+  --source-language hi --target-languages en,es
+# Duration: 20 minutes (Phase 1: 15min, Phase 2: 2min, Phase 3: 3min)
+
+# Second run (reuses baseline for new languages)
+./prepare-job.sh --media movie.mp4 --workflow subtitle \
+  --source-language hi --target-languages zh,ar,ta
+# Duration: 6 minutes (Phase 3 only: 2min per language)
+# Time saved: 70% (14 minutes)
+
+# Third run (regenerate with corrections)
+./prepare-job.sh --media movie.mp4 --workflow subtitle \
+  --source-language hi --target-languages en --reuse-baseline
+# Duration: 3 minutes (reuses everything, regenerates en subtitles)
+# Time saved: 85% (17 minutes)
+```
+
+**Benefits:**
+- ✅ **70-85% time reduction** for subsequent runs
+- ✅ **Consistent quality** - Baseline establishes quality floor
+- ✅ **Iterative improvement** - Manual corrections carry forward
+- ✅ **Cost optimization** - Avoid redundant API calls (TMDB, translation)
+- ✅ **Quality tracking** - Metrics stored with baseline
+
+**Performance Comparison:**
+
+| Scenario | Without Cache | With Cache | Time Saved |
+|----------|---------------|------------|------------|
+| First run (en, es) | 20 min | 20 min | 0% |
+| Add languages (zh, ar, ta) | 20 min | 6 min | 70% |
+| Regenerate (en) | 20 min | 3 min | 85% |
+| Total (3 runs) | 60 min | 29 min | 52% |
+
+**Status:** ⏳ **NOT STARTED**  
+**Effort:** 3-4 hours (identity + cache + baseline + orchestration + docs)  
+**Priority:** 🟢 HIGH (Quality & performance optimization)  
+**Tracked:** IMPLEMENTATION_TRACKER.md Task #15
 
 ---
 
