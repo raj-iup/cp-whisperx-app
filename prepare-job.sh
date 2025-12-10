@@ -71,7 +71,7 @@ Usage: ./prepare-job.sh [OPTIONS]
 Create a job configuration for the pipeline
 
 REQUIRED OPTIONS:
-  --media FILE                  Input media file (audio/video)
+  --media FILE|URL              Input media file or YouTube URL
   --workflow MODE               Workflow: transcribe|translate|subtitle
   -s, --source-language CODE    Source language (hi, ta, te, etc.)
 
@@ -92,6 +92,14 @@ WORKFLOW MODES:
   translate   - Transcribe + translate (requires -t)
   subtitle    - Full pipeline with SRT generation (requires -t)
 
+YOUTUBE INTEGRATION:
+  • Pass YouTube URL directly to --media parameter
+  • Auto-downloads to in/online/ directory BEFORE pipeline execution
+  • Smart caching: reuses downloaded file if video_id matches
+  • Uses YouTube Premium credentials from user profile (if configured)
+  • Filename format: {sanitized_title}_{video_id}.mp4 (35 char title max)
+  • Pipeline stages process the downloaded local file (not the URL)
+
 TWO-STEP TRANSCRIPTION:
   --two-step enables Phase 2 optimization where transcription and
   translation are performed separately for better accuracy:
@@ -100,9 +108,17 @@ TWO-STEP TRANSCRIPTION:
   Expected improvement: +5-8% accuracy on Hindi transcription
 
 EXAMPLES:
-  # Hindi to English subtitles (default userId=1)
+  # Local file: Hindi to English subtitles (default userId=1)
   ./prepare-job.sh --media in/movie.mp4 --workflow subtitle \
     --source-language hi --target-language en
+
+  # YouTube URL: Download and transcribe
+  ./prepare-job.sh --media "https://youtu.be/14pp1KyBmYQ" \
+    --workflow transcribe --source-language hi
+
+  # YouTube URL: Multi-language subtitles
+  ./prepare-job.sh --media "https://youtube.com/watch?v=VIDEO_ID" \
+    --workflow subtitle --source-language hi --target-language en,gu,ta
 
   # Specify different userId
   ./prepare-job.sh --user-id 2 --media in/movie.mp4 --workflow subtitle \
@@ -187,6 +203,11 @@ while [[ $# -gt 0 ]]; do
             PYTHON_ARGS+=("$1")
             shift
             ;;
+        --estimate-only)
+            # Cost estimation mode - estimate costs then exit
+            ESTIMATE_ONLY=true
+            shift
+            ;;
         -s|--source-language|-t|--target-language|--workflow|--start-time|--end-time|--user-id|--two-step)
             # Pass through known arguments
             PYTHON_ARGS+=("$1")
@@ -212,8 +233,219 @@ if [ -z "$MEDIA_FILE" ]; then
     exit 1
 fi
 
+# ═══════════════════════════════════════════════════════════════════════════
+# YOUTUBE DOWNLOAD (if URL detected)
+# ═══════════════════════════════════════════════════════════════════════════
+
+# Check if MEDIA_FILE is a URL
+if [[ "$MEDIA_FILE" =~ ^https?:// ]]; then
+    log_info "🌐 Online URL detected: $MEDIA_FILE"
+    
+    # ═══════════════════════════════════════════════════════════════════════════
+    # PLAYLIST DETECTION (Week 4 Feature 3)
+    # ═══════════════════════════════════════════════════════════════════════════
+    
+    # Check if URL is a playlist
+    if [[ "$MEDIA_FILE" =~ playlist.*list= ]] || [[ "$MEDIA_FILE" =~ list=.*watch ]]; then
+        log_info "📺 Playlist detected!"
+        log_info "⬇️  Parsing playlist..."
+        
+        # Activate common environment for Python
+        export VIRTUAL_ENV="$COMMON_VENV"
+        export PATH="$COMMON_VENV/bin:$PATH"
+        export PYTHONPATH="$PROJECT_ROOT${PYTHONPATH:+:$PYTHONPATH}"
+        
+        # Parse playlist info
+        PLAYLIST_OUTPUT=$("$COMMON_VENV/bin/python3" -c "
+import sys
+from pathlib import Path
+sys.path.insert(0, '$PROJECT_ROOT')
+
+from shared.online_downloader import get_playlist_info, format_playlist_summary
+
+try:
+    # Get playlist info
+    info = get_playlist_info('$MEDIA_FILE')
+    
+    # Print summary
+    print(format_playlist_summary(info))
+    
+    # Print video count and video data (for parsing)
+    print('---VIDEO_DATA---')
+    print(info['video_count'])
+    for video in info['videos']:
+        print(f\"{video['video_id']}|{video['title']}|{video['url']}\")
+    
+    sys.exit(0)
+except Exception as e:
+    print(f'ERROR: {e}', file=sys.stderr)
+    sys.exit(1)
+" 2>&1)
+        
+        if [ $? -ne 0 ]; then
+            log_error "❌ Failed to parse playlist"
+            log_error "$PLAYLIST_OUTPUT"
+            exit 1
+        fi
+        
+        # Extract video count (first line after VIDEO_DATA marker)
+        VIDEO_COUNT=$(echo "$PLAYLIST_OUTPUT" | grep -A1 "VIDEO_DATA" | tail -1)
+        
+        # Show playlist summary (everything before VIDEO_DATA marker)
+        echo "$PLAYLIST_OUTPUT" | grep -B100 "VIDEO_DATA" | grep -v "VIDEO_DATA"
+        
+        echo ""
+        log_info "📋 Found $VIDEO_COUNT videos in playlist"
+        echo ""
+        
+        # Ask user confirmation
+        read -p "Process all $VIDEO_COUNT videos? [y/N]: " -n 1 -r
+        echo ""
+        
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            log_info "Cancelled by user"
+            exit 0
+        fi
+        
+        echo ""
+        log_info "🚀 Creating jobs for playlist videos..."
+        echo ""
+        
+        # Process each video
+        JOB_IDS=()
+        VIDEO_NUM=0
+        
+        # Extract video data (lines after VIDEO_DATA marker, skip count line)
+        while IFS='|' read -r video_id title url; do
+            # Skip if empty or header line
+            if [ -z "$video_id" ] || [ "$video_id" = "$VIDEO_COUNT" ]; then
+                continue
+            fi
+            
+            ((VIDEO_NUM++))
+            
+            log_info "Video $VIDEO_NUM/$VIDEO_COUNT: $title"
+            
+            # Create job for this video (recursively call prepare-job.sh)
+            # Remove --estimate-only if present, pass all other args
+            VIDEO_ARGS=()
+            for arg in "${PYTHON_ARGS[@]}"; do
+                if [ "$arg" != "--estimate-only" ]; then
+                    VIDEO_ARGS+=("$arg")
+                fi
+            done
+            
+            # Run prepare-job for this video (silent mode)
+            JOB_OUTPUT=$("$SCRIPT_DIR/prepare-job.sh" \
+                --media "$url" \
+                "${VIDEO_ARGS[@]}" 2>&1)
+            
+            # Extract job ID from output
+            JOB_ID=$(echo "$JOB_OUTPUT" | grep "Job created:" | awk '{print $NF}')
+            
+            if [ -n "$JOB_ID" ]; then
+                JOB_IDS+=("$JOB_ID")
+                log_success "  ✅ Job created: $JOB_ID"
+            else
+                log_error "  ❌ Failed to create job for video $VIDEO_NUM"
+            fi
+        done < <(echo "$PLAYLIST_OUTPUT" | grep -A1000 "VIDEO_DATA" | tail -n +3)
+        
+        echo ""
+        log_section "PLAYLIST PROCESSING COMPLETE"
+        log_success "✅ Created ${#JOB_IDS[@]} jobs for $VIDEO_COUNT videos"
+        echo ""
+        log_info "📋 Job IDs:"
+        for job_id in "${JOB_IDS[@]}"; do
+            echo "   - $job_id"
+        done
+        
+        echo ""
+        log_info "💡 Run all jobs:"
+        for job_id in "${JOB_IDS[@]}"; do
+            echo "   ./run-pipeline.sh -j $job_id"
+        done
+        echo ""
+        
+        log_info "💡 Or use a loop:"
+        echo "   for job_id in ${JOB_IDS[@]}; do"
+        echo "       ./run-pipeline.sh -j \$job_id"
+        echo "   done"
+        echo ""
+        
+        exit 0
+    fi
+    
+    # ═══════════════════════════════════════════════════════════════════════════
+    # SINGLE VIDEO DOWNLOAD
+    # ═══════════════════════════════════════════════════════════════════════════
+    
+    log_info "⬇️  Downloading video to in/online/..."
+    
+    # Activate common environment for Python
+    export VIRTUAL_ENV="$COMMON_VENV"
+    export PATH="$COMMON_VENV/bin:$PATH"
+    export PYTHONPATH="$PROJECT_ROOT${PYTHONPATH:+:$PYTHONPATH}"
+    
+    # Download using Python's online_downloader module
+    # Get file path (last line of output)
+    DOWNLOAD_OUTPUT=$("$COMMON_VENV/bin/python3" -c "
+import sys
+from pathlib import Path
+sys.path.insert(0, '$PROJECT_ROOT')
+
+from shared.online_downloader import OnlineMediaDownloader
+
+try:
+    # Create downloader
+    downloader = OnlineMediaDownloader(
+        cache_dir=Path('$PROJECT_ROOT/in/online'),
+        format_quality='best',
+        audio_only=False
+    )
+    
+    # Download video (auto-checks cache first)
+    local_path, metadata = downloader.download('$MEDIA_FILE')
+    
+    # Print ONLY the file path (one line, no logs)
+    print(str(local_path))
+    sys.exit(0)
+    
+except Exception as e:
+    # Print error to stderr
+    print(f'ERROR: {e}', file=sys.stderr)
+    sys.exit(1)
+" 2>&1)
+    
+    DOWNLOAD_EXIT_CODE=$?
+    
+    # Extract only the last line (the file path)
+    LOCAL_PATH=$(echo "$DOWNLOAD_OUTPUT" | tail -1)
+    
+    # Check exit code and path validity
+    if [ $DOWNLOAD_EXIT_CODE -eq 0 ] && [ -f "$LOCAL_PATH" ]; then
+        # Success - extract video ID from filename
+        VIDEO_ID=$(basename "$LOCAL_PATH" | grep -oE '[A-Za-z0-9_-]{11}\.mp4' | sed 's/\.mp4//')
+        log_info "📹 YouTube video ID: $VIDEO_ID"
+        log_info "✅ Found cached video: $(basename "$LOCAL_PATH")"
+        log_info "♻️  Using cached video (skip download)"
+        log_success "✅ Video ready: $LOCAL_PATH"
+        
+        # Replace URL with local path for pipeline
+        MEDIA_FILE="$LOCAL_PATH"
+    else
+        # Failure
+        log_error "❌ Download failed:"
+        log_error "$DOWNLOAD_RESULT"
+        exit 1
+    fi
+else
+    log_debug "Local file detected: $MEDIA_FILE"
+fi
+
 # Add media file as first positional argument for Python script
 # This maintains compatibility between shell and Python interfaces
+# At this point, MEDIA_FILE is always a local path (either original or downloaded)
 PYTHON_ARGS=("$MEDIA_FILE" "${PYTHON_ARGS[@]}")
 
 # Set log level if provided
@@ -236,6 +468,69 @@ log_debug "Arguments: ${PYTHON_ARGS[*]}"
 export VIRTUAL_ENV="$COMMON_VENV"
 export PATH="$COMMON_VENV/bin:$PATH"
 export PYTHONPATH="$PROJECT_ROOT${PYTHONPATH:+:$PYTHONPATH}"
+
+# ═══════════════════════════════════════════════════════════════════════════
+# COST ESTIMATION (Week 4 Feature 2)
+# ═══════════════════════════════════════════════════════════════════════════
+
+if [ "${ESTIMATE_ONLY:-false}" = true ]; then
+    log_info "💰 Estimating job cost..."
+    
+    # Extract parameters for estimation
+    WORKFLOW="subtitle"  # Default
+    TARGET_LANGS=""
+    ENABLE_SUMMARIZATION="false"
+    
+    # Parse Python args to extract workflow and target languages
+    i=0
+    while [ $i -lt ${#PYTHON_ARGS[@]} ]; do
+        case "${PYTHON_ARGS[$i]}" in
+            --workflow)
+                i=$((i+1))
+                WORKFLOW="${PYTHON_ARGS[$i]}"
+                ;;
+            -t|--target-language)
+                i=$((i+1))
+                TARGET_LANGS="${PYTHON_ARGS[$i]}"
+                ;;
+        esac
+        i=$((i+1))
+    done
+    
+    # Run cost estimation
+    "$COMMON_VENV/bin/python3" -c "
+import sys
+from pathlib import Path
+sys.path.insert(0, '$PROJECT_ROOT')
+
+from shared.cost_estimator import show_cost_estimate
+
+# Get audio path
+audio_path = Path('$MEDIA_FILE')
+
+# Parse target languages
+target_langs = []
+if '$TARGET_LANGS':
+    target_langs = '$TARGET_LANGS'.split(',')
+
+# Show estimate
+total = show_cost_estimate(
+    audio_path=audio_path,
+    workflow='$WORKFLOW',
+    target_langs=target_langs if target_langs else None,
+    enable_summarization=$ENABLE_SUMMARIZATION
+)
+
+print()
+print('ℹ️  This is an estimate. Actual costs may vary.')
+print('   To proceed with job creation, run without --estimate-only')
+print()
+"
+    
+    exit_code=$?
+    log_success "✅ Cost estimation complete"
+    exit 0
+fi
 
 log_info "Executing job preparation..."
 

@@ -206,7 +206,7 @@ def create_job_directory(input_media: Path, workflow: str, user_id: Optional[str
     job_id = f"job-{date_str}-{user_id}-{job_number:04d}"
     
     # Create directory: out/YYYY/MM/DD/USERID/counter/
-    job_dir = PROJECT_ROOT / "out" / year / month / day / user_id / str(job_number)
+    job_dir = PROJECT_ROOT / "out" / year / month / day / str(user_id) / str(job_number)
     job_dir.mkdir(parents=True, exist_ok=True)
     
     # AD-001: No shared logs/ directory - pipeline log goes to job root
@@ -253,7 +253,8 @@ def create_job_config(job_dir: Path, job_id: str, workflow: str,
                       debug: bool = False,
                       user_id: Optional[str] = None,
                       log_level: Optional[str] = None,
-                      two_step: bool = False) -> None:
+                      two_step: bool = False,
+                      media_url: Optional[str] = None) -> None:
     """Create job.json configuration file with environment mappings"""
     
     parsed = parse_filename(input_media.name)
@@ -303,6 +304,7 @@ def create_job_config(job_dir: Path, job_id: str, workflow: str,
         "target_languages": target_langs,
         "two_step_transcription": two_step,
         "input_media": str(input_media),
+        "media_url": media_url,  # Add media URL if downloaded from online
         "title": parsed.title if parsed.title else input_media.stem,
         "year": str(parsed.year) if parsed.year else "",
         "created_at": datetime.now().isoformat(),
@@ -581,8 +583,8 @@ def main() -> None:
     
     parser.add_argument(
         "input_media",
-        type=Path,
-        help="Input media file"
+        type=str,  # Changed from Path to str to support URLs
+        help="Input media file path or YouTube URL"
     )
     
     parser.add_argument(
@@ -672,10 +674,63 @@ def main() -> None:
         logger.error(f"❌ Error validating user profile: {e}", exc_info=True)
         sys.exit(1)
     
-    # Validate input
-    if not args.input_media.exists():
-        logger.error(f"❌ Error: Input media not found: {args.input_media}")
-        sys.exit(1)
+    # Validate input media or download from URL
+    input_media_path = args.input_media
+    media_url = None
+    
+    # Check if input is a URL
+    from shared.online_downloader import is_online_url, OnlineMediaDownloader, load_youtube_credentials
+    
+    if is_online_url(str(args.input_media)):
+        logger.info(f"🌐 Online URL detected: {args.input_media}")
+        media_url = str(args.input_media)
+        
+        # Load YouTube credentials for the user
+        youtube_username, youtube_password = load_youtube_credentials(user_id=args.user_id)
+        
+        if youtube_username:
+            logger.info(f"✓ Using YouTube Premium credentials for user {args.user_id}")
+        else:
+            logger.warning(f"⚠️  No YouTube Premium credentials found for user {args.user_id}")
+            logger.info(f"   Public videos will still work")
+        
+        # Download video
+        try:
+            logger.info(f"⬇️  Downloading video...")
+            downloader = OnlineMediaDownloader(
+                cache_dir=Path("in/online"),
+                youtube_username=youtube_username,
+                youtube_password=youtube_password
+            )
+            
+            local_path, metadata = downloader.download(media_url)
+            
+            logger.info(f"✓ Download complete!")
+            logger.info(f"   Title: {metadata['title']}")
+            logger.info(f"   Duration: {metadata['duration']}s ({metadata['duration']//60}m {metadata['duration']%60}s)")
+            logger.info(f"   File: {local_path.name}")
+            logger.info(f"   Size: {local_path.stat().st_size / 1024 / 1024:.1f} MB")
+            
+            if metadata.get('cached', False):
+                logger.info(f"   ♻️  Used cached copy (skip download)")
+            
+            # Use downloaded file as input
+            input_media_path = local_path
+            
+        except Exception as e:
+            logger.error(f"❌ Error downloading video: {e}", exc_info=True)
+            logger.info(f"   Check:")
+            logger.info(f"     • URL is valid")
+            logger.info(f"     • Video is accessible")
+            logger.info(f"     • Network connection")
+            logger.info(f"     • YouTube Premium credentials (if required)")
+            sys.exit(1)
+    else:
+        # Local file - convert to Path and validate it exists
+        input_media_path = Path(args.input_media)
+        if not input_media_path.exists():
+            logger.error(f"❌ Error: Input media not found: {input_media_path}")
+            sys.exit(1)
     
     # For transcribe workflow, source language is optional (will auto-detect)
     if args.workflow == "transcribe" and not args.source_language:
@@ -743,14 +798,14 @@ def main() -> None:
     
     # Create job directory
     logger.info(f"📁 Creating job directory...")
-    job_dir, job_id = create_job_directory(args.input_media, args.workflow, user_id=args.user_id)
+    job_dir, job_id = create_job_directory(input_media_path, args.workflow, user_id=args.user_id)
     logger.info(f"   Job ID: {job_id}")
     logger.info(f"   Job directory: {job_dir}")
     
     # Prepare media
     logger.info(f"🎬 Preparing media...")
     prepared_media = prepare_media(
-        args.input_media,
+        input_media_path,
         job_dir,
         args.start_time,
         args.end_time
@@ -774,8 +829,8 @@ def main() -> None:
         args.debug,
         user_id=str(args.user_id),  # Convert to string for job.json
         log_level=log_level_value,  # Pass log level
-        two_step=args.two_step  # Pass two-step flag
-    )
+        two_step=args.two_step,  # Pass two-step flag
+        media_url=media_url  # Pass URL if downloaded from online
     )
     
     # Create environment file

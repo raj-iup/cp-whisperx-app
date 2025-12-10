@@ -1326,11 +1326,19 @@ def main() -> Any:
         logger.error(f"Failed to load configuration: {e}", exc_info=True)
         return 1
     
-    # Get audio file from demux stage
-    audio_file = stage_io.get_input_path("audio.wav", from_stage="demux")
-    if not audio_file.exists():
-        logger.error(f"Audio file not found: {audio_file}", exc_info=True)
-        stage_io.add_error(f"Audio file not found: {audio_file}")
+    # Get audio file - try source_separation first (for clean audio), then demux
+    audio_file = None
+    for from_stage in ["source_separation", "demux"]:
+        candidate = stage_io.get_input_path("audio.wav", from_stage=from_stage)
+        logger.info(f"Checking for audio in {from_stage}: {candidate} (exists={candidate.exists()})")
+        if candidate.exists():
+            audio_file = candidate
+            logger.info(f"✓ Using audio from {from_stage} stage: {audio_file}")
+            break
+    
+    if audio_file is None or not audio_file.exists():
+        logger.error(f"Audio file not found in source_separation or demux stages", exc_info=True)
+        stage_io.add_error(f"Audio file not found")
         stage_io.finalize(status="failed", error="Input file not found")
         return 1
     
@@ -1464,7 +1472,8 @@ def main() -> Any:
     # ML-BASED OPTIMIZATION (Phase 5, Task #16)
     # ========================================================================
     # Predict optimal parameters based on audio characteristics
-    ml_optimization_enabled = getattr(config, 'ml_optimization_enabled', 'true').lower() == 'true'
+    ml_opt_val = getattr(config, 'ml_optimization_enabled', 'true')
+    ml_optimization_enabled = str(ml_opt_val).lower() == 'true' if isinstance(ml_opt_val, (str, bool)) else True
     force_model_size = getattr(config, 'force_model_size', '')
     
     if ml_optimization_enabled and not force_model_size:

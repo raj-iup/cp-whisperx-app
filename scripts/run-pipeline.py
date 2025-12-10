@@ -40,6 +40,7 @@ from shared.stage_dependencies import (
 )
 from shared.workflow_cache import WorkflowCacheIntegration
 from shared.baseline_cache_orchestrator import BaselineCacheOrchestrator
+from shared.cost_tracker import CostTracker
 
 # Initialize logger
 logger = get_logger(__name__)
@@ -708,6 +709,9 @@ class IndicTrans2Pipeline:
                 if success:
                     self.logger.info(f"✅ Stage {stage_name}: COMPLETED ({duration:.1f}s)")
                     self._update_stage_status(stage_name, "completed", duration)
+                    
+                    # NEW (Week 4 Feature 1): Display real-time cost after stage completion
+                    self._display_stage_cost(stage_name)
                 else:
                     self.logger.error(f"❌ Stage {stage_name}: FAILED")
                     self._update_stage_status(stage_name, "failed", duration)
@@ -729,6 +733,68 @@ class IndicTrans2Pipeline:
             if stage["name"] == stage_name:
                 return stage["status"]
         return None
+    
+    def _display_stage_cost(self, stage_name: str):
+        """
+        Display cost for completed stage (Week 4 Feature 1).
+        
+        Shows:
+        - Stage cost
+        - Running total
+        - Budget status
+        - Alerts if over threshold
+        
+        Args:
+            stage_name: Name of the completed stage
+        """
+        try:
+            # Get user ID from job config
+            user_id = self.job_config.get("user_id", 1)
+            
+            # Initialize cost tracker
+            tracker = CostTracker(job_dir=self.job_dir, user_id=user_id)
+            
+            # Get monthly summary
+            month = datetime.now().strftime("%Y-%m")
+            cost_file = PROJECT_ROOT / f"users/{user_id}/costs/{month}.json"
+            
+            if not cost_file.exists():
+                # No costs tracked yet (all local processing)
+                return
+            
+            with open(cost_file) as f:
+                costs = json.load(f)
+            
+            # Get stage cost
+            stage_costs = costs.get("by_stage", {}).get(stage_name, {})
+            stage_cost = stage_costs.get("cost", 0.0)
+            
+            # Only display if there's a cost (skip $0.00 local stages)
+            if stage_cost <= 0:
+                return
+            
+            # Get monthly total
+            total_cost = costs.get("total_cost", 0.0)
+            
+            # Get budget info
+            budget_limit = costs.get("budget_limit", 50.0)
+            percent_used = (total_cost / budget_limit * 100) if budget_limit > 0 else 0
+            
+            # Display cost
+            self.logger.info(f"   💰 Stage cost: ${stage_cost:.4f}")
+            self.logger.info(f"   Running total: ${total_cost:.2f} / ${budget_limit:.2f} ({percent_used:.1f}%)")
+            
+            # Alert if over 80%
+            if percent_used >= 100:
+                self.logger.warning(f"   🚨 BUDGET LIMIT REACHED! ${total_cost:.2f} / ${budget_limit:.2f}")
+            elif percent_used >= 80:
+                remaining = budget_limit - total_cost
+                self.logger.warning(f"   ⚠️  Budget alert: {percent_used:.1f}% used, ${remaining:.2f} remaining")
+                
+        except Exception as e:
+            # Don't fail pipeline if cost display fails
+            if self.debug:
+                self.logger.debug(f"Could not display cost: {e}")
     
     # ========================================================================
     # Stage Implementations

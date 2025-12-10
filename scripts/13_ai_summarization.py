@@ -26,6 +26,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from shared.config_loader import load_config
 from shared.stage_utils import StageIO
 from shared.ai_summarizer import create_summarizer, SummaryRequest
+from shared.cost_tracker import CostTracker
 
 
 def run_stage(job_dir: Path, stage_name: str = "13_ai_summarization") -> int:
@@ -169,6 +170,36 @@ def run_stage(job_dir: Path, stage_name: str = "13_ai_summarization") -> int:
         
         logger.info(f"✅ Summary generated: {response.tokens_used} tokens used")
         logger.info(f"   Key points: {len(response.key_points)}")
+        
+        # Track cost (Phase 6 - Task #21)
+        tracker = CostTracker(job_dir=job_dir, user_id=user_id)
+        
+        # Estimate token split (typical: 80% input, 20% output for summarization)
+        tokens_input = int(response.tokens_used * 0.8)
+        tokens_output = response.tokens_used - tokens_input
+        
+        # Get model name from summarizer
+        model_name = getattr(summarizer, 'model', 'gpt-4-turbo')
+        
+        # Log cost
+        cost = tracker.log_usage(
+            service=provider,
+            model=model_name,
+            tokens_input=tokens_input,
+            tokens_output=tokens_output,
+            stage=stage_name,
+            metadata={
+                "workflow": "summarization",
+                "transcript_length": len(transcript_text)
+            }
+        )
+        logger.info(f"💰 Stage cost: ${cost:.4f}")
+        
+        # Check budget alerts
+        alerts = tracker.check_budget_alerts(user_id)
+        if alerts:
+            for alert in alerts:
+                logger.warning(alert)
         
         # Build summary output
         summary_parts = []

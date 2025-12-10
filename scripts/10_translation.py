@@ -863,6 +863,7 @@ def run_stage(job_dir: Path, stage_name: str = "08_translation") -> int:
     sys.path.insert(0, str(Path(__file__).parent.parent))
     from shared.stage_utils import StageIO
     from shared.config_loader import load_config
+    from shared.cost_tracker import CostTracker
     
     io = StageIO(stage_name, job_dir, enable_manifest=True)
     logger_stage = io.get_stage_logger()
@@ -1031,6 +1032,36 @@ def run_stage(job_dir: Path, stage_name: str = "08_translation") -> int:
             logger_stage.info("=" * 80)
             logger_stage.info("IndicTrans2 Translation Complete")
             logger_stage.info("=" * 80)
+            
+            # Track cost (Phase 6 - Task #21)
+            # IndicTrans2 is local processing - no API cost
+            user_id = 1
+            if job_json_path.exists():
+                try:
+                    with open(job_json_path, 'r') as f:
+                        job_data = json.load(f)
+                        user_id = int(job_data.get('user_id', 1))
+                except Exception:
+                    pass
+            
+            tracker = CostTracker(job_dir=job_dir, user_id=user_id)
+            total_segments = sum(len(translated_segments) for _ in target_langs)
+            
+            # Log local processing cost ($0 for local IndicTrans2)
+            cost = tracker.log_usage(
+                service="local",
+                model="indictrans2-local",
+                tokens_input=0,
+                tokens_output=0,
+                stage=stage_name,
+                metadata={
+                    "workflow": workflow,
+                    "segments_translated": total_segments,
+                    "target_languages": target_langs,
+                    "source_language": source_language
+                }
+            )
+            logger_stage.info(f"💰 Stage cost: ${cost:.4f} (local processing)")
             
             io.finalize(status="success")
             return 0

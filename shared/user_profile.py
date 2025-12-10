@@ -119,7 +119,9 @@ class UserProfile:
         self.credentials: dict = data.get('credentials', {})
         self.online_services: dict = data.get('online_services', {})
         self.preferences: dict = data.get('preferences', {})
+        self.budget: dict = data.get('budget', {})
         self._data: dict = data
+        self.data: dict = data  # Make data accessible
     
     @property
     def profile_path(self) -> Path:
@@ -190,6 +192,12 @@ class UserProfile:
                 "default_source_language": "en",
                 "ai_provider": "openai",
                 "enable_cost_tracking": True
+            },
+            "budget": {
+                "monthly_limit_usd": 50.00,
+                "alert_threshold_percent": 80,
+                "block_at_limit": False,
+                "notification_email": email if email else ""
             }
         }
         

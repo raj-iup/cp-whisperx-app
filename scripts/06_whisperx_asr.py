@@ -29,6 +29,7 @@ from whisperx_integration import main as whisperx_main
 from shared.logger import get_logger
 from shared.stage_utils import StageIO
 from shared.config_loader import load_config
+from shared.cost_tracker import CostTracker
 
 logger = get_logger(__name__)
 
@@ -65,7 +66,7 @@ def run_stage(job_dir: Path, stage_name: str = "04_asr") -> int:
         
         # Find input audio
         input_audio = None
-        for potential_dir in ["01_demux", "source_separation"]:
+        for potential_dir in ["04_source_separation", "01_demux"]:
             candidate = job_dir / potential_dir / "audio.wav"
             if candidate.exists():
                 input_audio = candidate
@@ -78,6 +79,10 @@ def run_stage(job_dir: Path, stage_name: str = "04_asr") -> int:
         
         logger_stage.info(f"Input audio: {input_audio}")
         io.track_input(input_audio, "audio")
+        
+        # Set OUTPUT_DIR environment variable for whisperx_integration
+        import os
+        os.environ['OUTPUT_DIR'] = str(job_dir)
         
         # Call legacy whisperx_integration main
         # It will use the job_dir environment and create outputs in standard locations
@@ -107,6 +112,53 @@ def run_stage(job_dir: Path, stage_name: str = "04_asr") -> int:
         logger_stage.info("WhisperX ASR Complete")
         logger_stage.info("=" * 80)
         
+        # Track cost (Phase 6 - Task #21)
+        # WhisperX with MLX backend is local processing - no API cost
+        # Get user_id from job.json
+        user_id = 1
+        job_json_path = job_dir / "job.json"
+        if job_json_path.exists():
+            try:
+                import json
+                with open(job_json_path, 'r') as f:
+                    job_data = json.load(f)
+                    user_id = int(job_data.get('user_id', 1))
+            except Exception:
+                pass
+        
+        tracker = CostTracker(job_dir=job_dir, user_id=user_id)
+        
+        # Get audio duration for metadata
+        audio_duration_sec = 0
+        try:
+            import wave
+            with wave.open(str(input_audio), 'rb') as wav:
+                frames = wav.getnframes()
+                rate = wav.getframerate()
+                audio_duration_sec = frames / float(rate)
+        except Exception:
+            pass
+        
+        # Get backend info from config
+        backend_type = config.get("WHISPER_BACKEND", "mlx").lower()
+        model_name = config.get("WHISPERX_MODEL", "large-v3")
+        
+        # Log local processing cost ($0 for local MLX)
+        cost = tracker.log_usage(
+            service="local",
+            model=f"mlx-whisper" if backend_type == "mlx" else f"whisperx-{model_name}",
+            tokens_input=0,
+            tokens_output=0,
+            stage=stage_name,
+            metadata={
+                "workflow": config.get("WORKFLOW", "transcribe"),
+                "audio_duration_sec": audio_duration_sec,
+                "backend": backend_type,
+                "model": model_name
+            }
+        )
+        logger_stage.info(f"💰 Stage cost: ${cost:.4f} (local processing)")
+        
         io.finalize(status="success")
         return 0
         
@@ -130,6 +182,16 @@ def main() -> int:
     Returns:
         int: Exit code (0 for success, 1 for failure)
     """
+    import os
+    import sys
+    
+    # Parse command-line arguments
+    if len(sys.argv) > 1:
+        job_dir = Path(sys.argv[1])
+        # Set OUTPUT_DIR environment variable for whisperx_integration
+        os.environ['OUTPUT_DIR'] = str(job_dir)
+        logger.info(f"Set OUTPUT_DIR={job_dir}")
+    
     try:
         return whisperx_main()
     except KeyboardInterrupt:
