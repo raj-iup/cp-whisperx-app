@@ -150,6 +150,87 @@ def run_stage(job_dir: Path, stage_name: str = "01_demux") -> int:
         logger.info(f"✓ Audio extracted successfully: {audio_file}")
         logger.debug(f"File size: {audio_file.stat().st_size / (1024*1024):.2f} MB")
         
+        # ========================================
+        # SIMILARITY OPTIMIZATION (Task #18)
+        # ========================================
+        try:
+            logger.info("=" * 60)
+            logger.info("Similarity Analysis")
+            logger.info("=" * 60)
+            
+            from shared.similarity_optimizer import get_similarity_optimizer
+            
+            # Check if similarity optimization is enabled
+            similarity_enabled = config.get("ENABLE_SIMILARITY_OPTIMIZATION", "true").lower() == "true"
+            
+            if similarity_enabled:
+                optimizer = get_similarity_optimizer()
+                
+                # Compute fingerprint for this media
+                logger.info("🔍 Computing media fingerprint...")
+                fingerprint = optimizer.compute_fingerprint(input_path, audio_file)
+                
+                # Find similar media
+                similarity_threshold = float(config.get("SIMILARITY_THRESHOLD", "0.75"))
+                matches = optimizer.find_similar_media(fingerprint, threshold=similarity_threshold)
+                
+                if matches:
+                    logger.info(f"✓ Found {len(matches)} similar media")
+                    
+                    # Get best match
+                    best_match = matches[0]
+                    logger.info(f"  Best match: {best_match.reference_media_id[:16]}...")
+                    logger.info(f"  Similarity: {best_match.similarity_score:.1%}")
+                    logger.info(f"  Confidence: {best_match.confidence:.1%}")
+                    logger.info(f"  Reusable: {', '.join(best_match.reusable_decisions)}")
+                    
+                    # Try to get reusable decision
+                    decision = optimizer.get_reusable_decisions(best_match)
+                    if decision:
+                        logger.info("✓ Reusable processing decision found")
+                        logger.info(f"  Previous model: {decision.model_used}")
+                        logger.info(f"  Previous workflow: {decision.workflow}")
+                        logger.info(f"  Previous time: {decision.processing_time:.1f}s")
+                        
+                        # Store for later use by ASR stage
+                        similarity_data = {
+                            "enabled": True,
+                            "fingerprint": fingerprint.to_dict(),
+                            "best_match": {
+                                "media_id": best_match.reference_media_id,
+                                "similarity": best_match.similarity_score,
+                                "confidence": best_match.confidence,
+                                "reusable": best_match.reusable_decisions
+                            },
+                            "reuse_decision": decision.to_dict() if decision else None
+                        }
+                        
+                        # Save to stage directory for ASR stage to read
+                        similarity_file = io.stage_dir / "similarity_match.json"
+                        with open(similarity_file, 'w') as f:
+                            json.dump(similarity_data, f, indent=2)
+                        
+                        logger.info(f"✓ Similarity data saved: {similarity_file}")
+                        io.track_output(similarity_file, "similarity_analysis")
+                        
+                        # Estimate time savings
+                        if decision and "asr_results" in best_match.reusable_decisions:
+                            savings_pct = int((1 - (decision.processing_time * 0.05) / decision.processing_time) * 100)
+                            logger.info(f"💡 Estimated time savings: ~{savings_pct}% (can reuse ASR results)")
+                        else:
+                            logger.info(f"💡 Can reuse: model selection, parameters")
+                    else:
+                        logger.info("⚠️  Similarity too low for decision reuse")
+                else:
+                    logger.info("ℹ️  No similar media found - will process from scratch")
+            else:
+                logger.info("ℹ️  Similarity optimization disabled")
+                
+        except Exception as e:
+            # Don't fail the stage if similarity check fails
+            logger.warning(f"Similarity analysis failed: {e}")
+            logger.debug("Continuing without similarity optimization", exc_info=True)
+        
         logger.info("=" * 60)
         logger.info("DEMUX STAGE COMPLETED")
         logger.info("=" * 60)

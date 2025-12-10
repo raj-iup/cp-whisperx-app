@@ -211,6 +211,109 @@ def run_stage(job_dir: Path, stage_name: str = "03_glossary_load") -> int:
         
         logger.info(f"Total glossary entries loaded: {len(entries)}")
         
+        # ========================================
+        # CONTEXT LEARNING INTEGRATION (Task #17)
+        # ========================================
+        try:
+            logger.info("=" * 80)
+            logger.info("Context Learning Enhancement")
+            logger.info("=" * 80)
+            
+            from shared.context_learner import get_context_learner
+            
+            # Check if context learning is enabled
+            context_learning_enabled = config.get("ENABLE_CONTEXT_LEARNING", "true").lower() == "true"
+            
+            if context_learning_enabled:
+                learner = get_context_learner()
+                
+                # Get source language
+                source_lang = config.get("SOURCE_LANGUAGE", "hi")
+                
+                # Override with job.json if specified
+                if job_json_path.exists():
+                    with open(job_json_path) as f:
+                        job_data = json.load(f)
+                        if 'source_language' in job_data and job_data['source_language']:
+                            source_lang = job_data['source_language']
+                
+                logger.info(f"Loading learned terms for language: {source_lang}")
+                
+                # Get learned character names
+                character_names = learner.get_learned_terms(source_lang, category="character_name")
+                logger.info(f"  Found {len(character_names)} learned character names")
+                
+                # Get learned cultural terms
+                cultural_terms = learner.get_learned_terms(source_lang, category="cultural_term")
+                logger.info(f"  Found {len(cultural_terms)} learned cultural terms")
+                
+                # Add learned terms to glossary
+                original_count = len(entries)
+                existing_terms = {e.get('term', '').lower() for e in entries}
+                
+                # Add character names (high confidence only)
+                for learned in character_names:
+                    if learned.term.lower() not in existing_terms and learned.confidence >= 0.7:
+                        entries.append({
+                            'term': learned.term,
+                            'type': 'character_name',
+                            'category': 'learned',
+                            'alternatives': '',
+                            'source': 'context_learning',
+                            'confidence': learned.confidence,
+                            'frequency': learned.frequency
+                        })
+                        existing_terms.add(learned.term.lower())
+                        logger.debug(f"  Added learned character: {learned.term} (confidence: {learned.confidence:.1%})")
+                
+                # Add cultural terms (high confidence only)
+                for learned in cultural_terms:
+                    if learned.term.lower() not in existing_terms and learned.confidence >= 0.7:
+                        entries.append({
+                            'term': learned.term,
+                            'type': 'cultural_term',
+                            'category': 'learned',
+                            'alternatives': '',
+                            'source': 'context_learning',
+                            'confidence': learned.confidence,
+                            'frequency': learned.frequency
+                        })
+                        existing_terms.add(learned.term.lower())
+                        logger.debug(f"  Added learned cultural term: {learned.term} (confidence: {learned.confidence:.1%})")
+                
+                learned_count = len(entries) - original_count
+                if learned_count > 0:
+                    logger.info(f"✓ Added {learned_count} learned terms to glossary")
+                    
+                    # Save enhanced glossary
+                    enhanced_file = io.stage_dir / "glossary_enhanced.json"
+                    with open(enhanced_file, 'w', encoding='utf-8') as f:
+                        json.dump({
+                            'original_count': original_count,
+                            'learned_count': learned_count,
+                            'total_count': len(entries),
+                            'learned_terms': [
+                                {
+                                    'term': e['term'],
+                                    'type': e.get('type', ''),
+                                    'confidence': e.get('confidence', 0),
+                                    'frequency': e.get('frequency', 0)
+                                }
+                                for e in entries if e.get('source') == 'context_learning'
+                            ]
+                        }, f, indent=2)
+                    io.track_output(enhanced_file, "context_learning")
+                    logger.info(f"✓ Enhanced glossary saved: {enhanced_file}")
+                else:
+                    logger.info("ℹ️  No new learned terms to add (all already in glossary)")
+            else:
+                logger.info("ℹ️  Context learning disabled")
+                
+        except Exception as e:
+            # Don't fail the stage if context learning fails
+            logger.warning(f"Context learning enhancement failed: {e}")
+            logger.debug("Continuing with original glossary", exc_info=True)
+        
         # Prepare ASR glossary
         asr_glossary = prepare_asr_glossary(entries)
         asr_file = io.stage_dir / "glossary_asr.json"
