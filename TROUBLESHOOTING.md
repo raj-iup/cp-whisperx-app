@@ -1,11 +1,17 @@
 # Troubleshooting Guide - CP-WhisperX-App
 
-**Version:** 1.0  
-**Created:** 2025-12-05  
+**Version:** 2.0 (Phase 4 Complete)  
+**Updated:** 2025-12-09  
 **Status:** Active  
 **Audience:** Users & Developers
 
 This guide helps diagnose and resolve common issues with the CP-WhisperX pipeline.
+
+**Recent Updates:**
+- ✅ Added AD-011 to AD-014 troubleshooting (file paths, logs, tests, caching)
+- ✅ Updated for v3.0 architecture (12-stage modular pipeline)
+- ✅ Added cache integration diagnostics
+- ✅ Added media identity troubleshooting
 
 ---
 
@@ -36,6 +42,32 @@ ls -la out/*/job-*/*/manifest.json
 # Check disk space
 df -h
 ```
+
+---
+
+## Table of Contents
+
+1. [Quick Diagnostics](#quick-diagnostics)
+2. [Common Issues](#common-issues)
+   - Pipeline Stops
+   - Source Separation Hangs
+   - ASR/Transcription Errors
+   - Alignment Failures
+   - Translation Errors
+   - Subtitle Generation Issues
+   - Virtual Environment Errors
+   - File Naming Issues
+   - Performance Issues
+   - Permission Errors
+3. [Phase 4 Issues (NEW)](#phase-4-issues-new)
+   - Cache Issues
+   - Media Identity Problems
+   - File Path Errors (AD-011)
+   - Log Management Issues (AD-012)
+   - Test Organization Issues (AD-013)
+4. [Advanced Debugging](#advanced-debugging)
+5. [Getting Help](#getting-help)
+6. [Prevention](#prevention)
 
 ---
 
@@ -469,6 +501,331 @@ du -sh .cache/
 
 ---
 
+## Phase 4 Issues (NEW)
+
+### 11. Cache Issues (AD-014)
+
+**Symptoms:**
+- Cache not being used (re-computing every time)
+- "Cache miss" in logs when expecting hit
+- Incorrect cache invalidation
+- Cache directory growing too large
+
+**Likely Causes:**
+1. **Media ID computation failure**
+2. **Cache configuration disabled**
+3. **Cache corruption**
+4. **Disk space exhaustion**
+
+**Solutions:**
+
+#### A. Verify Media Identity
+```bash
+# Test media ID computation
+python3 -c "
+from pathlib import Path
+from shared.media_identity import compute_media_id
+media_id = compute_media_id(Path('in/your_file.mp4'))
+print(f'Media ID: {media_id}')
+"
+```
+
+#### B. Check Cache Configuration
+```bash
+# Verify cache settings in job's .env.pipeline
+grep CACHE config/.env.pipeline
+# Should have:
+# ENABLE_CACHING=true
+# CACHE_DIR=~/.cp-whisperx/cache
+# CACHE_BASELINE=true
+```
+
+#### C. Inspect Cache Status
+```bash
+# List cached baselines
+python3 << 'EOF'
+from shared.cache_manager import MediaCacheManager
+cache = MediaCacheManager()
+baselines = cache.list_cached_media()
+for media_id, info in baselines.items():
+    print(f"{media_id}: {info['source_language']} - {info['cached_at']}")
+EOF
+```
+
+#### D. Clear Cache
+```bash
+# Clear all caches
+rm -rf ~/.cp-whisperx/cache/baseline/
+rm -rf ~/.cp-whisperx/cache/glossary/
+
+# Or use cache manager
+python3 -c "
+from shared.cache_manager import MediaCacheManager
+cache = MediaCacheManager()
+cache.clear_all()
+print('Cache cleared')
+"
+```
+
+#### E. Validate Cache Integrity
+```bash
+# Check cache health
+python3 << 'EOF'
+from shared.cache_manager import MediaCacheManager
+from pathlib import Path
+cache = MediaCacheManager()
+health = cache.validate_cache_health()
+print(f"Valid entries: {health['valid']}")
+print(f"Corrupt entries: {health['corrupt']}")
+print(f"Missing files: {health['missing']}")
+EOF
+```
+
+---
+
+### 12. Media Identity Problems (AD-014)
+
+**Symptoms:**
+- Same media file generates different IDs
+- Cache not found for identical media
+- "Hash mismatch" errors
+
+**Likely Causes:**
+1. **File modified between runs**
+2. **Different file paths (symlinks)**
+3. **Filesystem issues**
+
+**Solutions:**
+
+#### A. Verify File Consistency
+```bash
+# Compute hash twice
+sha256sum in/your_file.mp4
+sha256sum in/your_file.mp4
+# Should be identical
+
+# Check file metadata
+stat in/your_file.mp4
+```
+
+#### B. Test Media Identity
+```bash
+# Test with known file
+python3 << 'EOF'
+from pathlib import Path
+from shared.media_identity import compute_media_id, get_media_fingerprint
+
+file_path = Path("in/test_clips/jaane_tu_test_clip.mp4")
+media_id = compute_media_id(file_path)
+fingerprint = get_media_fingerprint(file_path)
+
+print(f"Media ID: {media_id}")
+print(f"Duration: {fingerprint['duration']}s")
+print(f"File size: {fingerprint['file_size']} bytes")
+print(f"Audio hash: {fingerprint['audio_hash'][:16]}...")
+EOF
+```
+
+#### C. Check for Symlinks
+```bash
+# Resolve to real path
+readlink -f in/your_file.mp4
+
+# Use resolved path in jobs
+./prepare-job.sh --media "$(readlink -f in/your_file.mp4)"
+```
+
+---
+
+### 13. File Path Errors (AD-011)
+
+**Symptoms:**
+- "File not found" with special characters in name
+- FFmpeg error 234 (invalid input/output)
+- Subprocess fails with path arguments
+
+**Likely Causes:**
+1. **Special characters in filename** (spaces, quotes, Unicode)
+2. **Relative paths in subprocess**
+3. **Path not validated before use**
+
+**Solutions:**
+
+#### A. Validate File Paths
+```bash
+# Check for special characters
+ls -la in/ | grep -E "[ '\"]"
+
+# Rename files with special chars
+for f in in/*\ *; do
+  mv "$f" "${f// /_}"
+done
+```
+
+#### B. Test Path Handling
+```python
+from pathlib import Path
+
+# Test file path validation
+input_file = Path("in/file with spaces.mp4")
+
+# Pre-flight checks (AD-011 pattern)
+if not input_file.exists():
+    print("❌ File not found")
+elif not input_file.is_file():
+    print("❌ Not a file")
+elif input_file.stat().st_size == 0:
+    print("❌ Empty file")
+else:
+    print("✅ File valid")
+    
+# Always use str() for subprocess
+cmd = ['ffmpeg', '-i', str(input_file.resolve())]
+```
+
+#### C. Check FFmpeg Error 234
+```bash
+# Test FFmpeg directly
+ffmpeg -i "in/your_file.mp4" -t 1 -f null - 2>&1 | grep -i error
+
+# Common causes:
+# - Special characters in path
+# - File corruption
+# - Unsupported format
+# - Permission issues
+```
+
+#### D. Use Absolute Paths
+```python
+from pathlib import Path
+
+# Always resolve to absolute path
+input_file = Path(file_path).resolve()
+
+# Verify before subprocess
+assert input_file.exists(), f"File not found: {input_file}"
+assert input_file.is_file(), f"Not a file: {input_file}"
+```
+
+---
+
+### 14. Log Management Issues (AD-012)
+
+**Symptoms:**
+- Log files in project root
+- Cannot find test logs
+- Log directory structure incorrect
+
+**Likely Causes:**
+1. **Script not using get_log_path()**
+2. **Wrong log directory**
+3. **Missing logs/ structure**
+
+**Solutions:**
+
+#### A. Check Log Structure
+```bash
+# Verify logs/ directory
+ls -la logs/
+# Should have:
+# - pipeline/ (main pipeline logs)
+# - stages/ (stage-specific logs)
+# - testing/ (test logs)
+#   - unit/
+#   - integration/
+#   - functional/
+#   - manual/
+```
+
+#### B. Use Correct Log Path
+```python
+from shared.log_paths import get_log_path
+
+# Get log path for test
+log_file = get_log_path("testing", "transcribe", "mlx")
+# Returns: logs/testing/manual/20251209_031401_transcribe_mlx.log
+
+# Use in script
+with open(log_file, 'w') as f:
+    subprocess.run(cmd, stdout=f, stderr=subprocess.STDOUT)
+```
+
+#### C. Move Misplaced Logs
+```bash
+# Find logs in wrong location
+find . -maxdepth 1 -name "*.log" -type f
+
+# Move to correct location
+for log in *.log; do
+  mv "$log" logs/testing/manual/
+done
+```
+
+---
+
+### 15. Test Organization Issues (AD-013)
+
+**Symptoms:**
+- Test files in project root
+- Cannot find test scripts
+- Tests not running with pytest
+
+**Likely Causes:**
+1. **Tests in wrong directory**
+2. **Missing test_ prefix**
+3. **Wrong test category**
+
+**Solutions:**
+
+#### A. Check Test Structure
+```bash
+# Verify tests/ directory
+tree tests/
+# Should have:
+# tests/
+# ├── unit/
+# ├── integration/
+# ├── functional/
+# └── manual/
+```
+
+#### B. Move Misplaced Tests
+```bash
+# Find tests in wrong location
+find . -maxdepth 1 -name "test*.py" -o -name "test*.sh"
+
+# Move to correct category
+mv test-feature.sh tests/manual/feature/
+mv test_module.py tests/unit/
+```
+
+#### C. Verify Test Discovery
+```bash
+# List all tests
+pytest --collect-only
+
+# Run specific category
+pytest tests/unit/          # Unit tests
+pytest tests/integration/   # Integration tests
+pytest tests/functional/    # Functional/E2E tests
+```
+
+#### D. Naming Convention
+```bash
+# ✅ CORRECT
+tests/unit/test_cache_manager.py
+tests/integration/test_baseline_cache.py
+tests/functional/test_subtitle_workflow.py
+tests/manual/transcribe/test-mlx-transcribe.sh
+
+# ❌ WRONG
+test_cache.py                    # Wrong location
+tests/cache_test.py              # Wrong naming
+tests/my_test_script.sh          # Wrong category
+```
+
+---
+
 ## Advanced Debugging
 
 ### Enable Debug Mode
@@ -503,6 +860,69 @@ python3 scripts/06_whisperx_asr.py out/YYYY/MM/DD/user/N
 
 # Test alignment
 python3 scripts/07_alignment.py out/YYYY/MM/DD/user/N
+
+# Test translation
+python3 scripts/10_translation.py out/YYYY/MM/DD/user/N
+```
+
+### Test Cache System (NEW)
+
+```bash
+# Test cache manager
+python3 << 'EOF'
+from pathlib import Path
+from shared.cache_manager import MediaCacheManager
+from shared.media_identity import compute_media_id
+
+# Initialize cache
+cache = MediaCacheManager()
+
+# Test media ID
+media_id = compute_media_id(Path("in/test_clips/jaane_tu_test_clip.mp4"))
+print(f"Media ID: {media_id}")
+
+# Check baseline
+if cache.has_baseline(media_id):
+    baseline = cache.get_baseline(media_id)
+    print(f"Cached baseline: {baseline['source_language']}")
+else:
+    print("No cached baseline")
+
+# List all
+cached = cache.list_cached_media()
+print(f"Total cached: {len(cached)}")
+EOF
+```
+
+### Test Media Identity (NEW)
+
+```bash
+# Test fingerprinting
+python3 << 'EOF'
+from pathlib import Path
+from shared.media_identity import (
+    compute_media_id,
+    get_media_fingerprint,
+    compute_audio_content_hash
+)
+
+media_file = Path("in/test_clips/jaane_tu_test_clip.mp4")
+
+# Full fingerprint
+fingerprint = get_media_fingerprint(media_file)
+print(f"Duration: {fingerprint['duration']}s")
+print(f"Size: {fingerprint['file_size']} bytes")
+print(f"Audio hash: {fingerprint['audio_hash'][:32]}...")
+
+# Media ID
+media_id = compute_media_id(media_file)
+print(f"Media ID: {media_id}")
+
+# Verify consistency (run twice)
+media_id2 = compute_media_id(media_file)
+assert media_id == media_id2, "Media ID not consistent!"
+print("✅ Media ID consistent")
+EOF
 ```
 
 ### Profile Performance
@@ -610,9 +1030,27 @@ ls -la out/*/job-*/*/manifest.json
 | Slow processing | Enable hardware acceleration (MPS/CUDA) |
 | Module not found | Re-run bootstrap.sh |
 | Permission denied | Fix ownership, check disk space |
+| **Cache not working** | **Check media ID, verify cache config** |
+| **Cache miss expected hit** | **Verify file not modified, check symlinks** |
+| **File path error** | **Use absolute paths, validate before subprocess** |
+| **Log files in root** | **Use get_log_path(), check logs/ structure** |
+| **Tests not found** | **Move to tests/category/, use test_ prefix** |
 
 ---
 
-**Last Updated:** 2025-12-05  
-**Version:** 1.0  
+## Architectural Decisions Reference
+
+Recent architectural decisions that impact troubleshooting:
+
+- **AD-011:** Robust file path handling (validate before subprocess)
+- **AD-012:** Centralized log management (all logs in logs/)
+- **AD-013:** Organized test structure (all tests in tests/)
+- **AD-014:** Multi-phase subtitle workflow (baseline/glossary/cache)
+
+**See:** `ARCHITECTURE.md` for complete AD documentation
+
+---
+
+**Last Updated:** 2025-12-09  
+**Version:** 2.0 (Phase 4 Complete)  
 **Status:** Active Reference

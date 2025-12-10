@@ -1743,6 +1743,117 @@ python3 tools/manage-cache.py clear {media_id}  # Clear cache
 
 ---
 
+#### Task #16: Adaptive Quality Prediction - ML-Based Parameter Optimization 🚀 IN PROGRESS
+**Status:** 🚀 In Progress (75% Complete)  
+**Progress:** Day 2 Complete (Integration)  
+**Priority:** 🔵 MEDIUM-HIGH (Performance optimization)  
+**Effort:** 3 days (Day 2 of 3 completed)  
+**Added:** 2025-12-09  
+**Started:** 2025-12-09 03:35 UTC  
+**Expected Completion:** 2025-12-10
+
+**🎯 OBJECTIVE:**
+Implement ML-based prediction of optimal Whisper model parameters based on audio characteristics.
+
+**✅ DAY 1 COMPLETE (2025-12-09):**
+- ✅ Core ML optimizer module (`shared/ml_optimizer.py` - 630 lines)
+- ✅ Historical data extraction tool (`tools/extract-ml-training-data.py` - 475 lines)
+- ✅ Unit tests (`tests/unit/test_ml_optimizer.py` - 14 tests passing)
+- ✅ Rule-based heuristics working
+- ✅ ML dependencies added (xgboost, scikit-learn, joblib)
+
+**✅ DAY 2 COMPLETE (2025-12-09 06:24 UTC):**
+- ✅ Configuration parameters added (7 params in config/.env.pipeline)
+- ✅ Stage 06 ASR integration (105 lines in whisperx_integration.py)
+- ✅ Audio fingerprint extraction (ml_features.py updated)
+- ✅ Import tests passing (100%)
+- ✅ Field name alignment complete
+- ✅ Standards compliance: 100% ✅
+- ✅ Comprehensive logging implemented
+- ✅ Manifest tracking for learning
+
+**Configuration Added:**
+```bash
+# ML-BASED OPTIMIZATION (Phase 5, Task #16)
+ML_OPTIMIZATION_ENABLED=true
+ML_MODEL_PATH=~/.cp-whisperx/models/ml_optimizer.pkl
+ML_TRAINING_THRESHOLD=100
+ML_CONFIDENCE_THRESHOLD=0.7
+FORCE_MODEL_SIZE=
+ML_LEARNING_ENABLED=true
+ML_TRAINING_DATA_PATH=~/.cp-whisperx/models/training_data/
+```
+
+**Integration Architecture:**
+```
+Stage 06 ASR Start
+    ↓
+Load ML Config
+    ↓
+ML Enabled? ──NO──→ Use config defaults
+    ↓ YES
+    ↓
+Force Model? ──YES──→ Use forced model
+    ↓ NO
+    ↓
+Extract Audio Fingerprint
+- Duration, SNR, speakers
+- Sample rate, complexity
+    ↓
+Get ML Prediction
+- Model size, beam, batch
+- Expected WER & duration
+- Confidence score
+    ↓
+Confidence ≥ threshold? ──NO──→ Use config defaults
+    ↓ YES
+    ↓
+Apply ML Prediction
+- Update model parameters
+- Track in manifest
+    ↓
+Run ASR Pipeline
+```
+
+**⏳ DAY 3 PENDING (Testing & Documentation):**
+1. ⏳ Test with sample media
+   - Clean short audio → validate small/medium model prediction
+   - Noisy long audio → validate large-v3 model prediction
+2. ⏳ Create integration tests
+   - Test ML enabled/disabled modes
+   - Test force model override
+   - Test confidence thresholds
+3. ⏳ Documentation
+   - Update DEVELOPER_STANDARDS.md
+   - Update copilot-instructions.md
+   - Create ML_OPTIMIZATION.md
+   - Add usage examples
+
+**Expected Benefits:**
+- 30% faster on clean audio (smaller model)
+- 15% better accuracy on noisy audio (larger model)
+- Continuous learning from job results
+- Graceful fallback to rule-based heuristics
+
+**Files Created/Modified (Day 2):**
+- `config/.env.pipeline` (+55 lines)
+- `scripts/whisperx_integration.py` (+105 lines)
+- `shared/ml_features.py` (+45 lines)
+- `TASK16_DAY2_COMPLETE.md` (8909 lines documentation)
+
+**Quality Metrics:**
+- ✅ Type hints: 100%
+- ✅ Docstrings: 100%
+- ✅ Logger usage: 100% (4 print statements fixed)
+- ✅ Standards compliance: 100%
+- ✅ Import tests: All passing
+
+**Next Session:** Day 3 - Testing, Validation & Documentation (4-6 hours)  
+**Status:** ✅ Ready for Day 3  
+**Report:** TASK16_DAY2_COMPLETE.md
+
+---
+
 **Architectural Decision Requirements:**
 
 1. **Three-Phase Execution Model:**

@@ -38,6 +38,8 @@ from shared.stage_dependencies import (
     get_workflow_stages,
     get_execution_order
 )
+from shared.workflow_cache import WorkflowCacheIntegration
+from shared.baseline_cache_orchestrator import BaselineCacheOrchestrator
 
 # Initialize logger
 logger = get_logger(__name__)
@@ -546,12 +548,47 @@ class IndicTrans2Pipeline:
             self.logger.error("Please install: ./install-indictrans2.sh")
             return False
         
+        # Initialize cache orchestrator (AD-014)
+        cache_enabled = self.env_config.get("ENABLE_CACHING", "true").lower() == "true"
+        skip_cache = self.job_config.get("skip_cache", False)
+        cache_orchestrator = BaselineCacheOrchestrator(
+            self.job_dir,
+            enabled=cache_enabled,
+            skip_cache=skip_cache
+        )
+        
+        # Get media file
+        media_file = Path(self.job_config["input_media"]).resolve()
+        
         # Check if transcript exists, if not run transcribe stages first
         segments_file = self.job_dir / "06_asr" / "segments.json"
         
         if not segments_file.exists():
-            self.logger.info("📝 Transcript not found - auto-executing transcribe workflow first")
-            self.logger.info("")
+            # Check for cached baseline (AD-014)
+            cache_hit = cache_orchestrator.try_restore_from_cache(media_file)
+            
+            if cache_hit:
+                # Run post-alignment stages only
+                transcribe_stages = [
+                    ("lyrics_detection", self._stage_lyrics_detection),  # Stage 08
+                    ("hallucination_removal", self._stage_hallucination_removal),  # Stage 09
+                    ("export_transcript", self._stage_export_transcript)
+                ]
+                
+                if not self._execute_stages(transcribe_stages):
+                    self.logger.error("Post-processing stages failed")
+                    return False
+                
+                self.logger.info("")
+                self.logger.info("✅ Transcribe workflow completed (using cached baseline)")
+                self.logger.info("=" * 80)
+                self.logger.info("CONTINUING WITH TRANSLATION AND SUBTITLE GENERATION")
+                self.logger.info("=" * 80)
+            
+            # Normal baseline generation (no cache or cache failed)
+            if not cache_hit:
+                self.logger.info("🆕 Generating baseline from scratch...")
+                self.logger.info("")
             
             # Run transcribe stages
             transcribe_stages = [("demux", self._stage_demux)]
@@ -587,6 +624,10 @@ class IndicTrans2Pipeline:
             if not self._execute_stages(transcribe_stages):
                 self.logger.error("Transcribe workflow failed - cannot proceed with subtitle generation")
                 return False
+            
+            # Store baseline in cache for next run (AD-014)
+            if not cache_hit:
+                cache_orchestrator.store_baseline_to_cache(media_file)
             
             self.logger.info("")
             self.logger.info("✅ Transcribe workflow completed successfully")

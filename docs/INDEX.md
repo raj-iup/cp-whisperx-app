@@ -53,6 +53,18 @@ Keep these handy for day-to-day use:
 
 Technical documentation for contributing to the project.
 
+### ⚡ Project Framework (NEW)
+
+**Documentation-first development process:**
+
+- **[PROJECT_FRAMEWORK.md](PROJECT_FRAMEWORK.md)** ⭐ - Complete project framework
+- **[requirements/](requirements/)** - BRD and TRD documentation
+  - [BRD Template](requirements/brd/BRD_TEMPLATE.md) - Business requirements template
+  - [TRD Template](requirements/trd/TRD_TEMPLATE.md) - Technical requirements template
+  - [Requirements README](requirements/README.md) - Requirements guide
+
+**Flow:** BRD → TRD → Implementation Tracker → Code + Docs
+
 ### Essential Reading
 
 - **[developer-guide.md](developer-guide.md)** - Complete developer guide (M1 Pro specific)
@@ -153,6 +165,8 @@ Historical documents moved to archive for reference:
 
 | Looking for... | Go to... |
 |----------------|----------|
+| **Project Framework** | **[PROJECT_FRAMEWORK.md](PROJECT_FRAMEWORK.md)** ⭐ |
+| **BRD/TRD Templates** | **[requirements/](requirements/)** ⭐ |
 | Installation | [README.md](../README.md) → Quick Start |
 | Hindi→English | [INDICTRANS2_QUICKSTART.md](INDICTRANS2_QUICKSTART.md) |
 | Other Languages | [LANGUAGE_TUNING_QUICKREF.md](LANGUAGE_TUNING_QUICKREF.md) |
@@ -168,4 +182,4 @@ Historical documents moved to archive for reference:
 
 **Navigation**: [Back to Main README](../README.md) | [Project Root](../)
 
-*Last Updated: November 2025*
+*Last Updated: December 2025*

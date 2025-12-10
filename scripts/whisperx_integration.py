@@ -1448,6 +1448,117 @@ def main() -> Any:
     logger.info(f"  Logprob threshold: {logprob_threshold}")
     logger.info(f"  Compression ratio threshold: {compression_ratio_threshold}")
     
+    # ========================================================================
+    # ML-BASED OPTIMIZATION (Phase 5, Task #16)
+    # ========================================================================
+    # Predict optimal parameters based on audio characteristics
+    ml_optimization_enabled = getattr(config, 'ml_optimization_enabled', 'true').lower() == 'true'
+    force_model_size = getattr(config, 'force_model_size', '')
+    
+    if ml_optimization_enabled and not force_model_size:
+        try:
+            from shared.ml_optimizer import AdaptiveQualityPredictor
+            from shared.ml_features import extract_audio_fingerprint
+            
+            logger.info("=" * 60)
+            logger.info("ML-BASED OPTIMIZATION")
+            logger.info("=" * 60)
+            
+            # Extract audio fingerprint
+            logger.info("Extracting audio characteristics...")
+            fingerprint = extract_audio_fingerprint(str(audio_file), source_lang)
+            
+            logger.info(f"Audio fingerprint:")
+            logger.info(f"  Duration: {fingerprint.duration:.1f}s")
+            logger.info(f"  Sample rate: {fingerprint.sample_rate} Hz")
+            logger.info(f"  Channels: {fingerprint.channels}")
+            logger.info(f"  SNR estimate: {fingerprint.snr_estimate:.1f} dB")
+            logger.info(f"  Speaker count: {fingerprint.speaker_count}")
+            logger.info(f"  Complexity score: {fingerprint.complexity_score:.2f}")
+            logger.info(f"  Language: {fingerprint.language}")
+            
+            # Get ML prediction
+            predictor = AdaptiveQualityPredictor()
+            prediction = predictor.predict_optimal_config(fingerprint)
+            
+            logger.info(f"ML Prediction:")
+            logger.info(f"  Recommended model: {prediction.whisper_model}")
+            logger.info(f"  Recommended batch size: {prediction.batch_size}")
+            logger.info(f"  Recommended beam size: {prediction.beam_size}")
+            logger.info(f"  Expected WER: {prediction.expected_wer:.1%}")
+            logger.info(f"  Expected duration: {prediction.expected_duration:.1f}s")
+            logger.info(f"  Confidence: {prediction.confidence:.1%}")
+            logger.info(f"  Reasoning: {prediction.reasoning}")
+            
+            # Get confidence threshold
+            ml_confidence_threshold = float(getattr(config, 'ml_confidence_threshold', 0.7))
+            
+            # Apply prediction if confidence is high enough
+            if prediction.confidence >= ml_confidence_threshold:
+                logger.info(f"✓ Applying ML prediction (confidence {prediction.confidence:.1%} >= {ml_confidence_threshold:.1%})")
+                
+                # Update parameters with ML prediction
+                old_model = model_name
+                old_beam = beam_size
+                
+                model_name = prediction.whisper_model
+                beam_size = prediction.beam_size
+                # Note: batch_size is used in backend creation, not here
+                
+                logger.info(f"  Model: {old_model} → {model_name}")
+                logger.info(f"  Beam size: {old_beam} → {beam_size}")
+                
+                # Track ML prediction in manifest
+                stage_io.set_config({
+                    "ml_optimization": {
+                        "enabled": True,
+                        "fingerprint": {
+                            "duration": fingerprint.duration,
+                            "snr": fingerprint.snr_estimate,
+                            "speakers": fingerprint.speaker_count,
+                            "language": fingerprint.language
+                        },
+                        "prediction": {
+                            "model": prediction.whisper_model,
+                            "beam_size": prediction.beam_size,
+                            "batch_size": prediction.batch_size,
+                            "confidence": prediction.confidence,
+                            "reasoning": prediction.reasoning
+                        },
+                        "applied": True
+                    }
+                })
+            else:
+                logger.info(f"⚠ ML prediction confidence too low ({prediction.confidence:.1%} < {ml_confidence_threshold:.1%})")
+                logger.info(f"  Using configuration defaults")
+                
+                # Track that ML was attempted but not applied
+                stage_io.set_config({
+                    "ml_optimization": {
+                        "enabled": True,
+                        "confidence_too_low": True,
+                        "confidence": prediction.confidence,
+                        "threshold": ml_confidence_threshold,
+                        "applied": False
+                    }
+                })
+            
+            logger.info("=" * 60)
+            
+        except ImportError as e:
+            logger.warning(f"ML optimizer not available: {e}")
+            logger.warning("Proceeding with configuration defaults")
+        except Exception as e:
+            logger.warning(f"ML optimization failed: {e}", exc_info=True)
+            logger.warning("Proceeding with configuration defaults")
+    elif force_model_size:
+        logger.info(f"ML optimization bypassed (FORCE_MODEL_SIZE={force_model_size})")
+        logger.info(f"Using forced model: {force_model_size}")
+    else:
+        logger.info("ML optimization disabled in configuration")
+    
+    # ========================================================================
+    
     # Use stage name as basename for consistent file naming (Task #5)
     # Pattern: {stage_name}_{descriptor}.{ext} (e.g., asr_segments.json)
     basename = "asr"

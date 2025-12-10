@@ -81,6 +81,7 @@ OPTIONAL OPTIONS:
   --start-time HH:MM:SS         Clip start time (for testing)
   --end-time HH:MM:SS           Clip end time (for testing)
   --two-step                    Enable two-step transcription (Phase 2)
+  --no-cache                    Force regeneration (skip cached baseline)
   --user-id ID                  User identifier (default: system username)
   --log-level LEVEL             Log level: DEBUG|INFO|WARN|ERROR|CRITICAL
   --debug                       Enable debug mode (same as --log-level DEBUG)
