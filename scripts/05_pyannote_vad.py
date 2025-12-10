@@ -19,6 +19,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from shared.stage_utils import StageIO, get_stage_logger
 from shared.config import load_config
+from shared.user_profile import UserProfile
 
 # Local
 from shared.logger import get_logger
@@ -84,6 +85,34 @@ if __name__ == "__main__":
         stage_io.finalize(status="skipped")
         sys.exit(0)
     
+    # Load user profile for HuggingFace token
+    user_id = 1  # Default userId
+    if job_json_path.exists():
+        try:
+            with open(job_json_path) as f:
+                job_data = json.load(f)
+                user_id = job_data.get('userId', 1)
+        except Exception as e:
+            logger.warning(f"Could not read userId from job.json: {e}")
+    
+    logger.info(f"Loading user profile for userId={user_id}...")
+    try:
+        profile = UserProfile.load(user_id)
+        hf_token = profile.get_credential('pyannote', 'token')
+        if not hf_token:
+            # Fallback to huggingface token
+            hf_token = profile.get_credential('huggingface', 'token')
+        
+        if hf_token:
+            logger.info("✓ HuggingFace token loaded from user profile")
+        else:
+            logger.warning("⚠ No HuggingFace token found - PyAnnote models may fail")
+    except Exception as e:
+        logger.error(f"✗ Failed to load user profile: {e}", exc_info=True)
+        stage_io.add_error(f"User profile load failed: {e}", e)
+        stage_io.finalize(status="failed", error=str(e))
+        sys.exit(1)
+    
     # Get input audio using StageIO
     audio_input = stage_io.get_input_path("audio.wav", from_stage="demux")
     
@@ -125,7 +154,14 @@ if __name__ == "__main__":
         
         # Load the VAD pipeline
         logger.info("Loading PyAnnote VAD model...")
-        pipeline = Pipeline.from_pretrained("pyannote/voice-activity-detection")
+        if hf_token:
+            pipeline = Pipeline.from_pretrained(
+                "pyannote/voice-activity-detection",
+                use_auth_token=hf_token
+            )
+        else:
+            # Try without token (may fail for gated models)
+            pipeline = Pipeline.from_pretrained("pyannote/voice-activity-detection")
         
         # Move to device
         if device in ["cuda", "mps"]:

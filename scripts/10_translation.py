@@ -258,33 +258,45 @@ class IndicTrans2Translator:
     
     def _get_hf_token(self) -> Optional[str]:
         """
-        Get HuggingFace token from multiple sources.
+        Get HuggingFace token from user profile.
         
-        Checks in order:
-        1. Environment variable HF_TOKEN
-        2. config/secrets.json file
+        Checks user profile first, then falls back to multiple sources:
+        1. User profile (userId from job.json)
+        2. Environment variable HF_TOKEN
         3. ~/.cache/huggingface/token (huggingface-cli login location)
         
         Returns:
             HuggingFace token or None if not found
         """
-        # 1. Check environment variable
+        # 1. Try to get from user profile
+        try:
+            from shared.user_profile import UserProfile
+            
+            # Get userId from job.json
+            user_id = 1  # Default
+            job_json = Path(os.environ.get('JOB_DIR', '.')) / 'job.json'
+            if job_json.exists():
+                try:
+                    with open(job_json) as f:
+                        job_data = json.load(f)
+                        user_id = job_data.get('userId', 1)
+                except Exception:
+                    pass
+            
+            # Load profile and get token
+            profile = UserProfile.load(user_id)
+            token = profile.get_credential('huggingface', 'token')
+            if token:
+                self._log(f"✓ HuggingFace token loaded from user profile (userId={user_id})")
+                return token
+        except Exception as e:
+            self._log(f"Could not load from user profile: {e}", level="debug")
+        
+        # 2. Check environment variable
         token = os.environ.get('HF_TOKEN')
         if token:
+            self._log("✓ HuggingFace token loaded from environment")
             return token
-        
-        # 2. Check secrets.json
-        try:
-            secrets_file = Path(__file__).parent.parent / 'config' / 'secrets.json'
-            if secrets_file.exists():
-                with open(secrets_file, 'r') as f:
-                    secrets = json.load(f)
-                    # Try multiple possible key names
-                    token = secrets.get('hf_token') or secrets.get('HF_TOKEN') or secrets.get('HUGGINGFACE_TOKEN')
-                    if token:
-                        return token
-        except Exception as e:
-            self._log(f"Could not load secrets.json: {e}", level="debug")
         
         # 3. Check huggingface-cli token location
         try:
@@ -293,6 +305,7 @@ class IndicTrans2Translator:
                 with open(hf_token_file, 'r') as f:
                     token = f.read().strip()
                     if token:
+                        self._log("✓ HuggingFace token loaded from cache")
                         return token
         except Exception as e:
             self._log(f"Could not load HF token from cache: {e}", level="debug")

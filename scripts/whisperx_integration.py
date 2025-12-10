@@ -1384,19 +1384,31 @@ def main() -> Any:
     else:
         logger.warning(f"job.json not found at {job_json_path}, using system defaults")
     
-    # Get HF token from secrets or environment
+    # Get HF token from user profile
     hf_token = None
-    secrets_path = Path("config/secrets.json")
-    if secrets_path.exists():
-        try:
-            with open(secrets_path, 'r') as f:
-                secrets = json.load(f)
-                hf_token = secrets.get('hf_token')
-        except Exception as e:
-            logger.warning(f"Could not load HF token from secrets: {e}")
+    user_id = 1  # Default userId
     
-    # Fallback to config if not in secrets
-    if not hf_token:
+    # Get userId from job.json if available
+    if job_json_path.exists():
+        try:
+            with open(job_json_path) as f:
+                job_data = json.load(f)
+                user_id = job_data.get('userId', 1)
+        except Exception:
+            pass
+    
+    # Load user profile
+    try:
+        from shared.user_profile import UserProfile
+        profile = UserProfile.load(user_id)
+        hf_token = profile.get_credential('huggingface', 'token')
+        if hf_token:
+            logger.info(f"✓ HuggingFace token loaded from user profile (userId={user_id})")
+        else:
+            logger.warning("⚠ No HuggingFace token found in user profile")
+    except Exception as e:
+        logger.warning(f"Could not load user profile: {e}")
+        # Fallback to environment or config
         hf_token = getattr(config, 'hf_token', None)
     
     logger.info(f"Model: {model_name}")
