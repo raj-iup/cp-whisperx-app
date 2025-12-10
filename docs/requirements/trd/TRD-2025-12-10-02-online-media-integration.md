@@ -1,10 +1,10 @@
-# TRD: YouTube Video Integration
+# TRD: Online Media Source Integration
 
 **ID:** TRD-2025-12-10-02  
 **Created:** 2025-12-10  
 **Status:** Draft  
-**Related BRD:** [BRD-2025-12-10-02-youtube-integration](../brd/BRD-2025-12-10-02-youtube-integration.md)  
-**Related PRD:** [PRD-2025-12-10-02-youtube-integration](../prd/PRD-2025-12-10-02-youtube-integration.md)
+**Related BRD:** [BRD-2025-12-10-02-online-media-integration](../brd/BRD-2025-12-10-02-online-media-integration.md)  
+**Related PRD:** [PRD-2025-12-10-02-online-media-integration](../prd/PRD-2025-12-10-02-online-media-integration.md)
 
 ---
 
@@ -12,24 +12,27 @@
 
 ### Summary
 
-Implement YouTube video download capability by integrating `yt-dlp` library into the job preparation phase. When a user provides `--youtube-url` parameter, the system validates the URL, downloads the video to `in/youtube/` directory, and passes the local file path to the existing pipeline. No changes are required to pipeline stages (01-12).
+Implement online media download capability by integrating `yt-dlp` library into the job preparation phase. The existing `--media` parameter will accept both local paths and online URLs. The system auto-detects the media source type and downloads if necessary before passing the local file to the pipeline.
 
-**Architecture Principle:** Add capability without modifying core pipeline (clean integration).
+**Phase 1:** YouTube support only (Premium accounts required)
+**Future Phases:** Multi-platform support (Vimeo, Dailymotion, etc.)
+
+**Architecture Principle:** Extend existing `--media` parameter without breaking local file workflow.
 
 ### Approach
 
 **Single Responsibility Design:**
-1. **New Component:** `scripts/youtube_downloader.py` - YouTube download logic
+1. **New Component:** `scripts/online_media_downloader.py` - YouTube download logic
 2. **Integration Point:** `prepare-job.sh` - Detects YouTube URL, calls downloader
 3. **Existing Pipeline:** Unchanged - operates on local file as usual
 
 **Workflow:**
 ```
-User provides --youtube-url
+User provides --media
        ↓
 prepare-job.sh detects YouTube parameter
        ↓
-youtube_downloader.py downloads video
+online_media_downloader.py downloads video
        ↓
 Local file path passed to existing pipeline
        ↓
@@ -40,11 +43,13 @@ Pipeline stages process normally (no changes)
 
 **Primary Dependency:**
 - **yt-dlp 2024.8.6+**
-  - Purpose: YouTube video download
+  - Purpose: Online media download (supports 1000+ sites)
   - License: Unlicense (public domain)
   - Maintained: Yes (active development)
   - Replaces: youtube-dl (deprecated)
   - Features: Format selection, authentication, progress reporting
+  - **Phase 1:** YouTube only (Premium accounts required)
+  - **Phase 2:** Multi-platform (Vimeo, Dailymotion, SoundCloud, etc.)
 
 **Existing Dependencies (No Changes):**
 - FFmpeg: Already required (no changes)
@@ -59,14 +64,14 @@ Pipeline stages process normally (no changes)
 
 **NEW Components:**
 ```
-scripts/youtube_downloader.py    # Download logic (NEW)
+scripts/online_media_downloader.py    # Download logic (NEW)
 requirements/requirements-youtube.txt    # yt-dlp dependency (NEW)
-in/youtube/    # Download cache directory (NEW)
+in/online/    # Download cache directory (NEW)
 ```
 
 **MODIFIED Components:**
 ```
-prepare-job.sh    # Add --youtube-url detection (MODIFIED)
+prepare-job.sh    # Add --media detection (MODIFIED)
 config/.env.pipeline    # Add YouTube configuration (MODIFIED)
 ```
 
@@ -81,13 +86,50 @@ shared/logger.py    # Reused as-is
 
 **1. prepare-job.sh Integration:**
 ```bash
-# Detect --youtube-url parameter
-if [[ -n "${YOUTUBE_URL:-}" ]]; then
-    # Download video using youtube_downloader.py
-    DOWNLOADED_FILE=$(python3 scripts/youtube_downloader.py "$YOUTUBE_URL")
+# Accept --media parameter (already exists)
+# NEW: Detect if parameter is URL or local path
+# NEW: Extract user profile settings
+
+# Step 1: Load user profile (if exists)
+if [[ -f "config/user.profile" ]]; then
+    source <(python3 shared/user_profile.py --extract youtube)
+    # Exports: YOUTUBE_USERNAME, YOUTUBE_PASSWORD
+fi
+
+# Step 2: Auto-detect media source type
+MEDIA_TYPE=$(python3 shared/media_detector.py "$MEDIA")
+
+if [[ "$MEDIA_TYPE" == "url" ]]; then
+    # Validate YouTube credentials if YouTube URL
+    if [[ "$MEDIA" =~ youtube\.com|youtu\.be ]]; then
+        if [[ -z "$YOUTUBE_USERNAME" ]] || [[ -z "$YOUTUBE_PASSWORD" ]]; then
+            log_error "YouTube Premium credentials required in config/user.profile"
+            log_error "See documentation: docs/user-guide/online-media-integration.md"
+            exit 1
+        fi
+    fi
+    
+    # Download online media using online_media_downloader.py
+    DOWNLOADED_FILE=$(python3 scripts/online_media_downloader.py "$MEDIA" \
+        --username "$YOUTUBE_USERNAME" \
+        --password "$YOUTUBE_PASSWORD")
     
     # Update MEDIA parameter to point to downloaded file
     MEDIA="$DOWNLOADED_FILE"
+elif [[ "$MEDIA_TYPE" == "local" ]]; then
+    # Use media path as-is (existing behavior)
+    : # No action needed
+else
+    # Error: Ambiguous or invalid input
+    log_error "Cannot determine if media is URL or local path: $MEDIA"
+    exit 1
+fi
+
+# Step 3: Create job config (copy system config + override with profile)
+cp config/.env.pipeline "$JOB_DIR/.env.pipeline"
+if [[ -n "$YOUTUBE_USERNAME" ]]; then
+    echo "YOUTUBE_USERNAME=$YOUTUBE_USERNAME" >> "$JOB_DIR/.env.pipeline"
+    echo "YOUTUBE_PASSWORD=***REDACTED***" >> "$JOB_DIR/.env.pipeline"
 fi
 
 # Continue with normal job creation (existing code)
@@ -105,7 +147,7 @@ YOUTUBE_DOWNLOAD_TIMEOUT=1800
 
 **3. Pipeline Integration:**
 ```
-Downloaded file → in/youtube/{title}.mp4
+Downloaded file → in/online/{title}.mp4
                          ↓
                   Passed as --media parameter
                          ↓
@@ -118,7 +160,7 @@ Downloaded file → in/youtube/{title}.mp4
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ User Input: --youtube-url "https://youtube.com/..."        │
+│ User Input: --media "https://youtube.com/..."        │
 └─────────────────────────────────────────────────────────────┘
                          ↓
 ┌─────────────────────────────────────────────────────────────┐
@@ -126,13 +168,13 @@ Downloaded file → in/youtube/{title}.mp4
 └─────────────────────────────────────────────────────────────┘
                          ↓
 ┌─────────────────────────────────────────────────────────────┐
-│ youtube_downloader.py:                                       │
+│ online_media_downloader.py:                                       │
 │   1. Validate URL format                                     │
 │   2. Load config (quality, authentication)                   │
 │   3. Check cache for existing download                       │
 │   4. Download via yt-dlp (if not cached)                     │
 │   5. Sanitize filename                                       │
-│   6. Save to in/youtube/{title}.mp4                          │
+│   6. Save to in/online/{title}.mp4                          │
 │   7. Return local file path                                  │
 └─────────────────────────────────────────────────────────────┘
                          ↓
@@ -176,9 +218,33 @@ Downloaded file → in/youtube/{title}.mp4
 
 ---
 
-### Decision 2: Integration Point (prepare-job vs Stage 00)
+### Decision 2: Universal --media Parameter (NOT New --url Parameter)
 
-**Problem:** Where to integrate YouTube download?
+**Problem:** How to accept online URLs in CLI?
+
+**Options:**
+1. **Add new `--url` or `--online-url` parameter** - ❌ Rejected
+   - Reason: Creates UI inconsistency (two parameters for media input)
+   - Forces users to remember which parameter to use
+   - Breaks "one interface" principle
+   
+2. **Extend existing `--media` parameter** - ✅ Selected
+   - Reason: Universal interface (URLs and local paths)
+   - Auto-detection determines source type
+   - Backward compatible (local paths work as before)
+   - Simpler user experience (same parameter always)
+
+**Rationale:**
+- Single `--media` parameter for all media sources (online + local)
+- Auto-detection via `media_detector.py` (robust regex patterns)
+- Users don't need to know or care if source is online or local
+- Reduces cognitive load and command complexity
+
+---
+
+### Decision 3: Integration Point (prepare-job vs Stage 00)
+
+**Problem:** Where to integrate online media download?
 
 **Options:**
 1. **New Stage 00 (pre-demux)** - ❌ Rejected
@@ -199,7 +265,7 @@ Downloaded file → in/youtube/{title}.mp4
 
 ---
 
-### Decision 3: Cache Strategy
+### Decision 4: Cache Strategy
 
 **Problem:** Should we cache downloaded videos?
 
@@ -220,9 +286,57 @@ Downloaded file → in/youtube/{title}.mp4
 
 ---
 
-### Decision 4: Authentication Storage
+### Decision 5: User Profile Architecture (NEW - AD-015)
 
-**Problem:** How to store YouTube credentials?
+**Problem:** Where to store persistent user-specific configuration (credentials, preferences)?
+
+**Options:**
+1. **Per-job configuration** - ❌ Rejected
+   - Reason: Users must re-enter credentials for every job
+   - Tedious and error-prone
+   - Credentials scattered across multiple job directories
+   
+2. **System config file (config/.env.pipeline)** - ❌ Rejected
+   - Reason: Version controlled, credentials would leak
+   - Shared across all users (not user-specific)
+   - Difficult to manage multi-user scenarios
+   
+3. **User profile file (config/user.profile)** - ✅ Selected
+   - Reason: Persistent across all jobs
+   - User-specific (not version controlled)
+   - Single source of truth for user settings
+   - Easy to delete/reset (user controls data)
+   - Supports future expansion (preferences, multi-platform)
+
+**Rationale:**
+- User configures credentials ONCE in profile
+- prepare-job extracts profile settings per job
+- Job config inherits from: user profile → system config → defaults
+- User profile never committed to version control
+- Architecture applies to ALL future integrations
+- Clean separation: user data vs. system data
+
+**Implementation Pattern:**
+```python
+# shared/user_profile.py
+class UserProfile:
+    def load(self, section: str) -> dict:
+        """Load section from config/user.profile"""
+        
+    def get(self, section: str, key: str, default=None):
+        """Get specific value from profile"""
+        
+    def export_env(self, section: str) -> dict:
+        """Export section as environment variables"""
+```
+
+---
+
+### Decision 6: Authentication Storage
+
+### Decision 6: Authentication Storage
+
+**Problem:** How to store user credentials?
 
 **Options:**
 1. **Command-line parameters** - ❌ Rejected
@@ -231,21 +345,25 @@ Downloaded file → in/youtube/{title}.mp4
 2. **Environment variables** - ❌ Rejected
    - Reason: Can leak via process inspection, logs
    
-3. **Config file (config/.env.pipeline)** - ✅ Selected
-   - Reason: Already established pattern
-   - File permissions control access
+3. **Per-job config** - ❌ Rejected
+   - Reason: Must re-enter for every job
+   
+4. **User profile (config/user.profile)** - ✅ Selected
+   - Reason: Persistent, user-specific, not version controlled
+   - File permissions control access (600)
    - Never transmitted to us
-   - Optional (not required for public videos)
+   - Single configuration point
 
 **Rationale:**
-- Consistent with existing configuration pattern
-- User controls file permissions
-- Clear documentation on security implications
-- Optional feature (default: no authentication)
+- User configures once in profile
+- Profile extracted by prepare-job per job
+- Job config includes credentials (local to job)
+- Credentials never logged or transmitted
+- User controls profile (can delete anytime)
 
 ---
 
-### Decision 5: Error Handling Strategy
+### Decision 7: Error Handling Strategy
 
 **Problem:** How to handle download failures?
 
@@ -272,7 +390,71 @@ Downloaded file → in/youtube/{title}.mp4
 
 #### New Files
 
-**1. scripts/youtube_downloader.py** (~300 LOC)
+**1. shared/user_profile.py** (~200 LOC) (NEW)
+```python
+#!/usr/bin/env python3
+"""
+User Profile Manager for CP-WhisperX-App
+
+Responsibilities:
+- Load user profile from config/user.profile
+- Parse INI format with sections
+- Export credentials securely
+- Validate profile structure
+- Never log sensitive data
+"""
+
+# Key Functions:
+def load_profile(profile_path: Path) -> configparser.ConfigParser
+def get_section(profile, section: str) -> dict
+def export_env_vars(profile, section: str) -> dict
+def validate_profile(profile) -> bool
+def main() -> int
+```
+
+**2. config/user.profile.template** (~50 lines) (NEW)
+```ini
+# User Profile Template
+# Copy to config/user.profile and fill in your details
+# THIS FILE SHOULD NOT BE COMMITTED TO VERSION CONTROL
+
+[youtube]
+# YouTube Premium credentials (REQUIRED for YouTube downloads)
+username=
+password=
+
+[preferences]
+# Optional preferences (future use)
+default_quality=best
+cache_enabled=true
+
+# Future platform support (Phase 2)
+# [vimeo]
+# username=
+# password=
+```
+
+**3. shared/media_detector.py** (~150 LOC)
+```python
+#!/usr/bin/env python3
+"""
+Media Source Detector for CP-WhisperX-App
+
+Responsibilities:
+- Detect if input is URL or local path
+- Validate URL format
+- Validate local path existence
+- Return source type
+"""
+
+# Key Functions:
+def is_url(media: str) -> bool
+def is_local_path(media: str) -> bool
+def detect_source_type(media: str) -> str  # Returns: "url", "local", or "unknown"
+def main() -> int
+```
+
+**4. scripts/online_media_downloader.py** (~300 LOC)
 ```python
 #!/usr/bin/env python3
 """
@@ -313,31 +495,78 @@ def test_cache_behavior()
 
 #### Modified Files
 
-**1. prepare-job.sh** (+30 LOC)
+**1. prepare-job.sh** (+60 LOC)
+```bash
+# Add after argument parsing, before job creation:
+
+# Step 1: Load user profile (if exists)
+if [[ -f "config/user.profile" ]]; then
+    log_info "Loading user profile..."
+    eval $(python3 shared/user_profile.py --export youtube)
+fi
+
+# Step 2: Media source detection
+MEDIA_TYPE=$(python3 shared/media_detector.py "$MEDIA")
+
+# Step 3: URL handling with credential validation
+if [[ "$MEDIA_TYPE" == "url" ]]; then
+    # YouTube URL requires credentials
+    if [[ "$MEDIA" =~ youtube\.com|youtu\.be ]]; then
+        if [[ -z "$YOUTUBE_USERNAME" ]] || [[ -z "$YOUTUBE_PASSWORD" ]]; then
+            log_error "YouTube Premium credentials required"
+            log_error "Configure in: config/user.profile"
+            exit 1
+        fi
+    fi
+    
+    # Download with credentials
+    DOWNLOADED_FILE=$(python3 scripts/online_media_downloader.py "$MEDIA" \
+        --username "$YOUTUBE_USERNAME" \
+        --password "$YOUTUBE_PASSWORD")
+    
+    EXIT_CODE=$?
+    if [[ $EXIT_CODE -ne 0 ]] || [[ -z "$DOWNLOADED_FILE" ]]; then
+        log_error "Failed to download online media (exit code: $EXIT_CODE)"
+        exit 1
+    fi
+    
+    MEDIA="$DOWNLOADED_FILE"
+fi
+
+# Step 4: Create job config (inherit from profile)
+cp config/.env.pipeline "$JOB_DIR/.env.pipeline"
+if [[ -n "$YOUTUBE_USERNAME" ]]; then
+    # Store in job config (redacted for security)
+    echo "YOUTUBE_USERNAME=$YOUTUBE_USERNAME" >> "$JOB_DIR/.env.pipeline"
+    echo "# YOUTUBE_PASSWORD set from user profile" >> "$JOB_DIR/.env.pipeline"
+fi
+
+# Continue with normal job creation
+```
 ```bash
 # Add after argument parsing, before job creation:
 
 # YouTube URL handling
-if [[ -n "${YOUTUBE_URL:-}" ]]; then
-    log_info "YouTube URL provided: $YOUTUBE_URL"
+if [[ -n "${MEDIA_URL:-}" ]]; then
+    log_info "YouTube URL provided: $MEDIA_URL"
     
     # Check if YouTube is enabled
     YOUTUBE_ENABLED=$(grep "^YOUTUBE_ENABLED=" config/.env.pipeline | cut -d= -f2)
     if [[ "$YOUTUBE_ENABLED" != "true" ]]; then
-        log_error "YouTube integration is disabled in config"
+        log_error "online media integration is disabled in config"
         exit 1
     fi
     
     log_info "Downloading video..."
     
     # Download video
-    DOWNLOADED_FILE=$(python3 scripts/youtube_downloader.py "$YOUTUBE_URL" \
+    DOWNLOADED_FILE=$(python3 scripts/online_media_downloader.py "$MEDIA_URL" \
         --output-dir "in/youtube" \
         --quality "${YOUTUBE_QUALITY:-best}")
     
     EXIT_CODE=$?
     if [[ $EXIT_CODE -ne 0 ]] || [[ -z "$DOWNLOADED_FILE" ]]; then
-        log_error "Failed to download YouTube video (exit code: $EXIT_CODE)"
+        log_error "Failed to download online media (exit code: $EXIT_CODE)"
         exit 1
     fi
     
@@ -361,14 +590,42 @@ fi
 # Add new section at end of file:
 
 # ============================================================================
+# Online Media Integration
+# ============================================================================
+# Status: ✅ Implemented (v3.1)
+# Purpose: Enable direct online media download for all workflows
+
+# Enable online media URL support (true/false)
+ONLINE_MEDIA_ENABLED=true
+
+# Download quality preference
+# Options: best, 1080p, 720p, 480p, audio_only
+ONLINE_MEDIA_QUALITY=best
+
+# Download timeout (seconds)
+ONLINE_MEDIA_DOWNLOAD_TIMEOUT=1800
+
+# Cache directory
+ONLINE_MEDIA_CACHE_DIR=in/online/.cache
+
+# Maximum cache size (GB)
+ONLINE_MEDIA_MAX_CACHE_SIZE_GB=50
+
+# NOTE: User credentials are stored in config/user.profile (not here)
+# See: config/user.profile.template for setup instructions
+```
+```bash
+# Add new section at end of file:
+
+# ============================================================================
 # YouTube Integration
 # ============================================================================
 # Status: ✅ Implemented (v3.1)
-# Purpose: Enable direct YouTube video download for all workflows
+# Purpose: Enable direct online media download for all workflows
 
 # Enable YouTube URL support (true/false)
 # Default: true
-# Impact: Allows --youtube-url parameter in prepare-job.sh
+# Impact: Allows --media parameter in prepare-job.sh
 YOUTUBE_ENABLED=true
 
 # Download quality preference
@@ -395,9 +652,9 @@ YOUTUBE_PASSWORD=
 YOUTUBE_DOWNLOAD_TIMEOUT=1800
 
 # Cache directory for downloaded videos
-# Default: in/youtube/.ytdl-cache
+# Default: in/online/.ytdl-cache
 # Impact: Prevents re-downloading same video
-YOUTUBE_CACHE_DIR=in/youtube/.ytdl-cache
+YOUTUBE_CACHE_DIR=in/online/.ytdl-cache
 
 # Maximum cache size (GB)
 # Default: 50 GB
@@ -405,14 +662,19 @@ YOUTUBE_CACHE_DIR=in/youtube/.ytdl-cache
 YOUTUBE_MAX_CACHE_SIZE_GB=50
 ```
 
-**3. prepare-job.sh argument parsing** (+10 LOC)
+**3. .gitignore** (+2 LOC)
+```bash
+# Add to .gitignore to prevent committing user profiles
+config/user.profile
+config/*.profile
+```
 ```bash
 # Add YouTube URL parameter to argument parser:
 
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --youtube-url)
-            YOUTUBE_URL="$2"
+        --media)
+            MEDIA_URL="$2"
             shift 2
             ;;
         # ... existing parameters ...
@@ -420,13 +682,13 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Validate mutual exclusivity
-if [[ -n "${YOUTUBE_URL:-}" ]] && [[ -n "${MEDIA:-}" ]]; then
-    log_error "Cannot use both --youtube-url and --media parameters"
+if [[ -n "${MEDIA_URL:-}" ]] && [[ -n "${MEDIA:-}" ]]; then
+    log_error "Cannot use both --media and --media parameters"
     exit 1
 fi
 
-if [[ -z "${YOUTUBE_URL:-}" ]] && [[ -z "${MEDIA:-}" ]]; then
-    log_error "Must provide either --youtube-url or --media parameter"
+if [[ -z "${MEDIA_URL:-}" ]] && [[ -z "${MEDIA:-}" ]]; then
+    log_error "Must provide either --media or --media parameter"
     exit 1
 fi
 ```
@@ -460,7 +722,7 @@ check_python_package "yt_dlp" "yt-dlp" "requirements/requirements-youtube.txt"
 
 ## API Specification
 
-### youtube_downloader.py
+### online_media_downloader.py
 
 #### Function: validate_youtube_url()
 
@@ -491,7 +753,7 @@ def sanitize_filename(title: str) -> str:
     Sanitize video title for use as filename.
     
     Args:
-        title: Original YouTube video title
+        title: Original online media title
         
     Returns:
         Sanitized filename (safe for filesystem)
@@ -519,7 +781,7 @@ def download_youtube_video(
     Download video from YouTube URL.
     
     Args:
-        url: YouTube video URL
+        url: online media URL
         output_dir: Directory to save downloaded video
         quality: Quality preference (best, 1080p, 720p, 480p, audio_only)
         username: YouTube account username (optional, for premium/private)
@@ -551,10 +813,10 @@ def main() -> int:
     Command-line entry point for YouTube downloader.
     
     Usage:
-        python3 scripts/youtube_downloader.py URL [OPTIONS]
+        python3 scripts/online_media_downloader.py URL [OPTIONS]
         
     Arguments:
-        url: YouTube video URL (required)
+        url: online media URL (required)
         --output-dir: Output directory (default: in/youtube)
         --quality: Quality preference (default: best)
         
@@ -575,7 +837,7 @@ def main() -> int:
 
 ### Unit Tests (≥80% coverage)
 
-**File:** `tests/unit/test_youtube_downloader.py`
+**File:** `tests/unit/test_online_media_downloader.py`
 
 ```python
 def test_validate_youtube_url_valid():
@@ -622,7 +884,7 @@ def test_download_youtube_video_mock():
 ```python
 def test_download_public_video_integration():
     """
-    Integration test: Download actual YouTube video
+    Integration test: Download actual online media
     
     Requires: Network connectivity
     Uses: Short test video (<1MB)
@@ -648,7 +910,7 @@ def test_transcribe_youtube_workflow():
     End-to-end test: YouTube URL → Transcription
     
     Steps:
-        1. Download YouTube video
+        1. Download online media
         2. Run transcribe workflow
         3. Validate transcript output
         4. Check accuracy (WER ≤5%)
@@ -670,12 +932,12 @@ def test_invalid_url_error_handling():
 
 ```bash
 #!/usr/bin/env bash
-# Manual functional tests for YouTube integration
+# Manual functional tests for online media integration
 
 # Test 1: Basic transcription
 echo "Test 1: YouTube transcribe workflow"
 ./prepare-job.sh \
-  --youtube-url "https://youtube.com/watch?v=TEST_ID" \
+  --media "https://youtube.com/watch?v=TEST_ID" \
   --workflow transcribe \
   --source-language en
 ./run-pipeline.sh <job_dir>
@@ -683,7 +945,7 @@ echo "Test 1: YouTube transcribe workflow"
 # Test 2: Translation
 echo "Test 2: YouTube translate workflow"
 ./prepare-job.sh \
-  --youtube-url "https://youtube.com/watch?v=HINDI_ID" \
+  --media "https://youtube.com/watch?v=HINDI_ID" \
   --workflow translate \
   --source-language hi \
   --target-language en
@@ -692,7 +954,7 @@ echo "Test 2: YouTube translate workflow"
 # Test 3: Subtitle generation
 echo "Test 3: YouTube subtitle workflow"
 ./prepare-job.sh \
-  --youtube-url "https://youtube.com/watch?v=SONG_ID" \
+  --media "https://youtube.com/watch?v=SONG_ID" \
   --workflow subtitle \
   --source-language hi \
   --target-languages en,gu
@@ -701,7 +963,7 @@ echo "Test 3: YouTube subtitle workflow"
 # Test 4: Error handling
 echo "Test 4: Invalid URL error handling"
 ./prepare-job.sh \
-  --youtube-url "https://invalid.com/video" \
+  --media "https://invalid.com/video" \
   --workflow transcribe
 # Expected: Clear error message, exit code 1
 ```
@@ -760,7 +1022,7 @@ Exit Code: 1
 
 **3. Video Unavailable**
 ```
-[ERROR] YouTube video not available
+[ERROR] online media not available
 Possible reasons:
   - Video is private or deleted
   - Video is age-restricted
@@ -844,27 +1106,29 @@ logger.error(
 ### Credential Storage
 
 **Requirements:**
-- ✅ Credentials stored in config/.env.pipeline (local file)
+- ✅ Credentials stored in user profile (config/user.profile)
 - ✅ File permissions: 600 (user read/write only)
 - ✅ Never log credentials
 - ✅ Never transmit credentials to us
-- ✅ Optional feature (not required for public videos)
+- ✅ User profile not version controlled (.gitignore)
+- ✅ Profile persists across all jobs
+- ✅ User can delete profile anytime
 
 **Implementation:**
 ```python
-# Load credentials securely
-username = config.get('YOUTUBE_USERNAME')
-password = config.get('YOUTUBE_PASSWORD')
+# Load credentials from user profile
+profile = load_profile(Path("config/user.profile"))
+username = profile.get('youtube', 'username')
+password = profile.get('youtube', 'password')
 
-# Never log credentials
-logger.debug("Authentication: enabled" if username else "disabled")
-# NOT: logger.debug(f"Username: {username}")  # WRONG!
+# Pass to downloader (never log)
+downloader = OnlineMediaDownloader(username=username, password=password)
+# Never log: logger.debug(f"Username: {username}")  # WRONG!
 
-# Pass directly to yt-dlp (doesn't log either)
-ydl_opts = {
-    'username': username,
-    'password': password
-}
+# Store in job config (redacted)
+with open(job_config, 'a') as f:
+    f.write(f"YOUTUBE_USERNAME={username}\n")
+    f.write("# YOUTUBE_PASSWORD set from user profile\n")  # Don't write actual password
 ```
 
 ### Input Validation
@@ -907,12 +1171,12 @@ def check_cache_size():
 ```markdown
 ### YouTube Integration
 
-Process YouTube videos directly without manual download:
+Process online medias directly without manual download:
 
 **Transcribe YouTube Video:**
 ```bash
 ./prepare-job.sh \
-  --youtube-url "https://youtube.com/watch?v=VIDEO_ID" \
+  --media "https://youtube.com/watch?v=VIDEO_ID" \
   --workflow transcribe \
   --source-language en
 ```
@@ -920,7 +1184,7 @@ Process YouTube videos directly without manual download:
 **Translate YouTube Content:**
 ```bash
 ./prepare-job.sh \
-  --youtube-url "https://youtube.com/watch?v=VIDEO_ID" \
+  --media "https://youtube.com/watch?v=VIDEO_ID" \
   --workflow translate \
   --source-language hi \
   --target-language en
@@ -929,7 +1193,7 @@ Process YouTube videos directly without manual download:
 **Add Subtitles to YouTube Clip:**
 ```bash
 ./prepare-job.sh \
-  --youtube-url "https://youtube.com/watch?v=VIDEO_ID" \
+  --media "https://youtube.com/watch?v=VIDEO_ID" \
   --workflow subtitle \
   --source-language hi \
   --target-languages en,gu,ta
@@ -945,7 +1209,7 @@ YOUTUBE_PASSWORD=your_password
 
 ### User Guide (New Document)
 
-**File:** `docs/user-guide/youtube-integration.md`
+**File:** `docs/user-guide/online-media-integration.md`
 
 **Sections:**
 1. Overview
@@ -965,7 +1229,7 @@ YOUTUBE_PASSWORD=your_password
 ## YouTube Download Issues
 
 ### Video Unavailable
-**Symptom:** "YouTube video not available"
+**Symptom:** "online media not available"
 **Causes:**
 - Video is private or deleted
 - Video is age-restricted
@@ -1006,7 +1270,7 @@ YOUTUBE_PASSWORD=your_password
 ### Phase 1: MVP (Week 1)
 
 **Day 1-2: Implementation**
-- [ ] Create youtube_downloader.py
+- [ ] Create online_media_downloader.py
 - [ ] Modify prepare-job.sh
 - [ ] Add configuration parameters
 - [ ] Add dependencies
@@ -1033,7 +1297,7 @@ YOUTUBE_PASSWORD=your_password
 ### Rollback Plan
 
 **If Issues Arise:**
-1. Remove --youtube-url parameter from prepare-job.sh
+1. Remove --media parameter from prepare-job.sh
 2. Set YOUTUBE_ENABLED=false in config
 3. Document as "temporarily disabled"
 4. No pipeline changes needed (feature isolated)
@@ -1080,10 +1344,10 @@ YOUTUBE_PASSWORD=your_password
 ## Related Documents
 
 **BRD:**
-- [BRD-2025-12-10-02-youtube-integration.md](../brd/BRD-2025-12-10-02-youtube-integration.md)
+- [BRD-2025-12-10-02-online-media-integration.md](../brd/BRD-2025-12-10-02-online-media-integration.md)
 
 **PRD:**
-- [PRD-2025-12-10-02-youtube-integration.md](../prd/PRD-2025-12-10-02-youtube-integration.md)
+- [PRD-2025-12-10-02-online-media-integration.md](../prd/PRD-2025-12-10-02-online-media-integration.md)
 
 **Implementation:**
 - [IMPLEMENTATION_TRACKER.md](../../../IMPLEMENTATION_TRACKER.md) - Task T-XXX

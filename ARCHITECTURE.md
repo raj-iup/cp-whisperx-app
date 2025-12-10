@@ -1202,3 +1202,80 @@ def _stage_export_translated_transcript(self) -> bool:
 **Effort:** 2-3 hours (stage routing + new export stage)
 
 ---
+
+---
+
+## AD-015: User Profile Architecture (2025-12-10)
+
+**Decision:** User-specific persistent configuration stored in `config/user.profile`
+
+**Context:**
+- Need to store user credentials (YouTube Premium, etc.)
+- Users shouldn't re-enter credentials for every job
+- Credentials must never be version controlled
+- Need separation between system config and user config
+
+**Solution:**
+```
+config/
+  ├── .env.pipeline          # System-wide settings (version controlled)
+  ├── user.profile.template  # Template (version controlled)
+  └── user.profile           # User-specific settings (NOT version controlled)
+```
+
+**User Profile Format (INI):**
+```ini
+[youtube]
+username=user@example.com
+password=secure_password
+
+[preferences]
+default_quality=best
+cache_enabled=true
+
+# Future platforms (Phase 2)
+[vimeo]
+username=
+password=
+```
+
+**Workflow:**
+1. User creates `config/user.profile` (one-time setup)
+2. `prepare-job.sh` loads profile via `shared/user_profile.py`
+3. Credentials extracted and passed to job
+4. Job config inherits: user profile → system config → defaults
+5. Profile persists across ALL jobs
+6. User can delete profile anytime
+
+**Benefits:**
+- ✅ Configure once, use everywhere
+- ✅ User-specific (not shared across users)
+- ✅ Never version controlled (.gitignore)
+- ✅ Easy to delete/reset
+- ✅ Extensible for future integrations
+- ✅ Clean separation: user data vs. system data
+
+**Components:**
+- `shared/user_profile.py` - Profile manager
+- `config/user.profile.template` - Template for users
+- `prepare-job.sh` - Profile extraction logic
+- `.gitignore` - Excludes user.profile
+
+**Security:**
+- File permissions: 600 (user read/write only)
+- Never logged or transmitted
+- Not stored in job manifest
+- User controls data (can delete)
+
+**Applies To:**
+- **All future integrations** (Vimeo, Dailymotion, etc.)
+- **All user-specific settings** (preferences, credentials, etc.)
+- **Any persistent configuration** that shouldn't be per-job
+
+**Status:** ✅ Approved (Online Media Integration - v3.1)
+
+**Related:**
+- BRD-2025-12-10-02-online-media-integration.md
+- PRD-2025-12-10-02-online-media-integration.md
+- TRD-2025-12-10-02-online-media-integration.md
+

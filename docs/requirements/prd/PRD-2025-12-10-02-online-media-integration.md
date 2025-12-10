@@ -1,7 +1,7 @@
-# Product Requirement Document (PRD): YouTube Video Integration
+# Product Requirement Document (PRD): Online Media Source Integration
 
-**PRD ID:** PRD-2025-12-10-02-youtube-integration  
-**Related BRD:** [BRD-2025-12-10-02-youtube-integration](../brd/BRD-2025-12-10-02-youtube-integration.md)  
+**PRD ID:** PRD-2025-12-10-02-online-media-integration  
+**Related BRD:** [BRD-2025-12-10-02-online-media-integration](../brd/BRD-2025-12-10-02-online-media-integration.md)  
 **Status:** Draft  
 **Owner:** Product Manager  
 **Created:** 2025-12-10  
@@ -13,24 +13,30 @@
 
 ### Purpose
 
-This PRD defines the product requirements for integrating YouTube video download capability into CP-WhisperX-App, enabling users to process YouTube content directly without manual download steps.
+This PRD defines the product requirements for integrating online media download capability into CP-WhisperX-App, enabling users to process online video/audio content directly via a universal `--media` parameter that auto-detects URLs vs. local paths.
 
 **Business Context** (from BRD-2025-12-10-02):
 - Simplifies workflow by eliminating manual download step
-- Expands addressable market to YouTube content creators
+- Universal interface: same `--media` parameter for online URLs and local files
+- Expands addressable market to online content creators
 - Provides competitive differentiation
 - Supports all three workflows (transcribe, translate, subtitle)
+- **Phase 1:** YouTube only (Premium accounts required)
+- **Future:** Multi-platform support (Vimeo, Dailymotion, etc.)
 
 ### Definitions/Glossary
 
 | Term | Definition |
 |------|------------|
-| **yt-dlp** | Modern, actively maintained YouTube video downloader library |
-| **YouTube URL** | Direct link to YouTube video (watch, youtu.be, shorts formats) |
-| **Premium Account** | YouTube Premium subscription (ad-free, higher quality) |
+| **yt-dlp** | Modern, actively maintained online media downloader library (supports 1000+ sites) |
+| **Online URL** | Web link starting with http:// or https:// (e.g., YouTube, Vimeo) |
+| **Local Path** | File system path to local media file or directory |
+| **Auto-detection** | Logic that determines if `--media` parameter is URL or local path |
+| **YouTube Premium** | YouTube subscription required for this integration (Phase 1) |
 | **Format Selection** | Choosing video quality (best, 1080p, 720p, 480p, audio-only) |
 | **Sanitized Filename** | Video title cleaned for filesystem compatibility |
-| **Cache Directory** | Local storage for downloaded videos (`in/youtube/`) |
+| **Cache Directory** | Local storage for downloaded videos (`in/online/`) |
+| **User Profile** | Persistent user-specific configuration file (credentials, preferences) |
 
 ---
 
@@ -45,17 +51,17 @@ This PRD defines the product requirements for integrating YouTube video download
 - Tech Savvy: High
 
 **Goals:**
-- Transcribe Hindi YouTube videos to text
-- Translate Hindi content to English for subtitles
+- Transcribe online videos to text (any platform, starting with YouTube)
+- Translate online content to English for subtitles
 - Process multiple videos efficiently
 
 **Pain Points:**
-- Manual download takes 5-10 minutes per video
-- Forgetting to download in correct format
+- Manual download takes 5-10 minutes per online video
+- Different tools for different platforms
 - Managing download tools separately
 
 **User Story:**
-> "As a content creator, I want to provide a YouTube URL and get transcripts/subtitles automatically, so that I can focus on content analysis instead of technical setup."
+> "As a content creator, I want to provide any online video URL to the same `--media` parameter I use for local files, and get transcripts/subtitles automatically, so I can focus on content analysis instead of technical setup."
 
 ---
 
@@ -66,17 +72,17 @@ This PRD defines the product requirements for integrating YouTube video download
 - Tech Savvy: Medium
 
 **Goals:**
-- Transcribe English YouTube lectures
+- Transcribe online lectures from various platforms
 - Analyze speech patterns in educational content
 - Build corpus from online lectures
 
 **Pain Points:**
-- Doesn't know which downloader to use
+- Doesn't know which downloader works for which platform
 - Worried about quality loss during download
-- Batch processing is cumbersome
+- Wants universal interface for all media sources
 
 **User Story:**
-> "As a researcher, I want to trust that YouTube videos are downloaded in highest quality, so that my transcription accuracy is not compromised."
+> "As a researcher, I want to use the same `--media` parameter whether my source is a local file or an online URL, so that my workflow is consistent and simple."
 
 ---
 
@@ -87,17 +93,17 @@ This PRD defines the product requirements for integrating YouTube video download
 - Tech Savvy: Low-Medium
 
 **Goals:**
-- Add English/Gujarati subtitles to Hindi songs
+- Add English/Gujarati subtitles to online Hindi songs/clips
 - Share subtitled clips with friends
-- Learn Hindi through Bollywood content
+- Learn Hindi through online Bollywood content
 
 **Pain Points:**
 - Complex download tools are intimidating
-- Wants "just paste URL and go" experience
+- Different commands for online vs. local files
 - Doesn't understand technical jargon
 
 **User Story:**
-> "As a movie fan, I want to paste a YouTube link and get subtitles, so that I don't have to learn complicated download tools."
+> "As a movie fan, I want to paste an online video link using the same command I use for local files, so that I don't have to learn different tools or syntax."
 
 ---
 
@@ -110,7 +116,7 @@ User has YouTube URL
        ↓
 Opens terminal, runs prepare-job.sh
        ↓
-Provides --youtube-url parameter
+Provides --media parameter
        ↓
 System validates URL format
        ↓
@@ -130,7 +136,7 @@ User receives transcript file
 ```
 User has Hindi YouTube video URL
        ↓
-Runs prepare-job.sh with --youtube-url and --workflow translate
+Runs prepare-job.sh with --media and --workflow translate
        ↓
 System downloads video
        ↓
@@ -150,7 +156,7 @@ User receives English transcript
 ```
 User has Bollywood song/clip URL
        ↓
-Runs prepare-job.sh with --youtube-url and --workflow subtitle
+Runs prepare-job.sh with --media and --workflow subtitle
        ↓
 System downloads video
        ↓
@@ -171,28 +177,39 @@ User receives video with soft-embedded subtitles
 
 #### Must-Have (MVP - Phase 1)
 
-**F-001: YouTube URL Validation**
+**F-001: Media Source Auto-detection** ⭐ NEW
 - Priority: Must-have
-- Description: Validate YouTube URL before attempting download
+- Description: Automatically detect if `--media` parameter is URL or local path
 - Acceptance Criteria:
-  - ✅ Accepts youtube.com/watch?v=ID format
-  - ✅ Accepts youtu.be/ID format
-  - ✅ Accepts youtube.com/shorts/ID format
+  - ✅ Detects URLs starting with http:// or https://
+  - ✅ Detects local paths (relative or absolute)
+  - ✅ Clear error for ambiguous inputs
+  - ✅ Logging shows detection result
+  - ✅ Validates before processing
+
+**F-002: Online URL Validation**
+- Priority: Must-have
+- Description: Validate online media URL before attempting download
+- Acceptance Criteria:
+  - ✅ Accepts youtube.com/watch?v=ID format (Phase 1)
+  - ✅ Accepts youtu.be/ID format (Phase 1)
+  - ✅ Accepts youtube.com/shorts/ID format (Phase 1)
   - ✅ Rejects invalid URLs with clear error message
   - ✅ Validates URL accessibility before download
+  - ✅ Extensible for other platforms (Phase 2)
 
-**F-002: Video Download**
+**F-003: Video Download**
 - Priority: Must-have
-- Description: Download video/audio from YouTube URL
+- Description: Download video/audio from online URL
 - Acceptance Criteria:
   - ✅ Downloads highest quality MP4 by default
-  - ✅ Saves to `in/youtube/` directory
+  - ✅ Saves to `in/online/` directory (universal for all platforms)
   - ✅ Uses sanitized video title as filename
   - ✅ Shows download progress
   - ✅ Completes within 5 minutes for typical video (<100MB)
   - ✅ Handles network interruptions gracefully
 
-**F-003: Workflow Integration**
+**F-004: Workflow Integration**
 - Priority: Must-have
 - Description: Integrate with existing transcribe/translate/subtitle workflows
 - Acceptance Criteria:
@@ -201,8 +218,9 @@ User receives video with soft-embedded subtitles
   - ✅ Works with `--workflow subtitle`
   - ✅ Downloaded file passed to pipeline automatically
   - ✅ No changes to existing stage code required
+  - ✅ Local file workflow unchanged (backward compatible)
 
-**F-004: Error Handling**
+**F-005: Error Handling**
 - Priority: Must-have
 - Description: Handle download failures gracefully
 - Acceptance Criteria:
@@ -210,21 +228,25 @@ User receives video with soft-embedded subtitles
   - ✅ Clear error message for private/deleted videos
   - ✅ Clear error message for network failures
   - ✅ Clear error message for invalid URL format
+  - ✅ Clear error message if URL vs. path ambiguous
   - ✅ Cleanup partial downloads on failure
 
-**F-005: Premium Account Support**
+**F-006: YouTube Premium Account Support**
 - Priority: Must-have
-- Description: Authenticate with YouTube Premium accounts
+- Description: Authenticate with YouTube Premium accounts (REQUIRED for YouTube)
 - Acceptance Criteria:
-  - ✅ Optional username/password in config
-  - ✅ Works without authentication for public videos
-  - ✅ Enables private video access with authentication
+  - ✅ Username/password stored in user profile (config/user.profile)
+  - ✅ User profile persists across all jobs
+  - ✅ prepare-job extracts credentials from profile per job
+  - ✅ Clear error if credentials missing for YouTube URL
+  - ✅ Enables access to premium-quality streams
   - ✅ Never logs credentials
-  - ✅ Secure credential storage (config file only)
+  - ✅ User can delete profile anytime
+  - ✅ Validates credentials before download
 
 #### Should-Have (Phase 1 Enhancement)
 
-**F-006: Quality Selection**
+**F-007: Quality Selection**
 - Priority: Should-have
 - Description: Allow users to specify video quality
 - Acceptance Criteria:
@@ -234,7 +256,7 @@ User receives video with soft-embedded subtitles
   - ✅ Fallback to next best if requested not available
   - ✅ Configuration via .env.pipeline
 
-**F-007: Download Caching**
+**F-008: Download Caching**
 - Priority: Should-have
 - Description: Prevent re-downloading same video
 - Acceptance Criteria:
@@ -246,17 +268,23 @@ User receives video with soft-embedded subtitles
 
 #### Could-Have (Phase 2 - Future)
 
-**F-008: Playlist Support**
+**F-009: Multi-Platform Support**
+- Priority: Could-have (Phase 2)
+- Description: Support additional online media platforms
+- Platforms: Vimeo, Dailymotion, SoundCloud, generic URLs
+- Deferred to: v3.2
+
+**F-010: Playlist Support**
 - Priority: Could-have (Phase 2)
 - Description: Download and process entire playlists
 - Deferred to: v3.2
 
-**F-009: Live Stream Recording**
+**F-011: Live Stream Recording**
 - Priority: Could-have (Phase 2)
 - Description: Record and process live streams
 - Deferred to: v3.3
 
-**F-010: Resume Downloads**
+**F-012: Resume Downloads**
 - Priority: Could-have (Phase 2)
 - Description: Resume interrupted downloads
 - Deferred to: v3.2
@@ -273,13 +301,13 @@ User receives video with soft-embedded subtitles
 
 **Acceptance Criteria:**
 - [ ] Given a valid YouTube URL
-  - When I run `prepare-job.sh --youtube-url "URL"`
-  - Then the video is downloaded to `in/youtube/`
+  - When I run `prepare-job.sh --media "URL"`
+  - Then the video is downloaded to `in/online/`
   - And the filename is the sanitized video title
   - And the file format is MP4
 
 - [ ] Given an invalid YouTube URL
-  - When I run `prepare-job.sh --youtube-url "INVALID"`
+  - When I run `prepare-job.sh --media "INVALID"`
   - Then I see error message: "Invalid YouTube URL"
   - And no download is attempted
   - And the script exits with code 1
@@ -288,18 +316,18 @@ User receives video with soft-embedded subtitles
 ```bash
 # TC-001: Valid public video
 ./prepare-job.sh \
-  --youtube-url "https://youtube.com/watch?v=dQw4w9WgXcQ" \
+  --media "https://youtube.com/watch?v=dQw4w9WgXcQ" \
   --workflow transcribe
 # Expected: Downloads successfully, proceeds to transcription
 
 # TC-002: Invalid URL
 ./prepare-job.sh \
-  --youtube-url "https://example.com/video"
+  --media "https://example.com/video"
 # Expected: Error message, exit code 1
 
 # TC-003: Unavailable video
 ./prepare-job.sh \
-  --youtube-url "https://youtube.com/watch?v=INVALID123"
+  --media "https://youtube.com/watch?v=INVALID123"
 # Expected: Error message "Video not available", exit code 1
 ```
 
@@ -324,12 +352,12 @@ User receives video with soft-embedded subtitles
 ```bash
 # TC-004: English YouTube video
 ./prepare-job.sh \
-  --youtube-url "https://youtube.com/watch?v=LECTURE_ID" \
+  --media "https://youtube.com/watch?v=LECTURE_ID" \
   --workflow transcribe \
   --source-language en
 
 # Expected Output:
-# - Downloaded: in/youtube/lecture_title.mp4
+# - Downloaded: in/online/lecture_title.mp4
 # - Transcript: out/.../07_alignment/transcript.txt
 # - WER: ≤5%
 ```
@@ -355,13 +383,13 @@ User receives video with soft-embedded subtitles
 ```bash
 # TC-005: Hindi YouTube video
 ./prepare-job.sh \
-  --youtube-url "https://youtube.com/watch?v=HINDI_ID" \
+  --media "https://youtube.com/watch?v=HINDI_ID" \
   --workflow translate \
   --source-language hi \
   --target-language en
 
 # Expected Output:
-# - Downloaded: in/youtube/hindi_video_title.mp4
+# - Downloaded: in/online/hindi_video_title.mp4
 # - Transcript: out/.../10_translation/transcript_en.txt
 # - BLEU: ≥90%
 ```
@@ -387,13 +415,13 @@ User receives video with soft-embedded subtitles
 ```bash
 # TC-006: Hindi music video
 ./prepare-job.sh \
-  --youtube-url "https://youtube.com/watch?v=SONG_ID" \
+  --media "https://youtube.com/watch?v=SONG_ID" \
   --workflow subtitle \
   --source-language hi \
   --target-languages en,gu
 
 # Expected Output:
-# - Downloaded: in/youtube/song_title.mp4
+# - Downloaded: in/online/song_title.mp4
 # - Output: out/.../12_mux/song_title_subtitled.mp4
 # - Subtitles: hi (original), en, gu
 # - Quality: ≥88%
@@ -404,32 +432,41 @@ User receives video with soft-embedded subtitles
 ### US-005: Premium Account Authentication
 
 **As a** premium YouTube subscriber  
-**I want to** use my account credentials  
-**So that** I can access private/unlisted videos
+**I want to** configure my credentials once in a user profile  
+**So that** I don't have to re-enter them for every job
 
 **Acceptance Criteria:**
-- [ ] Given YouTube username and password in config
-  - When I download a private video I have access to
-  - Then authentication is performed
-  - And video is downloaded successfully
+- [ ] Given YouTube username and password in user profile (config/user.profile)
+  - When I run any job with YouTube URL
+  - Then authentication is performed automatically
+  - And credentials are extracted from profile to job config
   - And no credentials are logged
+  - And video is downloaded successfully
 
-- [ ] Given no credentials in config
-  - When I download a public video
-  - Then download succeeds without authentication
+- [ ] Given no credentials in user profile
+  - When I attempt to download YouTube URL
+  - Then clear error: "YouTube Premium credentials required in user profile"
+  - And job fails with actionable message
+
+- [ ] Given I want to update credentials
+  - When I edit config/user.profile
+  - Then new credentials apply to all future jobs
+  - And no need to modify individual job configs
 
 **Test Cases:**
 ```bash
-# TC-007: Premium account (manual test)
-# 1. Add credentials to config/.env.pipeline
-# 2. Run with private video URL
-# 3. Verify download succeeds
-# 4. Check logs for no credential leakage
+# TC-007: Set up user profile (one-time)
+# 1. Edit config/user.profile
+# 2. Add YOUTUBE_USERNAME and YOUTUBE_PASSWORD
+# 3. Run job with YouTube URL
+# 4. Verify credentials extracted to job config
+# 5. Check logs for no credential leakage
 
-# TC-008: Public video without credentials
-# 1. Remove credentials from config
-# 2. Run with public video URL
-# 3. Verify download succeeds
+# TC-008: Missing credentials error
+# 1. Remove credentials from user profile
+# 2. Run with YouTube URL
+# 3. Verify clear error message
+# 4. Verify job fails gracefully
 ```
 
 ---
@@ -455,12 +492,12 @@ User receives video with soft-embedded subtitles
 ```bash
 # TC-009: 720p quality
 # config/.env.pipeline: YOUTUBE_QUALITY=720p
-./prepare-job.sh --youtube-url "URL" --workflow transcribe
+./prepare-job.sh --media "URL" --workflow transcribe
 # Expected: Downloads 720p version
 
 # TC-010: Audio only
 # config/.env.pipeline: YOUTUBE_QUALITY=audio_only
-./prepare-job.sh --youtube-url "URL" --workflow transcribe
+./prepare-job.sh --media "URL" --workflow transcribe
 # Expected: Downloads audio only (smaller file)
 ```
 
@@ -470,22 +507,22 @@ User receives video with soft-embedded subtitles
 
 ### New Parameter
 
-**`--youtube-url <URL>`**
+**`--media <URL>`**
 - **Type:** String (URL)
 - **Required:** No (alternative to --media)
 - **Mutually Exclusive:** Cannot use with --media
 - **Validation:** Must be valid YouTube URL format
 - **Examples:**
-  - `--youtube-url "https://youtube.com/watch?v=VIDEO_ID"`
-  - `--youtube-url "https://youtu.be/VIDEO_ID"`
-  - `--youtube-url "https://youtube.com/shorts/VIDEO_ID"`
+  - `--media "https://youtube.com/watch?v=VIDEO_ID"`
+  - `--media "https://youtu.be/VIDEO_ID"`
+  - `--media "https://youtube.com/shorts/VIDEO_ID"`
 
 ### Usage Examples
 
 **Basic Transcription:**
 ```bash
 ./prepare-job.sh \
-  --youtube-url "https://youtube.com/watch?v=VIDEO_ID" \
+  --media "https://youtube.com/watch?v=VIDEO_ID" \
   --workflow transcribe \
   --source-language en
 ```
@@ -493,7 +530,7 @@ User receives video with soft-embedded subtitles
 **Translation:**
 ```bash
 ./prepare-job.sh \
-  --youtube-url "https://youtube.com/watch?v=VIDEO_ID" \
+  --media "https://youtube.com/watch?v=VIDEO_ID" \
   --workflow translate \
   --source-language hi \
   --target-language en
@@ -502,7 +539,7 @@ User receives video with soft-embedded subtitles
 **Subtitles:**
 ```bash
 ./prepare-job.sh \
-  --youtube-url "https://youtube.com/watch?v=VIDEO_ID" \
+  --media "https://youtube.com/watch?v=VIDEO_ID" \
   --workflow subtitle \
   --source-language hi \
   --target-languages en,gu,ta,es
@@ -543,7 +580,7 @@ Try:
 
 ### Downloaded Files
 
-**Location:** `in/youtube/{sanitized_title}.mp4`
+**Location:** `in/online/{sanitized_title}.mp4`
 
 **Naming Convention:**
 - Original title: "Jaane Tu Ya Jaane Na | Full Movie | Hindi"
@@ -627,7 +664,8 @@ Try:
 - ✅ Network timeout: retry with exponential backoff
 - ✅ Partial download: cleanup temp files
 - ✅ Invalid format: clear error message
-- ✅ Authentication failure: secure error (no credential leak)
+- ✅ Authentication failure: check user profile (never leak credentials)
+- ✅ Missing credentials: actionable error with user profile path
 
 **Logging:**
 - ✅ Download progress logged
@@ -661,7 +699,7 @@ YOUTUBE_QUALITY=best  # best, 1080p, 720p, 480p, audio_only
 YOUTUBE_USERNAME=  # Optional, for premium/private videos
 YOUTUBE_PASSWORD=  # Optional, for premium/private videos
 YOUTUBE_DOWNLOAD_TIMEOUT=1800  # 30 minutes default
-YOUTUBE_CACHE_DIR=in/youtube/.ytdl-cache
+YOUTUBE_CACHE_DIR=in/online/.ytdl-cache
 YOUTUBE_MAX_CACHE_SIZE_GB=50  # Max cache size
 ```
 
@@ -696,8 +734,11 @@ YOUTUBE_MAX_CACHE_SIZE_GB=50  # Max cache size
 ### Definition of Done
 
 **Code Complete:**
-- [ ] youtube_downloader.py implemented
-- [ ] prepare-job.sh integration complete
+- [ ] shared/media_detector.py implemented
+- [ ] scripts/online_media_downloader.py implemented
+- [ ] shared/user_profile.py implemented (NEW - profile manager)
+- [ ] config/user.profile template created
+- [ ] prepare-job.sh integration complete (profile extraction)
 - [ ] Configuration parameters added
 - [ ] Requirements updated
 - [ ] All unit tests passing
@@ -797,6 +838,6 @@ YOUTUBE_MAX_CACHE_SIZE_GB=50  # Max cache size
 **Document Status:** ✅ Ready for TRD and Implementation  
 **Next Steps:**
 1. Create TRD-2025-12-10-02-youtube-integration.md
-2. Implement youtube_downloader.py
+2. Implement online_media_downloader.py
 3. Update prepare-job.sh
 4. Add tests and documentation
