@@ -62,7 +62,8 @@ class TMDBEnrichmentStage:
         stage_io: Optional[StageIO] = None,
         title: Optional[str] = None,
         year: Optional[int] = None,
-        logger: Optional[logging.Logger] = None
+        logger: Optional[logging.Logger] = None,
+        user_id: Optional[int] = None
     ):
         """
         Initialize TMDB enrichment stage
@@ -73,6 +74,7 @@ class TMDBEnrichmentStage:
             title: Movie title (optional, can auto-detect)
             year: Release year (optional)
             logger: Logger instance (optional)
+            user_id: User ID to load credentials from (optional, will read from job.json)
         """
         # Support both legacy job_dir and new StageIO
         if stage_io:
@@ -102,12 +104,28 @@ class TMDBEnrichmentStage:
         else:
             self.logger = self.stage_io.get_stage_logger("INFO")
         
-        # Initialize TMDB client
-        self.api_key = load_api_key()
+        # Load userId from job.json if not provided (AD-006)
+        if user_id is None:
+            job_json_path = self.job_dir / "job.json"
+            if job_json_path.exists():
+                try:
+                    with open(job_json_path, 'r') as f:
+                        job_data = json.load(f)
+                        user_id = int(job_data.get('user_id', 1))
+                        self.logger.debug(f"Loaded userId from job.json: {user_id}")
+                except Exception as e:
+                    self.logger.warning(f"Failed to load userId from job.json: {e}")
+                    user_id = 1  # Default fallback
+            else:
+                user_id = 1  # Default fallback
+        
+        # Initialize TMDB client with userId
+        self.api_key = load_api_key(user_id=user_id)
         if not self.api_key:
             self.logger.warning("TMDB API key not found - stage will be skipped")
             self.client = None
         else:
+            self.logger.info(f"Loaded TMDB API key from user profile (userId={user_id})")
             self.client = TMDBClient(self.api_key, logger=self.logger)
     
     def _create_logger(self) -> logging.Logger:

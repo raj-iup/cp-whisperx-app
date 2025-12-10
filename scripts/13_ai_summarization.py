@@ -59,16 +59,39 @@ def run_stage(job_dir: Path, stage_name: str = "13_ai_summarization") -> int:
             io.finalize_stage_manifest(exit_code=0)
             return 0
         
+        # Load userId from job.json (AD-006)
+        job_json_path = job_dir / "job.json"
+        user_id = 1  # Default fallback
+        if job_json_path.exists():
+            try:
+                with open(job_json_path, 'r') as f:
+                    job_data = json.load(f)
+                    user_id = int(job_data.get('user_id', 1))
+                    logger.debug(f"Loaded userId from job.json: {user_id}")
+            except Exception as e:
+                logger.warning(f"Failed to load userId from job.json: {e}")
+        
+        # Load user profile for API credentials
+        from shared.user_profile import UserProfile
+        profile = UserProfile.load(user_id, logger_instance=logger)
+        
         # Get AI provider configuration
         provider = config.get("AI_PROVIDER", "openai").lower()
-        api_key = config.get(f"{provider.upper()}_API_KEY", "")
+        
+        # Load API key from user profile (preferred) or fallback to config
+        api_key = profile.get_credential(provider, 'api_key')
+        if not api_key:
+            # Fallback to config for backward compatibility
+            api_key = config.get(f"{provider.upper()}_API_KEY", "")
         
         if not api_key:
             logger.error(f"❌ No API key found for provider '{provider}'")
-            logger.error(f"   Set {provider.upper()}_API_KEY in config/user.profile")
-            logger.error("   Example: openai_api_key=sk-...")
+            logger.error(f"   Add to user profile: users/{user_id}/profile.json")
+            logger.error(f"   Or set {provider.upper()}_API_KEY in config")
             io.finalize_stage_manifest(exit_code=1)
             return 1
+        
+        logger.info(f"✓ Loaded {provider} API key from user profile (userId={user_id})")
         
         # Find transcript from Stage 07 (alignment)
         alignment_dir = io.job_dir / "07_alignment"

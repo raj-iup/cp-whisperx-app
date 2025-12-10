@@ -294,16 +294,33 @@ class TMDBClient:
             self.logger.debug("TMDB cache cleared")
 
 
-def load_api_key(config_path: Path = None) -> Optional[str]:
+def load_api_key(config_path: Path = None, user_id: Optional[int] = None) -> Optional[str]:
     """
-    Load TMDB API key from config
+    Load TMDB API key from user profile or legacy config
+    
+    Priority order:
+    1. User profile (users/{userId}/profile.json) if user_id provided
+    2. Legacy secrets.json (backward compatibility)
     
     Args:
-        config_path: Path to secrets.json
+        config_path: Path to secrets.json (legacy, for backward compatibility)
+        user_id: User ID to load profile from (recommended)
     
     Returns:
         API key or None
     """
+    # Try user profile first (preferred method)
+    if user_id is not None:
+        try:
+            from shared.user_profile import UserProfile
+            profile = UserProfile.load(user_id)
+            api_key = profile.get_credential('tmdb', 'api_key')
+            if api_key:
+                return api_key
+        except Exception as e:
+            logger.debug(f"Failed to load from user profile: {e}")
+    
+    # Fallback to legacy secrets.json (backward compatibility)
     if config_path is None:
         config_path = Path(__file__).parent.parent / "config" / "secrets.json"
     
