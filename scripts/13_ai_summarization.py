@@ -235,14 +235,16 @@ def main() -> int:
         Exit code
     """
     if len(sys.argv) != 2:
-        print("Usage: 13_ai_summarization.py <job_dir>")
-        print("Example: 13_ai_summarization.py out/2025/12/10/rpatel/1")
+        logger = get_logger(__name__)
+        logger.error("Usage: 13_ai_summarization.py <job_dir>")
+        logger.error("Example: 13_ai_summarization.py out/2025/12/10/rpatel/1")
         return 1
     
     job_dir = Path(sys.argv[1])
     
     if not job_dir.exists():
-        print(f"Error: Job directory not found: {job_dir}")
+        logger = get_logger(__name__)
+        logger.error(f"Error: Job directory not found: {job_dir}")
         return 1
     
     return run_stage(job_dir)
