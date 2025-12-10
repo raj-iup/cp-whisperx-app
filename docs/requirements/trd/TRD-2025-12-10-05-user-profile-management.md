@@ -19,27 +19,35 @@
 
 ```
 cp-whisperx-app/
+├── users/                       # User directory (NEW)
+│   ├── 1/                       # userId 1
+│   │   ├── profile.json         # User 1 profile
+│   │   └── cache/               # User 1 cache (future)
+│   ├── 2/                       # userId 2
+│   │   ├── profile.json         # User 2 profile
+│   │   └── cache/
+│   └── .userIdCounter           # Track next available userId
 ├── shared/
 │   └── user_profile.py          # User profile management module (NEW)
 ├── tools/
 │   └── migrate-to-user-profile.py  # Migration script (NEW)
-├── tests/
-│   ├── unit/
-│   │   ├── test_user_profile.py     # Unit tests (NEW)
-│   │   └── test_user_profile_migration.py  # Migration tests (NEW)
-│   └── integration/
-│       └── test_user_profile_integration.py  # Integration tests (NEW)
-└── ~/.cp-whisperx/
-    └── user.profile             # User-specific profile (NEW LOCATION)
+└── tests/
+    ├── unit/
+    │   ├── test_user_profile.py     # Unit tests (NEW)
+    │   └── test_user_profile_migration.py  # Migration tests (NEW)
+    └── integration/
+        └── test_user_profile_integration.py  # Integration tests (NEW)
 ```
 
 **Modified Components:**
-- `bootstrap.sh` - Add profile creation prompts
-- `bootstrap.ps1` - Add profile creation prompts (Windows)
-- `scripts/02_tmdb_enrichment.py` - Use user profile API
-- `scripts/05_pyannote_vad.py` - Use user profile API
-- `scripts/06_whisperx_asr.py` - Use user profile API
-- `scripts/13_ai_summarization.py` - Use user profile API
+- `bootstrap.sh` - Add userId assignment, user creation
+- `bootstrap.ps1` - Add userId assignment, user creation (Windows)
+- `prepare-job.sh` - Add --user-id parameter
+- `prepare-job.ps1` - Add --user-id parameter (Windows)
+- `scripts/02_tmdb_enrichment.py` - Load profile with userId
+- `scripts/05_pyannote_vad.py` - Load profile with userId
+- `scripts/06_whisperx_asr.py` - Load profile with userId
+- `scripts/13_ai_summarization.py` - Load profile with userId
 
 **Data Flow:**
 ```
@@ -49,25 +57,30 @@ cp-whisperx-app/
                  │
                  ▼
 ┌─────────────────────────────────────────────────┐
-│ Check for ~/.cp-whisperx/user.profile           │
-│ - If exists: Load and validate                  │
-│ - If missing: Check config/secrets.json         │
-│   - If found: Offer migration                   │
-│   - If not: Create new profile (interactive)    │
+│ Check for users/ directory                      │
+│ - If missing: Create users/ directory           │
+│ - Check .userIdCounter (or create with "1")     │
+│ - Ask: "Create new user? Enter name:"           │
+│ - Call: UserProfile.create_new_user(name)       │
+│ - Returns: userId (e.g., 1)                     │
+│ - Creates: users/{userId}/profile.json          │
+│ - Display: "Your userId is: {userId}"           │
 └────────────────┬────────────────────────────────┘
                  │
                  ▼
 ┌─────────────────────────────────────────────────┐
-│ User runs prepare-job.sh                        │
-│ → Load user profile                             │
-│ → Validate required credentials for workflow    │
-│ → Store profile path in job.json                │
+│ User runs prepare-job.sh --user-id {userId}     │
+│ → Validate userId exists                        │
+│ → Load profile: UserProfile.load(user_id)       │
+│ → Validate credentials for workflow             │
+│ → Store userId in job.json                      │
 └────────────────┬────────────────────────────────┘
                  │
                  ▼
 ┌─────────────────────────────────────────────────┐
 │ Pipeline runs (run-pipeline.sh)                 │
-│ → Each stage loads profile                      │
+│ → Read userId from job.json                     │
+│ → Each stage loads profile with userId          │
 │ → Get credentials via UserProfile API           │
 │ → Execute stage logic                           │
 └─────────────────────────────────────────────────┘
