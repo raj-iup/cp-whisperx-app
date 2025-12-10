@@ -16,24 +16,32 @@ Professional-grade speech transcription, translation, and subtitle generation pi
 ## 🚀 Quick Start (30 seconds)
 
 ```bash
-# 1. One-time setup
+# 1. One-time setup (creates user profile with userId=1)
 ./bootstrap.sh
+# → Creates users/1/profile.json for your credentials
 
-# 2. Generate subtitles (Bollywood/Indic content)
+# 2. Add your credentials
+nano users/1/profile.json
+# → Add HuggingFace token (required)
+# → Add TMDB API key (required for subtitle workflow)
+
+# 3. Generate subtitles (Bollywood/Indic content)
 ./prepare-job.sh --media in/your_movie.mp4 --workflow subtitle \
   --source-language hi --target-languages en,gu,ta,es
 ./run-pipeline.sh --job-dir out/LATEST
 
-# 3. Transcribe (English technical content)
+# 4. Transcribe (English technical content)
 ./prepare-job.sh --media "in/Energy Demand in AI.mp4" --workflow transcribe \
   --source-language en
 ./run-pipeline.sh --job-dir out/LATEST
 
-# 4. Translate (Hindi to English)
+# 5. Translate (Hindi to English)
 ./prepare-job.sh --media in/hindi_audio.mp4 --workflow translate \
   --source-language hi --target-language en
 ./run-pipeline.sh --job-dir out/LATEST
 ```
+
+**See:** [User Profile Guide](docs/user-guide/USER_PROFILES.md) for complete credential setup
 
 **Output Structure (v3.0 - 12 Stage Architecture):**
 ```
@@ -102,6 +110,14 @@ out/YYYY/MM/DD/user/NNNN/
 - **File Naming Standards**: Professional, predictable output structure
 - **Stage Manifests**: Full input/output/intermediate file tracking
 - **Troubleshooting Guide**: Complete diagnostic and solution reference
+
+### User Profile System (v2.0 - NEW) 🆕
+- **Centralized Credentials**: All API keys in one place (`users/{userId}/profile.json`)
+- **Multi-User Support**: Ready for millions of users (userId-based architecture)
+- **Workflow Validation**: Automatic credential validation before job execution
+- **Backward Compatible**: Auto-migrates from legacy `config/secrets.json`
+- **Future-Ready**: Database-backed profiles coming in future releases
+- **Guide**: [User Profile Documentation](docs/user-guide/USER_PROFILES.md)
 
 ---
 

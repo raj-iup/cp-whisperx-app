@@ -4730,6 +4730,77 @@ batch_size = config.batch_size
 debug = config.debug
 ```
 
+### User Profile & Credential Loading (v2.0)
+
+**For stages that need API credentials (TMDB, OpenAI, etc.):**
+
+```python
+import json
+from pathlib import Path
+from shared.user_profile import UserProfile
+
+def run_stage(job_dir: Path, stage_name: str = "stage") -> int:
+    """Stage with userId-based credential loading"""
+    io = StageIO(stage_name, job_dir, enable_manifest=True)
+    logger = io.get_stage_logger()
+    
+    try:
+        # Step 1: Load userId from job.json (AD-006)
+        job_json_path = job_dir / "job.json"
+        user_id = 1  # Default fallback
+        if job_json_path.exists():
+            try:
+                with open(job_json_path, 'r') as f:
+                    job_data = json.load(f)
+                    user_id = int(job_data.get('user_id', 1))
+                    logger.debug(f"Loaded userId from job.json: {user_id}")
+            except Exception as e:
+                logger.warning(f"Failed to load userId from job.json: {e}")
+        
+        # Step 2: Load user profile
+        profile = UserProfile.load(user_id=user_id, logger_instance=logger)
+        
+        # Step 3: Get credentials
+        api_key = profile.get_credential('service_name', 'key_name')
+        
+        # Step 4: Fallback to config for backward compatibility (optional)
+        if not api_key:
+            config = load_config()
+            api_key = config.get('SERVICE_API_KEY', '')
+        
+        if not api_key:
+            logger.error(f"❌ No API key found for service")
+            logger.error(f"   Add to user profile: users/{user_id}/profile.json")
+            io.finalize_stage_manifest(exit_code=1)
+            return 1
+        
+        logger.info(f"✓ Loaded API key from user profile (userId={user_id})")
+        
+        # Use api_key...
+        
+    except Exception as e:
+        logger.error(f"Failed: {e}", exc_info=True)
+        io.finalize_stage_manifest(exit_code=1)
+        return 1
+```
+
+**Examples:**
+
+```python
+# Stage 02 (TMDB Enrichment)
+api_key = profile.get_credential('tmdb', 'api_key')
+
+# Stage 13 (AI Summarization)
+provider = config.get("AI_PROVIDER", "openai").lower()
+api_key = profile.get_credential(provider, 'api_key')  # openai, anthropic, google
+
+# HuggingFace Token (for PyAnnote, WhisperX)
+# Note: These stages use HF_TOKEN from environment (set by pipeline runner)
+# No direct profile loading needed in stage code
+```
+
+**See:** [User Profile Guide](../../user-guide/USER_PROFILES.md) for complete documentation
+
 ---
 
 ## APPENDIX B: COMPLIANCE CHECKING
