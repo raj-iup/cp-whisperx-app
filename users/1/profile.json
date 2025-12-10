@@ -8,7 +8,7 @@
   },
   "credentials": {
     "huggingface": {
-      "token": ""
+      "token": "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"
     },
     "tmdb": {
       "api_key": "ea32848e3a843143f35705bf3503557b"
