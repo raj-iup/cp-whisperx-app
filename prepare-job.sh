@@ -82,7 +82,7 @@ OPTIONAL OPTIONS:
   --end-time HH:MM:SS           Clip end time (for testing)
   --two-step                    Enable two-step transcription (Phase 2)
   --no-cache                    Force regeneration (skip cached baseline)
-  --user-id ID                  User identifier (default: system username)
+  --user-id ID                  User ID (default: 1). User must exist in users/{userId}/
   --log-level LEVEL             Log level: DEBUG|INFO|WARN|ERROR|CRITICAL
   --debug                       Enable debug mode (same as --log-level DEBUG)
   -h, --help                    Show this help message
@@ -100,8 +100,12 @@ TWO-STEP TRANSCRIPTION:
   Expected improvement: +5-8% accuracy on Hindi transcription
 
 EXAMPLES:
-  # Hindi to English subtitles
+  # Hindi to English subtitles (default userId=1)
   ./prepare-job.sh --media in/movie.mp4 --workflow subtitle \
+    --source-language hi --target-language en
+
+  # Specify different userId
+  ./prepare-job.sh --user-id 2 --media in/movie.mp4 --workflow subtitle \
     --source-language hi --target-language en
 
   # Multi-language subtitles

@@ -626,7 +626,9 @@ def main() -> None:
     
     parser.add_argument(
         "--user-id",
-        help="User identifier (defaults to system username)"
+        type=int,
+        default=1,
+        help="User ID (default: 1). User profile must exist in users/{userId}/"
     )
     
     parser.add_argument(
@@ -636,6 +638,39 @@ def main() -> None:
     )
     
     args = parser.parse_args()
+    
+    # Validate userId exists
+    logger.info(f"👤 Validating user profile...")
+    try:
+        from shared.user_profile import UserProfile, UserIdManager
+        
+        if not UserIdManager.user_exists(args.user_id):
+            logger.error(f"❌ Error: User profile not found: userId={args.user_id}")
+            logger.info(f"   Profile location: users/{args.user_id}/profile.json")
+            logger.info(f"   Create user:")
+            logger.info(f"     python3 -c \"from shared.user_profile import UserProfile;")
+            logger.info(f"                   UserProfile.create_new_user(name='Your Name')\"")
+            logger.info(f"   Or run: ./bootstrap.sh (creates userId=1)")
+            sys.exit(1)
+        
+        # Load profile to verify it's valid
+        profile = UserProfile.load(args.user_id, logger_instance=logger)
+        logger.info(f"✓ User profile loaded: userId={args.user_id}")
+        
+        # Validate credentials for workflow
+        try:
+            profile.validate_for_workflow(args.workflow)
+            logger.info(f"✓ Credentials validated for {args.workflow} workflow")
+        except ValueError as e:
+            logger.error(f"❌ {e}")
+            sys.exit(1)
+            
+    except ImportError as e:
+        logger.error(f"❌ Error: Failed to import user_profile module: {e}", exc_info=True)
+        sys.exit(1)
+    except Exception as e:
+        logger.error(f"❌ Error validating user profile: {e}", exc_info=True)
+        sys.exit(1)
     
     # Validate input
     if not args.input_media.exists():
@@ -712,9 +747,6 @@ def main() -> None:
     logger.info(f"   Job ID: {job_id}")
     logger.info(f"   Job directory: {job_dir}")
     
-    # Extract user_id from job_id for use in config
-    user_id = job_id.split('-')[2]  # job-YYYYMMDD-USERID-nnnn
-    
     # Prepare media
     logger.info(f"🎬 Preparing media...")
     prepared_media = prepare_media(
@@ -740,9 +772,10 @@ def main() -> None:
         args.start_time,
         args.end_time,
         args.debug,
-        user_id=user_id,  # Pass as keyword argument
+        user_id=str(args.user_id),  # Convert to string for job.json
         log_level=log_level_value,  # Pass log level
         two_step=args.two_step  # Pass two-step flag
+    )
     )
     
     # Create environment file
@@ -763,7 +796,7 @@ def main() -> None:
         args.end_time,
         args.debug,
         log_level_arg=log_level_for_env,
-        user_id=user_id  # Pass as keyword argument
+        user_id=str(args.user_id)  # Convert to string for env file
     )
     
     # Create manifest
