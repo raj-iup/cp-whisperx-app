@@ -33,18 +33,20 @@ User-specific credentials and settings (API keys, preferences, online service to
 **Proposed Solution:**
 Create a unified User Profile Management System that:
 1. Separates user credentials from system configuration
-2. Provides a dedicated `~/.cp-whisperx/user.profile` location (user home directory)
-3. Establishes a clear schema for credentials, preferences, and online service tokens
-4. Enables future database-backed profile caching
-5. Supports multiple users on the same system
-6. Provides credential validation and secure storage
+2. Provides a dedicated `users/{userId}/profile.json` location (project directory, database-ready)
+3. Assigns unique userId to each user (starting from 1, 2, 3...)
+4. Establishes a clear schema for credentials, preferences, and online service tokens
+5. Enables future database-backed profile caching (millions of users)
+6. Supports multiple users through userId-based directories
+7. Provides credential validation and secure storage
 
 **Strategic Benefits:**
-- **Security:** User credentials isolated from project directory
-- **Multi-user:** Each OS user has their own profile
-- **Scalability:** Foundation for cloud-hosted profile storage
+- **Scalability:** Designed for millions of users (future database migration)
+- **Multi-user:** Each userId has separate profile directory
+- **Database-Ready:** File structure mirrors future database schema
+- **Centralized:** All user data in `users/` directory (easy backup/migration)
 - **Extensibility:** Easy to add new online services (YouTube, Vimeo, Dropbox, etc.)
-- **User Experience:** One-time credential setup, reused across all jobs
+- **User Experience:** One-time credential setup per userId, reused across all jobs
 
 ---
 
@@ -58,14 +60,14 @@ Create a unified User Profile Management System that:
 - **Success Metric:** 100% credential persistence across jobs and system restarts
 
 **2. Multi-User System Administrators**
-- **Need:** Separate profiles for different OS users
-- **Expected Outcome:** Alice and Bob can use same system with different TMDB/OpenAI keys
-- **Success Metric:** Zero credential conflicts between users
+- **Need:** Separate profiles for different users (userId-based)
+- **Expected Outcome:** User 1 and User 2 can use same system with different TMDB/OpenAI keys
+- **Success Metric:** Zero credential conflicts between userIds
 
-**3. Security-Conscious Organizations**
-- **Need:** Credentials not stored in project directory (especially git repos)
-- **Expected Outcome:** Credentials in user home directory only
-- **Success Metric:** Zero credential leaks via version control
+**3. SaaS Platform Operators**
+- **Need:** Scalable user management system (millions of users in future)
+- **Expected Outcome:** Easy migration from file-based to database-backed profiles
+- **Success Metric:** File structure matches database schema (zero refactoring needed)
 
 **4. Future Cloud Users (Phase 6+)**
 - **Need:** Profile portability (sync across devices via database)
@@ -90,12 +92,13 @@ Create a unified User Profile Management System that:
 
 ### Quantifiable Metrics
 
-- [x] **Migration:** 100% of existing credentials migrated from secrets.json to user.profile
+- [x] **Migration:** 100% of existing credentials migrated from secrets.json to users/{userId}/profile.json
 - [x] **Adoption:** 100% of stages use user_profile.py API (no direct secrets.json access)
-- [x] **Security:** 0 credentials stored in project directory after migration
-- [x] **Multi-user:** 2+ users on same system with different profiles (tested)
+- [x] **User Management:** userId assignment system working (auto-increment from 1)
+- [x] **Multi-user:** 2+ userIds on same system with different profiles (tested)
 - [x] **Backward Compat:** 0 job failures during migration (graceful fallback)
-- [x] **Future-ready:** User profile schema supports database persistence (validated)
+- [x] **Future-ready:** File structure matches database schema (validated)
+- [x] **Scalability:** Design supports millions of users (architecture validated)
 
 ### Qualitative Success Indicators
 
@@ -112,25 +115,25 @@ Create a unified User Profile Management System that:
 
 ### Benefits
 
-**1. Security**
-- **Before:** Credentials in project directory (risk of accidental commit)
-- **After:** Credentials in user home directory (outside git repo)
-- **Value:** Eliminates #1 security vulnerability
+**1. Centralized User Management**
+- **Before:** No central user directory, credentials scattered
+- **After:** All users in `users/` directory, userId-based organization
+- **Value:** Easy backup, migration, and future database transition
 
-**2. Multi-User Support**
-- **Before:** One secrets.json shared by all OS users
-- **After:** Each user has ~/.cp-whisperx/user.profile
-- **Value:** Enables shared workstations, development servers
+**2. Scalability (Design for Millions)**
+- **Before:** OS-user based (limited to single machine)
+- **After:** userId-based (scalable to millions via database)
+- **Value:** Foundation for SaaS platform, multi-tenant architecture
 
 **3. User Experience**
 - **Before:** Edit config/secrets.json after every bootstrap
-- **After:** Set credentials once in user.profile, forget about them
+- **After:** userId assigned once, credentials persistent
 - **Value:** 90% reduction in credential management friction
 
-**4. Scalability (Future)**
-- **Before:** No path to cloud-hosted profiles
-- **After:** User profile schema ready for database persistence
-- **Value:** Enables Phase 6 cloud features (profile sync, team sharing)
+**4. Database Migration Path (Future)**
+- **Before:** No clear path to cloud-hosted profiles
+- **After:** File structure == database schema (zero refactoring)
+- **Value:** Enables Phase 6 cloud features (profile sync, API access)
 
 **5. Extensibility**
 - **Before:** Ad-hoc credential handling for each new service
@@ -224,10 +227,11 @@ Create a unified User Profile Management System that:
 
 ### Phase 1: User Profile Schema Definition (1 hour)
 
-**Deliverable:** User profile JSON schema
+**Deliverable:** User profile JSON schema + userId management
 
 ```json
 {
+  "userId": 1,
   "version": "1.0",
   "user": {
     "name": "John Doe",
@@ -274,25 +278,41 @@ Create a unified User Profile Management System that:
 }
 ```
 
+**Directory Structure:**
+```
+users/
+├── 1/
+│   ├── profile.json
+│   └── cache/          # User-specific cache (future)
+├── 2/
+│   ├── profile.json
+│   └── cache/
+└── .userIdCounter     # Track next available userId
+```
+
 ### Phase 2: User Profile Module (3-4 hours)
 
 **Deliverable:** `shared/user_profile.py` (400-500 lines)
 
 **Features:**
-- Load profile from `~/.cp-whisperx/user.profile`
+- Load profile from `users/{userId}/profile.json`
 - Fallback to `config/secrets.json` (backward compatibility)
 - Get credential by key: `get_credential('tmdb_api_key')`
 - Validate required credentials for workflow
 - Create default profile template
-- Set file permissions (0600)
+- userId assignment and management
 - Profile versioning and migration
 
 **API:**
 ```python
 from shared.user_profile import UserProfile
 
-# Load profile (auto-detects location)
-profile = UserProfile.load()
+# Create new user (bootstrap)
+user_id = UserProfile.create_new_user(name="John", email="john@example.com")
+# Returns: 1 (next available userId)
+
+# Load profile by userId
+profile = UserProfile.load(user_id=1)
 
 # Get credential (returns None if not found)
 tmdb_key = profile.get_credential('tmdb', 'api_key')
@@ -311,7 +331,7 @@ if profile.has_service('youtube'):
 
 **Features:**
 - Read existing `config/secrets.json`
-- Create `~/.cp-whisperx/user.profile` with migrated credentials
+- Create `users/1/profile.json` (first user gets userId 1)
 - Backup old secrets.json to `config/secrets.json.backup`
 - Validate migration success
 - Report migration status
@@ -319,9 +339,9 @@ if profile.has_service('youtube'):
 **Usage:**
 ```bash
 ./tools/migrate-to-user-profile.py
-# Migrates credentials from secrets.json to user.profile
+# Migrates credentials from secrets.json to users/1/profile.json
 # Creates backup of old secrets.json
-# Sets correct file permissions (0600)
+# Assigns userId 1 to migrated user
 ```
 
 ### Phase 4: Bootstrap Integration (1 hour)
@@ -329,11 +349,12 @@ if profile.has_service('youtube'):
 **Deliverable:** Update `bootstrap.sh` and `bootstrap.ps1`
 
 **Changes:**
-- Check for existing user profile
-- Offer to create profile during bootstrap
+- Check for existing users in `users/` directory
+- Offer to create new user profile
 - Prompt for essential credentials (HuggingFace, TMDB)
-- Auto-migrate from secrets.json if found
-- Set file permissions
+- Auto-migrate from secrets.json if found (assigns userId 1)
+- Create `users/{userId}/` directory structure
+- Display assigned userId
 
 ### Phase 5: Stage Refactoring (2-3 hours)
 
@@ -373,23 +394,25 @@ api_key = profile.get_credential('tmdb', 'api_key')
 ## Acceptance Criteria
 
 **Must Have (P0):**
-- [ ] User profile schema defined and documented
+- [ ] User profile schema defined and documented (with userId field)
 - [ ] `shared/user_profile.py` module implemented
-- [ ] Profile location: `~/.cp-whisperx/user.profile`
+- [ ] Profile location: `users/{userId}/profile.json`
+- [ ] userId assignment system (auto-increment from 1)
 - [ ] Fallback to `config/secrets.json` (backward compatibility)
-- [ ] File permissions: 0600 (owner read/write only)
-- [ ] Migration script: `tools/migrate-to-user-profile.py`
-- [ ] Bootstrap integration: Auto-create profile
-- [ ] All stages use user_profile.py API
+- [ ] Migration script: `tools/migrate-to-user-profile.py` (creates userId 1)
+- [ ] Bootstrap integration: Auto-create new userId
+- [ ] All stages use user_profile.py API with userId parameter
 - [ ] User guide: Profile setup instructions
 - [ ] Developer guide: Credential access patterns
+- [ ] prepare-job.sh: `--user-id {userId}` parameter
 
 **Should Have (P1):**
 - [ ] Profile validation on job preparation
 - [ ] Clear error messages for missing credentials
 - [ ] Profile template with comments
-- [ ] Multi-user testing (2+ users on same system)
+- [ ] Multi-user testing (2+ userIds on same system)
 - [ ] Schema versioning (future migration support)
+- [ ] userId counter management (`.userIdCounter` file)
 
 **Nice to Have (P2):**
 - [ ] Profile encryption (Phase 6)

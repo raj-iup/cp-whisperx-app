@@ -13,23 +13,24 @@
 
 ### What We're Building
 
-A unified User Profile Management System that separates user credentials from system configuration, stores them securely in the user's home directory, and provides a foundation for future database-backed profile caching.
+A unified User Profile Management System that assigns unique userIds to users, stores profiles in a centralized `users/` directory, and provides a foundation for future database-backed profile caching (scalable to millions of users).
 
 ### Why It Matters
 
 **Current Pain Points:**
-1. **Security Risk:** Credentials in project directory (`config/secrets.json`) can be accidentally committed to git
-2. **Multi-User Conflict:** Multiple OS users cannot maintain separate profiles on same system
+1. **No User Management:** config/secrets.json shared by all, no user identification
+2. **Not Scalable:** No path to millions of users or SaaS platform
 3. **Poor UX:** Users must manually edit secrets.json after every bootstrap
 4. **No Extensibility:** Adding new online services requires ad-hoc credential handling
 5. **Future Blocker:** No clear path to database-backed profile caching (Phase 6)
 
 **Solution Impact:**
-- ✅ Credentials isolated in user home directory (`~/.cp-whisperx/user.profile`)
-- ✅ Each OS user has separate profile (multi-user support)
-- ✅ One-time credential setup (persistent across jobs)
+- ✅ userId-based profiles in centralized `users/` directory
+- ✅ Each userId has separate profile (users/1/, users/2/, ...)
+- ✅ One-time credential setup per userId (persistent across jobs)
 - ✅ Standardized schema for all online services
-- ✅ Foundation for cloud-hosted profiles (Phase 6)
+- ✅ Foundation for database migration (file structure == database schema)
+- ✅ Scalable to millions of users (Phase 6: PostgreSQL/MySQL)
 
 ---
 
@@ -54,66 +55,69 @@ A unified User Profile Management System that separates user credentials from sy
 - Has to re-enter keys after `bootstrap.sh` cleanup
 
 **Success Criteria:**
-- ✅ Profile in home directory (`~/.cp-whisperx/user.profile`)
+- ✅ Assigned userId (e.g., userId 1) during bootstrap
+- ✅ Profile in `users/1/profile.json`
 - ✅ Bootstrap script prompts for keys interactively
-- ✅ Keys persist across bootstrap runs
-- ✅ Clear error: "Add YouTube key to ~/.cp-whisperx/user.profile"
+- ✅ Keys persist across jobs (all jobs use --user-id 1)
+- ✅ Clear error: "Add YouTube key to users/1/profile.json"
 
 ---
 
-### Persona 2: Bob (Research Team Lead)
+### Persona 2: Bob (SaaS Platform Operator)
 
 **Profile:**
-- Manages shared development server with 5 team members
-- Each member has different TMDB/OpenAI accounts
-- Budget tracking per user (cost attribution)
-- Technical, understands file permissions
+- Building a transcription SaaS platform
+- Needs to support thousands (eventually millions) of users
+- Each user has different API keys and preferences
+- Technical, understands scalability
 
 **Goals:**
-- Separate profiles for each OS user on server
-- No credential conflicts between users
-- Track API costs per user
-- Secure storage (file permissions)
+- Separate profiles for each platform user (userId-based)
+- Easy migration to database (PostgreSQL/MySQL)
+- API to create/manage user profiles programmatically
+- Backup and restore user data easily
 
 **Pain Points (Current):**
-- `config/secrets.json` shared by all users (conflicts)
-- No way to track which user ran which job
-- Security concern: Any user can read secrets.json
-- Manual workarounds: Separate project directories per user
+- `config/secrets.json` not scalable (single file)
+- No way to identify users (no userId system)
+- Can't support multiple customers on same platform
+- No path to database-backed storage
 
 **Success Criteria:**
-- ✅ Each user has `~/<username>/.cp-whisperx/user.profile`
-- ✅ File permissions: 0600 (owner read/write only)
-- ✅ Job logs show which user profile was used
-- ✅ Cost tracking per user profile
+- ✅ Each platform user has `users/{userId}/profile.json`
+- ✅ File structure matches database schema (easy migration)
+- ✅ API to create users: `UserProfile.create_new_user()`
+- ✅ Centralized `users/` directory (easy backup)
+- ✅ Design validated for millions of users
 
 ---
 
-### Persona 3: Carol (Enterprise Security Administrator)
+### Persona 3: Carol (Enterprise Admin)
 
 **Profile:**
-- Manages CP-WhisperX deployment for 50+ users
+- Manages CP-WhisperX deployment for 50+ internal users
+- Needs centralized user management and monitoring
+- Plans future cloud deployment with database backend
 - Compliance requirements: SOC 2, GDPR
-- Needs audit trail for credential access
-- Plans cloud deployment with centralized credential management
 
 **Goals:**
-- Credentials not stored in application directory
-- File permissions enforced (0600)
-- Audit trail: Who accessed which credentials, when
-- Future: Migrate to HashiCorp Vault / AWS Secrets Manager
+- Centralized user data (all in `users/` directory)
+- Easy backup and restore of user profiles
+- Audit trail: Which userId ran which job
+- Future: Migrate to database without code changes
 
 **Pain Points (Current):**
-- Credentials in project directory (compliance violation)
-- No audit trail for credential access
-- No path to enterprise secret management
-- Each user must manage own credentials (no centralization)
+- Credentials scattered across OS user home directories
+- No central backup/restore solution
+- No userId or user tracking system
+- Each deployment requires separate credential management
 
 **Success Criteria:**
-- ✅ Credentials in user home directory only
-- ✅ File permissions validated on load
-- ✅ Schema supports future vault integration
-- ✅ Audit log: Profile loaded, credentials accessed (Phase 7)
+- ✅ All user data in `users/` directory (centralized)
+- ✅ Each user identified by userId (audit trail)
+- ✅ File structure matches database schema (future-ready)
+- ✅ Easy backup: `tar -czf users-backup.tar.gz users/`
+- ✅ Compliance-ready: User data isolation, audit logs
 
 ---
 
