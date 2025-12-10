@@ -1,30 +1,41 @@
 # User Profile v2.0 - Core Implementation Complete
 
 **Date:** 2025-12-10  
-**Status:** ✅ Core Module Implemented  
+**Status:** ✅ Phases 1-4 Complete (Bootstrap & prepare-job integrated)  
 **Tests:** 31/32 Passing (97% pass rate)
 
 ---
 
-## ✅ Completed (Phases 1-2)
+## ✅ Completed (Phases 1-4)
 
-### Phase 1: TRD Updates
+### Phase 1: TRD Updates (COMPLETE)
 - ✅ Updated architecture diagrams (users/ directory)
 - ✅ Updated data flow (userId assignment)
 - ✅ Updated component specifications
 
-### Phase 2: Core UserProfile Module
-- ✅ **shared/user_profile.py** (540 lines) - COMPLETE
-  - UserIdManager class (.userIdCounter management)
-  - UserProfile class (load, save, validate)
-  - create_new_user() method
-  - load(user_id) method
-  - Backward compatibility (secrets.json fallback)
+### Phase 2: Core UserProfile Module (COMPLETE)
+- ✅ **shared/user_profile.py** (540 lines) - Fully implemented
+- ✅ **tests/unit/test_user_profile.py** (380 lines) - 31/32 tests passing
+- ✅ Full API: create_new_user(), load(), save(), credentials
+
+### Phase 3: Bootstrap Integration (COMPLETE) ✅
+- ✅ **bootstrap.sh** - Automatic userId=1 creation
+  - Creates users/1/ directory structure
+  - Creates users/1/cache/ for user cache
+  - Initializes .userIdCounter with value 2
+  - Migrates config/secrets.json to users/1/profile.json (if exists)
+  - Falls back to empty profile if no secrets.json
   
-- ✅ **tests/unit/test_user_profile.py** (380 lines) - COMPLETE
-  - 32 unit tests
-  - 31 passing (97%)
-  - Test coverage for all core functionality
+### Phase 4: prepare-job Integration (COMPLETE) ✅
+- ✅ **prepare-job.sh** - Updated usage documentation
+  - --user-id parameter (type: int, default: 1)
+  
+- ✅ **scripts/prepare-job.py** - Full userId validation
+  - Validates userId exists before job creation
+  - Loads user profile using UserProfile.load(user_id)
+  - Validates credentials for workflow
+  - Stores userId in job.json
+  - Enhanced error messages with profile location
 
 ---
 
@@ -214,37 +225,46 @@ print(f"Profile location: users/{user_id}/profile.json")
 EOF
 ```
 
-### Load and Use Profile
+### 2. Add Credentials (Manual)
 ```bash
+# Edit user profile
+nano users/1/profile.json
+
+# Or use Python
 python3 << 'EOF'
 from shared.user_profile import UserProfile
 
-# Load user 1's profile
-profile = UserProfile.load(user_id=1)
-
-# Get credentials
-tmdb_key = profile.get_credential('tmdb', 'api_key')
-hf_token = profile.get_credential('huggingface', 'token')
-
-print(f"User: {profile.user.get('name')}")
-print(f"TMDB Key: {tmdb_key[:10]}...")
-print(f"HF Token: {hf_token[:10]}...")
+profile = UserProfile.load(1)
+profile.set_credential('huggingface', 'token', 'hf_xxxxx')
+profile.set_credential('tmdb', 'api_key', 'xxxxx')
+profile.save()
+print("✓ Credentials updated")
 EOF
 ```
 
-### Validate for Workflow
+### 3. Prepare Job (With Validation)
 ```bash
-python3 << 'EOF'
-from shared.user_profile import UserProfile
+# Use default userId=1
+./prepare-job.sh --media in/movie.mp4 --workflow subtitle \
+  --source-language hi --target-language en
 
-profile = UserProfile.load(user_id=1)
+# Use specific userId
+./prepare-job.sh --user-id 2 --media in/movie.mp4 --workflow subtitle \
+  --source-language hi --target-language en
 
-try:
-    profile.validate_for_workflow('subtitle')
-    print("✅ Profile valid for subtitle workflow")
-except ValueError as e:
-    print(f"❌ Validation failed: {e}")
-EOF
+# Output:
+# 👤 Validating user profile...
+# ✓ User profile loaded: userId=1
+# ✓ Credentials validated for subtitle workflow
+# ...
+# ✅ Job preparation complete!
+```
+
+### 4. Run Pipeline
+```bash
+./run-pipeline.sh -j job-20251210-rpatel-0001
+# Pipeline reads userId from job.json
+# Stages load profile automatically
 ```
 
 ---
