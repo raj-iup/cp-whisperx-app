@@ -117,7 +117,7 @@ def separate_vocals(input_audio: Path, output_dir: Path, quality: str = "balance
             cmd,
             capture_output=True,
             text=True,
-            timeout=900  # 15 minutes max
+            timeout=3600  # 60 minutes max (for full-length movies)
         )
         
         if result.returncode != 0:
@@ -169,7 +169,7 @@ def separate_vocals(input_audio: Path, output_dir: Path, quality: str = "balance
         
     except subprocess.TimeoutExpired:
         if logger:
-            logger.error("Demucs timed out after 10 minutes", exc_info=True)
+            logger.error("Demucs timed out after 60 minutes", exc_info=True)
         return None
     except Exception as e:
         if logger:
