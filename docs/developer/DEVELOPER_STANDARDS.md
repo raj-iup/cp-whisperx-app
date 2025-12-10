@@ -7044,3 +7044,461 @@ ls out/*/job-*/11_subtitle_generation/*.srt  # Should list 8 files
 ---
 
 **All development MUST follow these standards. Non-compliance will be flagged in code review.**
+
+---
+
+## § 21: BRD-PRD-TRD Documentation Framework
+
+**Purpose:** Establish structured, documentation-first approach for all project changes using Business Requirements (BRD), Product Requirements (PRD), and Technical Requirements (TRD).
+
+**Framework Version:** 1.0  
+**Status:** ✅ ACTIVE (Implemented 2025-12-09)  
+**Compliance:** MANDATORY for new features, architectural changes, breaking changes
+
+---
+
+### 21.1 Framework Overview
+
+**3-Layer Documentation Chain:**
+
+```
+BRD (Business Requirements) ────────── "WHY build it?"
+    │
+    │ ✅ Business case, ROI, stakeholders
+    ↓
+PRD (Product Requirements) ─────────── "WHAT to build?"
+    │
+    │ ✅ User stories, personas, acceptance criteria
+    ↓
+TRD (Technical Requirements) ───────── "HOW to build it?"
+    │
+    │ ✅ Architecture, APIs, implementation details
+    ↓
+Implementation Tracker ──────────────── "WHO & WHEN?"
+    │
+    │ ✅ Tasks, assignments, progress tracking
+    ↓
+Code + Tests + Documentation ────────── "DELIVERY"
+```
+
+**Key Principle:** Every line of code should trace back to a PRD → BRD → Business need.
+
+---
+
+### 21.2 When to Create Documents
+
+**MANDATORY (Must create BRD-PRD-TRD):**
+- 🔥 New features (>200 LOC or new functionality)
+- 🔥 Architectural changes (new ADs, major refactoring)
+- 🔥 Breaking changes (API changes, incompatible updates)
+- 🔥 New dependencies (new libraries, services, APIs)
+- 🔥 Standard updates (changes to development standards)
+
+**RECOMMENDED (Create PRD-TRD, optional BRD):**
+- 🟡 Medium features (50-200 LOC, 2-5 files)
+- 🟡 Bug fixes that change user behavior
+- 🟡 Performance improvements with measurable impact
+
+**OPTIONAL (Update docs only):**
+- 🟢 Small bug fixes (<50 LOC, single file)
+- 🟢 Documentation-only changes
+- 🟢 Configuration tweaks (no behavior change)
+- 🟢 Test additions (no production code change)
+
+---
+
+### 21.3 Document Templates & Naming
+
+**Templates Location:** `docs/requirements/{brd,prd,trd}/`
+
+**Naming Convention:**
+```
+BRD-YYYY-MM-DD-NN-feature-name.md
+PRD-YYYY-MM-DD-NN-feature-name.md  (same NN as BRD)
+TRD-YYYY-MM-DD-NN-feature-name.md  (same NN as BRD)
+
+Examples:
+BRD-2025-12-05-02-workflow-outputs.md
+PRD-2025-12-05-02-workflow-outputs.md
+TRD-2025-12-05-02-workflow-outputs.md
+```
+
+**Templates:**
+- BRD Template: `docs/requirements/brd/BRD_TEMPLATE.md`
+- PRD Template: `docs/requirements/prd/PRD_TEMPLATE.md`
+- TRD Template: `docs/requirements/trd/TRD_TEMPLATE.md`
+
+---
+
+### 21.4 Document Creation Workflow
+
+**Step 1: Create BRD (Business Requirements)**
+
+```bash
+# Copy template
+cp docs/requirements/brd/BRD_TEMPLATE.md \
+   docs/requirements/brd/BRD-2025-12-10-01-new-feature.md
+
+# Fill in sections:
+- Business Objective (Problem & Solution)
+- Stakeholder Requirements
+- Success Criteria
+- Scope (In/Out of scope)
+- Dependencies & Constraints
+```
+
+**Contents:**
+- **Problem Statement:** What business problem are we solving?
+- **Proposed Solution:** High-level approach
+- **Business Value:** ROI, cost savings, user impact
+- **Stakeholders:** Who benefits? Who approves?
+- **Success Metrics:** Quantifiable & qualitative measures
+
+**Approval:** Get stakeholder sign-off before moving to PRD.
+
+---
+
+**Step 2: Create PRD (Product Requirements)**
+
+```bash
+# Copy template
+cp docs/requirements/prd/PRD_TEMPLATE.md \
+   docs/requirements/prd/PRD-2025-12-10-01-new-feature.md
+
+# Fill in sections:
+- User Personas & Flows
+- Functional Requirements (Features)
+- User Stories with Acceptance Criteria
+- UX/UI Requirements (CLI patterns)
+- Non-Functional Requirements (Performance, compatibility)
+```
+
+**Contents:**
+- **User Personas:** Who will use this? (Developer Dave, Power User Paula)
+- **User Flows:** Step-by-step user journeys
+- **User Stories:** "As a [user], I want [feature], so that [benefit]"
+- **Acceptance Criteria:** Checklist for "done" (testable conditions)
+- **Non-Functional:** Performance, scalability, compatibility
+
+**Approval:** Get product/UX review before moving to TRD.
+
+---
+
+**Step 3: Create TRD (Technical Requirements)**
+
+```bash
+# Copy template
+cp docs/requirements/trd/TRD_TEMPLATE.md \
+   docs/requirements/trd/TRD-2025-12-10-01-new-feature.md
+
+# Fill in sections:
+- Technical Overview
+- Architecture Changes
+- Implementation Requirements (Code changes)
+- Testing Requirements
+- Performance Considerations
+```
+
+**Contents:**
+- **Architecture:** System design, component interaction
+- **APIs:** Interfaces, data models, contracts
+- **Implementation:** File changes, new modules, refactoring
+- **Testing:** Unit, integration, functional test strategy
+- **Performance:** Expected performance, optimization approach
+
+**Approval:** Get technical review before implementation.
+
+---
+
+**Step 4: Update Implementation Tracker**
+
+```bash
+# Add to IMPLEMENTATION_TRACKER.md
+| Task # | Feature | BRD | PRD | TRD | Status | Owner | Est | Actual |
+|--------|---------|-----|-----|-----|--------|-------|-----|--------|
+| 25 | New Feature | [BRD-01](link) | [PRD-01](link) | [TRD-01](link) | ⏳ In Progress | Dev | 3d | - |
+```
+
+**Link documents:** Create full traceability chain.
+
+---
+
+**Step 5: Implement & Validate**
+
+```bash
+# During implementation:
+1. Reference TRD for technical design
+2. Validate against PRD acceptance criteria
+3. Update IMPLEMENTATION_TRACKER.md progress
+4. Document any deviations from TRD
+
+# After implementation:
+5. Mark BRD/PRD/TRD as "Implemented"
+6. Update all related documentation
+7. Add implementation date to PRD/TRD
+```
+
+---
+
+### 21.5 PRD Best Practices
+
+**User Stories Format:**
+```markdown
+As a [persona]
+I want to [action]
+So that [benefit]
+
+Acceptance Criteria:
+- [x] Feature 1 implemented
+- [x] Edge case handled
+- [x] Performance target met (<3s response time)
+- [x] Error handling tested
+```
+
+**User Personas:**
+- Give them names (Developer Dave, Power User Paula)
+- Define role, goals, pain points
+- Describe current workflow vs. expected workflow
+
+**User Flows:**
+- Step-by-step journey through feature
+- Include decision points, error scenarios
+- Show time savings or improvements
+
+**Non-Functional Requirements:**
+- **Performance:** Response times, processing speed
+- **Compatibility:** OS, Python versions, hardware
+- **Scalability:** File size limits, concurrent users
+- **Localization:** Languages, scripts, formats
+
+---
+
+### 21.6 Example PRDs (Reference)
+
+**Complete Examples Available:**
+
+1. **Workflow-Specific Outputs (AD-010)**
+   - File: `docs/requirements/prd/PRD-2025-12-05-02-workflow-outputs.md`
+   - Personas: Content creator, translator, video producer
+   - User stories: 3 workflows with acceptance criteria
+   - 591 lines, comprehensive
+
+2. **Multi-Phase Subtitle Workflow (AD-014)**
+   - File: `docs/requirements/prd/PRD-2025-12-08-05-subtitle-workflow.md`
+   - Personas: Subtitle creator, localization coordinator
+   - Caching workflows with 70-85% time savings
+   - 530 lines, performance benchmarks
+
+3. **Log Management (AD-012)**
+   - File: `docs/requirements/prd/PRD-2025-12-08-03-log-management.md`
+   - Personas: Developer, QA engineer, CI/CD
+   - Log organization and directory structure
+   - 227 lines, concise format
+
+**Use these as templates for your own PRDs.**
+
+---
+
+### 21.7 Checklist: Creating a PRD
+
+**Before You Start:**
+- [ ] BRD exists and is approved
+- [ ] Business problem is clearly defined
+- [ ] Stakeholder requirements are documented
+
+**User Personas (§ II):**
+- [ ] At least 2-3 personas defined
+- [ ] Each persona has: Name, role, goal, pain point
+- [ ] Personas represent different user types
+
+**User Flows (§ II):**
+- [ ] Step-by-step flow for each persona
+- [ ] Shows current state vs. expected state
+- [ ] Includes time savings or improvements
+
+**Functional Requirements (§ III):**
+- [ ] Features categorized: Must-have, Should-have, Could-have
+- [ ] Each feature has clear description
+- [ ] User stories written in "As a... I want... So that..." format
+
+**Acceptance Criteria (§ III):**
+- [ ] Testable conditions for each user story
+- [ ] Clear success/failure criteria
+- [ ] Performance targets specified
+
+**UX/UI Requirements (§ IV):**
+- [ ] CLI command examples provided
+- [ ] Progress indicators defined
+- [ ] Error messages specified
+- [ ] Output format examples included
+
+**Non-Functional Requirements (§ V):**
+- [ ] Performance targets specified
+- [ ] Compatibility requirements listed
+- [ ] Scalability limits defined
+- [ ] Localization needs documented
+
+**Analytics & Tracking (§ VI):**
+- [ ] Events to track defined
+- [ ] Success metrics specified
+
+**Dependencies & Constraints (§ VII):**
+- [ ] Technical dependencies listed
+- [ ] Business constraints documented
+- [ ] Risk factors identified
+
+**Success Criteria (§ VIII):**
+- [ ] Definition of done specified
+- [ ] Metrics for success defined
+
+**Approvals (§ XI):**
+- [ ] Product manager sign-off
+- [ ] Technical lead sign-off
+- [ ] Stakeholder sign-off
+
+---
+
+### 21.8 Integration with Architectural Decisions
+
+**When PRD leads to Architectural Decision (AD):**
+
+```
+PRD identifies need → Create AD → Update ARCHITECTURE.md
+```
+
+**Example:**
+```
+PRD: Multi-phase subtitle workflow requirements
+  ↓
+AD-014: Multi-Phase Subtitle Workflow with Learning
+  ↓
+ARCHITECTURE.md: § AD-014 added
+  ↓
+TRD: Implementation details referencing AD-014
+```
+
+**Flow:**
+1. PRD defines WHAT (user requirements)
+2. AD defines WHY (architectural rationale)
+3. TRD defines HOW (implementation)
+
+**All 3 must reference each other for full traceability.**
+
+---
+
+### 21.9 Common Mistakes to Avoid
+
+**❌ DON'T:**
+- Create TRD without BRD/PRD
+- Skip user stories and personas
+- Mix "what" (PRD) with "how" (TRD)
+- Write vague acceptance criteria
+- Forget to link documents together
+- Leave PRD status as "Draft" after implementation
+- Create PRDs for trivial changes (<50 LOC)
+
+**✅ DO:**
+- Always start with BRD (business justification)
+- Write clear, testable acceptance criteria
+- Include real user personas with names
+- Show user flows and time savings
+- Link all documents (BRD ↔ PRD ↔ TRD)
+- Update status to "Implemented" when done
+- Use judgment (not all changes need PRD)
+
+---
+
+### 21.10 Documentation-First Development
+
+**Principle:** Write requirements BEFORE code.
+
+**Benefits:**
+1. **Clear Requirements:** Everyone knows what to build
+2. **Stakeholder Alignment:** Get buy-in early
+3. **Faster Development:** No rework from misunderstandings
+4. **Better Testing:** Acceptance criteria = test cases
+5. **Knowledge Retention:** Decisions are documented
+6. **Onboarding:** New team members understand context
+
+**Process:**
+```
+Idea
+  ↓
+BRD (1-2 days: business case)
+  ↓
+PRD (2-3 days: user requirements)
+  ↓
+TRD (2-3 days: technical design)
+  ↓
+Implementation (follows TRD)
+  ↓
+Validation (against PRD acceptance criteria)
+  ↓
+Documentation Update
+  ↓
+Mark BRD/PRD/TRD as "Implemented"
+```
+
+**Time Investment:**
+- Documentation: 5-7 days (BRD+PRD+TRD)
+- Implementation: Faster (clear requirements)
+- Total: Net savings (less rework)
+
+---
+
+### 21.11 Maintenance & Updates
+
+**When to Update PRD:**
+- Requirements change mid-implementation
+- New acceptance criteria discovered
+- Performance targets adjusted
+- Scope expanded or reduced
+
+**Version Control:**
+```markdown
+## Change Log
+
+| Date | Version | Changes | Author |
+|------|---------|---------|--------|
+| 2025-12-05 | 1.0 | Initial PRD | Ravi |
+| 2025-12-08 | 1.1 | Added performance targets | Ravi |
+| 2025-12-09 | 1.2 | Marked as implemented | Ravi |
+```
+
+**Update all 3 documents when requirements change:**
+- BRD: Business justification changes
+- PRD: User requirements change
+- TRD: Technical approach changes
+
+---
+
+### 21.12 Quick Reference
+
+**Templates:**
+- BRD: `docs/requirements/brd/BRD_TEMPLATE.md`
+- PRD: `docs/requirements/prd/PRD_TEMPLATE.md`
+- TRD: `docs/requirements/trd/TRD_TEMPLATE.md`
+
+**Examples:**
+- PRD-2025-12-05-02-workflow-outputs.md
+- PRD-2025-12-08-05-subtitle-workflow.md
+- PRD-2025-12-08-03-log-management.md
+
+**Complete Guide:**
+- Framework: `BRD-PRD-TRD-IMPLEMENTATION-FRAMEWORK.md`
+- Strategy: `DOCUMENTATION_REFACTORING_PLAN.md`
+- Summary: `FRAMEWORK_RECOMMENDATION_SUMMARY.md`
+
+**Next Feature Development:**
+- Start with BRD (business case)
+- Create PRD (user requirements)
+- Write TRD (technical design)
+- Implement following TRD
+- Validate against PRD acceptance criteria
+
+---
+
+**Last Updated:** 2025-12-09  
+**Version:** 6.8 (Added § 21: BRD-PRD-TRD Framework)  
+**Status:** ✅ ACTIVE - Use for all new features
+

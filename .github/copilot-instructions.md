@@ -1,6 +1,13 @@
 # Copilot Instructions — CP-WhisperX-App
 
-**Version:** 7.1 (M-001 Alignment Audit) | **Status:** 🎊 **100% PERFECT COMPLIANCE ACHIEVED** 🎊 | **Pre-commit Hook:** ✅ Active
+**Version:** 7.2 (BRD-PRD-TRD Framework) | **Status:** 🎊 **100% PERFECT COMPLIANCE** 🎊 | **Pre-commit Hook:** ✅ Active
+
+**🚨 NEW: § 21 BRD-PRD-TRD Framework (2025-12-09):**
+- 📋 **MANDATORY**: BRD-PRD-TRD for new features (>200 LOC)
+- 📝 **PRD First**: User stories with acceptance criteria before code
+- 🔗 **Traceability**: Every feature traces to BRD (business need)
+- ✅ **Examples**: 3 complete PRDs available in docs/requirements/prd/
+- 📚 **See**: DEVELOPER_STANDARDS.md § 21 for complete guidance
 
 **🚨 CRITICAL: AD-009 Development Philosophy (2025-12-05):**
 - 🎯 **OPTIMIZE FOR QUALITY**: Highest accuracy output is the ONLY goal
@@ -86,6 +93,8 @@
 24. **If subtitle workflow: Am I computing media_id for caching? (AD-014)** 🆕 ⭐
 25. **Error handling: Am I using exc_info=True exactly once?** (§ 5)
 26. **ASR/Transcription: Am I using hybrid MLX architecture?** (§ 2.7)
+27. **If new feature (>200 LOC): Does BRD-PRD-TRD exist? (DEVELOPER_STANDARDS.md § 21)** 🆕 ⭐
+28. **If architectural change: Is AD documented in ARCHITECTURE.md?** 🆕 ⭐
 
 **If NO to any → Check the relevant § section below**
 
@@ -1403,6 +1412,15 @@ else:
 **Dependencies:**
 - [ ] Added to `requirements/*.txt` (§ 1.3)
 
+**DOCUMENTATION (NEW FEATURES):** 🆕
+- [ ] **New feature (>200 LOC):** BRD-PRD-TRD created (DEVELOPER_STANDARDS.md § 21)
+- [ ] **Architectural change:** AD documented in ARCHITECTURE.md
+- [ ] **PRD:** User stories with acceptance criteria written
+- [ ] **PRD:** User personas defined (at least 2-3)
+- [ ] **PRD:** Links to BRD and TRD included
+- [ ] **Implementation Tracker:** Task linked to BRD/PRD/TRD
+- [ ] **Post-implementation:** Mark BRD/PRD/TRD as "Implemented"
+
 **Run automated checker:**
 ```bash
 ./scripts/validate-compliance.py your_file.py
@@ -1529,6 +1547,55 @@ chmod +x .git/hooks/pre-commit
 
 ---
 
+## 📚 BRD-PRD-TRD Framework Quick Reference
+
+**When to Create:** (DEVELOPER_STANDARDS.md § 21)
+
+**MANDATORY:**
+- 🔥 New features (>200 LOC or new functionality)
+- 🔥 Architectural changes (new ADs)
+- 🔥 Breaking changes (API changes)
+
+**RECOMMENDED:**
+- 🟡 Medium features (50-200 LOC)
+- 🟡 Bug fixes changing user behavior
+
+**OPTIONAL:**
+- 🟢 Small fixes (<50 LOC)
+- 🟢 Documentation-only changes
+
+**Creation Flow:**
+```
+1. BRD: Business justification (WHY)
+   - Problem statement, business value, stakeholders
+   - Template: docs/requirements/brd/BRD_TEMPLATE.md
+   
+2. PRD: User requirements (WHAT)
+   - User stories, personas, acceptance criteria
+   - Template: docs/requirements/prd/PRD_TEMPLATE.md
+   
+3. TRD: Technical design (HOW)
+   - Architecture, APIs, implementation
+   - Template: docs/requirements/trd/TRD_TEMPLATE.md
+   
+4. Implementation: Code + Tests + Docs
+   - Follow TRD design
+   - Validate against PRD acceptance criteria
+   - Update IMPLEMENTATION_TRACKER.md
+```
+
+**Example PRDs:**
+- PRD-2025-12-05-02-workflow-outputs.md (591 lines)
+- PRD-2025-12-08-05-subtitle-workflow.md (530 lines)
+- PRD-2025-12-08-03-log-management.md (227 lines)
+
+**Complete Guide:**
+- Framework: BRD-PRD-TRD-IMPLEMENTATION-FRAMEWORK.md
+- Examples: docs/requirements/prd/
+- Standards: DEVELOPER_STANDARDS.md § 21
+
+---
+
 ## 🚀 Testing
 
 - Tests in `tests/`
@@ -1546,4 +1613,4 @@ chmod +x .git/hooks/pre-commit
 5. Run `validate-compliance.py` on your code
 6. **Commit will be blocked if violations exist** 🔒
 
-**Version:** 4.0 (100% Compliance) | **Lines:** 500+ | **Status:** ✅ PERFECT | **Automated:** ✅
+**Version:** 7.2 (BRD-PRD-TRD Framework) | **Lines:** 1600+ | **Status:** ✅ PERFECT | **Automated:** ✅
