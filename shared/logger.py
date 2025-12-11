@@ -298,7 +298,7 @@ def setup_dual_logger(
     Args:
         stage_name: Name of the stage (e.g., "asr", "alignment")
         stage_log_file: Path to stage.log file
-        main_log_dir: Directory containing main pipeline log
+        main_log_dir: Job root directory (NOT logs/ subdirectory per AD-001)
         log_level: Minimum log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
     
     Returns:
@@ -310,10 +310,10 @@ def setup_dual_logger(
         >>> logger = setup_dual_logger(
         ...     "asr",
         ...     Path("out/job1/06_asr/stage.log"),
-        ...     Path("out/job1/logs")
+        ...     Path("out/job1")  # Job root, not logs/
         ... )
         >>> logger.debug("Detailed processing step")  # Only in stage.log
-        >>> logger.info("Stage progress")  # In stage.log + pipeline.log + console
+        >>> logger.info("Stage progress")  # In stage.log + 99_pipeline_*.log + console
     """
     logger = logging.getLogger(f"stage.{stage_name}")
     logger.setLevel(getattr(logging, log_level.upper()))
@@ -344,7 +344,7 @@ def setup_dual_logger(
     
     # Handler 2: Main pipeline log (INFO and above only)
     # Phase 3 Optimization: Create handler with buffered file stream
-    main_log_dir.mkdir(parents=True, exist_ok=True)
+    # AD-001: Pipeline log in job root (main_log_dir already exists from StageIO)
     
     # Find or create main pipeline log
     today = datetime.now().strftime("%Y%m%d")
