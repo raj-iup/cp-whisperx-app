@@ -39,6 +39,21 @@ nano users/1/profile.json
 ./prepare-job.sh --media in/hindi_audio.mp4 --workflow translate \
   --source-language hi --target-language en
 ./run-pipeline.sh --job-dir out/LATEST
+
+# 6. YouTube video (NEW - auto-download) 🆕
+./prepare-job.sh --media "https://youtu.be/VIDEO_ID" --workflow transcribe \
+  --source-language hi
+./run-pipeline.sh --job-dir out/LATEST
+
+# 7. YouTube movie clip with TMDB (NEW - context-aware) 🆕
+./prepare-job.sh --media "https://youtu.be/MOVIE_CLIP_ID" --workflow subtitle \
+  --source-language hi --target-language en \
+  --tmdb-title "3 Idiots" --tmdb-year 2009
+./run-pipeline.sh --job-dir out/LATEST
+
+# 8. Estimate costs before processing (NEW) 🆕
+./prepare-job.sh --media in/your_movie.mp4 --workflow subtitle \
+  --source-language hi --target-language en --estimate-only
 ```
 
 **See:** [User Profile Guide](docs/user-guide/USER_PROFILES.md) for complete credential setup
@@ -74,6 +89,23 @@ out/YYYY/MM/DD/user/NNNN/
 ---
 
 ## 🎉 What's New in v3.0
+
+### YouTube Integration (NEW) 🆕
+- **Direct URL Processing**: Pass YouTube URLs directly to `--media` flag
+- **Smart Caching**: 70-85% time savings on repeat videos (by video_id)
+- **YouTube Premium Support**: Configure in user profile for private/members-only videos
+- **Auto-Glossary**: Extracts 5-20 terms from title/description (proper nouns, hashtags)
+- **TMDB for Movies**: Enable context-aware subtitles for Bollywood clips on YouTube
+- **Playlist Support**: Batch process entire playlists (coming soon)
+- **Guide**: [YouTube Integration](docs/youtube-integration.md)
+
+### Cost Tracking & Estimation (NEW) 🆕
+- **Real-Time Cost Display**: See API costs during pipeline execution
+- **Pre-Execution Estimation**: `--estimate-only` flag predicts costs before processing
+- **Budget Management**: $50/month default budget with warnings at 80%
+- **Dashboard Tool**: `./tools/cost-dashboard.py` for usage analysis
+- **Multi-Provider**: Tracks OpenAI, Gemini, HuggingFace, TMDB API costs
+- **Guide**: [Cost Tracking](docs/cost-tracking-guide.md)
 
 ### 12-Stage Modular Pipeline
 - **Context-Aware Processing**: Character names, cultural terms, temporal consistency

@@ -356,3 +356,313 @@ For issues or questions:
 **Last Updated:** 2025-12-10  
 **Module Version:** 1.0  
 **Status:** Production Ready ✅
+
+---
+
+## 💰 Cost Estimation Examples (NEW)
+
+### Example 1: Estimate Before Processing
+
+```bash
+# Estimate costs for subtitle workflow
+./prepare-job.sh --media in/movie.mp4 --workflow subtitle \
+  --source-language hi --target-language en \
+  --estimate-only
+
+# Output:
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# COST ESTIMATION REPORT
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Media: movie.mp4 (120 min duration)
+# Workflow: subtitle
+# Source: hi → Targets: en
+#
+# BREAKDOWN:
+# ├─ TMDB API: $0.002 (1 request)
+# ├─ Translation (IndicTrans2): $0.00 (local)
+# ├─ ASR (MLX-Whisper): $0.00 (local GPU)
+# ├─ Alignment (WhisperX): $0.00 (local GPU)
+# └─ Subtitle Generation: $0.00 (local)
+#
+# ESTIMATED TOTAL: $0.002
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Status: ✅ Within budget ($50.00 remaining)
+```
+
+### Example 2: Multi-Language Subtitle Estimation
+
+```bash
+./prepare-job.sh --media in/movie.mp4 --workflow subtitle \
+  --source-language hi --target-languages en,gu,ta,es,ru,zh,ar \
+  --estimate-only
+
+# Output:
+# BREAKDOWN:
+# ├─ TMDB API: $0.002 (1 request)
+# ├─ Translation (7 languages):
+# │  ├─ hi→en (IndicTrans2): $0.00 (local)
+# │  ├─ hi→gu (IndicTrans2): $0.00 (local)
+# │  ├─ hi→ta (IndicTrans2): $0.00 (local)
+# │  ├─ hi→es (NLLB-200): $0.00 (local)
+# │  ├─ hi→ru (NLLB-200): $0.00 (local)
+# │  ├─ hi→zh (NLLB-200): $0.00 (local)
+# │  └─ hi→ar (NLLB-200): $0.00 (local)
+# ├─ ASR (MLX-Whisper): $0.00 (local GPU)
+# └─ Subtitle Generation (7 tracks): $0.00 (local)
+#
+# ESTIMATED TOTAL: $0.002
+# Processing Time: ~25-30 minutes
+```
+
+### Example 3: YouTube Video with AI Summarization
+
+```bash
+./prepare-job.sh --media "https://youtu.be/VIDEO_ID" \
+  --workflow transcribe --source-language en \
+  --enable-summarization \
+  --estimate-only
+
+# Output:
+# BREAKDOWN:
+# ├─ YouTube Download: $0.00 (free)
+# ├─ ASR (MLX-Whisper): $0.00 (local GPU)
+# ├─ Alignment (WhisperX): $0.00 (local GPU)
+# ├─ AI Summarization:
+# │  ├─ Model: gemini-1.5-pro
+# │  ├─ Estimated tokens: 2,500
+# │  └─ Cost: $0.0063
+# 
+# ESTIMATED TOTAL: $0.0063
+# ⚠️  Note: AI summarization enabled (costs ~$0.006/job)
+```
+
+### Example 4: Cost-Aware Decision Making
+
+```bash
+# High-cost workflow (AI translation fallback)
+./prepare-job.sh --media in/movie.mp4 --workflow subtitle \
+  --source-language en --target-language hi \
+  --translation-engine openai \
+  --estimate-only
+
+# Output:
+# BREAKDOWN:
+# ├─ TMDB API: $0.002
+# ├─ Translation (OpenAI GPT-4):
+# │  ├─ Estimated words: 15,000
+# │  ├─ Token count: ~22,500
+# │  └─ Cost: $0.45
+# ├─ ASR: $0.00 (local)
+# └─ Subtitle Gen: $0.00 (local)
+#
+# ESTIMATED TOTAL: $0.452
+# ⚠️  HIGH COST ALERT!
+# 
+# RECOMMENDATION:
+# Use IndicTrans2 instead (free, local):
+#   --translation-engine indictrans2
+# Expected savings: $0.45 → $0.00 (100% reduction)
+```
+
+---
+
+## 📊 Real-World Cost Examples
+
+### Typical Job Costs (Local Processing):
+
+| Workflow | Duration | Languages | Cost | Time |
+|----------|----------|-----------|------|------|
+| Transcribe | 10 min | 1 (en) | $0.00 | 2 min |
+| Translate | 10 min | hi→en | $0.00 | 3 min |
+| Subtitle | 120 min | hi→en | $0.002 | 25 min |
+| Subtitle (8 langs) | 120 min | hi→8 | $0.002 | 35 min |
+| YouTube transcribe | 5 min | hi | $0.00 | 90 sec |
+| YouTube + TMDB | 3 min | hi→en | $0.002 | 12 min |
+
+**Average monthly cost:** $0.05 - $0.50 (mostly TMDB API)
+
+### With AI Features Enabled:
+
+| Feature | Cost/Job | Monthly (100 jobs) |
+|---------|----------|-------------------|
+| AI Summarization | $0.004-0.008 | $0.40-$0.80 |
+| GPT-4 Translation | $0.30-0.50 | $30-$50 |
+| Gemini Summarization | $0.002-0.005 | $0.20-$0.50 |
+
+---
+
+## 🎯 Cost Optimization Tips
+
+### 1. Use Local Models (Free)
+
+```bash
+# ✅ FREE - IndicTrans2 (Indian languages)
+./prepare-job.sh --media file.mp4 --workflow translate \
+  --source-language hi --target-language en \
+  --translation-engine indictrans2
+
+# ❌ COSTLY - OpenAI GPT-4 ($0.30-0.50/job)
+./prepare-job.sh --media file.mp4 --workflow translate \
+  --source-language hi --target-language en \
+  --translation-engine openai
+```
+
+**Savings:** $0.45/job × 100 jobs = **$45/month**
+
+### 2. Estimate Before Processing
+
+```bash
+# Always use --estimate-only first
+./prepare-job.sh --media large_file.mp4 --workflow subtitle \
+  --source-language hi --target-languages en,gu,ta \
+  --estimate-only
+
+# Review costs, then proceed
+./run-pipeline.sh --job-dir out/LATEST
+```
+
+### 3. Cache Similar Content
+
+```bash
+# First video: Full processing
+./prepare-job.sh --media movie_scene1.mp4 --workflow subtitle -s hi -t en
+# Cost: $0.002, Time: 12 min
+
+# Same movie, different scene: Cached baseline
+./prepare-job.sh --media movie_scene2.mp4 --workflow subtitle -s hi -t en
+# Cost: $0.001, Time: 3 min (75% faster, 50% cheaper)
+```
+
+### 4. Batch Process Strategically
+
+```bash
+# Process similar content together (shares cache)
+for file in movie_clip*.mp4; do
+  ./prepare-job.sh --media "$file" --workflow subtitle -s hi -t en
+  ./run-pipeline.sh --job-dir out/LATEST
+done
+
+# First clip: $0.002
+# Subsequent clips: $0.001 each (shared glossary/cache)
+```
+
+### 5. Disable Optional Features
+
+```bash
+# Minimal cost configuration
+./prepare-job.sh --media file.mp4 --workflow transcribe \
+  --source-language en \
+  --no-summarization \
+  --no-tmdb \
+  --source-separation-enabled false
+
+# Cost: $0.00 (completely free)
+```
+
+---
+
+## 📈 Budget Scenarios
+
+### Scenario 1: Casual User (10 jobs/month)
+
+```
+Workflow Mix:
+- 5× Transcribe (10 min each)
+- 3× Translate (15 min each)
+- 2× Subtitle (60 min each)
+
+Estimated Costs:
+- Transcribe: 5 × $0.00 = $0.00
+- Translate: 3 × $0.00 = $0.00
+- Subtitle: 2 × $0.002 = $0.004
+
+Monthly Total: $0.004
+Budget Utilization: 0.008% ($0.004 / $50.00)
+```
+
+**Verdict:** ✅ Extremely budget-friendly
+
+### Scenario 2: Power User (100 jobs/month)
+
+```
+Workflow Mix:
+- 40× Transcribe (YouTube videos)
+- 30× Translate (podcasts)
+- 20× Subtitle (movie clips)
+- 10× Subtitle (full movies, 120 min)
+
+Estimated Costs:
+- Transcribe: 40 × $0.00 = $0.00
+- Translate: 30 × $0.00 = $0.00
+- Subtitle (clips): 20 × $0.002 = $0.04
+- Subtitle (movies): 10 × $0.002 = $0.02
+
+Monthly Total: $0.06
+Budget Utilization: 0.12% ($0.06 / $50.00)
+```
+
+**Verdict:** ✅ Still well within budget
+
+### Scenario 3: Production Studio (500 jobs/month, AI features)
+
+```
+Workflow Mix:
+- 200× Subtitle (Bollywood content)
+- 200× AI Summarization enabled
+- 100× Multi-language (8 languages)
+
+Estimated Costs:
+- Subtitle: 200 × $0.002 = $0.40
+- AI Summarization: 200 × $0.006 = $1.20
+- Multi-language: 100 × $0.002 = $0.20
+
+Monthly Total: $1.80
+Budget Utilization: 3.6% ($1.80 / $50.00)
+```
+
+**Verdict:** ✅ Easily manageable
+
+---
+
+## 🚨 Cost Alerts
+
+### Alert Levels:
+
+| Level | Threshold | Action |
+|-------|-----------|--------|
+| 🟢 Normal | <50% budget | Continue as usual |
+| 🟡 Warning | 50-80% budget | Monitor usage |
+| 🟠 Alert | 80-95% budget | Optimize or increase budget |
+| 🔴 Critical | >95% budget | Processing paused (optional) |
+
+### Email Notifications:
+
+```json
+// users/1/profile.json
+{
+  "budget": {
+    "monthly_limit_usd": 50.00,
+    "alert_threshold_percent": 80,
+    "notification_email": "your@email.com",
+    "alert_levels": {
+      "warning": 50,
+      "alert": 80,
+      "critical": 95
+    }
+  }
+}
+```
+
+---
+
+## 🔗 Related Documentation
+
+- **User Profiles:** [docs/user-guide/USER_PROFILES.md](user-guide/USER_PROFILES.md)
+- **YouTube + TMDB:** [docs/YOUTUBE_TMDB_QUICKSTART.md](YOUTUBE_TMDB_QUICKSTART.md)
+- **Cost Dashboard:** [tools/cost-dashboard.py](../tools/cost-dashboard.py)
+- **Troubleshooting:** [TROUBLESHOOTING.md](../TROUBLESHOOTING.md)
+
+---
+
+**Last Updated:** 2025-12-11  
+**Version:** 2.0 (with estimation examples)
