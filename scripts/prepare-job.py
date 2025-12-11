@@ -35,7 +35,7 @@ from shared.stage_order import get_all_stage_dirs
 from shared.logger import PipelineLogger, get_logger
 from shared.environment_manager import EnvironmentManager
 from scripts.filename_parser import parse_filename
-from scripts.config_loader import Config
+from shared.config_loader import Config
 
 # Initialize logger
 logger = get_logger(__name__)
@@ -110,14 +110,42 @@ INDIAN_LANGUAGES = {
 }
 
 
-def validate_language(lang_code: str, is_source: bool = True) -> bool:
-    """Validate language code for IndicTrans2 workflow"""
-    if is_source:
-        # Source must be Indian language
-        return lang_code in INDIAN_LANGUAGES
-    else:
-        # Target can be any language, but primarily English
-        return True  # IndicTrans2 primarily supports English, but we'll allow others
+def validate_language(lang_code: str, is_source: bool = True, workflow: str = "translate") -> bool:
+    """
+    Validate language code based on workflow.
+    
+    Args:
+        lang_code: Language code to validate
+        is_source: Whether this is source language
+        workflow: Workflow type (transcribe, translate, subtitle)
+        
+    Returns:
+        True if language is valid for the workflow
+        
+    Note:
+        - transcribe: Any language supported by WhisperX (100+ languages)
+        - translate: Any source language, any target language
+                    (IndicTrans2 for Indic, NLLB-200 for others)
+        - subtitle: Source must be Indian language (movie/TV context)
+    """
+    if workflow == "transcribe":
+        # Transcribe supports any language via WhisperX
+        return True
+    
+    if workflow == "translate":
+        # Translate supports any source and target language
+        # Routing: IndicTrans2 if source OR target is Indic, else NLLB-200
+        return True
+    
+    if workflow == "subtitle":
+        # Subtitle workflow requires Indian source (Bollywood/regional content)
+        if is_source:
+            return lang_code in INDIAN_LANGUAGES
+        else:
+            return True
+    
+    # Default: allow any language
+    return True
 
 
 def get_next_job_number(user_id: str, date_str: str) -> int:
@@ -178,16 +206,14 @@ def create_job_directory(input_media: Path, workflow: str, user_id: Optional[str
     job_id = f"job-{date_str}-{user_id}-{job_number:04d}"
     
     # Create directory: out/YYYY/MM/DD/USERID/counter/
-    job_dir = PROJECT_ROOT / "out" / year / month / day / user_id / str(job_number)
+    job_dir = PROJECT_ROOT / "out" / year / month / day / str(user_id) / str(job_number)
     job_dir.mkdir(parents=True, exist_ok=True)
     
-    # Create main subdirectories
-    (job_dir / "logs").mkdir(exist_ok=True)
-    (job_dir / "media").mkdir(exist_ok=True)
-    (job_dir / "transcripts").mkdir(exist_ok=True)
-    (job_dir / "subtitles").mkdir(exist_ok=True)
+    # AD-001: No shared logs/ directory - pipeline log goes to job root
+    # Stage logs go to their respective stage directories
     
     # Create stage subdirectories using centralized stage order
+    # Each stage will write outputs to its own directory
     for stage_dir in get_all_stage_dirs():
         (job_dir / stage_dir).mkdir(exist_ok=True)
     
@@ -198,24 +224,25 @@ def prepare_media(input_media: Path, job_dir: Path,
                   start_time: Optional[str] = None,
                   end_time: Optional[str] = None) -> Path:
     """
-    Prepare media file - copy to job directory
-    Clipping is now handled by the demux stage based on job config
+    Prepare media file - record path in job config
+    Media file stays in 'in/' directory (not copied)
+    Clipping is handled by demux stage based on job config
     
     Returns:
-        Path to prepared media file
+        Path to input media file (in 'in/' directory)
     """
-    media_dir = job_dir / "media"
-    output_media = media_dir / input_media.name
+    # Media file stays in original location (in/ directory)
+    # Demux stage will read from this path
+    # No copying needed - saves disk space and time
     
-    # Always copy the full media file
-    # Clipping will be done during demux stage based on job.json config
-    shutil.copy2(input_media, output_media)
+    logger.info(f"Media file location: {input_media}")
+    logger.info("Media will be processed in place (not copied)")
     
     if start_time or end_time:
         logger.info(f"   Note: Clipping configured ({start_time} to {end_time})")
-        logger.info(f"   Full media copied - clipping will happen during pipeline execution")
+        logger.info(f"   Clipping will happen during demux stage")
     
-    return output_media
+    return input_media
 
 
 def create_job_config(job_dir: Path, job_id: str, workflow: str,
@@ -226,7 +253,11 @@ def create_job_config(job_dir: Path, job_id: str, workflow: str,
                       debug: bool = False,
                       user_id: Optional[str] = None,
                       log_level: Optional[str] = None,
-                      two_step: bool = False) -> None:
+                      two_step: bool = False,
+                      media_url: Optional[str] = None,
+                      tmdb_title: Optional[str] = None,
+                      tmdb_year: Optional[int] = None,
+                      youtube_metadata: Optional[Dict] = None) -> None:
     """Create job.json configuration file with environment mappings"""
     
     parsed = parse_filename(input_media.name)
@@ -276,6 +307,7 @@ def create_job_config(job_dir: Path, job_id: str, workflow: str,
         "target_languages": target_langs,
         "two_step_transcription": two_step,
         "input_media": str(input_media),
+        "media_url": media_url,  # Add media URL if downloaded from online
         "title": parsed.title if parsed.title else input_media.stem,
         "year": str(parsed.year) if parsed.year else "",
         "created_at": datetime.now().isoformat(),
@@ -291,10 +323,15 @@ def create_job_config(job_dir: Path, job_id: str, workflow: str,
             "quality": sep_quality
         },
         "tmdb_enrichment": {
-            "enabled": True,
-            "title": parsed.title if parsed.title else input_media.stem,
-            "year": parsed.year if parsed.year else None
+            # Enhancement #2: Hybrid TMDB approach for YouTube URLs
+            # Enable TMDB if:
+            # 1. Subtitle workflow (default for movies)
+            # 2. User provides --tmdb-title (explicit override for YouTube movies)
+            "enabled": workflow == "subtitle" or tmdb_title is not None,
+            "title": tmdb_title or (parsed.title if parsed.title else input_media.stem),
+            "year": tmdb_year or (parsed.year if parsed.year else None)
         },
+        "youtube_metadata": youtube_metadata if youtube_metadata else None,  # Enhancement #3: Store YouTube metadata
         "ner_correction": {
             "enabled": True,
             "apply_to_transcripts": True,
@@ -554,8 +591,8 @@ def main() -> None:
     
     parser.add_argument(
         "input_media",
-        type=Path,
-        help="Input media file"
+        type=str,  # Changed from Path to str to support URLs
+        help="Input media file path or YouTube URL"
     )
     
     parser.add_argument(
@@ -567,8 +604,7 @@ def main() -> None:
     
     parser.add_argument(
         "-s", "--source-language",
-        required=True,
-        help="Source language code (e.g., hi, ta, te)"
+        help="Source language code (e.g., hi, ta, te). Optional for 'transcribe' workflow (will auto-detect)."
     )
     
     parser.add_argument(
@@ -600,7 +636,9 @@ def main() -> None:
     
     parser.add_argument(
         "--user-id",
-        help="User identifier (defaults to system username)"
+        type=int,
+        default=1,
+        help="User ID (default: 1). User profile must exist in users/{userId}/"
     )
     
     parser.add_argument(
@@ -609,17 +647,132 @@ def main() -> None:
         help="Enable two-step transcription (transcribe in source language, then translate)"
     )
     
+    parser.add_argument(
+        "--tmdb-title",
+        type=str,
+        help="TMDB movie title (for YouTube videos of movies). Enables TMDB enrichment for YouTube URLs."
+    )
+    
+    parser.add_argument(
+        "--tmdb-year",
+        type=int,
+        help="TMDB movie release year (optional, improves TMDB accuracy)"
+    )
+    
     args = parser.parse_args()
     
-    # Validate input
-    if not args.input_media.exists():
-        logger.error(f"❌ Error: Input media not found: {args.input_media}")
+    # Validate userId exists
+    logger.info(f"👤 Validating user profile...")
+    try:
+        from shared.user_profile import UserProfile, UserIdManager
+        
+        if not UserIdManager.user_exists(args.user_id):
+            logger.error(f"❌ Error: User profile not found: userId={args.user_id}")
+            logger.info(f"   Profile location: users/{args.user_id}/profile.json")
+            logger.info(f"   Create user:")
+            logger.info(f"     python3 -c \"from shared.user_profile import UserProfile;")
+            logger.info(f"                   UserProfile.create_new_user(name='Your Name')\"")
+            logger.info(f"   Or run: ./bootstrap.sh (creates userId=1)")
+            sys.exit(1)
+        
+        # Load profile to verify it's valid
+        profile = UserProfile.load(args.user_id, logger_instance=logger)
+        logger.info(f"✓ User profile loaded: userId={args.user_id}")
+        
+        # Validate credentials for workflow
+        try:
+            profile.validate_for_workflow(args.workflow)
+            logger.info(f"✓ Credentials validated for {args.workflow} workflow")
+        except ValueError as e:
+            logger.error(f"❌ {e}", exc_info=True)
+            sys.exit(1)
+            
+    except ImportError as e:
+        logger.error(f"❌ Error: Failed to import user_profile module: {e}", exc_info=True)
+        sys.exit(1)
+    except Exception as e:
+        logger.error(f"❌ Error validating user profile: {e}", exc_info=True)
         sys.exit(1)
     
-    # Validate languages
-    if not validate_language(args.source_language, is_source=True):
-        logger.error(f"❌ Error: Unsupported source language: {args.source_language}")
+    # Validate input media or download from URL
+    input_media_path = args.input_media
+    media_url = None
+    youtube_metadata = None  # Store YouTube metadata for glossary extraction
+    
+    # Check if input is a URL
+    from shared.online_downloader import is_online_url, OnlineMediaDownloader, load_youtube_credentials
+    
+    if is_online_url(str(args.input_media)):
+        logger.info(f"🌐 Online URL detected: {args.input_media}")
+        media_url = str(args.input_media)
+        
+        # Load YouTube credentials for the user
+        youtube_username, youtube_password = load_youtube_credentials(user_id=args.user_id)
+        
+        if youtube_username:
+            logger.info(f"✓ Using YouTube Premium credentials for user {args.user_id}")
+        else:
+            logger.warning(f"⚠️  No YouTube Premium credentials found for user {args.user_id}")
+            logger.info(f"   Public videos will still work")
+        
+        # Download video
+        try:
+            logger.info(f"⬇️  Downloading video...")
+            downloader = OnlineMediaDownloader(
+                cache_dir=Path("in/online"),
+                youtube_username=youtube_username,
+                youtube_password=youtube_password
+            )
+            
+            local_path, metadata = downloader.download(media_url)
+            
+            logger.info(f"✓ Download complete!")
+            logger.info(f"   Title: {metadata['title']}")
+            logger.info(f"   Duration: {metadata['duration']}s ({metadata['duration']//60}m {metadata['duration']%60}s)")
+            logger.info(f"   File: {local_path.name}")
+            logger.info(f"   Size: {local_path.stat().st_size / 1024 / 1024:.1f} MB")
+            
+            if metadata.get('cached', False):
+                logger.info(f"   ♻️  Used cached copy (skip download)")
+            
+            # Store YouTube metadata for glossary extraction (Enhancement #3)
+            youtube_metadata = metadata
+            
+            # Use downloaded file as input
+            input_media_path = local_path
+            
+        except Exception as e:
+            logger.error(f"❌ Error downloading video: {e}", exc_info=True)
+            logger.info(f"   Check:")
+            logger.info(f"     • URL is valid")
+            logger.info(f"     • Video is accessible")
+            logger.info(f"     • Network connection")
+            logger.info(f"     • YouTube Premium credentials (if required)")
+            sys.exit(1)
+    else:
+        # Local file - convert to Path and validate it exists
+        input_media_path = Path(args.input_media)
+        if not input_media_path.exists():
+            logger.error(f"❌ Error: Input media not found: {input_media_path}")
+            sys.exit(1)
+    
+    # For transcribe workflow, source language is optional (will auto-detect)
+    if args.workflow == "transcribe" and not args.source_language:
+        logger.info("ℹ️  Source language not specified - will auto-detect during transcription")
+        args.source_language = "auto"  # Set to 'auto' for auto-detection
+    
+    # For other workflows, source language is required
+    if args.workflow != "transcribe" and not args.source_language:
+        logger.error(f"❌ Error: --source-language is required for '{args.workflow}' workflow")
         logger.info(f"   Supported languages: {', '.join(INDIAN_LANGUAGES.keys())}")
+        sys.exit(1)
+    
+    # Validate languages (skip validation for 'auto')
+    if args.source_language != "auto" and not validate_language(args.source_language, is_source=True, workflow=args.workflow):
+        logger.error(f"❌ Error: Unsupported source language: {args.source_language}")
+        if args.workflow == "subtitle":
+            logger.info(f"   For subtitle workflow, source must be an Indian language")
+            logger.info(f"   Supported languages: {', '.join(INDIAN_LANGUAGES.keys())}")
         sys.exit(1)
     
     if args.workflow == "translate" and not args.target_language:
@@ -669,17 +822,14 @@ def main() -> None:
     
     # Create job directory
     logger.info(f"📁 Creating job directory...")
-    job_dir, job_id = create_job_directory(args.input_media, args.workflow, user_id=args.user_id)
+    job_dir, job_id = create_job_directory(input_media_path, args.workflow, user_id=args.user_id)
     logger.info(f"   Job ID: {job_id}")
     logger.info(f"   Job directory: {job_dir}")
-    
-    # Extract user_id from job_id for use in config
-    user_id = job_id.split('-')[2]  # job-YYYYMMDD-USERID-nnnn
     
     # Prepare media
     logger.info(f"🎬 Preparing media...")
     prepared_media = prepare_media(
-        args.input_media,
+        input_media_path,
         job_dir,
         args.start_time,
         args.end_time
@@ -701,9 +851,13 @@ def main() -> None:
         args.start_time,
         args.end_time,
         args.debug,
-        user_id=user_id,  # Pass as keyword argument
+        user_id=str(args.user_id),  # Convert to string for job.json
         log_level=log_level_value,  # Pass log level
-        two_step=args.two_step  # Pass two-step flag
+        two_step=args.two_step,  # Pass two-step flag
+        media_url=media_url,  # Pass URL if downloaded from online
+        tmdb_title=args.tmdb_title,  # Enhancement #2: TMDB for YouTube movies
+        tmdb_year=args.tmdb_year,  # Enhancement #2: TMDB year
+        youtube_metadata=youtube_metadata  # Enhancement #3: YouTube metadata for glossary
     )
     
     # Create environment file
@@ -724,7 +878,7 @@ def main() -> None:
         args.end_time,
         args.debug,
         log_level_arg=log_level_for_env,
-        user_id=user_id  # Pass as keyword argument
+        user_id=str(args.user_id)  # Convert to string for env file
     )
     
     # Create manifest
@@ -740,7 +894,7 @@ def main() -> None:
     logger.info("")
     logger.info(f"Next steps:")
     logger.info(f"  1. Run pipeline: ./run-pipeline.sh -j {job_id}")
-    logger.info(f"  2. Monitor logs: tail -f {job_dir}/logs/*.log")
+    logger.info(f"  2. Monitor logs: tail -f {job_dir}/99_pipeline_*.log")
     logger.info("")
     
     return 0

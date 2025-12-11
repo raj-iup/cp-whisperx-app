@@ -144,7 +144,7 @@ def align_mlx_segments(
     return True
 
 
-def main():
+def main() -> int:
     """
     Main entry point - supports both pipeline and CLI modes.
     
@@ -190,6 +190,33 @@ def main():
             config = load_config()
             model = getattr(config, 'mlx_whisper_model', args.model)
             language = getattr(config, 'whisper_language', args.language)
+            workflow = getattr(config, 'workflow', 'transcribe')
+            
+            # Override with job.json parameters (AD-006)
+            job_json_path = stage_io.output_base / "job.json"
+            if job_json_path.exists():
+                logger.info("Reading job-specific parameters from job.json...")
+                with open(job_json_path) as f:
+                    job_data = json.load(f)
+                    
+                    # Override source_language
+                    if 'source_language' in job_data and job_data['source_language']:
+                        old_language = language
+                        language = job_data['source_language']
+                        logger.info(f"  source_language override: {old_language} → {language} (from job.json)")
+                    
+                    # Override workflow
+                    if 'workflow' in job_data and job_data['workflow']:
+                        old_workflow = workflow
+                        workflow = job_data['workflow']
+                        logger.info(f"  workflow override: {old_workflow} → {workflow} (from job.json)")
+            else:
+                logger.warning(f"job.json not found at {job_json_path}, using system defaults")
+            
+            logger.info(f"Using language: {language}")
+            logger.info(f"Using workflow: {workflow}")
+            logger.info(f"Using model: {model}")
+            
         except Exception as e:
             logger.warning(f"Could not load config, using defaults: {e}")
             model = args.model
@@ -257,7 +284,7 @@ def main():
             output_file,
             model,
             language,
-            logger: logging.Logger
+            logger
         )
         
         if use_pipeline:
@@ -288,21 +315,21 @@ def main():
         sys.exit(0 if success else 1)
         
     except FileNotFoundError as e:
-        logger.error(f"File not found: {e}", exc_info=True, exc_info=True)
+        logger.error(f"File not found: {e}", exc_info=True)
         if use_pipeline:
             stage_io.add_error(f"File not found: {e}")
             stage_io.finalize(status="failed", error=str(e))
         sys.exit(1)
     
     except IOError as e:
-        logger.error(f"I/O error: {e}", exc_info=True, exc_info=True)
+        logger.error(f"I/O error: {e}", exc_info=True)
         if use_pipeline:
             stage_io.add_error(f"I/O error: {e}")
             stage_io.finalize(status="failed", error=str(e))
         sys.exit(1)
     
     except RuntimeError as e:
-        logger.error(f"MLX runtime error: {e}", exc_info=True, exc_info=True)
+        logger.error(f"MLX runtime error: {e}", exc_info=True)
         if use_pipeline:
             stage_io.add_error(f"MLX alignment error: {e}")
             stage_io.finalize(status="failed", error=str(e))
@@ -316,7 +343,7 @@ def main():
         sys.exit(130)
     
     except Exception as e:
-        logger.error(f"✗ Unexpected error: {e}", exc_info=True, exc_info=True)
+        logger.error(f"✗ Unexpected error: {e}", exc_info=True)
         if use_pipeline:
             stage_io.add_error(f"Unexpected error: {e}")
             stage_io.finalize(status="failed", error=str(e))

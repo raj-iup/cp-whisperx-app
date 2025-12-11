@@ -127,6 +127,10 @@ class ComplianceChecker:
         self.check_docstrings()
         self.check_error_handling()
         
+        # Architectural decisions
+        self.check_ad006_compliance()
+        self.check_ad007_compliance()  # NEW: AD-007 validation
+        
         return self.violations
     
     def check_print_statements(self) -> None:
@@ -234,14 +238,14 @@ class ComplianceChecker:
                             ))
                             break
                 
-                # Check for io.get_stage_logger()
-                has_stage_logger = any('get_stage_logger()' in line for line in self.lines)
+                # Check for io.get_stage_logger() or stage_io.get_stage_logger()
+                has_stage_logger = any('.get_stage_logger(' in line for line in self.lines)
                 if not has_stage_logger:
                     self.violations.append(ComplianceViolation(
                         rule="Stage Logger",
                         severity="critical",
                         line=1,
-                        message="Stage must use io.get_stage_logger() for logging",
+                        message="Stage must use io.get_stage_logger() or stage_io.get_stage_logger() for logging",
                         section="§ 2.3"
                     ))
                 
@@ -440,6 +444,136 @@ class ComplianceChecker:
                         message="logger.error() should include exc_info=True for traceback",
                         section="§ 5"
                     ))
+    
+    def check_ad006_compliance(self) -> None:
+        """Check for AD-006 compliance (job-specific parameter overrides) for stage scripts"""
+        # Only check stage scripts (NN_*.py pattern), exclude experimental
+        if not re.match(r'^\d{2}_.*\.py$', self.file_path.name):
+            return
+        
+        # Skip experimental stages (11_ner.py)
+        if self.file_path.name == '11_ner.py':
+            return
+        
+        # Look for job.json reading pattern
+        has_job_json_load = False
+        has_param_override = False
+        has_override_logging = False
+        has_missing_warning = False
+        has_delegation = False
+        
+        content_lower = self.content.lower()
+        
+        # Check for job.json loading
+        if 'job.json' in self.content and 'open(' in self.content:
+            has_job_json_load = True
+        
+        # Check for parameter override pattern (multiple valid patterns)
+        if ('job_data.get(' in self.content or "job_data['" in self.content or
+            'job_config.get(' in self.content or "job_config['" in self.content):
+            has_param_override = True
+        
+        # Check for override logging (multiple valid patterns)
+        if (('override' in content_lower and 'from job.json' in self.content) or
+            ('config source: job.json' in content_lower)):
+            has_override_logging = True
+        
+        # Check for missing job.json warning (multiple valid patterns)
+        if ('job.json not found' in self.content or 'using system defaults' in content_lower or
+            'job configuration not found' in content_lower):
+            has_missing_warning = True
+        
+        # Check for delegation to helper module (e.g., whisperx_integration.py)
+        if ('WhisperXProcessor' in self.content or 
+            'whisperx_integration' in self.content and 'import' in self.content):
+            has_delegation = True
+        
+        # Report violations (allow delegation as valid pattern)
+        if has_delegation:
+            # Stage delegates parameter handling to helper module - acceptable
+            logger.debug(f"{self.file_path.name}: AD-006 compliant (delegates to helper module)")
+            return
+        
+        if not has_job_json_load:
+            self.violations.append(ComplianceViolation(
+                rule="AD-006: Job Parameter Override",
+                severity="error",
+                line=1,
+                message="Stage script must read job.json for parameter overrides (AD-006 MANDATORY)",
+                section="AD-006"
+            ))
+        elif not has_param_override:
+            self.violations.append(ComplianceViolation(
+                rule="AD-006: Parameter Override",
+                severity="error",
+                line=1,
+                message="Stage script must override parameters from job_data/job_config (AD-006 MANDATORY)",
+                section="AD-006"
+            ))
+        elif not has_override_logging:
+            self.violations.append(ComplianceViolation(
+                rule="AD-006: Override Logging",
+                severity="warning",
+                line=1,
+                message="Stage script should log parameter overrides ('override ... from job.json' or 'Config source: job.json')",
+                section="AD-006"
+            ))
+        elif not has_missing_warning:
+            self.violations.append(ComplianceViolation(
+                rule="AD-006: Missing File Warning",
+                severity="warning",
+                line=1,
+                message="Stage script should warn when job.json not found",
+                section="AD-006"
+            ))
+
+    def check_ad007_compliance(self) -> None:
+        """Check for AD-007 compliance (consistent shared/ import paths)"""
+        # Check all Python files
+        violations_found = []
+        
+        # Pattern 1: from X import Y where X should be shared.X
+        # Look for imports from modules that should be in shared/
+        shared_modules = [
+            'config_loader', 'config', 'logger', 'stage_utils',
+            'bias_window_generator', 'mps_utils', 'asr_chunker',
+            'filename_parser', 'device_selector'
+        ]
+        
+        for line_num, line in enumerate(self.lines, 1):
+            line_stripped = line.strip()
+            
+            # Skip comments
+            if line_stripped.startswith('#'):
+                continue
+            
+            # Check for incorrect imports (missing "shared." prefix)
+            for module in shared_modules:
+                # Pattern: from module import X (WRONG)
+                if re.match(rf'^from\s+{module}\s+import\s+', line_stripped):
+                    violations_found.append((line_num, module, line_stripped))
+                    self.violations.append(ComplianceViolation(
+                        rule="AD-007: Shared Import Path",
+                        severity="error",
+                        line=line_num,
+                        message=f"Import must use 'shared.' prefix: 'from shared.{module} import ...' (AD-007 MANDATORY)",
+                        section="AD-007"
+                    ))
+                
+                # Pattern: import module (WRONG)
+                elif re.match(rf'^import\s+{module}\b', line_stripped):
+                    violations_found.append((line_num, module, line_stripped))
+                    self.violations.append(ComplianceViolation(
+                        rule="AD-007: Shared Import Path",
+                        severity="error",
+                        line=line_num,
+                        message=f"Import must use 'shared.' prefix: 'from shared.{module} import ...' (AD-007 MANDATORY)",
+                        section="AD-007"
+                    ))
+        
+        # Log compliance
+        if not violations_found:
+            logger.debug(f"{self.file_path.name}: AD-007 compliant (all shared/ imports use 'shared.' prefix)")
 
 
 def check_file(file_path: Path, strict: bool = False) -> Tuple[int, int, int]:

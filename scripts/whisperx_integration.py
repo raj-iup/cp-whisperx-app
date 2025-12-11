@@ -36,11 +36,17 @@ warnings.filterwarnings('ignore', message='.*has been deprecated.*', module='spe
 
 # Removed: device_selector imports (unused, causes cross-environment issues)
 # Backend selection now handled by whisper_backends.py (see line 47)
-from bias_window_generator import BiasWindow, get_window_for_time
-from mps_utils import cleanup_mps_memory, log_mps_memory, optimize_batch_size_for_mps
-from asr_chunker import ChunkedASRProcessor
+
+# TODO: These modules moved to shared/ directory (Phase 5 implementation)
+# Context-aware features for subtitle generation accuracy
+from shared.bias_window_generator import BiasWindow, get_window_for_time
+from shared.mps_utils import cleanup_mps_memory, log_mps_memory, optimize_batch_size_for_mps
+from shared.asr_chunker import ChunkedASRProcessor
+
+# Standard library
 import sys
 from pathlib import Path
+from typing import List, Optional, Any
 
 # Add project root to path for shared imports
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -51,7 +57,7 @@ from whisper_backends import create_backend, get_recommended_backend
 
 # Local
 from shared.logger import get_logger
-from shared.config_loader import load_config
+from shared.config import load_config
 logger = get_logger(__name__)
 
 # Audio loading utility
@@ -362,7 +368,7 @@ class WhisperXProcessor:
         audio_file: str,
         source_lang: str,
         target_lang: str,
-        bias_windows: Optional[List[BiasWindow]] = None,
+        bias_windows: Optional[Any] = None,
         batch_size: int = 16,
         output_dir: Optional[Path] = None,
         bias_strategy: str = "global",
@@ -406,11 +412,17 @@ class WhisperXProcessor:
 
         # Determine task
         # For transcribe-only workflows, always transcribe (never translate)
+        # For subtitle workflow, always transcribe in source language (translation happens in separate stage)
         # For transcribe mode with target language, can translate
         # For other workflows, translate if source != target
         if workflow_mode == 'transcribe-only':
             task = "transcribe"
             self.logger.info(f"  Task: {task} (workflow_mode={workflow_mode}, keeping source language)")
+        elif workflow_mode == 'subtitle':
+            # Subtitle workflow: ALWAYS transcribe in source language
+            # Translation happens in separate translation stage (Stage 10)
+            task = "transcribe"
+            self.logger.info(f"  Task: {task} (workflow_mode={workflow_mode}, source language only)")
         elif workflow_mode == 'transcribe':
             # Allow translation in transcribe mode if target is different
             task = "translate" if (source_lang != target_lang and target_lang != 'auto') else "transcribe"
@@ -451,9 +463,9 @@ class WhisperXProcessor:
         else:
             # Phase 1: Global bias (default, fast)
             # Auto-decide between whole-file and chunked based on duration/device
+            # TODO: Fix chunking API mismatch (dict vs object attributes)
             use_chunking = (
-                self.backend.device == 'mps' or  # Always chunk for MPS stability
-                audio_duration > 600  # Always chunk if > 10 minutes
+                audio_duration > 1800  # Only chunk if > 30 minutes (temporary until chunking fixed)
             )
             
             if use_chunking:
@@ -463,7 +475,7 @@ class WhisperXProcessor:
                     bias_windows, batch_size, output_dir
                 )
             else:
-                self.logger.info(f"  🚀 PHASE 1: Global bias strategy")
+                self.logger.info(f"  🚀 Whole-file processing (duration={audio_duration:.0f}s)")
                 return self._transcribe_whole(
                     audio_file, source_lang, task,
                     bias_windows, batch_size
@@ -493,10 +505,13 @@ class WhisperXProcessor:
         audio_file: str,
         source_lang: str,
         task: str,
-        bias_windows: Optional[List[BiasWindow]],
+        bias_windows: Optional[Any],
         batch_size: int
     ) -> Dict[str, Any]:
         """Whole-file transcription with global bias prompting (for short files or CPU)"""
+        
+        # Load config for filtering thresholds
+        config = load_config()
         
         # Create global bias prompts from bias windows
         initial_prompt = None
@@ -533,16 +548,49 @@ class WhisperXProcessor:
         log_mps_memory(self.logger, "  Before transcription - ")
 
         try:
-            result = self.backend.transcribe(
-                audio_file,
-                language=source_lang,
-                task=task,
-                batch_size=batch_size,
-                initial_prompt=initial_prompt
-            )
-            self.logger.info(f"  ✓ Transcription complete: {len(result.get('segments', []))} segments")
+            import time
+            import threading
+            
+            start_time = time.time()
+            self.logger.info(f"  🎙️ Starting transcription at {time.strftime('%H:%M:%S')}...")
+            
+            # Progress heartbeat for long-running transcriptions
+            heartbeat_active = True
+            def progress_heartbeat() -> None:
+                """Log periodic progress to detect hangs"""
+                last_log = start_time
+                while heartbeat_active:
+                    time.sleep(60)  # Every 60 seconds
+                    if heartbeat_active:
+                        elapsed = time.time() - last_log
+                        total_elapsed = time.time() - start_time
+                        self.logger.info(f"  ⏱️  Still transcribing... {total_elapsed/60:.1f} minutes elapsed")
+                        last_log = time.time()
+            
+            # Start heartbeat thread
+            heartbeat_thread = threading.Thread(target=progress_heartbeat, daemon=True)
+            heartbeat_thread.start()
+            
+            try:
+                result = self.backend.transcribe(
+                    audio_file,
+                    language=source_lang,
+                    task=task,
+                    batch_size=batch_size,
+                    initial_prompt=initial_prompt
+                )
+            finally:
+                # Stop heartbeat
+                heartbeat_active = False
+                heartbeat_thread.join(timeout=1.0)
+            
+            elapsed = time.time() - start_time
+            self.logger.info(f"  ✓ Transcription complete: {len(result.get('segments', []))} segments in {elapsed:.1f}s ({elapsed/60:.1f} min)")
         except Exception as e:
-            self.logger.error(f"  ✗ Transcription failed: {e}", exc_info=True)
+            elapsed = time.time() - start_time if 'start_time' in locals() else 0
+            self.logger.error(f"  ✗ Transcription failed after {elapsed:.1f}s: {e}", exc_info=True)
+            self.logger.error(f"  Audio file: {audio_file}")
+            self.logger.error(f"  Language: {source_lang}, Task: {task}")
             raise
         finally:
             # Always cleanup MPS memory
@@ -567,7 +615,7 @@ class WhisperXProcessor:
         audio_file: str,
         source_lang: str,
         task: str,
-        bias_windows: Optional[List[BiasWindow]],
+        bias_windows: Optional[Any],
         batch_size: int
     ) -> Dict[str, Any]:
         """
@@ -655,7 +703,7 @@ class WhisperXProcessor:
         audio_file: str,
         source_lang: str,
         task: str,
-        bias_windows: Optional[List[BiasWindow]],
+        bias_windows: Optional[Any],
         batch_size: int
     ) -> Dict[str, Any]:
         """
@@ -840,7 +888,7 @@ class WhisperXProcessor:
         audio_file: str,
         source_lang: str,
         task: str,
-        bias_windows: Optional[List[BiasWindow]],
+        bias_windows: Optional[Any],
         batch_size: int,
         output_dir: Optional[Path]
     ) -> Dict[str, Any]:
@@ -854,11 +902,14 @@ class WhisperXProcessor:
         
         chunker = ChunkedASRProcessor(self.logger, chunk_duration=300)  # 5 min chunks
         
-        # Create chunks
-        chunks = chunker.create_chunks(audio_file, bias_windows)
+        # Create chunks output directory
+        chunks_dir = output_dir / 'chunks' / task
+        chunks_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Create chunks (audio_file, output_dir)
+        chunks = chunker.create_chunks(audio_file, chunks_dir)
         
         # Process each chunk with checkpointing
-        # Use task-specific subdirectory to avoid cache conflicts between transcribe/translate
         chunk_results = []
         checkpoint_dir = output_dir / 'chunks' / task
         checkpoint_dir.mkdir(parents=True, exist_ok=True)
@@ -914,7 +965,7 @@ class WhisperXProcessor:
         max_retries: int = 3
     ) -> Dict[str, Any]:
         """Process a single chunk with retry logic"""
-        from mps_utils import retry_with_degradation
+        from shared.mps_utils import retry_with_degradation
         
         # Simple retry wrapper - the decorator doesn't work well here
         # because we need to modify chunker's state
@@ -939,7 +990,7 @@ class WhisperXProcessor:
     def _apply_bias_context(
         self,
         result: Dict[str, Any],
-        bias_windows: List[BiasWindow]
+        bias_windows: Any
     ) -> Dict[str, Any]:
         """
         Apply bias window context to segments (metadata annotation)
@@ -964,6 +1015,35 @@ class WhisperXProcessor:
 
         return result
 
+    def align_with_whisperx_subprocess(
+        self,
+        segments: List[Dict[str, Any]],
+        audio_file: str,
+        language: str
+    ) -> Dict[str, Any]:
+        """
+        Run WhisperX alignment in separate subprocess for stability
+        
+        DELEGATED to AlignmentEngine (Phase 6 extraction)
+        
+        Args:
+            segments: Transcription segments
+            audio_file: Path to audio file
+            language: Language code
+            
+        Returns:
+            Dict with aligned segments including word-level timestamps
+        """
+        from whisperx_module.alignment import AlignmentEngine
+        
+        engine = AlignmentEngine(
+            backend=self.backend,
+            device=self.device,
+            logger=self.logger
+        )
+        
+        return engine.align_subprocess(segments, audio_file, language)
+
     def align_segments(
         self,
         result: Dict[str, Any],
@@ -972,7 +1052,9 @@ class WhisperXProcessor:
     ) -> Dict[str, Any]:
         """
         Add word-level alignment to segments
-
+        
+        DELEGATED to AlignmentEngine (Phase 6 extraction)
+        
         Args:
             result: Whisper transcription result
             audio_file: Path to audio/video file
@@ -981,24 +1063,15 @@ class WhisperXProcessor:
         Returns:
             Result with word-level timestamps
         """
-        if not self.backend:
-            self.logger.warning("Backend not loaded, skipping alignment")
-            return result
-
-        self.logger.info("Aligning segments for word-level timestamps...")
-
-        try:
-            aligned_result = self.backend.align_segments(
-                result.get("segments", []),
-                audio_file,
-                target_lang
-            )
-            self.logger.info("  ✓ Alignment complete")
-            return aligned_result
-
-        except Exception as e:
-            self.logger.warning(f"  ⚠ Alignment failed: {e}")
-            return result
+        from whisperx_module.alignment import AlignmentEngine
+        
+        engine = AlignmentEngine(
+            backend=self.backend,
+            device=self.device,
+            logger=self.logger
+        )
+        
+        return engine.align(result, audio_file, target_lang)
 
     def save_results(
         self,
@@ -1029,24 +1102,27 @@ class WhisperXProcessor:
         # Create language suffix for filenames if target_lang is provided
         lang_suffix = ""
         if target_lang and target_lang != 'auto':
-            lang_name = lang_names.get(target_lang, target_lang.upper())
-            lang_suffix = f"-{lang_name}"
+            lang_name = lang_names.get(target_lang, target_lang.lower())
+            lang_suffix = f"_{lang_name}"
 
         # Save full JSON result with basename
-        json_file = output_dir / f"{basename}{lang_suffix}.whisperx.json"
+        # Pattern: {stage}_{lang}_whisperx.json or {stage}_whisperx.json
+        json_file = output_dir / f"{basename}{lang_suffix}_whisperx.json"
         with open(json_file, "w", encoding="utf-8") as f:
             json.dump(result, f, indent=2, ensure_ascii=False)
         self.logger.info(f"  Saved: {json_file}")
 
         # Save segments as JSON (cleaner format) with basename
-        segments_file = output_dir / f"{basename}{lang_suffix}.segments.json"
+        # Pattern: {stage}_{lang}_segments.json or {stage}_segments.json
+        segments_file = output_dir / f"{basename}{lang_suffix}_segments.json"
         segments = result.get("segments", [])
         with open(segments_file, "w", encoding="utf-8") as f:
             json.dump(segments, f, indent=2, ensure_ascii=False)
         self.logger.info(f"  Saved: {segments_file}")
 
         # Save as plain text transcript with basename
-        txt_file = output_dir / f"{basename}.transcript{lang_suffix}.txt"
+        # Pattern: {stage}_{lang}_transcript.txt or {stage}_transcript.txt
+        txt_file = output_dir / f"{basename}{lang_suffix}_transcript.txt"
         with open(txt_file, "w", encoding="utf-8") as f:
             for segment in segments:
                 text = segment.get("text", "").strip()
@@ -1055,25 +1131,36 @@ class WhisperXProcessor:
         self.logger.info(f"  Saved: {txt_file}")
 
         # Save as SRT with basename
-        srt_file = output_dir / f"{basename}{lang_suffix}.srt"
+        # Pattern: {stage}_{lang}_subtitles.srt or {stage}_subtitles.srt
+        srt_file = output_dir / f"{basename}{lang_suffix}_subtitles.srt"
         self._save_as_srt(segments, srt_file)
         self.logger.info(f"  Saved: {srt_file}")
         
-        # ALSO save with standard names for downstream stages
-        # These are the filenames that other stages expect
-        standard_json = output_dir / "transcript.json"
-        with open(standard_json, "w", encoding="utf-8") as f:
+        # Save primary files with proper stage naming (Task #5)
+        # Pattern: {stage}_transcript.json and {stage}_segments.json
+        primary_json = output_dir / f"{basename}_transcript.json"
+        with open(primary_json, "w", encoding="utf-8") as f:
             json.dump(result, f, indent=2, ensure_ascii=False)
             f.flush()
             os.fsync(f.fileno())  # Ensure data is written to disk
-        self.logger.info(f"  Saved with sync: {standard_json}")
+        self.logger.info(f"  Saved: {primary_json}")
         
-        standard_segments = output_dir / "segments.json"
-        with open(standard_segments, "w", encoding="utf-8") as f:
+        primary_segments = output_dir / f"{basename}_segments.json"
+        with open(primary_segments, "w", encoding="utf-8") as f:
             json.dump(segments, f, indent=2, ensure_ascii=False)
             f.flush()
             os.fsync(f.fileno())  # Ensure data is written to disk
-        self.logger.info(f"  Saved with sync: {standard_segments}")
+        self.logger.info(f"  Saved: {primary_segments}")
+        
+        # Also save with legacy names for backward compatibility
+        # TODO: Remove after all stages updated to use new naming
+        legacy_json = output_dir / "transcript.json"
+        with open(legacy_json, "w", encoding="utf-8") as f:
+            json.dump(result, f, indent=2, ensure_ascii=False)
+        
+        legacy_segments = output_dir / "segments.json"
+        with open(legacy_segments, "w", encoding="utf-8") as f:
+            json.dump(segments, f, indent=2, ensure_ascii=False)
 
     def _save_as_srt(self, segments: List[Dict], srt_file: Path) -> None:
         """
@@ -1125,7 +1212,7 @@ def run_whisperx_pipeline(
     basename: str,
     source_lang: str,
     target_lang: str,
-    bias_windows: Optional[List[BiasWindow]],
+    bias_windows: Optional[Any],
     model_name: str,
     device: str,
     compute_type: str,
@@ -1167,11 +1254,15 @@ def run_whisperx_pipeline(
     Returns:
         WhisperX result dict
     """
+    # Import extracted transcription orchestration engine
+    from whisperx_module.transcription import TranscriptionEngine
+    
+    # Create processor instance
     processor = WhisperXProcessor(
         model_name=model_name,
         device=device,
         compute_type=compute_type,
-        backend=backend,  # Pass backend parameter
+        backend=backend,
         hf_token=hf_token,
         temperature=temperature,
         beam_size=beam_size,
@@ -1182,167 +1273,27 @@ def run_whisperx_pipeline(
     )
 
     try:
-        # Load models
-        processor.load_model()
+        # Create transcription engine with processor and IndicTrans2 support
+        engine = TranscriptionEngine(
+            processor=processor,
+            logger=logger,
+            get_indictrans2_fn=_get_indictrans2
+        )
         
-        # For transcribe mode with translation: Two-step process
-        # Step 1: Transcribe in source language → save source files
-        # Step 2: Translate source transcript → save target files
-        if workflow_mode == 'transcribe' and source_lang != target_lang and target_lang != 'auto':
-            logger.info("=" * 60)
-            logger.info("TWO-STEP TRANSCRIPTION + TRANSLATION")
-            logger.info("=" * 60)
-            
-            # STEP 1: Transcribe in source language
-            logger.info("STEP 1: Transcribing in source language...")
-            processor.load_align_model(source_lang)
-            
-            source_result = processor.transcribe_with_bias(
-                audio_file,
-                source_lang,
-                source_lang,  # Same as source - no translation
-                bias_windows,
-                output_dir=output_dir,
-                bias_strategy=bias_strategy,
-                workflow_mode='transcribe-only'  # Force transcribe-only for step 1
-            )
-            
-            # Align to source language
-            source_result = processor.align_segments(source_result, audio_file, source_lang)
-            
-            # Save source language files (no language suffix)
-            logger.info(f"Saving source language files ({source_lang})...")
-            processor.save_results(source_result, output_dir, basename, target_lang=None)
-            
-            logger.info("✓ Step 1 completed: Source language files saved")
-            logger.info("")
-            
-            # STEP 2: Translate to target language
-            logger.info("STEP 2: Translating to target language...")
-            
-            # Use IndicTrans2 for Indic→English/non-Indic translation (better quality than Whisper)
-            # Supports all 22 scheduled Indian languages (Hindi, Tamil, Telugu, Bengali, etc.)
-            indictrans2, available = _get_indictrans2()
-            if available and indictrans2['can_use_indictrans2'](source_lang, target_lang):
-                logger.info(f"  Using IndicTrans2 for {source_lang}→{target_lang} translation")
-                logger.info(f"  Source segments: {len(source_result.get('segments', []))}")
-                
-                try:
-                    # Translate using IndicTrans2
-                    target_result = indictrans2['translate_whisperx_result'](
-                        source_result,
-                        source_lang=source_lang,
-                        target_lang=target_lang,
-                        logger=logger
-                    )
-                    
-                    # Check if translation actually happened (not fallback)
-                    if target_result == source_result:
-                        logger.warning("  IndicTrans2 returned source unchanged - falling back to Whisper")
-                        raise RuntimeError("IndicTrans2 fallback triggered")
-                    
-                    # Align to target language
-                    logger.info(f"  Aligning translated segments to {target_lang}...")
-                    processor.load_align_model(target_lang)
-                    target_result = processor.align_segments(target_result, audio_file, target_lang)
-                    
-                except (RuntimeError, Exception) as e:
-                    error_msg = str(e)
-                    if "authentication" in error_msg.lower() or "gated" in error_msg.lower():
-                        logger.error("=" * 70, exc_info=True)
-                        logger.error("IndicTrans2 authentication required", exc_info=True)
-                        logger.error("=" * 70, exc_info=True)
-                        logger.warning("Falling back to Whisper translation (slower)")
-                        logger.info("To enable IndicTrans2 for future runs:")
-                        logger.info("  1. Visit: https://huggingface.co/ai4bharat/indictrans2-indic-en-1B")
-                        logger.info("  2. Click: 'Agree and access repository'")
-                        logger.info("  3. Run: huggingface-cli login")
-                        logger.error("=" * 70)
-                    else:
-                        logger.error(f"IndicTrans2 translation failed: {e}")
-                        logger.warning("Falling back to Whisper translation")
-                    
-                    # Fallback to Whisper
-                    logger.info("  Using Whisper translation (fallback)")
-                    processor.load_align_model(target_lang)
-                    
-                    target_result = processor.transcribe_with_bias(
-                        audio_file,
-                        source_lang,
-                        target_lang,  # Translate to target
-                        bias_windows,
-                        output_dir=output_dir,
-                        bias_strategy=bias_strategy,
-                        workflow_mode='transcribe'  # Use transcribe mode for translation
-                    )
-                    
-            else:
-                # Fallback to Whisper translation for other language pairs
-                indictrans2, available = _get_indictrans2()
-                if not available:
-                    # Check if this would have been an Indic language pair
-                    if available and indictrans2['can_use_indictrans2'](source_lang, target_lang):
-                        logger.warning("  IndicTrans2 not available, falling back to Whisper translation")
-                        logger.warning("  Install with: pip install 'transformers>=4.44' sentencepiece sacremoses")
-                
-                logger.info("  Using Whisper translation")
-                processor.load_align_model(target_lang)
-                
-                target_result = processor.transcribe_with_bias(
-                    audio_file,
-                    source_lang,
-                    target_lang,  # Translate to target
-                    bias_windows,
-                    output_dir=output_dir,
-                    bias_strategy=bias_strategy,
-                    workflow_mode='transcribe'  # Use transcribe mode for translation
-                )
-                
-                # Align to target language
-                target_result = processor.align_segments(target_result, audio_file, target_lang)
-            
-            # Save target language files (with language suffix)
-            logger.info(f"Saving target language files ({target_lang})...")
-            processor.save_results(target_result, output_dir, basename, target_lang=target_lang)
-            
-            logger.info("✓ Step 2 completed: Target language files saved")
-            logger.info("=" * 60)
-            
-            return target_result  # Return target result as main result
+        # Run the complete pipeline (handles two-step and single-step workflows)
+        result = engine.run_pipeline(
+            audio_file=audio_file,
+            output_dir=output_dir,
+            basename=basename,
+            source_lang=source_lang,
+            target_lang=target_lang,
+            bias_windows=bias_windows,
+            bias_strategy=bias_strategy,
+            workflow_mode=workflow_mode
+        )
         
-        else:
-            # Single-step transcription (original behavior)
-            # Determine alignment language:
-            # - transcribe-only: always source language
-            # - other workflows: target language
-            if workflow_mode == 'transcribe-only':
-                align_lang = source_lang
-            else:
-                align_lang = source_lang if workflow_mode == 'transcribe' else target_lang
-            
-            processor.load_align_model(align_lang)
-
-            # Transcribe with bias strategy
-            result = processor.transcribe_with_bias(
-                audio_file,
-                source_lang,
-                target_lang,
-                bias_windows,
-                output_dir=output_dir,
-                bias_strategy=bias_strategy,
-                workflow_mode=workflow_mode
-            )
-
-            # Align for word-level timestamps
-            result = processor.align_segments(result, audio_file, align_lang)
-
-            # Save results
-            # In transcribe mode, we only transcribe (no translation), so don't add language suffix
-            # In other modes, add language suffix if target differs from source
-            save_target_lang = None if workflow_mode == 'transcribe' else (target_lang if source_lang != target_lang else None)
-            processor.save_results(result, output_dir, basename, target_lang=save_target_lang)
-
-            return result
+        return result
+        
     finally:
         # Clean up resources
         processor.cleanup()
@@ -1375,11 +1326,19 @@ def main() -> Any:
         logger.error(f"Failed to load configuration: {e}", exc_info=True)
         return 1
     
-    # Get audio file from demux stage
-    audio_file = stage_io.get_input_path("audio.wav", from_stage="demux")
-    if not audio_file.exists():
-        logger.error(f"Audio file not found: {audio_file}", exc_info=True)
-        stage_io.add_error(f"Audio file not found: {audio_file}")
+    # Get audio file - try source_separation first (for clean audio), then demux
+    audio_file = None
+    for from_stage in ["source_separation", "demux"]:
+        candidate = stage_io.get_input_path("audio.wav", from_stage=from_stage)
+        logger.info(f"Checking for audio in {from_stage}: {candidate} (exists={candidate.exists()})")
+        if candidate.exists():
+            audio_file = candidate
+            logger.info(f"✓ Using audio from {from_stage} stage: {audio_file}")
+            break
+    
+    if audio_file is None or not audio_file.exists():
+        logger.error(f"Audio file not found in source_separation or demux stages", exc_info=True)
+        stage_io.add_error(f"Audio file not found")
         stage_io.finalize(status="failed", error="Input file not found")
         return 1
     
@@ -1389,10 +1348,10 @@ def main() -> Any:
     logger.info(f"Input audio: {audio_file}")
     logger.info(f"Output directory: {output_dir}")
     
-    # Get configuration parameters
+    # Get configuration parameters (defaults from system config)
     model_name = getattr(config, 'whisper_model', 'large-v3')
     source_lang = getattr(config, 'whisper_language', 'hi')
-    target_lang = getattr(config, 'target_language', 'en')
+    target_lang = getattr(config, 'target_language', 'en')  # Default fallback only
     device = getattr(config, 'device', 'cpu').lower()
     compute_type = getattr(config, 'whisper_compute_type', 'float16')
     
@@ -1400,22 +1359,64 @@ def main() -> Any:
     # Default to 'whisperx' to ensure bias prompting support
     backend = getattr(config, 'whisper_backend', 'whisperx')
     
-    # Get workflow mode
-    workflow_mode = getattr(config, 'workflow_mode', 'subtitle-gen')
+    # Get workflow and language overrides from job config (job.json)
+    # Job-specific parameters take precedence over system defaults (AD-006)
+    workflow_mode = 'transcribe'  # Default
+    job_json_path = stage_io.output_base / "job.json"
+    logger.info(f"Looking for job.json at: {job_json_path}")
+    if job_json_path.exists():
+        import json
+        logger.info("Reading job-specific parameters from job.json...")
+        with open(job_json_path) as f:
+            job_data = json.load(f)
+            workflow_mode = job_data.get('workflow', 'transcribe')
+            # Override source language from job if specified
+            if 'source_language' in job_data and job_data['source_language']:
+                old_source = source_lang
+                source_lang = job_data['source_language']
+                logger.info(f"  source_language override: {old_source} → {source_lang} (from job.json)")
+            
+            # For subtitle workflow, target_language should NOT be used by ASR
+            # ASR transcribes in source language only; translation happens in Stage 10
+            if workflow_mode == 'subtitle':
+                # Ignore target_languages for ASR stage
+                logger.info(f"  Subtitle workflow: ASR will transcribe in source language ({source_lang}) only")
+                logger.info(f"  Translation to target languages will happen in Stage 10")
+                # Keep target_lang as source_lang for ASR (no translation)
+                target_lang = source_lang
+            elif 'target_languages' in job_data and job_data['target_languages']:
+                # For non-subtitle workflows, use first target language
+                old_target = target_lang
+                target_lang = job_data['target_languages'][0] if job_data['target_languages'] else target_lang
+                logger.info(f"  target_language override: {old_target} → {target_lang} (from job.json)")
+    else:
+        logger.warning(f"job.json not found at {job_json_path}, using system defaults")
     
-    # Get HF token from secrets or environment
+    # Get HF token from user profile
     hf_token = None
-    secrets_path = Path("config/secrets.json")
-    if secrets_path.exists():
-        try:
-            with open(secrets_path, 'r') as f:
-                secrets = json.load(f)
-                hf_token = secrets.get('hf_token')
-        except Exception as e:
-            logger.warning(f"Could not load HF token from secrets: {e}")
+    user_id = 1  # Default userId
     
-    # Fallback to config if not in secrets
-    if not hf_token:
+    # Get userId from job.json if available
+    if job_json_path.exists():
+        try:
+            with open(job_json_path) as f:
+                job_data = json.load(f)
+                user_id = job_data.get('userId', 1)
+        except Exception:
+            pass
+    
+    # Load user profile
+    try:
+        from shared.user_profile import UserProfile
+        profile = UserProfile.load(user_id)
+        hf_token = profile.get_credential('huggingface', 'token')
+        if hf_token:
+            logger.info(f"✓ HuggingFace token loaded from user profile (userId={user_id})")
+        else:
+            logger.warning("⚠ No HuggingFace token found in user profile")
+    except Exception as e:
+        logger.warning(f"Could not load user profile: {e}")
+        # Fallback to environment or config
         hf_token = getattr(config, 'hf_token', None)
     
     logger.info(f"Model: {model_name}")
@@ -1467,8 +1468,121 @@ def main() -> Any:
     logger.info(f"  Logprob threshold: {logprob_threshold}")
     logger.info(f"  Compression ratio threshold: {compression_ratio_threshold}")
     
-    # Get basename from config or use default
-    basename = getattr(config, 'job_id', 'transcript') if config else 'transcript'
+    # ========================================================================
+    # ML-BASED OPTIMIZATION (Phase 5, Task #16)
+    # ========================================================================
+    # Predict optimal parameters based on audio characteristics
+    ml_opt_val = getattr(config, 'ml_optimization_enabled', 'true')
+    ml_optimization_enabled = str(ml_opt_val).lower() == 'true' if isinstance(ml_opt_val, (str, bool)) else True
+    force_model_size = getattr(config, 'force_model_size', '')
+    
+    if ml_optimization_enabled and not force_model_size:
+        try:
+            from shared.ml_optimizer import AdaptiveQualityPredictor
+            from shared.ml_features import extract_audio_fingerprint
+            
+            logger.info("=" * 60)
+            logger.info("ML-BASED OPTIMIZATION")
+            logger.info("=" * 60)
+            
+            # Extract audio fingerprint
+            logger.info("Extracting audio characteristics...")
+            fingerprint = extract_audio_fingerprint(str(audio_file), source_lang)
+            
+            logger.info(f"Audio fingerprint:")
+            logger.info(f"  Duration: {fingerprint.duration:.1f}s")
+            logger.info(f"  Sample rate: {fingerprint.sample_rate} Hz")
+            logger.info(f"  Channels: {fingerprint.channels}")
+            logger.info(f"  SNR estimate: {fingerprint.snr_estimate:.1f} dB")
+            logger.info(f"  Speaker count: {fingerprint.speaker_count}")
+            logger.info(f"  Complexity score: {fingerprint.complexity_score:.2f}")
+            logger.info(f"  Language: {fingerprint.language}")
+            
+            # Get ML prediction
+            predictor = AdaptiveQualityPredictor()
+            prediction = predictor.predict_optimal_config(fingerprint)
+            
+            logger.info(f"ML Prediction:")
+            logger.info(f"  Recommended model: {prediction.whisper_model}")
+            logger.info(f"  Recommended batch size: {prediction.batch_size}")
+            logger.info(f"  Recommended beam size: {prediction.beam_size}")
+            logger.info(f"  Expected WER: {prediction.expected_wer:.1%}")
+            logger.info(f"  Expected duration: {prediction.expected_duration:.1f}s")
+            logger.info(f"  Confidence: {prediction.confidence:.1%}")
+            logger.info(f"  Reasoning: {prediction.reasoning}")
+            
+            # Get confidence threshold
+            ml_confidence_threshold = float(getattr(config, 'ml_confidence_threshold', 0.7))
+            
+            # Apply prediction if confidence is high enough
+            if prediction.confidence >= ml_confidence_threshold:
+                logger.info(f"✓ Applying ML prediction (confidence {prediction.confidence:.1%} >= {ml_confidence_threshold:.1%})")
+                
+                # Update parameters with ML prediction
+                old_model = model_name
+                old_beam = beam_size
+                
+                model_name = prediction.whisper_model
+                beam_size = prediction.beam_size
+                # Note: batch_size is used in backend creation, not here
+                
+                logger.info(f"  Model: {old_model} → {model_name}")
+                logger.info(f"  Beam size: {old_beam} → {beam_size}")
+                
+                # Track ML prediction in manifest
+                stage_io.set_config({
+                    "ml_optimization": {
+                        "enabled": True,
+                        "fingerprint": {
+                            "duration": fingerprint.duration,
+                            "snr": fingerprint.snr_estimate,
+                            "speakers": fingerprint.speaker_count,
+                            "language": fingerprint.language
+                        },
+                        "prediction": {
+                            "model": prediction.whisper_model,
+                            "beam_size": prediction.beam_size,
+                            "batch_size": prediction.batch_size,
+                            "confidence": prediction.confidence,
+                            "reasoning": prediction.reasoning
+                        },
+                        "applied": True
+                    }
+                })
+            else:
+                logger.info(f"⚠ ML prediction confidence too low ({prediction.confidence:.1%} < {ml_confidence_threshold:.1%})")
+                logger.info(f"  Using configuration defaults")
+                
+                # Track that ML was attempted but not applied
+                stage_io.set_config({
+                    "ml_optimization": {
+                        "enabled": True,
+                        "confidence_too_low": True,
+                        "confidence": prediction.confidence,
+                        "threshold": ml_confidence_threshold,
+                        "applied": False
+                    }
+                })
+            
+            logger.info("=" * 60)
+            
+        except ImportError as e:
+            logger.warning(f"ML optimizer not available: {e}")
+            logger.warning("Proceeding with configuration defaults")
+        except Exception as e:
+            logger.warning(f"ML optimization failed: {e}", exc_info=True)
+            logger.warning("Proceeding with configuration defaults")
+    elif force_model_size:
+        logger.info(f"ML optimization bypassed (FORCE_MODEL_SIZE={force_model_size})")
+        logger.info(f"Using forced model: {force_model_size}")
+    else:
+        logger.info("ML optimization disabled in configuration")
+    
+    # ========================================================================
+    
+    # Use stage name as basename for consistent file naming (Task #5)
+    # Pattern: {stage_name}_{descriptor}.{ext} (e.g., asr_segments.json)
+    basename = "asr"
     
     # Check for bias windows (from pre-NER or TMDB)
     bias_windows = None
@@ -1483,7 +1597,7 @@ def main() -> Any:
     
     if bias_enabled:
         try:
-            from bias_window_generator import create_bias_windows, save_bias_windows
+            from shared.bias_window_generator import create_bias_windows, save_bias_windows
             import soundfile as sf
             
             # Collect entity names from multiple sources

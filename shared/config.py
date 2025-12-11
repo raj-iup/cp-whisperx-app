@@ -1,12 +1,14 @@
 """
 Shared configuration loader for all pipeline containers.
 Reads configuration from .env file and provides typed access.
+
+Implements config caching to reduce disk I/O (Phase 3 Optimization).
 """
 # Standard library
 import os
 import json
 from pathlib import Path
-from typing import Optional, Any, Type
+from typing import Optional, Any, Type, Dict
 
 # Try to import pydantic_settings, fall back to simple implementation if not available
 try:
@@ -297,46 +299,74 @@ class PipelineConfig(BaseSettings):
         return getattr(self, key.lower(), default)
 
 
-def load_config(env_file: Optional[str] = None) -> Any:
+# Config cache for performance optimization (Phase 3)
+_CONFIG_CACHE: Dict[str, Any] = {}
+
+
+def load_config(env_file: Optional[str] = None, force_reload: bool = False) -> Any:
     """
-    Load pipeline configuration.
-    Returns PipelineConfig if pydantic_settings is available, otherwise returns simple Config.
+    Load pipeline configuration with caching support.
+    
+    Config is cached in memory after first load to reduce disk I/O.
+    Phase 3 Optimization: Expected 5-10% faster stage initialization.
     
     Args:
         env_file: Optional path to .env file
+        force_reload: Force reload from disk, bypass cache (default: False)
         
     Returns:
         Configuration object (PipelineConfig or Config)
     """
+    # Generate cache key
+    cache_key = env_file if env_file else os.getenv('CONFIG_PATH', 'default')
+    
+    # Return cached config if available and not forcing reload
+    if not force_reload and cache_key in _CONFIG_CACHE:
+        return _CONFIG_CACHE[cache_key]
+    
+    # Load from disk
     if not PYDANTIC_AVAILABLE:
         # Fallback to simple Config when pydantic_settings not available
         # Path is already imported at module level (line 7)
         project_root = Path(__file__).parent.parent
-        return Config(project_root)
-    
-    # Check for CONFIG_PATH environment variable first
-    if env_file is None:
-        env_file = os.getenv('CONFIG_PATH')
-    
-    if env_file and Path(env_file).exists():
-        config = PipelineConfig(_env_file=env_file)
+        config = Config(project_root)
     else:
-        config = PipelineConfig()
+        # Check for CONFIG_PATH environment variable first
+        if env_file is None:
+            env_file = os.getenv('CONFIG_PATH')
+        
+        if env_file and Path(env_file).exists():
+            config = PipelineConfig(_env_file=env_file)
+        else:
+            config = PipelineConfig()
+        
+        # Load secrets and merge into config
+        secrets = config.load_secrets()
+        if secrets:
+            # Merge secrets into config object
+            if 'hf_token' in secrets and not config.hf_token:
+                config.hf_token = secrets['hf_token']
+            if 'HF_TOKEN' in secrets and not config.hf_token:
+                config.hf_token = secrets['HF_TOKEN']
+            if 'tmdb_api_key' in secrets and not config.tmdb_api_key:
+                config.tmdb_api_key = secrets['tmdb_api_key']
+            if 'TMDB_API_KEY' in secrets and not config.tmdb_api_key:
+                config.tmdb_api_key = secrets['TMDB_API_KEY']
     
-    # Load secrets and merge into config
-    secrets = config.load_secrets()
-    if secrets:
-        # Merge secrets into config object
-        if 'hf_token' in secrets and not config.hf_token:
-            config.hf_token = secrets['hf_token']
-        if 'HF_TOKEN' in secrets and not config.hf_token:
-            config.hf_token = secrets['HF_TOKEN']
-        if 'tmdb_api_key' in secrets and not config.tmdb_api_key:
-            config.tmdb_api_key = secrets['tmdb_api_key']
-        if 'TMDB_API_KEY' in secrets and not config.tmdb_api_key:
-            config.tmdb_api_key = secrets['TMDB_API_KEY']
+    # Cache for future use
+    _CONFIG_CACHE[cache_key] = config
     
     return config
+
+
+def clear_config_cache() -> None:
+    """
+    Clear the config cache.
+    
+    Useful for testing or when config files are modified at runtime.
+    """
+    global _CONFIG_CACHE
+    _CONFIG_CACHE.clear()
 
 
 class Config:

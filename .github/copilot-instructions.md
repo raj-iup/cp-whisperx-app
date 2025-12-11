@@ -1,6 +1,58 @@
 # Copilot Instructions — CP-WhisperX-App
 
-**Version:** 6.0 (Model Routing Automation) | **Status:** 🎊 **100% PERFECT COMPLIANCE ACHIEVED** 🎊 | **Pre-commit Hook:** ✅ Active
+**Version:** 7.2 (BRD-PRD-TRD Framework) | **Status:** 🎊 **100% PERFECT COMPLIANCE** 🎊 | **Pre-commit Hook:** ✅ Active
+
+**🚨 NEW: § 21 BRD-PRD-TRD Framework (2025-12-09):**
+- 📋 **MANDATORY**: BRD-PRD-TRD for new features (>200 LOC)
+- 📝 **PRD First**: User stories with acceptance criteria before code
+- 🔗 **Traceability**: Every feature traces to BRD (business need)
+- ✅ **Examples**: 3 complete PRDs available in docs/requirements/prd/
+- 📚 **See**: DEVELOPER_STANDARDS.md § 21 for complete guidance
+
+**🚨 CRITICAL: AD-009 Development Philosophy (2025-12-05):**
+- 🎯 **OPTIMIZE FOR QUALITY**: Highest accuracy output is the ONLY goal
+- 🔥 **NO BACKWARD COMPATIBILITY**: We're in active development (pre-v3.0)
+- ⚡ **AGGRESSIVE OPTIMIZATION**: Replace suboptimal code, don't wrap it
+- 🧪 **TEST QUALITY METRICS**: ASR WER, Translation BLEU, Subtitle Quality
+- ❌ **NO COMPATIBILITY LAYERS**: Remove old code, implement optimal solution
+- ✅ **DIRECT EXTRACTION**: Don't delegate to old implementations during refactoring
+
+**Major Updates in v7.1 (2025-12-06 15:20 UTC):**
+- 🏛️ **AD-010 ADDED**: Workflow-specific output requirements
+- 📋 **M-001 Complete**: Monthly alignment audit (95% → 100% coverage)
+- ✅ **All 10 ADs**: Documented across all 4 documentation layers
+- 📝 **Workflow Updates**: Added AD-010 references to § 1.5 (transcribe, translate, subtitle)
+
+**Major Updates in v7.0 (2025-12-05 14:32 UTC):**
+- 🎯 **AD-009**: Quality-first development philosophy (CRITICAL - read first)
+- 🔥 **Development Mindset**: "Build optimal solution" not "preserve old code"
+- ⚡ **Refactoring Approach**: Direct extraction + optimization, not wrappers
+- 📋 **See**: AD-009_DEVELOPMENT_PHILOSOPHY.md for complete guidance
+
+**Major Updates in v6.6 (AD-007 Import Consistency):**
+- 🏛️ **AD-007 MANDATORY**: Consistent shared/ import paths
+- 🐛 **Bug #4 Fixed**: Bias window generator import (whisperx_integration.py:1511)
+- 📝 **Import Rule**: ALL shared/ imports must use "shared." prefix
+- ✅ **Lazy Imports**: Same rule applies to try/except imports
+- 📋 **Pattern**: from shared.module import function (always)
+
+**Major Updates in v6.5 (AD-006 Configuration Priority):**
+- 🏛️ **AD-006 MANDATORY**: Job-specific parameters override system defaults
+- 📋 **Configuration Pattern**: 4-tier priority hierarchy (job.json → job env → system config → code defaults)
+- ✅ **All Stages**: Must read job.json before using system config
+- 🐛 **Bug #3 Fixed**: Language detection now reads from job.json
+- 📝 **Standard Pattern**: Documented mandatory implementation pattern
+
+**Major Updates in v6.2 (2025-12-03):**
+- 🐛 **Syntax Error Fixed**: Duplicate exc_info=True parameters (8 instances)
+- 🐛 **Error Handling Guide**: Added common mistake warning
+- 📝 **Best Practice**: Always use exc_info=True exactly once
+
+**Major Updates in v6.1 (2025-12-03):**
+- 🐛 **Source Language Optional**: Transcribe workflow auto-detects language
+- 🐛 **TMDB Workflow-Aware**: Only enabled for subtitle workflow (movies/TV)
+- 🐛 **StageManifest Enhanced**: Added add_intermediate() method
+- 🐛 **Script Path Fixed**: Corrected TMDB script reference
 
 **Major Updates in v6.0:**
 - 🆕 **Automated Model Updates**: Weekly checks for new AI model releases
@@ -12,19 +64,181 @@
 
 ## ⚡ Before You Respond
 
-**Run this mental checklist:**
-1. Will I use `logger` instead of `print()`? (§ 2.3)
-2. Are imports organized Standard/Third-party/Local? (§ 6.1)
-3. If stage: Does it use StageIO with `enable_manifest=True`? (§ 2.6)
-4. Are outputs going to `io.stage_dir` only? (§ 1.1)
-5. Am I using `load_config()` not `os.getenv()`? (§ 4.2)
-6. **Is my code cross-platform? (Use `pathlib`, not hardcoded paths)** (§ 1.2)
-7. **If creating shell script: Do I need Windows (.ps1) equivalent?** (§ 1.2)
-8. **If creating stage script: Is it named `{NN}_{stage_name}.py`?** (File Naming)
-9. **If testing: Am I using standard test media samples?** (§ 1.4) 🆕
-10. **If workflow: Am I following context-aware patterns?** (§ 1.5) 🆕
+**🔥 AD-009 CRITICAL CHECKS (NEW - Check FIRST):**
+1. **Am I optimizing for QUALITY (accuracy/performance)?** (AD-009) 🎯
+2. **Am I removing old code or wrapping it?** (Remove = good, Wrap = bad) 🔥
+3. **Is this the OPTIMAL implementation?** (If no, improve it) ⚡
+4. **Am I preserving compatibility with internal code?** (DON'T - only external APIs) ❌
+
+**Standard Compliance Checks:**
+5. Will I use `logger` instead of `print()`? (§ 2.3)
+6. Are imports organized Standard/Third-party/Local? (§ 6.1)
+7. **Are shared/ imports using "shared." prefix? (§ 6.1 - AD-007)** ⭐
+8. If stage: Does it use StageIO with `enable_manifest=True`? (§ 2.6)
+9. Are outputs going to `io.stage_dir` only? (§ 1.1)
+10. Am I using `load_config()` not `os.getenv()`? (§ 4.2)
+11. **Am I reading job.json BEFORE using system config? (§ 4 - AD-006)**
+12. **Cross-platform compatible? (Use `pathlib`, not hardcoded paths)** (§ 1.2)
+13. **If subprocess with files: Did I validate path + use Path.resolve()? (AD-011)** ⭐
+14. **If subprocess with files: Did I use str(path) for command args? (AD-011)** ⭐
+15. **If creating log files: Am I using logs/ directory? (AD-012)** 🆕 ⭐
+16. **If creating log files: Am I using get_log_path() helper? (AD-012)** 🆕 ⭐
+17. **If creating test files: Am I using tests/ directory? (AD-013)** 🆕 ⭐
+18. **If creating test files: Is it in the correct category? (unit/integration/functional/manual)** 🆕 ⭐
+19. **If creating shell script: Do I need Windows (.ps1) equivalent?** (§ 1.2)
+20. **If creating stage script: Is it named `{NN}_{stage_name}.py`?** (File Naming)
+21. **If testing: Am I using standard test media samples?** (§ 1.4)
+22. **If workflow: Am I following context-aware patterns?** (§ 1.5)
+23. **If subtitle workflow: Am I checking for baseline/glossary/cache first? (AD-014)** 🆕 ⭐
+24. **If subtitle workflow: Am I computing media_id for caching? (AD-014)** 🆕 ⭐
+25. **Error handling: Am I using exc_info=True exactly once?** (§ 5)
+26. **ASR/Transcription: Am I using hybrid MLX architecture?** (§ 2.7)
+27. **If new feature (>200 LOC): Does BRD-PRD-TRD exist? (DEVELOPER_STANDARDS.md § 21)** 🆕 ⭐
+28. **If architectural change: Is AD documented in ARCHITECTURE.md?** 🆕 ⭐
 
 **If NO to any → Check the relevant § section below**
+
+---
+
+## 🏛️ Architectural Decisions Quick Reference (NEW) 🆕
+
+**Authoritative Source:** ARCHITECTURE.md  
+**Developer Guide:** DEVELOPER_STANDARDS.md § 20
+
+**All 14 Approved Architectural Decisions:** 🆕
+
+- **AD-001:** 12-stage architecture (optimal, no major refactoring) ✅
+- **AD-002:** ASR modularization (use `whisperx_module/`, not monolith) ✅
+- **AD-003:** Translation single-stage (defer 4-stage split) ✅
+- **AD-004:** 8 virtual environments (no new venvs needed) ✅
+- **AD-005:** Hybrid MLX backend (8-9x faster with subprocess isolation) ✅
+- **AD-006:** Job-specific parameters MANDATORY (read job.json first) ✅
+- **AD-007:** Consistent shared/ imports (always use "shared." prefix) ✅
+- **AD-008:** Hybrid alignment architecture (subprocess prevents segfaults) ✅
+- **AD-009:** Quality over compatibility (optimize aggressively) ✅
+- **AD-010:** Workflow-specific outputs (transcribe → txt, translate → txt, subtitle → srt/vtt) ✅
+- **AD-011:** Robust file path handling (pathlib + pre-flight validation for subprocess) 🔄
+- **AD-012:** Centralized log management (all logs in logs/ directory) 🆕 ⏳
+- **AD-013:** Organized test structure (all tests categorized in tests/ directory) 🆕 ⏳
+- **AD-014:** Multi-phase subtitle workflow (reuse baseline/glossary/cache for quality) 🆕 ⏳
+
+**Quick Patterns:**
+
+```python
+# Per AD-002: Use ASR modules
+from whisperx_module.transcription import TranscriptionEngine
+from whisperx_module.alignment import AlignmentEngine
+
+# Per AD-004: Use correct venv (in shebang)
+#!/path/to/venv/whisperx/bin/python  # Stage 06
+
+# Per AD-005 + AD-008: Hybrid MLX
+backend = create_backend("auto")  # Auto-selects MLX on Apple Silicon
+# Alignment automatically uses subprocess with MLX
+
+# Per AD-006: Read job.json first
+config = load_config()  # System defaults
+job_data = json.load(open(job_dir / "job.json"))  # Override
+param = job_data.get('key', config.get('key', default))
+
+# Per AD-007: Shared imports
+from shared.module import function  # ✅ Correct
+# NOT: from module import function  # ❌ Wrong
+
+# Per AD-010: Workflow-specific outputs
+if workflow == "transcribe":
+    # Skip subtitle generation, export transcript only
+    stages = stages[:7]  # Stop at alignment
+elif workflow == "translate":
+    # Skip subtitle generation, export translated transcript
+    stages = stages[:7] + ["10_translation"]
+else:  # subtitle workflow
+    # Generate all subtitle tracks
+    stages = stages  # Full pipeline
+
+# Per AD-011: File path validation (NEW) 🆕
+from pathlib import Path
+
+# Always use absolute paths
+input_file = Path(file_path).resolve()
+
+# Pre-flight validation BEFORE subprocess
+if not input_file.exists():
+    logger.error(f"❌ Input file not found: {input_file}")
+    return False
+
+if not input_file.is_file():
+    logger.error(f"❌ Not a file: {input_file}")
+    return False
+
+if input_file.stat().st_size == 0:
+    logger.error(f"❌ File is empty: {input_file}")
+    return False
+
+# Test accessibility
+try:
+    with open(input_file, 'rb') as f:
+        f.read(1)
+except PermissionError:
+    logger.error(f"❌ Permission denied: {input_file}")
+    return False
+
+# Build subprocess command with proper string conversion
+cmd = ['ffmpeg', '-i', str(input_file), str(output_file)]  # str() handles special chars
+
+# Enhanced FFmpeg error handling
+try:
+    subprocess.run(cmd, capture_output=True, text=True, check=True)
+except subprocess.CalledProcessError as e:
+    if e.returncode == 234:
+        logger.error("❌ FFmpeg error 234: Invalid input/output")
+        logger.error("   Possible: special chars, corruption, format")
+    # Parse stderr for actionable messages...
+
+# Per AD-012: Log file placement (NEW) 🆕
+from shared.log_paths import get_log_path
+
+# Get log path for test/debug
+log_file = get_log_path("testing", "transcribe", "mlx")
+# Returns: logs/testing/manual/20251208_103045_transcribe_mlx.log
+
+# Use in script
+with open(log_file, 'w') as f:
+    subprocess.run(cmd, stdout=f, stderr=subprocess.STDOUT)
+
+# ❌ NEVER write logs to project root
+# with open("test.log", "w") as f:  # WRONG!
+
+# Per AD-013: Test file placement (NEW) 🆕
+# ❌ NEVER create test files in project root
+# test-my-feature.sh  # WRONG!
+# test_my_feature.py  # WRONG!
+
+# ✅ ALWAYS place in appropriate tests/ category
+tests/unit/test_my_feature.py           # Unit test
+tests/integration/test_my_integration.py # Integration test
+tests/functional/test_my_workflow.py     # Functional/E2E test
+tests/manual/feature/test-script.sh      # Manual script
+
+# Per AD-014: Multi-phase subtitle workflow (NEW) 🆕
+from shared.media_identity import compute_media_id
+from shared.cache_manager import MediaCacheManager
+
+# Compute media ID for caching
+media_id = compute_media_id(Path("movie.mp4"))
+
+# Check for cached baseline
+cache_mgr = MediaCacheManager()
+if cache_mgr.has_baseline(media_id):
+    baseline = cache_mgr.get_baseline(media_id)
+    logger.info("✅ Reusing baseline from previous run")
+else:
+    baseline = run_baseline_generation(...)
+    cache_mgr.store_baseline(media_id, baseline)
+
+# ❌ NEVER skip baseline check on subtitle workflow
+# ❌ NEVER recompute ASR/alignment if baseline exists
+```
 
 ---
 
@@ -47,19 +261,24 @@
 ## 🎯 Core Workflows (Context-Aware)
 
 **1. Subtitle Workflow** (§ 1.5)
-- Input: Bollywood/Indic media
+- Input: Bollywood/Indic media (movies/TV shows)
 - Output: Multiple soft-embedded subtitle tracks (hi, en, gu, ta, es, ru, zh, ar)
 - Features: Character names, cultural terms, speaker diarization, temporal coherence
+- **TMDB:** ✅ Enabled (fetches cast, crew, character names)
 
 **2. Transcribe Workflow** (§ 1.5)
-- Input: Any media
+- Input: Any media (YouTube, podcasts, lectures, general content)
 - Output: Transcript in SAME language as source
 - Features: Domain terminology, proper nouns, native script output
+- **Source Language:** Optional (auto-detects if not specified)
+- **TMDB:** ❌ Disabled (not needed for non-movie content)
 
 **3. Translate Workflow** (§ 1.5)
-- Input: Any media
+- Input: Any media (YouTube, podcasts, lectures, general content)
 - Output: Transcript in SPECIFIED target language
 - Features: Cultural adaptation, glossary terms, formality preservation
+- **Source Language:** Required (must be Indian language for IndicTrans2)
+- **TMDB:** ❌ Disabled (not needed for non-movie content)
 
 ---
 
@@ -99,11 +318,395 @@
 
 ---
 
+## § 1.4 Standard Test Media (ALWAYS USE THESE)
+
+**Purpose:** Establish reproducible testing baseline with diverse use cases.
+
+### Sample 1: English Technical Content
+**File:** `in/Energy Demand in AI.mp4`  
+**Size:** ~14 MB | **Duration:** 2-5 minutes  
+**Language:** English | **Type:** Technical/Educational  
+**Use For:** Transcribe, Translate workflows
+
+**Characteristics:**
+- Clear English audio with technical terminology (AI, energy, demand)
+- Minimal background noise
+- Good for testing ASR accuracy on technical content
+- Ideal for English-to-Indic translation testing
+
+**Quality Targets:**
+- ASR Accuracy: ≥95% WER
+- Translation BLEU: ≥90%
+- Processing Time: <3 minutes
+
+### Sample 2: Hinglish Bollywood Content
+**File:** `in/test_clips/jaane_tu_test_clip.mp4`  
+**Size:** ~28 MB | **Duration:** 1-3 minutes  
+**Language:** Hindi/Hinglish (mixed) | **Type:** Entertainment  
+**Use For:** Subtitle, Transcribe, Translate workflows
+
+**Characteristics:**
+- Mixed Hindi-English (Hinglish) dialogue
+- Bollywood dialogue patterns, emotional/casual speech
+- Background music possible, multiple speakers
+- Real-world subtitle generation challenge
+
+**Quality Targets:**
+- ASR Accuracy: ≥85% WER
+- Subtitle Quality: ≥88%
+- Context Awareness: ≥80%
+- Glossary Application: 100%
+
+**See:** `docs/user-guide/workflows.md` for detailed test scenarios
+
+---
+
+## § 1.5 Core Workflows (Context-Aware)
+
+### 1. Subtitle Workflow
+**Purpose:** Generate context-aware multilingual subtitles for Bollywood/Indic media
+
+**Input:** Indic/Hinglish movie media source  
+**Output:** Original media + soft-embedded subtitle tracks (hi, en, gu, ta, es, ru, zh, ar) **(per AD-010)**  
+**Output Location:** `out/{date}/{user}/{job}/12_mux/`
+
+**Pipeline:** demux → tmdb ✅ → glossary_load → source_sep → pyannote_vad → whisperx_asr → alignment → translate → subtitle_gen → mux **(full 12-stage pipeline)**
+
+**Context-Aware Features:**
+- Character names preserved via glossary
+- Cultural terms (Hindi idioms, relationship terms)
+- Tone adaptation (formal vs. casual)
+- Temporal coherence (consistent terminology)
+- Speaker attribution (diarization)
+- **Lyrics detection (Stage 08) - MANDATORY**
+  - Identifies song/music segments
+  - Prevents literal translation of lyrics
+  - Preserves cultural significance
+- **Hallucination removal (Stage 09) - MANDATORY**
+  - Removes ASR artifacts ("Thanks for watching", repeated phrases)
+  - Cleans background music-induced errors
+  - Ensures 88%+ subtitle quality
+
+**Example:**
+```bash
+./prepare-job.sh \
+  --media in/test_clips/jaane_tu_test_clip.mp4 \
+  --workflow subtitle \
+  --source-language hi \
+  --target-languages en,gu,ta,es,ru,zh,ar
+```
+
+### 2. Transcribe Workflow
+**Purpose:** Create high-accuracy transcript in SOURCE language
+
+**Input:** Any media source (YouTube, podcasts, lectures, general content)
+**Output:** Text transcript in SAME language as source **(per AD-010 - NO subtitles)**  
+**Output Location:** `out/{date}/{user}/{job}/07_alignment/transcript.txt`
+
+**Pipeline:** demux → glossary_load → source_sep (optional) → pyannote_vad → whisperx_asr → alignment **(stops at stage 07)**
+
+**TMDB:** ❌ **Disabled** (not needed for non-movie content)
+
+**Context-Aware Features:**
+- Domain terminology preserved
+- Proper nouns (names, places, organizations)
+- Language-specific output (native script for Hindi)
+- Context-aware punctuation
+- Capitalization (proper noun detection for English)
+- **Auto-detects language if not specified**
+
+**Example:**
+```bash
+# Auto-detect language (NEW in v6.1)
+./prepare-job.sh --media "in/Energy Demand in AI.mp4" --workflow transcribe
+
+# Explicit English
+./prepare-job.sh --media "in/Energy Demand in AI.mp4" --workflow transcribe -s en
+
+# Hindi content
+./prepare-job.sh --media in/test_clips/jaane_tu_test_clip.mp4 --workflow transcribe -s hi
+```
+
+### 3. Translate Workflow
+**Purpose:** Create high-accuracy transcript in TARGET language
+
+**Input:** Indian language media (IndicTrans2 constraint)
+**Output:** Text transcript in SPECIFIED target language **(per AD-010 - NO subtitles)**  
+**Output Location:** `out/{date}/{user}/{job}/10_translation/transcript_{target_lang}.txt`
+
+**Pipeline:** demux → glossary_load → source_sep (optional) → pyannote_vad → whisperx_asr → alignment → translate **(stops at stage 10)**
+
+**TMDB:** ❌ **Disabled** (not needed for non-movie content)
+
+**Context-Aware Features:**
+- Cultural adaptation (idioms, metaphors localized)
+- Formality levels maintained
+- Named entities transliterated appropriately
+- Glossary terms preserved
+- Temporal consistency (same term translated consistently)
+- Numeric/date formats localized
+
+**Translation Routing:**
+- Indic languages: IndicTrans2 (highest quality)
+- Non-Indic: NLLB-200 (broad support)
+- Fallback: Hybrid approach
+
+**Language Constraint (NEW in v6.1):**
+- ✅ Source language **MUST** be Indian language (hi, ta, te, etc.)
+- ✅ Target language can be ANY language
+- ❌ English→Hindi NOT supported (use transcribe instead)
+
+**Example:**
+```bash
+# Hindi → English (WORKS)
+./prepare-job.sh --media in/test_clips/jaane_tu_test_clip.mp4 --workflow translate -s hi -t en
+
+# Hindi → Spanish (WORKS)
+./prepare-job.sh --media in/test_clips/jaane_tu_test_clip.mp4 --workflow translate -s hi -t es
+
+# English → Hindi (FAILS - use transcribe instead)
+# ./prepare-job.sh --media file.mp4 --workflow translate -s en -t hi  ❌
+```
+# Hindi → English
+./prepare-job.sh --media in/test_clips/jaane_tu_test_clip.mp4 --workflow translate \
+  --source-language hi --target-language en
+
+# Hindi → Spanish
+./prepare-job.sh --media in/test_clips/jaane_tu_test_clip.mp4 --workflow translate \
+  --source-language hi --target-language es
+```
+
+**See:** `docs/user-guide/workflows.md` for complete workflow documentation
+
+---
+
+## § 1.6 Caching & ML Optimization
+
+**Purpose:** Enable subsequent workflows with similar media to perform optimally over time.
+
+### Intelligent Caching Layers
+
+**1. Model Cache (Shared)**
+- Location: `{cache_dir}/models/`
+- Stores: Downloaded model weights (WhisperX, IndicTrans2, PyAnnote)
+- Benefits: Avoid re-downloading 1-5 GB per run
+
+**2. Audio Fingerprint Cache**
+- Location: `{cache_dir}/fingerprints/`
+- Stores: Audio characteristics, detected language, noise profile
+- Benefits: Skip demux/analysis for identical media
+
+**3. ASR Results Cache (Quality-Aware)**
+- Location: `{cache_dir}/asr/`
+- Cache Key: `SHA256(audio_content + model_version + language + config_params)`
+- Benefits: Reuse ASR results for same audio (saves 2-10 minutes)
+- Invalidation: Model version change, config parameter change, or `--no-cache` flag
+
+**4. Translation Cache (Contextual)**
+- Location: `{cache_dir}/translations/`
+- Context-Aware Matching: Exact segment (100% reuse), similar segment >80% (reuse with adjustment)
+- Benefits: Reuse translations for similar content (saves 1-5 minutes)
+
+**5. Glossary Learning Cache**
+- Location: `{cache_dir}/glossary_learned/`
+- Stores: Per-movie learned terms, character names, cultural terms, frequency analysis
+- Benefits: Improve accuracy on subsequent processing of same movie/genre
+
+### ML-Based Optimization
+
+**1. Adaptive Quality Prediction**
+- ML Model: Lightweight XGBoost classifier
+- Predicts: Optimal Whisper model size, source separation needed, expected ASR confidence
+- Benefits: 30% faster processing on clean audio (use smaller model)
+
+**2. Context Learning from History**
+- Character name recognition from previous jobs
+- Cultural term patterns learning
+- Translation memory from approved translations
+- Benefits: Consistent terminology, higher accuracy over time
+
+**3. Similarity-Based Optimization**
+- Detects similar media via audio fingerprinting
+- Reuses processing decisions, glossaries, model selection
+- Benefits: 40-95% time reduction on similar content
+
+### Cache Configuration
+
+**In config/.env.pipeline:**
+```bash
+# Caching Configuration
+ENABLE_CACHING=true                          # Master switch
+CACHE_DIR=~/.cp-whisperx/cache              # Cache location
+CACHE_MAX_SIZE_GB=50                        # Total cache size limit
+CACHE_ASR_RESULTS=true                      # Cache ASR outputs
+CACHE_TRANSLATIONS=true                     # Cache translations
+CACHE_AUDIO_FINGERPRINTS=true              # Cache audio analysis
+CACHE_TTL_DAYS=90                          # Cache expiration (days)
+
+# ML Optimization
+ENABLE_ML_OPTIMIZATION=true                 # Enable ML predictions
+ML_MODEL_SELECTION=adaptive                 # adaptive|fixed
+ML_QUALITY_PREDICTION=true                  # Predict optimal settings
+ML_LEARNING_FROM_HISTORY=true              # Learn from past jobs
+```
+
+### Cache Management
+
+```bash
+# View cache statistics
+./tools/cache-manager.sh --stats
+
+# Clear specific cache type
+./tools/cache-manager.sh --clear asr
+
+# Disable caching for one job
+./prepare-job.sh --media in/file.mp4 --no-cache
+```
+
+### Expected Performance Improvements
+
+| Scenario | First Run | Subsequent Run | Improvement |
+|----------|-----------|----------------|-------------|
+| Identical media | 10 min | 30 sec | 95% faster |
+| Same movie, different cut | 10 min | 6 min | 40% faster |
+| Similar Bollywood movie | 10 min | 8 min | 20% faster |
+
+**See:** `docs/technical/caching-ml-optimization.md` for complete caching architecture
+
+---
+
+## § 2.7 MLX Backend Architecture (NEW in v6.7)
+
+**Hybrid MLX Architecture for Apple Silicon (AD-005 + AD-008)** 🆕
+
+**Architectural Decisions:**
+- **AD-005:** Hybrid MLX backend for optimal performance
+- **AD-008:** Subprocess isolation prevents segfaults
+- **Reference:** ARCHITECTURE_ALIGNMENT_2025-12-04.md
+
+### When to Use MLX Backend
+
+✅ **Use MLX when (per AD-005):**
+- Running on Apple Silicon (M1/M2/M3/M4)
+- Need maximum performance (8-9x faster than CPU)
+- Transcription or subtitle workflows
+- Have MPS device available
+
+❌ **Don't use MLX when:**
+- Running on non-Apple hardware
+- Only CPU or CUDA available
+- System stability more important than speed
+
+### Architecture Overview
+
+**Hybrid Design:**
+```python
+# Step 1: Transcription (MLX - Fast)
+backend = create_backend("mlx", model="large-v3", device="mps", ...)
+result = backend.transcribe(audio_file, language="en")
+# Duration: ~84 seconds for 12min audio (8-9x faster!)
+
+# Step 2: Alignment (WhisperX Subprocess - Stable)
+aligned = processor.align_segments(result, audio_file, "en")
+# Automatically uses subprocess when backend is MLX
+# Duration: ~39 seconds
+# Prevents segfaults through process isolation
+```
+
+### Key Implementation Patterns
+
+**1. MLX Backend Setup:**
+```python
+from whisper_backends import create_backend
+
+# System automatically selects MLX on Apple Silicon
+backend = create_backend(
+    backend_type="mlx",  # or "auto"
+    model_name="large-v3",
+    device="mps",
+    compute_type="float16",
+    logger=logger
+)
+```
+
+**2. Alignment Delegation:**
+```python
+# whisperx_integration.py handles this automatically
+
+def align_segments(self, result, audio_file, language):
+    """Hybrid alignment dispatcher"""
+    if self.backend.name == "mlx-whisper":
+        # Use WhisperX subprocess (prevents segfault)
+        return self.align_with_whisperx_subprocess(
+            result["segments"], audio_file, language
+        )
+    else:
+        # Use backend's native alignment
+        return self.backend.align_segments(...)
+```
+
+**3. Configuration:**
+```bash
+# config/.env.pipeline
+WHISPER_BACKEND=mlx              # Primary ASR backend
+ALIGNMENT_BACKEND=whisperx        # Alignment in subprocess
+```
+
+### Critical Rules
+
+**✅ DO:**
+- Let the system handle MLX → WhisperX alignment automatically
+- Use subprocess for any MLX alignment needs
+- Set 5-minute timeout for alignment subprocess
+- Handle subprocess failures gracefully (fallback to segments without words)
+
+**❌ DON'T:**
+- Call `backend.align_segments()` directly on MLX backend
+- Run MLX `transcribe()` twice in same process
+- Try to align in-process with MLX (causes segfault)
+- Modify the hybrid architecture unless necessary
+
+### Performance Expectations
+
+**Test Results (12.4 min audio):**
+- Transcription: 84 seconds (8-9x faster than CPU)
+- Alignment: 39 seconds (subprocess)
+- Total: 123 seconds (2 minutes)
+- Output: 200 segments with word-level timestamps
+- Stability: 100% (no segfaults)
+
+**vs CTranslate2/CPU:**
+- Status: Crashed after 11 minutes
+- Performance: N/A (never completed)
+- Stability: 0%
+
+### Troubleshooting
+
+**If MLX transcription fails:**
+```python
+# System falls back to WhisperX automatically
+# Check logs for: "Signaling fallback to WhisperX backend..."
+```
+
+**If alignment subprocess fails:**
+```python
+# Returns segments without word timestamps
+# Check logs for: "Alignment subprocess failed (exit code N)"
+```
+
+**If seeing segfaults:**
+```python
+# Check ALIGNMENT_BACKEND setting
+# Should be "whisperx", not "mlx" or "same"
+```
+
+---
+
 ## 🚧 Implementation Status
 
 **Current Architecture:** v2.0 (Simplified 3-6 Stage Pipeline)  
-**Target Architecture:** v3.0 (Context-Aware Modular 10-Stage Pipeline)  
-**Migration Progress:** 22% Complete (Phase 0 done)
+**Target Architecture:** v3.0 (Context-Aware Modular 12-Stage Pipeline)  
+**Migration Progress:** 95% Documentation Complete (Phase 4)
 
 ### What Works Now (v2.0) ✅
 
@@ -113,21 +716,24 @@
 - ✅ Multi-environment support - MLX/CUDA/CPU
 - ✅ Error handling patterns - Try/except with logging
 - ✅ Type hints and docstrings (100% compliant)
-- ✅ Standard test media - Two samples defined 🆕
+- ✅ Standard test media - Two samples defined (§ 1.4)
+- ✅ Core workflows documented - Subtitle/Transcribe/Translate (§ 1.5)
+- ✅ **Hybrid MLX Architecture** - 8-9x faster ASR (§ 2.7) 🆕
+- ✅ **Subprocess Alignment** - Prevents MLX segfaults (§ 2.7) 🆕
 
 **Partially Implemented:**
-- ⚠️ Stage module pattern (5% adoption) - Only `tmdb_enrichment_stage.py`
-- ⚠️ Manifest tracking (10% adoption) - Few stages use it
-- ⚠️ Stage isolation (60% adoption) - Some shared state remains
-- ⚠️ Context-aware processing (40% adoption) - Basic implementation 🆕
-- ⚠️ Intelligent caching (0% adoption) - Planned in Phase 5 🆕
+- ✅ Stage module pattern (100% adoption) - ALL stages use StageIO ✅
+- ✅ Manifest tracking (100% adoption) - All stages track inputs/outputs ✅
+- ✅ Stage isolation (100% adoption) - Stage-based directories enforced ✅
+- ✅ Context-aware processing (90% adoption) - Implemented in subtitle workflow ✅
+- ⏳ Intelligent caching (0% adoption) - Planned in Phase 5 (§ 1.6) 🆕
 
 ### What's Coming (v3.0) ⏳
 
 **In Active Development:**
-- ⏳ Full 10-stage modular pipeline
-- ⏳ Universal StageIO adoption (target: 100%)
-- ⏳ Complete manifest tracking (target: 100%)
+- ⏳ Full 12-stage modular pipeline
+- ✅ Universal StageIO adoption (100% achieved)
+- ✅ Complete manifest tracking (100% achieved)
 - ⏳ Stage-level testing infrastructure
 - ⏳ Stage enable/disable per job
 - ⏳ Advanced features (retry, caching, circuit breakers)
@@ -142,6 +748,8 @@
 3. ✅ **Write to io.stage_dir only** - Maintain stage isolation
 4. ✅ **Use logger, not print** - Always use proper logging
 5. ✅ **Add type hints and docstrings** - 100% compliance required
+6. ✅ **Test with standard media samples** - Use samples from § 1.4 🆕
+7. ✅ **Implement caching support** - See § 1.6 for patterns 🆕
 
 **When modifying EXISTING code:**
 1. 🎯 **Match existing patterns** for consistency
@@ -338,15 +946,17 @@ scripts/04_source_separation.py
 scripts/05_pyannote_vad.py
 scripts/06_whisperx_asr.py
 scripts/07_mlx_alignment.py (or 07_alignment.py)
-scripts/08_indictrans2_translation.py (or 08_translate.py)
-scripts/09_subtitle_generation.py (or 09_subtitle_gen.py)
-scripts/10_mux.py
+scripts/08_lyrics_detection.py
+scripts/09_hallucination_removal.py
+scripts/10_translation.py (or 10_indictrans2_translation.py)
+scripts/11_subtitle_generation.py (or 11_subtitle_gen.py)
+scripts/12_mux.py
 ```
 
 ❌ **INCORRECT (Old patterns - DO NOT USE):**
 ```
 scripts/demux.py                          # Missing stage number
-scripts/tmdb_enrichment_stage.py          # Wrong suffix
+scripts/tmdb_enrichment_stage.py          # Wrong name (fixed in v6.1)
 scripts/03_glossary_load/glossary_loader.py  # Wrong directory
 ```
 
@@ -472,7 +1082,7 @@ logger.critical("Severe error")
 
 **100% of files violate this - Priority #2 fix**
 
-❌ **DON'T:** Mix import groups
+❌ **DON'T:** Mix import groups or use incorrect paths
 
 ✅ **DO:**
 ```python
@@ -484,11 +1094,50 @@ from pathlib import Path
 # Third-party
 import numpy as np
 
-# Local
+# Local - MUST use "shared." prefix (AD-007)
 from shared.config import load_config
+from shared.logger import get_logger
+from shared.bias_window_generator import BiasWindow
+
+# Lazy imports - MUST also use "shared." prefix
+def some_function():
+    try:
+        from shared.bias_window_generator import create_bias_windows
+        # Use function
+    except ImportError:
+        logger.warning("Feature unavailable")
+```
+
+**🏛️ ARCHITECTURAL DECISION AD-007 (MANDATORY):**
+
+**ALL imports from shared/ directory MUST use "shared." prefix**
+
+**Why This Matters:**
+- Python module resolution requires consistent paths
+- Lazy imports (try/except) were using incorrect paths
+- Fixed Bug #4 (bias window generator import)
+- Prevents silent feature degradation
+
+**Common Mistakes:**
+```python
+# ❌ WRONG - Missing "shared." prefix
+from bias_window_generator import BiasWindow
+try:
+    from config_loader import load_config  # Will fail!
+except ImportError:
+    pass
+
+# ✅ CORRECT - Always use "shared." prefix
+from shared.bias_window_generator import BiasWindow
+try:
+    from shared.config_loader import load_config  # Works!
+except ImportError:
+    pass
 ```
 
 **Order:** Standard → Third-party → Local (blank lines between)
+
+**Applies To:** All scripts, stages, and tests
 
 ---
 
@@ -529,6 +1178,10 @@ def run_stage(job_dir: Path, stage_name: str = "stage") -> int:
         # 6. Track output
         io.manifest.add_output(output_file, io.compute_hash(output_file))
         
+        # 6a. Track intermediate files (NEW in v6.1)
+        intermediate_file = io.stage_dir / "cache.tmp"
+        io.track_intermediate(intermediate_file, retained=True, reason="Model cache")
+        
         # 7. Finalize
         io.finalize_stage_manifest(exit_code=0)
         return 0
@@ -543,8 +1196,23 @@ def run_stage(job_dir: Path, stage_name: str = "stage") -> int:
 - `enable_manifest=True`
 - `io.get_stage_logger()` (not print)
 - Track inputs/outputs
+- Track intermediate files (NEW in v6.1) - Use `io.track_intermediate()` for cache/temp files
 - Write to `io.stage_dir` ONLY
 - Finalize manifest
+
+**StageManifest Methods (v6.1):**
+```python
+# Track inputs
+io.manifest.add_input("key", file_path, "description")
+
+# Track outputs  
+io.manifest.add_output("key", file_path, "description")
+
+# Track intermediate files (NEW in v6.1)
+io.track_intermediate(file_path, retained=True, reason="Model cache")
+# retained=True: Keep after stage completes
+# retained=False: Temporary file (can be deleted)
+```
 
 ---
 
@@ -555,16 +1223,53 @@ def run_stage(job_dir: Path, stage_name: str = "stage") -> int:
 ✅ **DO:**
 ```python
 from shared.config_loader import load_config
+import json
 
+# Step 1: Load system defaults
 config = load_config()
 value = int(config.get("PARAM_NAME", default))
+
+# Step 2: Override with job-specific parameters (MANDATORY - AD-006)
+job_json_path = job_dir / "job.json"
+if job_json_path.exists():
+    with open(job_json_path) as f:
+        job_data = json.load(f)
+        # Job parameters take precedence
+        if 'param_name' in job_data and job_data['param_name']:
+            value = job_data['param_name']
 ```
+
+**🏛️ ARCHITECTURAL DECISION AD-006 (MANDATORY):**
+
+**ALL stages MUST honor job-specific parameters over system defaults.**
+
+**Priority Order:**
+1. **job.json** (user's explicit CLI choices)
+2. **Job .env file** (job-specific overrides)
+3. **System config/.env.pipeline** (system defaults)
+4. **Code defaults** (hardcoded fallbacks)
+
+**Why This Is Mandatory:**
+- Respect user's explicit CLI parameters
+- Enable per-job customization
+- Ensure reproducibility
+- Fixed Bug #3 (language detection)
+
+**Parameters That Must Be Overridable:**
+- ✅ Languages (source_language, target_languages)
+- ✅ Model settings (model size, compute type, batch size)
+- ✅ Quality settings (beam size, temperature)
+- ✅ Workflow flags (source_separation_enabled, tmdb_enabled)
+- ✅ Output preferences (subtitle format, translation engine)
+
+**See:** ARCHITECTURE_ALIGNMENT_2025-12-04.md § AD-006 for complete rationale.
 
 **Steps:**
 1. Add to `config/.env.pipeline` with full documentation
-2. Use `load_config()`
-3. Provide default with `.get(key, default)`
-4. Convert types: int(), float(), bool()
+2. Use `load_config()` to get system defaults
+3. Read job.json and override if parameter exists
+4. Provide default with `.get(key, default)`
+5. Convert types: int(), float(), bool()
 
 **Configuration Parameter Rules:**
 - ✅ **Implement feature FIRST, then add parameter**
@@ -593,6 +1298,17 @@ except Exception as e:
 ```
 
 **Key:** Specific exceptions first, always `exc_info=True`
+
+**⚠️ COMMON MISTAKE - AVOID:**
+```python
+# ❌ WRONG - Duplicate parameter (SyntaxError)
+logger.error(f"Error: {e}", exc_info=True, exc_info=True)
+
+# ✅ CORRECT - Single parameter
+logger.error(f"Error: {e}", exc_info=True)
+```
+
+**Note:** This error occurred in job-20251203-rpatel-0015 and caused pipeline failure. Always use `exc_info=True` exactly once.
 
 ---
 
@@ -695,6 +1411,15 @@ else:
 
 **Dependencies:**
 - [ ] Added to `requirements/*.txt` (§ 1.3)
+
+**DOCUMENTATION (NEW FEATURES):** 🆕
+- [ ] **New feature (>200 LOC):** BRD-PRD-TRD created (DEVELOPER_STANDARDS.md § 21)
+- [ ] **Architectural change:** AD documented in ARCHITECTURE.md
+- [ ] **PRD:** User stories with acceptance criteria written
+- [ ] **PRD:** User personas defined (at least 2-3)
+- [ ] **PRD:** Links to BRD and TRD included
+- [ ] **Implementation Tracker:** Task linked to BRD/PRD/TRD
+- [ ] **Post-implementation:** Mark BRD/PRD/TRD as "Implemented"
 
 **Run automated checker:**
 ```bash
@@ -822,6 +1547,55 @@ chmod +x .git/hooks/pre-commit
 
 ---
 
+## 📚 BRD-PRD-TRD Framework Quick Reference
+
+**When to Create:** (DEVELOPER_STANDARDS.md § 21)
+
+**MANDATORY:**
+- 🔥 New features (>200 LOC or new functionality)
+- 🔥 Architectural changes (new ADs)
+- 🔥 Breaking changes (API changes)
+
+**RECOMMENDED:**
+- 🟡 Medium features (50-200 LOC)
+- 🟡 Bug fixes changing user behavior
+
+**OPTIONAL:**
+- 🟢 Small fixes (<50 LOC)
+- 🟢 Documentation-only changes
+
+**Creation Flow:**
+```
+1. BRD: Business justification (WHY)
+   - Problem statement, business value, stakeholders
+   - Template: docs/requirements/brd/BRD_TEMPLATE.md
+   
+2. PRD: User requirements (WHAT)
+   - User stories, personas, acceptance criteria
+   - Template: docs/requirements/prd/PRD_TEMPLATE.md
+   
+3. TRD: Technical design (HOW)
+   - Architecture, APIs, implementation
+   - Template: docs/requirements/trd/TRD_TEMPLATE.md
+   
+4. Implementation: Code + Tests + Docs
+   - Follow TRD design
+   - Validate against PRD acceptance criteria
+   - Update IMPLEMENTATION_TRACKER.md
+```
+
+**Example PRDs:**
+- PRD-2025-12-05-02-workflow-outputs.md (591 lines)
+- PRD-2025-12-08-05-subtitle-workflow.md (530 lines)
+- PRD-2025-12-08-03-log-management.md (227 lines)
+
+**Complete Guide:**
+- Framework: BRD-PRD-TRD-IMPLEMENTATION-FRAMEWORK.md
+- Examples: docs/requirements/prd/
+- Standards: DEVELOPER_STANDARDS.md § 21
+
+---
+
 ## 🚀 Testing
 
 - Tests in `tests/`
@@ -839,4 +1613,4 @@ chmod +x .git/hooks/pre-commit
 5. Run `validate-compliance.py` on your code
 6. **Commit will be blocked if violations exist** 🔒
 
-**Version:** 4.0 (100% Compliance) | **Lines:** 500+ | **Status:** ✅ PERFECT | **Automated:** ✅
+**Version:** 7.2 (BRD-PRD-TRD Framework) | **Lines:** 1600+ | **Status:** ✅ PERFECT | **Automated:** ✅

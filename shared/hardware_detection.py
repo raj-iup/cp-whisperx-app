@@ -879,7 +879,7 @@ def update_pipeline_config(hw_info: Dict, config_file: Path = None) -> bool:
         return True
         
     except Exception as e:
-        logger.error(f"  ⚠ Failed to update config: {e}", exc_info=True, exc_info=True)
+        logger.error(f"  ⚠ Failed to update config: {e}", exc_info=True)
         return False
 
 
@@ -916,7 +916,7 @@ def load_hardware_cache(cache_file: Path = None, max_age_hours: float = 1.0) -> 
         return hw_info
         
     except (json.JSONDecodeError, Exception) as e:
-        logger.error(f"  ⚠ Failed to load hardware cache: {e}", exc_info=True, exc_info=True)
+        logger.error(f"  ⚠ Failed to load hardware cache: {e}", exc_info=True)
         return None
 
 

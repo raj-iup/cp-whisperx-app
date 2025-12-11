@@ -298,6 +298,96 @@ if [ -f "requirements/requirements-llm.txt" ]; then
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════
+# USER PROFILE SETUP (userId-based architecture)
+# ═══════════════════════════════════════════════════════════════════════════
+
+log_section "USER PROFILE SETUP"
+log_info "Initializing user profile system (userId-based)"
+
+# Create users directory structure
+log_info "Creating users/ directory structure"
+mkdir -p "$PROJECT_ROOT/users/1"
+mkdir -p "$PROJECT_ROOT/users/1/cache"
+
+# Initialize .userIdCounter (next available userId = 2)
+echo "2" > "$PROJECT_ROOT/users/.userIdCounter"
+log_debug "Initialized .userIdCounter with value: 2"
+
+# Check if user already has secrets.json (migration path)
+SECRETS_FILE="$PROJECT_ROOT/config/secrets.json"
+USER_PROFILE="$PROJECT_ROOT/users/1/profile.json"
+
+if [ -f "$USER_PROFILE" ]; then
+    log_info "User profile already exists: users/1/profile.json"
+else
+    # Create user profile using Python
+    log_info "Creating default user profile: userId=1"
+    
+    "$PROJECT_ROOT/venv/common/bin/python3" << 'PYTHON_SCRIPT'
+import sys
+import json
+from pathlib import Path
+from datetime import datetime, timezone
+
+# Add project to path
+sys.path.insert(0, str(Path.cwd()))
+
+from shared.user_profile import UserProfile
+
+# Check if secrets.json exists (migration)
+secrets_path = Path('config/secrets.json')
+if secrets_path.exists():
+    print("Found config/secrets.json - migrating to userId=1")
+    with open(secrets_path, 'r') as f:
+        secrets = json.load(f)
+    
+    # Create user with migrated credentials
+    user_id = UserProfile.create_new_user(
+        name="",
+        email="",
+        huggingface_token=secrets.get('hf_token', ''),
+        tmdb_api_key=secrets.get('tmdb_api_key', ''),
+        pyannote_token=secrets.get('pyannote_token', secrets.get('PYANNOTE_API_TOKEN', '')),
+        openai_api_key=secrets.get('openai_api_key', ''),
+        anthropic_api_key=secrets.get('anthropic_api_key', ''),
+        google_api_key=secrets.get('google_api_key', '')
+    )
+    print(f"✓ Migrated credentials to users/{user_id}/profile.json")
+    print(f"  Note: config/secrets.json still exists (not deleted)")
+else:
+    # Create empty profile (user will add credentials later)
+    user_id = UserProfile.create_new_user(
+        name="",
+        email=""
+    )
+    print(f"✓ Created empty profile: users/{user_id}/profile.json")
+    print(f"  Add credentials: Edit users/1/profile.json")
+
+print(f"✓ Default user initialized: userId={user_id}")
+PYTHON_SCRIPT
+    
+    if [ $? -eq 0 ]; then
+        log_success "User profile created: users/1/profile.json"
+        log_info "userId: 1 (default user)"
+    else
+        log_error "Failed to create user profile"
+        log_warn "You can create it manually later"
+    fi
+fi
+
+# Verify structure
+if [ -d "$PROJECT_ROOT/users/1" ] && [ -f "$PROJECT_ROOT/users/.userIdCounter" ]; then
+    log_success "User profile system initialized"
+    log_debug "Structure:"
+    log_debug "  users/1/profile.json (userId 1)"
+    log_debug "  users/1/cache/ (user cache)"
+    log_debug "  users/.userIdCounter (next: 2)"
+else
+    log_warn "User profile system not fully initialized"
+    log_info "System will work but credentials need manual setup"
+fi
+
+# ═══════════════════════════════════════════════════════════════════════════
 # MODEL CACHING (Optional)
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -365,13 +455,21 @@ fi
 
 log_section "BOOTSTRAP COMPLETE"
 log_success "All environments created successfully"
+log_success "User profile system initialized (userId=1)"
 log_info ""
 log_info "Next steps:"
-log_info "  1. Prepare a job: ./prepare-job.sh --media in/movie.mp4 --workflow subtitle \\"
-log_info "     --source-language hi --target-language en"
-log_info "  2. Run pipeline: ./run-pipeline.sh -j <job-id>"
+log_info "  1. Add credentials: Edit users/1/profile.json"
+log_info "     - HuggingFace token (required for ASR)"
+log_info "     - TMDB API key (required for subtitle workflow)"
+log_info "     - Optional: OpenAI, Anthropic, Google API keys"
+log_info ""
+log_info "  2. Prepare a job: ./prepare-job.sh --user-id 1 --media in/movie.mp4 \\"
+log_info "     --workflow subtitle --source-language hi --target-language en"
+log_info ""
+log_info "  3. Run pipeline: ./run-pipeline.sh -j <job-id>"
 log_info ""
 log_info "Documentation: docs/INDEX.md"
+log_info "User profile: users/1/profile.json"
 log_info "Log file: $LOG_FILE"
 
 exit 0

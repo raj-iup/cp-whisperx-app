@@ -27,11 +27,12 @@ class StageIO:
     - Manifest tracking (inputs, outputs, intermediate files)
     - Automatic resource tracking
     
-    Directory structure:
-        output_base/
+    Directory structure (AD-001: Stage Isolation):
+        output_base/                    # Job root directory
+            99_pipeline_*.log           # Main orchestration log (job root per AD-001)
             01_demux/
-                stage.log              # NEW: Detailed stage log
-                manifest.json          # NEW: I/O tracking
+                stage.log               # Detailed stage log
+                manifest.json           # I/O tracking
                 audio.wav
                 metadata.json
             02_tmdb/
@@ -39,8 +40,6 @@ class StageIO:
                 manifest.json
                 tmdb_data.json
                 metadata.json
-            logs/
-                99_pipeline_*.log      # Main orchestration log
     """
     
     def __init__(self, stage_name: str, output_base: Optional[Path] = None, 
@@ -79,9 +78,9 @@ class StageIO:
         # Stage log file
         self.stage_log = self.stage_dir / "stage.log"
         
-        # Logs directory (for main pipeline log)
-        self.logs_dir = self.output_base / "logs"
-        self.logs_dir.mkdir(parents=True, exist_ok=True)
+        # Pipeline log directory (AD-001: job root, not logs/ subdirectory)
+        # Pipeline log goes directly to job root alongside stage directories
+        self.logs_dir = self.output_base
         
         # Initialize manifest
         self.enable_manifest = enable_manifest

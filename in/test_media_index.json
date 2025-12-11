@@ -1,0 +1,369 @@
+{
+  "version": "1.0",
+  "last_updated": "2025-12-03",
+  "description": "Standard test media samples for CP-WhisperX-App testing and validation",
+  "purpose": "Establish reproducible testing baseline with diverse use cases across workflows",
+  
+  "test_samples": [
+    {
+      "id": "sample_01",
+      "name": "English Technical Content",
+      "file": "Energy Demand in AI.mp4",
+      "path": "in/Energy Demand in AI.mp4",
+      "type": "video/mp4",
+      "size_estimate": "~14 MB",
+      "duration_estimate": "2-5 minutes",
+      
+      "content": {
+        "language": "en",
+        "primary_language": "English",
+        "content_type": "technical/educational",
+        "domain": "artificial intelligence, energy",
+        "description": "Technical discussion about energy demand in AI systems",
+        "characteristics": [
+          "Clear English audio",
+          "Technical terminology (AI, energy, demand)",
+          "Single speaker",
+          "Minimal background noise",
+          "Professional presentation style"
+        ]
+      },
+      
+      "workflows": [
+        "transcribe",
+        "translate"
+      ],
+      
+      "test_scenarios": [
+        {
+          "workflow": "transcribe",
+          "description": "English → English transcript",
+          "source_language": "en",
+          "target_language": "en",
+          "expected_quality": {
+            "asr_accuracy": 0.95,
+            "wer": 0.05,
+            "proper_noun_accuracy": 0.90,
+            "technical_term_accuracy": 0.95
+          },
+          "tests": [
+            "ASR accuracy on technical content",
+            "Word-level alignment precision",
+            "Technical terminology preservation",
+            "Proper noun detection"
+          ]
+        },
+        {
+          "workflow": "translate",
+          "description": "English → Hindi translation",
+          "source_language": "en",
+          "target_language": "hi",
+          "expected_quality": {
+            "translation_bleu": 0.90,
+            "fluency": 0.90,
+            "term_preservation": 1.0
+          },
+          "tests": [
+            "Technical term translation accuracy",
+            "English-to-Indic translation quality",
+            "IndicTrans2 model performance"
+          ]
+        },
+        {
+          "workflow": "translate",
+          "description": "English → Spanish translation",
+          "source_language": "en",
+          "target_language": "es",
+          "expected_quality": {
+            "translation_bleu": 0.88,
+            "fluency": 0.85,
+            "term_preservation": 1.0
+          },
+          "tests": [
+            "English-to-non-Indic translation",
+            "NLLB model performance",
+            "Technical terminology handling"
+          ]
+        }
+      ],
+      
+      "usage": {
+        "primary_purpose": "Test ASR accuracy on English technical content",
+        "secondary_purpose": "Validate translation quality for technical domain",
+        "recommended_for": [
+          "ASR accuracy testing",
+          "English language validation",
+          "Technical terminology handling",
+          "Translation quality baseline"
+        ]
+      }
+    },
+    
+    {
+      "id": "sample_02",
+      "name": "Hinglish Bollywood Content",
+      "file": "jaane_tu_test_clip.mp4",
+      "path": "in/test_clips/jaane_tu_test_clip.mp4",
+      "type": "video/mp4",
+      "size_estimate": "~28 MB",
+      "duration_estimate": "1-3 minutes",
+      
+      "content": {
+        "language": "hi-Hinglish",
+        "primary_language": "Hindi",
+        "secondary_language": "English (code-mixed)",
+        "content_type": "entertainment/bollywood",
+        "domain": "bollywood cinema, casual dialogue",
+        "movie": "Jaane Tu... Ya Jaane Na (2008)",
+        "description": "Bollywood movie dialogue with Hindi-English code-mixing (Hinglish)",
+        "characteristics": [
+          "Mixed Hindi-English (Hinglish)",
+          "Typical Bollywood dialogue patterns",
+          "Background music possible",
+          "Multiple speakers",
+          "Emotional/casual speech",
+          "Cultural context (Indian youth culture)",
+          "Character names (Jai, Aditi, Meow, etc.)"
+        ]
+      },
+      
+      "workflows": [
+        "subtitle",
+        "transcribe",
+        "translate"
+      ],
+      
+      "test_scenarios": [
+        {
+          "workflow": "subtitle",
+          "description": "Hindi/Hinglish → Multiple subtitle tracks",
+          "source_language": "hi",
+          "target_languages": ["hi", "en", "gu", "ta", "es", "ru", "zh", "ar"],
+          "expected_quality": {
+            "asr_accuracy": 0.85,
+            "wer": 0.15,
+            "subtitle_timing_accuracy": "±200ms",
+            "subtitle_quality": 0.88,
+            "context_awareness": 0.80,
+            "glossary_application": 1.0
+          },
+          "tests": [
+            "Full pipeline execution (10 stages)",
+            "Multi-language subtitle generation",
+            "Context-aware translation",
+            "Glossary term application",
+            "Character name preservation",
+            "Cultural context adaptation",
+            "Speaker diarization",
+            "Soft-embedding in organized structure",
+            "Temporal coherence across subtitles"
+          ],
+          "expected_output": {
+            "directory": "out/{date}/{user}/{job}/10_mux/{media_name}/",
+            "files": [
+              "{media_name}_subtitled.mkv",
+              "subtitles/{media_name}.hi.srt",
+              "subtitles/{media_name}.en.srt",
+              "subtitles/{media_name}.gu.srt",
+              "subtitles/{media_name}.ta.srt",
+              "subtitles/{media_name}.es.srt",
+              "subtitles/{media_name}.ru.srt",
+              "subtitles/{media_name}.zh.srt",
+              "subtitles/{media_name}.ar.srt",
+              "manifest.json"
+            ]
+          }
+        },
+        {
+          "workflow": "transcribe",
+          "description": "Hindi/Hinglish → Hindi transcript",
+          "source_language": "hi",
+          "target_language": "hi",
+          "expected_quality": {
+            "asr_accuracy": 0.85,
+            "wer": 0.15,
+            "code_mixing_handling": 0.80,
+            "character_name_accuracy": 0.90
+          },
+          "tests": [
+            "Hinglish ASR accuracy",
+            "Code-mixing (Hindi-English) handling",
+            "Character name detection",
+            "Devanagari script output"
+          ]
+        },
+        {
+          "workflow": "translate",
+          "description": "Hindi → English translation",
+          "source_language": "hi",
+          "target_language": "en",
+          "expected_quality": {
+            "translation_bleu": 0.90,
+            "fluency": 0.88,
+            "cultural_adaptation": 0.80,
+            "idiom_handling": 0.75
+          },
+          "tests": [
+            "Hindi-to-English translation quality",
+            "Cultural context preservation",
+            "Idiom and metaphor translation",
+            "Character name preservation",
+            "Formality level maintenance"
+          ]
+        },
+        {
+          "workflow": "translate",
+          "description": "Hindi → Gujarati translation (Indic-to-Indic)",
+          "source_language": "hi",
+          "target_language": "gu",
+          "expected_quality": {
+            "translation_bleu": 0.88,
+            "fluency": 0.88,
+            "script_consistency": 1.0
+          },
+          "tests": [
+            "Indic-to-Indic translation quality",
+            "IndicTrans2 model performance",
+            "Script preservation (Devanagari → Gujarati)",
+            "Cultural context preservation"
+          ]
+        },
+        {
+          "workflow": "translate",
+          "description": "Hindi → Spanish translation (Indic-to-non-Indic)",
+          "source_language": "hi",
+          "target_language": "es",
+          "expected_quality": {
+            "translation_bleu": 0.85,
+            "fluency": 0.82,
+            "cultural_adaptation": 0.75
+          },
+          "tests": [
+            "Indic-to-non-Indic translation",
+            "NLLB model performance",
+            "Cross-cultural adaptation",
+            "Name transliteration"
+          ]
+        }
+      ],
+      
+      "glossary": {
+        "character_names": ["Jai", "Aditi", "Meow", "Rats", "Rotlu", "Jiggy", "Shaleen", "Bombs"],
+        "cultural_terms": ["beta", "bhai", "ji", "yaar"],
+        "common_phrases": ["Jaane Tu Ya Jaane Na"]
+      },
+      
+      "usage": {
+        "primary_purpose": "Test complete subtitle workflow with context awareness",
+        "secondary_purpose": "Validate Hinglish ASR and multi-language translation",
+        "recommended_for": [
+          "Full pipeline integration testing",
+          "Subtitle generation quality",
+          "Context-aware features",
+          "Multi-language output",
+          "Glossary application",
+          "Cultural adaptation",
+          "Code-mixing handling",
+          "Bollywood/Indic content"
+        ]
+      }
+    }
+  ],
+  
+  "usage_guidelines": {
+    "quick_tests": {
+      "description": "Fast validation of core functionality",
+      "samples": ["sample_01"],
+      "duration": "5-10 minutes",
+      "workflows": ["transcribe"]
+    },
+    
+    "comprehensive_tests": {
+      "description": "Full pipeline validation with all features",
+      "samples": ["sample_01", "sample_02"],
+      "duration": "30-60 minutes",
+      "workflows": ["subtitle", "transcribe", "translate"]
+    },
+    
+    "quality_baselines": {
+      "description": "Establish quality metrics for regression testing",
+      "samples": ["sample_01", "sample_02"],
+      "metrics": [
+        "ASR Word Error Rate (WER)",
+        "Translation BLEU score",
+        "Subtitle timing accuracy",
+        "Context preservation score",
+        "Glossary application rate"
+      ]
+    },
+    
+    "caching_tests": {
+      "description": "Validate caching and ML optimization",
+      "samples": ["sample_02"],
+      "scenarios": [
+        "First run (cold cache)",
+        "Second run (identical media)",
+        "Third run (similar content)"
+      ]
+    }
+  },
+  
+  "test_commands": {
+    "sample_01_transcribe": {
+      "description": "Transcribe English technical content",
+      "command": "./prepare-job.sh --media \"in/Energy Demand in AI.mp4\" --workflow transcribe --source-language en",
+      "expected_duration": "5-8 minutes"
+    },
+    
+    "sample_01_translate_hi": {
+      "description": "Translate English to Hindi",
+      "command": "./prepare-job.sh --media \"in/Energy Demand in AI.mp4\" --workflow translate --source-language en --target-language hi",
+      "expected_duration": "8-12 minutes"
+    },
+    
+    "sample_02_subtitle": {
+      "description": "Generate multi-language subtitles for Hinglish content",
+      "command": "./prepare-job.sh --media in/test_clips/jaane_tu_test_clip.mp4 --workflow subtitle --source-language hi --target-languages en,gu,ta,es",
+      "expected_duration": "15-25 minutes"
+    },
+    
+    "sample_02_transcribe": {
+      "description": "Transcribe Hinglish content",
+      "command": "./prepare-job.sh --media in/test_clips/jaane_tu_test_clip.mp4 --workflow transcribe --source-language hi",
+      "expected_duration": "8-12 minutes"
+    },
+    
+    "sample_02_translate_en": {
+      "description": "Translate Hindi to English",
+      "command": "./prepare-job.sh --media in/test_clips/jaane_tu_test_clip.mp4 --workflow translate --source-language hi --target-language en",
+      "expected_duration": "10-15 minutes"
+    }
+  },
+  
+  "quality_targets": {
+    "english_technical": {
+      "sample": "sample_01",
+      "asr_wer": "≤5%",
+      "translation_bleu": "≥90%",
+      "technical_term_accuracy": "≥95%"
+    },
+    
+    "hinglish_entertainment": {
+      "sample": "sample_02",
+      "asr_wer": "≤15%",
+      "subtitle_quality": "≥88%",
+      "context_awareness": "≥80%",
+      "glossary_application": "100%",
+      "subtitle_timing": "±200ms"
+    }
+  },
+  
+  "notes": [
+    "Test samples should be version-controlled or stored in accessible location",
+    "Baseline quality metrics should be updated quarterly",
+    "Add new samples as pipeline capabilities expand",
+    "Document any licensing restrictions for test media",
+    "Consider adding samples for: Arabic, Chinese, Russian content",
+    "Consider adding samples for: Noisy audio, accented speech, multi-speaker scenarios"
+  ]
+}

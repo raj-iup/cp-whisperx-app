@@ -1,0 +1,6 @@
+# YouTube Integration Requirements
+# Phase 1: YouTube support via yt-dlp
+
+# yt-dlp - Modern YouTube downloader (replaces deprecated youtube-dl)
+# Supports 1000+ sites, actively maintained
+yt-dlp>=2024.8.6

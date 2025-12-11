@@ -220,7 +220,7 @@ class PipelineLogger:
         # Try to load log level from config/environment if not explicitly set
         if log_level == "INFO":
             try:
-                from config import load_config
+                from shared.config import load_config
                 config = load_config()
                 if hasattr(config, 'log_level') and config.log_level:
                     log_level = config.log_level.upper()
@@ -241,7 +241,7 @@ class PipelineLogger:
         else:
             # Load log directory from config if available
             try:
-                from config import load_config
+                from shared.config import load_config
                 config = load_config()
                 log_dir = config.log_root
             except:
@@ -298,7 +298,7 @@ def setup_dual_logger(
     Args:
         stage_name: Name of the stage (e.g., "asr", "alignment")
         stage_log_file: Path to stage.log file
-        main_log_dir: Directory containing main pipeline log
+        main_log_dir: Job root directory (NOT logs/ subdirectory per AD-001)
         log_level: Minimum log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
     
     Returns:
@@ -310,10 +310,10 @@ def setup_dual_logger(
         >>> logger = setup_dual_logger(
         ...     "asr",
         ...     Path("out/job1/06_asr/stage.log"),
-        ...     Path("out/job1/logs")
+        ...     Path("out/job1")  # Job root, not logs/
         ... )
         >>> logger.debug("Detailed processing step")  # Only in stage.log
-        >>> logger.info("Stage progress")  # In stage.log + pipeline.log + console
+        >>> logger.info("Stage progress")  # In stage.log + 99_pipeline_*.log + console
     """
     logger = logging.getLogger(f"stage.{stage_name}")
     logger.setLevel(getattr(logging, log_level.upper()))
@@ -333,14 +333,18 @@ def setup_dual_logger(
     )
     
     # Handler 1: Stage-specific log (ALL levels including DEBUG)
+    # Phase 3 Optimization: Create handler with buffered file stream
     stage_log_file.parent.mkdir(parents=True, exist_ok=True)
-    stage_handler = logging.FileHandler(stage_log_file, mode='a', encoding='utf-8')
+    # Open file with buffering
+    stage_file = open(stage_log_file, mode='a', encoding='utf-8', buffering=8192)
+    stage_handler = logging.StreamHandler(stage_file)
     stage_handler.setFormatter(detailed_formatter)
     stage_handler.setLevel(logging.DEBUG)  # Capture everything
     logger.addHandler(stage_handler)
     
     # Handler 2: Main pipeline log (INFO and above only)
-    main_log_dir.mkdir(parents=True, exist_ok=True)
+    # Phase 3 Optimization: Create handler with buffered file stream
+    # AD-001: Pipeline log in job root (main_log_dir already exists from StageIO)
     
     # Find or create main pipeline log
     today = datetime.now().strftime("%Y%m%d")
@@ -354,7 +358,9 @@ def setup_dual_logger(
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         main_log_file = main_log_dir / f"99_pipeline_{timestamp}.log"
     
-    main_handler = logging.FileHandler(main_log_file, mode='a', encoding='utf-8')
+    # Open file with buffering  
+    main_file = open(main_log_file, mode='a', encoding='utf-8', buffering=8192)
+    main_handler = logging.StreamHandler(main_file)
     main_handler.setFormatter(simple_formatter)
     main_handler.setLevel(logging.INFO)  # Only important messages to main log
     logger.addHandler(main_handler)
@@ -402,6 +408,7 @@ def get_stage_logger(
             stage_dir = output_dir / f"99_{stage_name}"
     
     stage_log_file = stage_dir / "stage.log"
-    main_log_dir = stage_dir.parent / "logs"
+    # AD-001: Main log goes to job root, not separate logs/ directory
+    main_log_dir = stage_dir.parent  # Job root
     
     return setup_dual_logger(stage_name, stage_log_file, main_log_dir, log_level)

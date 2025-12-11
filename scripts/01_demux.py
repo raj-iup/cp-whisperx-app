@@ -40,11 +40,47 @@ def run_stage(job_dir: Path, stage_name: str = "01_demux") -> int:
         logger.info("DEMUX STAGE: Extract Audio from Video")
         logger.info("=" * 60)
         
-        # Load configuration
+        # 1. Load system defaults from config
         config = load_config()
         
-        # Get input file
+        # Get input file from config
         input_file = getattr(config, 'in_root', getattr(config, 'input_media', ''))
+        media_mode = getattr(config, 'media_processing_mode', 'full')
+        start_time = getattr(config, 'media_start_time', None)
+        end_time = getattr(config, 'media_end_time', None)
+        
+        # 2. Override with job.json parameters (AD-006)
+        job_json_path = job_dir / "job.json"
+        if job_json_path.exists():
+            logger.info("Reading job-specific parameters from job.json...")
+            with open(job_json_path) as f:
+                job_data = json.load(f)
+                
+                # Override input_media if specified
+                if 'input_media' in job_data and job_data['input_media']:
+                    old_value = input_file
+                    input_file = job_data['input_media']
+                    logger.info(f"  input_media override: {old_value} → {input_file} (from job.json)")
+                
+                # Override media_processing parameters if specified
+                if 'media_processing' in job_data:
+                    mp = job_data['media_processing']
+                    if 'mode' in mp:
+                        old_value = media_mode
+                        media_mode = mp['mode']
+                        logger.info(f"  media_mode override: {old_value} → {media_mode} (from job.json)")
+                    if 'start_time' in mp:
+                        old_value = start_time
+                        start_time = mp['start_time']
+                        logger.info(f"  start_time override: {old_value} → {start_time} (from job.json)")
+                    if 'end_time' in mp:
+                        old_value = end_time
+                        end_time = mp['end_time']
+                        logger.info(f"  end_time override: {old_value} → {end_time} (from job.json)")
+        else:
+            logger.warning(f"job.json not found at {job_json_path}, using system defaults")
+        
+        # 3. Validate input file exists
         if not input_file or not Path(input_file).exists():
             raise FileNotFoundError(f"Input media not found: {input_file}")
         
@@ -53,11 +89,6 @@ def run_stage(job_dir: Path, stage_name: str = "01_demux") -> int:
         io.track_input(input_path, "video", format=input_path.suffix)
         
         logger.info(f"Input media: {input_file}")
-        
-        # Check if we're processing a clip or full media
-        media_mode = getattr(config, 'media_processing_mode', 'full')
-        start_time = getattr(config, 'media_start_time', None)
-        end_time = getattr(config, 'media_end_time', None)
         
         if media_mode == "clip" and (start_time or end_time):
             logger.info(f"Processing mode: CLIP")
@@ -118,6 +149,87 @@ def run_stage(job_dir: Path, stage_name: str = "01_demux") -> int:
         
         logger.info(f"✓ Audio extracted successfully: {audio_file}")
         logger.debug(f"File size: {audio_file.stat().st_size / (1024*1024):.2f} MB")
+        
+        # ========================================
+        # SIMILARITY OPTIMIZATION (Task #18)
+        # ========================================
+        try:
+            logger.info("=" * 60)
+            logger.info("Similarity Analysis")
+            logger.info("=" * 60)
+            
+            from shared.similarity_optimizer import get_similarity_optimizer
+            
+            # Check if similarity optimization is enabled
+            similarity_enabled = config.get("ENABLE_SIMILARITY_OPTIMIZATION", "true").lower() == "true"
+            
+            if similarity_enabled:
+                optimizer = get_similarity_optimizer()
+                
+                # Compute fingerprint for this media
+                logger.info("🔍 Computing media fingerprint...")
+                fingerprint = optimizer.compute_fingerprint(input_path, audio_file)
+                
+                # Find similar media
+                similarity_threshold = float(config.get("SIMILARITY_THRESHOLD", "0.75"))
+                matches = optimizer.find_similar_media(fingerprint, threshold=similarity_threshold)
+                
+                if matches:
+                    logger.info(f"✓ Found {len(matches)} similar media")
+                    
+                    # Get best match
+                    best_match = matches[0]
+                    logger.info(f"  Best match: {best_match.reference_media_id[:16]}...")
+                    logger.info(f"  Similarity: {best_match.similarity_score:.1%}")
+                    logger.info(f"  Confidence: {best_match.confidence:.1%}")
+                    logger.info(f"  Reusable: {', '.join(best_match.reusable_decisions)}")
+                    
+                    # Try to get reusable decision
+                    decision = optimizer.get_reusable_decisions(best_match)
+                    if decision:
+                        logger.info("✓ Reusable processing decision found")
+                        logger.info(f"  Previous model: {decision.model_used}")
+                        logger.info(f"  Previous workflow: {decision.workflow}")
+                        logger.info(f"  Previous time: {decision.processing_time:.1f}s")
+                        
+                        # Store for later use by ASR stage
+                        similarity_data = {
+                            "enabled": True,
+                            "fingerprint": fingerprint.to_dict(),
+                            "best_match": {
+                                "media_id": best_match.reference_media_id,
+                                "similarity": best_match.similarity_score,
+                                "confidence": best_match.confidence,
+                                "reusable": best_match.reusable_decisions
+                            },
+                            "reuse_decision": decision.to_dict() if decision else None
+                        }
+                        
+                        # Save to stage directory for ASR stage to read
+                        similarity_file = io.stage_dir / "similarity_match.json"
+                        with open(similarity_file, 'w') as f:
+                            json.dump(similarity_data, f, indent=2)
+                        
+                        logger.info(f"✓ Similarity data saved: {similarity_file}")
+                        io.track_output(similarity_file, "similarity_analysis")
+                        
+                        # Estimate time savings
+                        if decision and "asr_results" in best_match.reusable_decisions:
+                            savings_pct = int((1 - (decision.processing_time * 0.05) / decision.processing_time) * 100)
+                            logger.info(f"💡 Estimated time savings: ~{savings_pct}% (can reuse ASR results)")
+                        else:
+                            logger.info(f"💡 Can reuse: model selection, parameters")
+                    else:
+                        logger.info("⚠️  Similarity too low for decision reuse")
+                else:
+                    logger.info("ℹ️  No similar media found - will process from scratch")
+            else:
+                logger.info("ℹ️  Similarity optimization disabled")
+                
+        except Exception as e:
+            # Don't fail the stage if similarity check fails
+            logger.warning(f"Similarity analysis failed: {e}")
+            logger.debug("Continuing without similarity optimization", exc_info=True)
         
         logger.info("=" * 60)
         logger.info("DEMUX STAGE COMPLETED")

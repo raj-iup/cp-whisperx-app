@@ -1,14 +1,15 @@
 # Testing Infrastructure
 
-**Phase 2: Testing Infrastructure** - Comprehensive test suite for CP-WhisperX-App
+**Organized Test Structure per AD-013** - Comprehensive test suite for CP-WhisperX-App
 
 ## Overview
 
-This testing infrastructure provides comprehensive test coverage for the pipeline, including:
-- **Unit Tests**: Fast, isolated tests for individual components
-- **Integration Tests**: Tests for complete workflows and stage interactions
-- **Stage Tests**: Specific tests for each pipeline stage
-- **Utilities**: Helpers for test creation, execution, and validation
+This testing infrastructure provides comprehensive test coverage for the pipeline:
+- **Unit Tests** (`tests/unit/`): Fast, isolated tests for individual components
+- **Integration Tests** (`tests/integration/`): Module interaction with real dependencies
+- **Functional Tests** (`tests/functional/`): End-to-end workflow validation
+- **Manual Tests** (`tests/manual/`): Developer test scripts (shell/PowerShell)
+- **Test Fixtures** (`tests/fixtures/`): Shared test data and expected outputs
 
 ## Quick Start
 
@@ -21,33 +22,27 @@ pip install -r requirements/requirements-test.txt
 ### Run All Tests
 
 ```bash
-# Run all tests
+# Run all pytest tests
 pytest
 
 # Run with coverage
-pytest --cov
+pytest --cov=shared --cov=scripts
 
 # Run specific test categories
-pytest -m unit          # Unit tests only
-pytest -m integration   # Integration tests only
-pytest -m smoke         # Smoke tests only
-pytest -m stage         # Stage-specific tests
+pytest tests/unit/           # Unit tests only (fast)
+pytest tests/integration/    # Integration tests only
+pytest tests/functional/     # E2E tests only (slow)
+pytest -m "not slow"         # Skip slow tests
 ```
 
-### Run Tests by Directory
+### Run Manual Scripts
 
 ```bash
-# Unit tests
-pytest tests/unit -v
-
-# Integration tests
-pytest tests/integration -v
-
-# Stage tests
-pytest tests/stages -v
+# Manual test scripts (not pytest)
+./tests/manual/glossary/test-glossary-quickstart.sh
 ```
 
-## Test Organization
+## Test Organization (AD-013)
 
 ```
 tests/

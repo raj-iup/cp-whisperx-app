@@ -1,11 +1,58 @@
 # CP-WhisperX Developer Standards & Best Practices
 
-**Document Version:** 6.0  
-**Date:** December 3, 2025  
-**Last Updated:** December 3, 2025  
+**Document Version:** 6.7  
+**Date:** December 6, 2025  
+**Last Updated:** December 6, 2025 (M-001 Alignment Audit)
 **Status:** ACTIVE - All development must follow these standards  
 **Compliance Target:** 80% minimum  
 **Current Status:** 🎊 **100% COMPLIANCE ACHIEVED** 🎊
+
+**🎯 ARCHITECTURE REFERENCE:** See [ARCHITECTURE.md](../../ARCHITECTURE.md) for authoritative architecture decisions (10 total: AD-001 through AD-010).
+
+**Major Updates in v6.7 (December 6, 2025):**
+- 🏛️ **AD-010 ADDED**: Workflow-Specific Output Requirements
+- 📝 **§ 20.6**: Documented workflow output patterns (transcribe, translate, subtitle)
+- 📋 **M-001 Audit**: Monthly alignment audit completed (95% → 100% coverage)
+- ✅ **10 ADs**: All architectural decisions now fully documented
+
+**Major Updates in v6.6 (December 5, 2025):**
+- 🏛️ **AD-009 ACTIVE**: Prioritize Quality Over Backward Compatibility
+- 📝 **Development Philosophy**: Optimize for best output quality during active development
+- ✅ **Refactoring Strategy**: Direct implementation over compatibility wrappers
+- 📋 **Pre-v3.0**: Aggressive optimization allowed, backward compatibility NOT required
+- 🎯 **Quality First**: ASR WER < 5%, Translation BLEU > 90%, Subtitle Quality > 88%
+
+**Major Updates in v6.5 (December 4, 2025 14:00 UTC):**
+- 🏛️ **AD-007 MANDATORY**: Consistent shared/ import paths
+- 🐛 **Bug #4 Fixed**: Bias window generator import (whisperx_integration.py line 1511)
+- 📝 **Import Pattern**: Enhanced § 6.1 with shared/ prefix requirement
+- ✅ **All Imports**: Must use "shared." prefix for shared/ modules
+- 📋 **Lazy Imports**: Same rule applies to try/except imports
+
+**Major Updates in v6.4 (December 4, 2025):**
+- 🏛️ **AD-006 MANDATORY**: Job-specific parameters override system defaults
+- 📝 **Configuration Pattern**: Added § 3.3 with standard implementation pattern
+- ✅ **All Stages**: Must read job.json parameters before using system config
+- 🐛 **Bug #3 Fixed**: Language detection (whisperx_integration.py)
+- 📋 **Compliance**: New mandatory pattern for all current and future stages
+
+**Major Updates in v6.3 (December 4, 2025):**
+- 🎯 **Architecture Aligned**: Updated to reflect 12-stage pipeline
+- 🎯 **Progress Updated**: 55% → 75% (Phase 4)
+- 📝 **Stage Count Updated**: 10 stages → 12 stages in compliance matrix
+- 📝 **Experimental Stage**: Documented 11_ner.py as optional
+- 📝 **ASR Helper Pattern**: Added modularization guidance
+
+**Major Updates in v6.2 (December 3, 2025):**
+- 🐛 **Syntax Error Fixed**: Duplicate exc_info=True parameters (8 instances)
+- 📝 **Error Handling Enhanced**: Added common mistake warnings
+- 📝 **Best Practice Documented**: Use exc_info=True exactly once
+
+**Major Updates in v6.1 (December 3, 2025):**
+- 🐛 **StageManifest Enhanced**: add_intermediate() method implemented
+- 🐛 **TMDB Workflow-Aware**: Only enabled for subtitle workflow
+- 🐛 **Source Language Optional**: Transcribe auto-detects language
+- 🐛 **Script Path Fixed**: Corrected TMDB stage reference
 
 **Major Updates in v6.0:**
 - 🆕 **AI Model Routing**: Automated updates for model releases
@@ -48,16 +95,19 @@ This document defines comprehensive development standards for the CP-WhisperX-Ap
 
 | Stage # | Stage Name | File | StageIO | Logger | Config | Manifest | Error | Docs | Score |
 |---------|------------|------|---------|--------|--------|----------|-------|------|-------|
-| 1 | demux | run-pipeline.py | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 100% |
-| 2 | tmdb | tmdb_enrichment_stage.py | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 100% |
-| 3 | glossary_load | glossary_builder.py | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 100% |
-| 4 | source_separation | source_separation.py | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 100% |
-| 5 | pyannote_vad | pyannote_vad.py | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 100% |
-| 6 | asr | whisperx_integration.py | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 100% |
-| 7 | alignment | mlx_alignment.py | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 100% |
-| 8 | lyrics_detection | lyrics_detection.py | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 100% |
-| 9 | subtitle_generation | subtitle_gen.py | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 100% |
-| 10 | mux | mux.py | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 100% |
+| 1 | demux | 01_demux.py | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 100% |
+| 2 | tmdb | 02_tmdb_enrichment.py | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 100% |
+| 3 | glossary_load | 03_glossary_load.py | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 100% |
+| 4 | source_separation | 04_source_separation.py | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 100% |
+| 5 | pyannote_vad | 05_pyannote_vad.py | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 100% |
+| 6 | whisperx_asr | 06_whisperx_asr.py | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 100% |
+| 7 | alignment | 07_alignment.py | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 100% |
+| 8 | lyrics_detection | 08_lyrics_detection.py | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 100% |
+| 9 | hallucination_removal | 09_hallucination_removal.py | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 100% |
+| 10 | translation | 10_translation.py | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 100% |
+| 11 | subtitle_generation | 11_subtitle_generation.py | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 100% |
+| 11* | ner (experimental) | 11_ner.py | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 100% |
+| 12 | mux | 12_mux.py | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 100% |
 
 **Legend:**
 - **StageIO**: Uses StageIO pattern with manifest tracking ✅
@@ -66,22 +116,23 @@ This document defines comprehensive development standards for the CP-WhisperX-Ap
 - **Manifest**: Creates manifest.json with I/O tracking ✅
 - **Error**: Comprehensive error handling with manifest tracking ✅
 - **Docs**: Has complete module docstring ✅
+- **\***: Experimental/optional stage
 
 ### 🎊 Achievement Summary
 
 **All Critical Issues Resolved:**
-- ✅ **Config Usage**: All 10 stages use `load_config()` pattern
-- ✅ **Logger Imports**: All 10 stages use proper dual logging
-- ✅ **StageIO Pattern**: All 10 stages use StageIO with manifest tracking
-- ✅ **Error Handling**: All 10 stages have comprehensive error handling
-- ✅ **Path Management**: All 10 stages use centralized stage ordering
-- ✅ **Documentation**: All 10 stages have complete docstrings
+- ✅ **Config Usage**: All 12 stages use `load_config()` pattern
+- ✅ **Logger Imports**: All 12 stages use proper dual logging
+- ✅ **StageIO Pattern**: All 12 stages use StageIO with manifest tracking
+- ✅ **Error Handling**: All 12 stages have comprehensive error handling
+- ✅ **Path Management**: All 12 stages use centralized stage ordering
+- ✅ **Documentation**: All 12 stages have complete docstrings
 
 **Compliance Achievement:**
 - Original Standards: 100% ✅
 - Logging Architecture: 100% ✅
 - Combined Overall: 100% ✅
-- Perfect Stages: 10/10 (100%) ✅
+- Perfect Stages: 12/12 production + 1 experimental (100%) ✅
 
 ---
 
@@ -131,7 +182,7 @@ All pipeline stages **will** follow the pattern documented in § 4 below.
 - ⏳ Phase 1: File Naming (2 weeks) - **READY** - Rename scripts to match standards
 - ⏳ Phase 2: Testing Infrastructure (3 weeks) - **READY** - Test media, workflows
 - ⏳ Phase 3: StageIO Migration (4 weeks) - **BLOCKED** - Migrate 5 active stages
-- ⏳ Phase 4: Stage Integration (8 weeks) - **BLOCKED** - Complete 10-stage pipeline
+- ⏳ Phase 4: Stage Integration (8 weeks) - **IN PROGRESS** - Complete 12-stage pipeline with lyrics/hallucination
 - ⏳ Phase 5: Advanced Features (4 weeks) - **BLOCKED** - Caching, ML, monitoring
 
 ### Migration Checklist
@@ -304,29 +355,59 @@ python3 scripts/validate-compliance.py --check-paths scripts/*.py
 out/[Year]/[Month]/[Day]/[User]/[JobID]/
 ├── job.json                     # Job metadata and parameters (created by prepare-job)
 ├── .env.pipeline                # Job-specific config copied from config/.env.pipeline
-├── media/                       # Input media files
-│   └── input.mp4
+├── logs/                        # Shared logs directory
+│   └── pipeline.log
 ├── 01_demux/
 │   ├── manifest.json
-│   ├── 01_demux.log
+│   ├── stage.log
 │   └── audio.wav
 ├── 02_tmdb/
 │   ├── manifest.json
-│   ├── 02_tmdb.log
+│   ├── stage.log
 │   └── metadata.json
 ├── 03_glossary_load/
 │   ├── manifest.json
-│   ├── 03_glossary_load.log
+│   ├── stage.log
 │   └── glossary_terms.json
 ├── 04_source_separation/
 │   ├── manifest.json
-│   ├── 04_source_separation.log
+│   ├── stage.log
 │   └── vocals.wav
-├── ...
-└── 10_mux/
+├── 05_pyannote_vad/
+│   ├── manifest.json
+│   ├── stage.log
+│   └── segments.json
+├── 06_whisperx_asr/
+│   ├── manifest.json
+│   ├── stage.log
+│   └── transcript.json
+├── 07_alignment/
+│   ├── manifest.json
+│   ├── stage.log
+│   └── segments_aligned.json
+├── 08_lyrics_detection/         # Subtitle workflow only (MANDATORY)
+│   ├── manifest.json
+│   ├── stage.log
+│   └── transcript_with_lyrics.json
+├── 09_hallucination_removal/    # Subtitle workflow only (MANDATORY)
+│   ├── manifest.json
+│   ├── stage.log
+│   └── transcript_cleaned.json
+├── 10_translation/
+│   ├── manifest.json
+│   ├── stage.log
+│   ├── transcript_en.json
+│   └── transcript_gu.json
+├── 11_subtitle_generation/
+│   ├── manifest.json
+│   ├── stage.log
+│   └── subtitles/
+│       ├── movie.hi.srt
+│       └── movie.en.srt
+└── 12_mux/
     ├── manifest.json
-    ├── 10_mux.log
-    └── video_with_subtitles.mp4
+    ├── stage.log
+    └── movie_subtitled.mkv
 ```
 
 **Job Preparation Flow:**
@@ -574,6 +655,111 @@ hardware_cache.json
 
 ---
 
+
+#### 1.3.1 Stage Output File Naming (MANDATORY)
+
+**Status:** 🔴 **CRITICAL** - Must be implemented immediately  
+**Added:** 2025-12-05 (E2E Test Analysis)  
+**Impact:** HIGH - Affects all stages
+
+**RULE:** All stage output files MUST follow this pattern:
+
+```
+{stage_name}_{descriptor}.{extension}
+```
+
+**Requirements:**
+1. ✅ **Prefix with stage name** (e.g., `asr_`, `demux_`, `alignment_`)
+2. ✅ **Descriptive middle part** (e.g., `segments`, `transcript`, `metadata`)
+3. ✅ **Appropriate extension** (`.json`, `.txt`, `.wav`, `.srt`, etc.)
+4. ❌ **NO leading special characters** (`.`, `-`, `_` prefix)
+5. ❌ **NO hidden files** (dot-prefixed) unless system files (`.gitignore`)
+6. ❌ **NO language-only prefixes** (e.g., `-English`, `.hindi`)
+7. ✅ **Language-specific files:** Use `{stage}_{language}_{descriptor}.{ext}`
+
+**Examples:**
+
+✅ **CORRECT:**
+```
+01_demux/demux_audio.wav
+02_tmdb/tmdb_metadata.json
+03_glossary_load/glossary_terms.json
+04_source_separation/separation_vocals.wav
+05_pyannote_vad/vad_segments.json
+06_asr/asr_segments.json
+06_asr/asr_transcript.txt
+06_asr/asr_transcript.json
+06_asr/asr_english_segments.json          # Language-specific
+06_asr/asr_hindi_transcript.txt           # Language-specific
+07_alignment/alignment_segments.json
+07_alignment/alignment_segments_aligned.json
+08_lyrics_detection/lyrics_segments.json
+09_hallucination_removal/hallucination_cleaned_segments.json
+10_translation/translation_hindi_segments.json
+10_translation/translation_english_text.txt
+11_subtitle_generation/subtitle_english.srt
+11_subtitle_generation/subtitle_hindi.srt
+12_mux/mux_output.mkv
+```
+
+❌ **INCORRECT (Found in job-20251205-rpatel-0002):**
+```
+06_asr/.segments.json                     # Hidden file (leading dot)
+06_asr/.srt                               # Hidden + no descriptor
+06_asr/.transcript.txt                    # Hidden file
+06_asr/.whisperx.json                     # Hidden file
+06_asr/-English.segments.json             # Leading dash
+06_asr/-English.srt                       # Leading dash
+06_asr/.transcript-English.txt            # Hidden + inconsistent
+06_asr/segments.json                      # Missing stage prefix
+06_asr/transcript.json                    # Missing stage prefix
+transcripts/segments.json                 # Wrong directory (violates arch)
+```
+
+**Why This Matters:**
+- **Discoverability:** Hidden files (`.`) are not immediately visible in `ls` or file explorers
+- **Consistency:** Easy to identify file origin at a glance
+- **Tooling:** Scripts can reliably find files by predictable names
+- **Debugging:** Clear file provenance when troubleshooting
+- **Standards:** Aligns with professional software practices
+
+**Implementation Pattern:**
+```python
+# Stage script pattern
+from pathlib import Path
+
+def run_stage(job_dir: Path, stage_name: str) -> int:
+    io = StageIO(stage_name, job_dir, enable_manifest=True)
+    
+    # Output file naming
+    output_file = io.stage_dir / f"{stage_name}_segments.json"
+    transcript = io.stage_dir / f"{stage_name}_transcript.txt"
+    
+    # Language-specific files
+    if language_code:
+        lang_output = io.stage_dir / f"{stage_name}_{language_code}_segments.json"
+        lang_subtitle = io.stage_dir / f"{stage_name}_{language_code}_subtitles.srt"
+    
+    # Track in manifest
+    io.manifest.add_output(output_file, io.compute_hash(output_file))
+    
+    return 0
+```
+
+**Current Violations (to fix):**
+- `scripts/whisperx_integration.py`: Lines with `.segments.json`, `-{lang}.srt`
+- All stages: Audit output file names for compliance
+
+**Validation:**
+```bash
+# Find files with leading special characters
+find out/*/12/*/rpatel/* -name ".*" -o -name "-*" | grep -v ".DS_Store\|.gitignore"
+
+# Expected: Zero results (except .DS_Store, .gitignore)
+```
+
+---
+
 ## 1.4 Testing Infrastructure & Standard Test Media
 
 **Purpose:** Establish reproducible testing baseline with diverse use cases for all three core workflows.
@@ -732,7 +918,7 @@ CP-WhisperX supports three primary workflows, each optimized for specific use ca
 ```
 01_demux → 02_tmdb → 03_glossary_load → 04_source_sep (optional) →
 05_pyannote_vad → 06_whisperx_asr → 07_alignment → 08_translate →
-09_subtitle_gen → 10_mux
+07_alignment → 08_lyrics_detection → 09_hallucination_removal → 10_translation → 11_subtitle_generation → 12_mux
 ```
 
 **Context-Aware Features:**
@@ -744,18 +930,20 @@ CP-WhisperX supports three primary workflows, each optimized for specific use ca
 
 **Output Structure:**
 ```
-out/{date}/{user}/{job}/10_mux/{media_name}/
-├── {media_name}_subtitled.mkv     # Original + all subtitle tracks
-├── subtitles/
-│   ├── {media_name}.hi.srt        # Hindi (native)
-│   ├── {media_name}.en.srt        # English
-│   ├── {media_name}.gu.srt        # Gujarati
-│   ├── {media_name}.ta.srt        # Tamil
-│   ├── {media_name}.es.srt        # Spanish
-│   ├── {media_name}.ru.srt        # Russian
-│   ├── {media_name}.zh.srt        # Chinese
-│   └── {media_name}.ar.srt        # Arabic
-└── manifest.json                   # Processing metadata
+out/{date}/{user}/{job}/12_mux/
+├── {media_name}_subtitled.mkv        # Original video + all embedded subtitle tracks
+└── manifest.json                     # Processing metadata
+
+# Individual subtitle files are in stage 11:
+out/{date}/{user}/{job}/11_subtitle_generation/subtitles/
+├── {media_name}.hi.srt              # Hindi (native)
+├── {media_name}.en.srt              # English
+├── {media_name}.gu.srt              # Gujarati
+├── {media_name}.ta.srt              # Tamil
+├── {media_name}.es.srt              # Spanish
+├── {media_name}.ru.srt              # Russian
+├── {media_name}.zh.srt              # Chinese
+└── {media_name}.ar.srt              # Arabic
 ```
 
 **Usage Example:**
@@ -1346,11 +1534,15 @@ Input Video (in/film.mp4)
     ↓
 [07_alignment] → aligned_segments.json
     ↓
-[08_lyrics_detection] → lyrics_enhanced.json
+[08_lyrics_detection] → transcript_with_lyrics.json
     ↓
-[09_subtitle_generation] → subtitles.srt
+[09_hallucination_removal] → transcript_cleaned.json
     ↓
-[10_mux] → output_video.mp4
+[10_translation] → transcript_{lang}.json
+    ↓
+[11_subtitle_generation] → subtitles/{media}.{lang}.srt
+    ↓
+[12_mux] → {media}_subtitled.mkv
 ```
 
 **Each manifest records:**
@@ -1414,6 +1606,79 @@ For complete details on the logging architecture, see:
 - **[ENHANCED_LOGGING_IMPLEMENTATION.md](ENHANCED_LOGGING_IMPLEMENTATION.md)** - Complete implementation guide
 - **[LOGGING_ARCHITECTURE.md](LOGGING_ARCHITECTURE.md)** - Detailed architecture
 - **[LOGGING_QUICKREF.md](LOGGING_QUICKREF.md)** - Quick reference patterns
+
+### 3.3 Stage Configuration Loading (MANDATORY)
+
+**✅ ARCHITECTURAL DECISION AD-006:**  
+**All stages MUST honor job-specific parameters over system defaults.**
+
+**Priority Order (Highest to Lowest):**
+1. **job.json** - User's explicit CLI choices (--source-language, --workflow, etc.)
+2. **Job .env file** - Job-specific overrides (job-YYYYMMDD-user-NNNN/.env.pipeline)
+3. **System config** - Global defaults (config/.env.pipeline)
+4. **Code defaults** - Hardcoded fallbacks (last resort)
+
+**Standard Pattern (MANDATORY FOR ALL STAGES):**
+
+```python
+#!/usr/bin/env python3
+from pathlib import Path
+import json
+from shared.config_loader import load_config
+
+def run_stage(job_dir: Path, stage_name: str) -> int:
+    # Step 1: Load system defaults
+    config = load_config()
+    source_lang = getattr(config, 'whisper_language', 'hi')
+    target_lang = getattr(config, 'target_language', 'en')
+    model_size = getattr(config, 'whisper_model', 'large-v3')
+    
+    # Step 2: Override with job-specific parameters from job.json
+    # THIS IS MANDATORY - All stages must implement this
+    job_json_path = job_dir / "job.json"
+    if job_json_path.exists():
+        with open(job_json_path) as f:
+            job_data = json.load(f)
+            
+            # Override language parameters
+            if 'source_language' in job_data and job_data['source_language']:
+                source_lang = job_data['source_language']
+            
+            if 'target_languages' in job_data and job_data['target_languages']:
+                target_lang = job_data['target_languages'][0]
+            
+            # Override workflow flags
+            if 'source_separation' in job_data:
+                enabled = job_data['source_separation'].get('enabled', True)
+    
+    # Step 3: Use the parameters (job.json values take precedence)
+    logger.info(f"Using source language: {source_lang}")
+    logger.info(f"Using target language: {target_lang}")
+    logger.info(f"Using model: {model_size}")
+    
+    # ... rest of stage logic
+```
+
+**Parameters That MUST Be Overridable:**
+- ✅ Language parameters (source_language, target_languages)
+- ✅ Model settings (model size, compute type, batch size)
+- ✅ Quality settings (beam size, temperature, thresholds)
+- ✅ Workflow flags (source_separation_enabled, tmdb_enabled)
+- ✅ Output preferences (subtitle format, translation engine)
+
+**Why This Is Mandatory:**
+- **User Intent:** Respect user's explicit CLI choices
+- **Reproducibility:** Same job.json always produces same results
+- **Flexibility:** Override settings per-job without changing global config
+- **Testing:** Isolate test configurations from production defaults
+
+**Compliance Check:**
+```bash
+# All stages must read job.json parameters
+grep -l "job.json" scripts/*.py | wc -l  # Should equal stage count
+```
+
+**Status:** ✅ MANDATORY (Architectural Decision AD-006, 2025-12-04)
 
 ---
 
@@ -2272,6 +2537,84 @@ class CorrelationFilter(logging.Filter):
 logger.addFilter(CorrelationFilter())
 ```
 
+### 5.10 Log File Placement (AD-012) 🆕
+
+**Architectural Decision:** All log files must be organized in the `logs/` directory.
+
+**Directory Structure:**
+```
+logs/
+├── pipeline/           # Pipeline execution logs
+│   └── {date}/         # Organized by date
+├── testing/            # Test execution logs
+│   ├── integration/    # Integration test logs
+│   ├── unit/           # Unit test logs
+│   └── manual/         # Manual test logs
+├── debug/              # Debug/development logs
+├── model-usage/        # Model usage statistics
+└── errors/             # Error-specific logs (optional)
+```
+
+**Naming Convention:**
+```
+{date}_{timestamp}_{purpose}_{detail}.log
+
+Examples:
+- 20251208_103045_transcribe_mlx.log
+- 20251208_110230_translate_indictrans2.log
+- 20251208_120015_integration_workflow.log
+```
+
+**Helper Function:**
+```python
+from shared.log_paths import get_log_path
+
+# Get log path for manual test
+log_file = get_log_path("testing", "transcribe", "mlx")
+# Returns: logs/testing/manual/20251208_103045_transcribe_mlx.log
+
+# Get log path for debug
+log_file = get_log_path("debug", "whisperx", "alignment")
+# Returns: logs/debug/20251208_103045_whisperx_alignment.log
+
+# Use in script
+with open(log_file, 'w') as f:
+    subprocess.run(cmd, stdout=f, stderr=subprocess.STDOUT)
+```
+
+**Rules:**
+1. ❌ **NEVER** write logs to project root
+2. ✅ **ALWAYS** use `logs/` directory with appropriate subdirectory
+3. ✅ **ALWAYS** include date and timestamp in filename
+4. ✅ **ALWAYS** use helper function for consistency
+
+**Common Mistakes:**
+```python
+# ❌ WRONG - Log in current directory
+with open("test-output.log", "w") as f:
+    ...
+
+# ❌ WRONG - Log in project root
+log_file = Path("debug.log")
+
+# ✅ CORRECT - Use helper function
+from shared.log_paths import get_log_path
+log_file = get_log_path("testing", "output", "debug")
+```
+
+**Migration:**
+If you find log files in the project root:
+```bash
+# Move to appropriate location
+mv test-*.log logs/testing/manual/
+mv debug-*.log logs/debug/
+mv task*.log logs/testing/manual/
+```
+
+**See Also:**
+- AD-012 in ARCHITECTURE.md (Centralized Log Management)
+- IMPLEMENTATION_TRACKER.md Task #13
+
 ---
 
 ## 6. DATA LINEAGE & AUDIT TRAILS
@@ -2415,7 +2758,7 @@ def process_operation(input_data, config, logger, stage_io):
         # Validate inputs
         if not input_data:
             error_msg = "Input data is empty"
-            logger.error(error_msg)
+            logger.error(error_msg, exc_info=True)
             stage_io.add_error(error_msg)
             return None
         
@@ -2425,7 +2768,7 @@ def process_operation(input_data, config, logger, stage_io):
         # Validate output
         if not result:
             error_msg = "Operation produced no output"
-            logger.error(error_msg)
+            logger.error(error_msg, exc_info=True)
             stage_io.add_error(error_msg)
             return None
         
@@ -2433,19 +2776,19 @@ def process_operation(input_data, config, logger, stage_io):
         
     except FileNotFoundError as e:
         error_msg = f"File not found: {e}"
-        logger.error(error_msg)
+        logger.error(error_msg, exc_info=True)
         stage_io.add_error(error_msg, e)
         return None
         
     except ValueError as e:
         error_msg = f"Invalid value: {e}"
-        logger.error(error_msg)
+        logger.error(error_msg, exc_info=True)
         stage_io.add_error(error_msg, e)
         return None
         
     except Exception as e:
         error_msg = f"Unexpected error: {e}"
-        logger.error(error_msg)
+        logger.error(error_msg, exc_info=True)
         stage_io.add_error(error_msg, e)
         
         if config.debug:
@@ -2455,6 +2798,194 @@ def process_operation(input_data, config, logger, stage_io):
         
         return None
 ```
+
+**⚠️ CRITICAL: Error Logging Best Practices**
+
+**DO:**
+```python
+# ✅ CORRECT - Include exc_info=True for exception context
+logger.error(f"Failed to process: {e}", exc_info=True)
+```
+
+**DON'T:**
+```python
+# ❌ WRONG - Duplicate parameter causes SyntaxError
+logger.error(f"Failed to process: {e}", exc_info=True, exc_info=True)
+
+# ❌ WRONG - Missing exc_info loses stack trace
+logger.error(f"Failed to process: {e}")
+```
+
+**Why exc_info=True?**
+- Captures full stack trace for debugging
+- Essential for diagnosing production issues
+- Required by development standards (§ 7.1)
+- Must appear exactly once per logger.error() call
+
+**Historical Note:** This syntax error occurred in job-20251203-rpatel-0015, affecting 8 instances across 2 files (05_pyannote_vad.py, 07_alignment.py). The duplicate parameter caused immediate SyntaxError on script load.
+
+### 7.1.1 File Path Validation Pattern (AD-011) 🆕
+
+**Problem:** Files with spaces, apostrophes, and special characters cause subprocess failures (e.g., FFmpeg exit code 234).
+
+**Solution:** Pre-flight validation + pathlib + proper string conversion.
+
+```python
+from pathlib import Path
+
+def validate_and_process_file(file_path: str, logger, stage_io) -> bool:
+    """
+    Validate file accessibility before subprocess calls.
+    
+    Pattern per AD-011: Robust File Path Handling
+    """
+    # Convert to absolute Path object
+    input_file = Path(file_path).resolve()
+    
+    # 1. Check existence
+    if not input_file.exists():
+        error_msg = f"Input file not found: {input_file}"
+        logger.error(f"❌ {error_msg}")
+        logger.error("   Please check that the file exists at the specified path")
+        stage_io.add_error(error_msg)
+        return False
+    
+    # 2. Check it's a file (not directory)
+    if not input_file.is_file():
+        error_msg = f"Input path is not a file: {input_file}"
+        logger.error(f"❌ {error_msg}")
+        stage_io.add_error(error_msg)
+        return False
+    
+    # 3. Check not empty
+    if input_file.stat().st_size == 0:
+        error_msg = f"Input file is empty (0 bytes): {input_file}"
+        logger.error(f"❌ {error_msg}")
+        stage_io.add_error(error_msg)
+        return False
+    
+    # 4. Test accessibility (can we read it?)
+    try:
+        with open(input_file, 'rb') as f:
+            f.read(1)
+    except PermissionError:
+        error_msg = f"Cannot read file (permission denied): {input_file}"
+        logger.error(f"❌ {error_msg}")
+        stage_io.add_error(error_msg)
+        return False
+    except Exception as e:
+        error_msg = f"Cannot access file: {e}"
+        logger.error(f"❌ {error_msg}")
+        stage_io.add_error(error_msg)
+        return False
+    
+    return True
+
+# Usage in subprocess calls
+if not validate_and_process_file(media_path, logger, stage_io):
+    return False
+
+# Build command with proper string conversion
+# Path objects automatically handle spaces, apostrophes, special chars
+output_file = output_dir / "result.wav"
+cmd = [
+    'ffmpeg', '-i', str(input_file),  # Convert Path to string
+    '-acodec', 'pcm_s16le',
+    str(output_file)  # Convert Path to string
+]
+
+try:
+    result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+except subprocess.CalledProcessError as e:
+    # Enhanced error parsing (see § 7.1.2)
+    handle_ffmpeg_error(e, logger, stage_io)
+    return False
+```
+
+**Why This Works:**
+- ✅ `Path.resolve()` creates absolute path (no relative path issues)
+- ✅ `str(path)` handles spaces, apostrophes, Unicode automatically
+- ✅ Pre-flight checks catch issues before subprocess call
+- ✅ User-friendly error messages with actionable guidance
+
+**When to Use:**
+- ✅ **ALL** subprocess calls with file paths (FFmpeg, Demucs, etc.)
+- ✅ Stage 01 (demux) - **IMPLEMENTED** ✅
+- ⏳ Stage 04 (source_separation) - Uses Demucs
+- ⏳ Stage 12 (mux) - Uses FFmpeg for embedding
+
+**Test Cases:**
+```bash
+# These should all work correctly:
+./prepare-job.sh --media "in/File with spaces.mp4"
+./prepare-job.sh --media "in/Johny Lever's Movie.mp4"  # apostrophe
+./prepare-job.sh --media "in/Movie (2024) [HD].mp4"    # parentheses
+./prepare-job.sh --media "in/मूवी_हिंदी.mp4"           # Unicode
+```
+
+### 7.1.2 FFmpeg Error Parsing Pattern 🆕
+
+**Problem:** FFmpeg errors are cryptic and confusing.
+
+**Solution:** Parse stderr and provide user-friendly messages.
+
+```python
+def handle_ffmpeg_error(error: subprocess.CalledProcessError, logger, stage_io):
+    """
+    Parse FFmpeg errors and provide actionable guidance.
+    
+    Pattern per AD-011: Enhanced Error Messages
+    """
+    stderr = error.stderr if error.stderr else ""
+    exit_code = error.returncode
+    
+    # Exit code 234: Invalid input/output
+    if exit_code == 234:
+        logger.error("❌ FFmpeg error 234: Invalid input/output file")
+        logger.error("   Possible causes:")
+        logger.error("   - Special characters in file path (spaces, apostrophes, etc.)")
+        logger.error("   - File is corrupted or unreadable")
+        logger.error("   - Unsupported file format")
+        stage_io.add_error(f"FFmpeg exit 234: {stderr[:100]}")
+    
+    # File not found
+    elif "No such file or directory" in stderr:
+        logger.error("❌ Input file not found by FFmpeg")
+        logger.error("   Please check the file path and try again")
+        stage_io.add_error(f"File not found: {stderr[:100]}")
+    
+    # No audio stream
+    elif "does not contain any stream" in stderr or "Output file does not contain" in stderr:
+        logger.error("❌ Cannot extract audio from input file")
+        logger.error("   Possible causes:")
+        logger.error("   - File is corrupted")
+        logger.error("   - File format not supported by FFmpeg")
+        logger.error("   - File does not contain an audio stream")
+        stage_io.add_error("No audio stream found")
+    
+    # Invalid argument
+    elif "Invalid argument" in stderr:
+        logger.error("❌ FFmpeg processing error (invalid argument)")
+        logger.error("   Check that the input file is a valid media file")
+        stage_io.add_error("Invalid FFmpeg argument")
+    
+    # Generic error
+    else:
+        logger.error(f"❌ FFmpeg failed with exit code {exit_code}")
+        if stderr:
+            logger.error(f"   FFmpeg error: {stderr[:200]}")  # First 200 chars
+        stage_io.add_error(f"FFmpeg exit {exit_code}")
+    
+    # Always log full error for debugging
+    logger.debug(f"Full FFmpeg stderr:\n{stderr}")
+```
+
+**Common FFmpeg Exit Codes:**
+- `234` - Invalid input/output file (path issues, corruption, format)
+- `1` - Generic error (check stderr for details)
+- `255` - Critical error (permissions, disk space)
+
+**Reference:** AD-011 (Robust File Path Handling)
 
 ### 7.2 Graceful Degradation with Warnings
 
@@ -2663,33 +3194,134 @@ See [PRE_COMMIT_HOOK_GUIDE.md](../PRE_COMMIT_HOOK_GUIDE.md) for complete documen
 
 ## 9. TESTING STANDARDS
 
-### 9.1 Test Organization
+### 9.1 Test Organization (AD-013) 🆕
 
+**Architectural Decision:** All test files must be organized in tests/ directory by test type.
+
+**Directory Structure:**
 ```
 tests/
-├── unit/                  # Unit tests (fast, isolated)
-│   ├── test_config.py
-│   ├── test_stage_io.py
-│   ├── test_glossary.py
-│   └── test_logger.py
-├── integration/           # Integration tests (slower, multi-component)
-│   ├── test_asr_pipeline.py
-│   ├── test_translation.py
-│   └── test_end_to_end.py
-├── performance/           # Performance regression tests
-│   └── test_benchmarks.py
-├── fixtures/              # Test data
+├── README.md              # Testing guidelines (per AD-013)
+├── conftest.py            # Pytest configuration
+├── __init__.py            # Package marker
+├── run-tests.sh           # Test runner script
+├── unit/                  # Unit tests (fast, isolated, < 1s each)
+│   ├── test_config_loader.py
+│   ├── test_stage_utils.py
+│   ├── test_glossary_manager.py
+│   ├── stages/           # Stage-specific unit tests
+│   │   └── test_core_stages.py
+│   └── shared/           # Shared module tests
+│       └── test_stage_dependencies.py
+├── integration/           # Integration tests (module interaction)
+│   ├── test_asr_module_integration.py
+│   ├── test_alignment_language_detection.py
+│   └── test_stage_data_flow.py
+├── functional/            # Functional/E2E tests (complete workflows) [NEW]
+│   ├── test_transcribe_workflow.py
+│   ├── test_translate_workflow.py
+│   ├── test_subtitle_workflow.py
+│   └── test_file_naming_standard.py
+├── manual/                # Manual test scripts (developer tools) [NEW]
+│   ├── glossary/
+│   │   ├── test-glossary-quickstart.sh
+│   │   └── test-glossary-quickstart.ps1
+│   ├── source-separation/
+│   │   └── test-source-separation.sh
+│   ├── venv/
+│   │   └── test-venv-dependencies.sh
+│   └── health-check.sh
+├── fixtures/              # Test data and expected outputs
 │   ├── audio/
 │   │   ├── test_1min.wav
 │   │   └── test_5min.mp3
+│   ├── video/
+│   │   └── sample.mp4
 │   ├── config/
 │   │   └── test_config.json
 │   └── expected/
 │       └── expected_output.json
-└── conftest.py           # Pytest configuration
+├── helpers/               # Test utilities (renamed from utils/)
+│   └── test_helpers.py
+└── reports/               # Test reports (renamed from test_output/)
+    └── .gitkeep
 ```
 
-### 7.2 Test Coverage Requirements
+**Test Categories:**
+
+1. **Unit Tests (`unit/`):**
+   - Test single functions/classes in isolation
+   - Mock external dependencies
+   - Fast execution (< 1 second each)
+   - Example: Testing config_loader functions
+
+2. **Integration Tests (`integration/`):**
+   - Test module interaction
+   - Test data flow between components
+   - May use real dependencies
+   - Example: Testing ASR module with alignment
+
+3. **Functional Tests (`functional/`):** 🆕
+   - Test complete workflows end-to-end
+   - Test with real or representative data
+   - Longer execution time (minutes)
+   - Example: Complete transcribe workflow
+
+4. **Manual Tests (`manual/`):** 🆕
+   - Shell scripts for developer testing
+   - Convenience scripts for common tasks
+   - Not run by CI (optional execution)
+   - Example: Glossary quickstart script
+
+**Naming Conventions:**
+- Python tests: `test_<module>_<feature>.py`
+- Shell scripts: `test-<feature>-<detail>.sh`
+- PowerShell scripts: `test-<feature>-<detail>.ps1`
+
+**Running Tests:**
+```bash
+# All tests
+pytest tests/
+
+# By category
+pytest tests/unit/          # Fast unit tests
+pytest tests/integration/   # Integration tests
+pytest tests/functional/    # Slower E2E tests
+
+# Specific test file
+pytest tests/unit/test_config_loader.py
+
+# Manual scripts (not pytest)
+./tests/manual/glossary/test-glossary-quickstart.sh
+```
+
+**Rules:**
+1. ❌ **NEVER** create test files in project root
+2. ✅ **ALWAYS** place tests in appropriate category
+3. ✅ **ALWAYS** follow naming conventions
+4. ✅ **ALWAYS** add docstrings to test functions
+
+**Common Mistakes:**
+```bash
+# ❌ WRONG - Test script in project root
+./test-my-feature.sh
+
+# ❌ WRONG - Test file in tests/ root (unorganized)
+tests/test_my_feature.py
+
+# ✅ CORRECT - Categorized by type
+tests/unit/test_my_feature.py           # Unit test
+tests/integration/test_my_integration.py # Integration
+tests/functional/test_my_workflow.py     # Functional
+tests/manual/my-feature/test-script.sh   # Manual script
+```
+
+**See Also:**
+- AD-013 in ARCHITECTURE.md (Organized Test Structure)
+- IMPLEMENTATION_TRACKER.md Task #14
+- tests/README.md (detailed guidelines)
+
+### 9.2 Test Coverage Requirements
 
 **Minimum coverage targets:**
 - Unit tests: **80% coverage**
@@ -2896,6 +3528,346 @@ def track_performance(stage_name: str, logger):
 with track_performance("asr", logger):
     result = run_asr_stage()
 ```
+
+---
+
+## 9B. BASELINE, GLOSSARY & CACHE PATTERNS (AD-014) 🆕
+
+### 9B.1 Overview
+
+**Architectural Decision:** Subtitle workflow must reuse baseline, glossary, and cache artifacts for iterative quality improvement.
+
+**Three-Phase Workflow:**
+1. **Phase 1: Baseline Generation** (First run only, 15-20 min)
+2. **Phase 2: Glossary Enhancement** (First run + updates, 2-3 min)
+3. **Phase 3: Translation & Subtitles** (Every run, 3-5 min per language)
+
+### 9B.2 Media Identity
+
+**Compute stable identifier for media source:**
+
+```python
+from shared.media_identity import compute_media_id
+
+# Compute media ID
+media_id = compute_media_id(Path("movie.mp4"))
+# Returns: "a3f2e8b9..." (sha256 of file_size + duration + audio_hash)
+
+# Use for cache directory
+cache_dir = Path(f"cache/media/{media_id}")
+```
+
+**Implementation:**
+```python
+# shared/media_identity.py
+import hashlib
+from pathlib import Path
+
+def compute_media_id(media_file: Path) -> str:
+    """
+    Compute stable identifier for media file.
+    
+    Based on:
+    - File size (constant for same file)
+    - Duration (constant for same content)
+    - First 10s audio hash (content fingerprint)
+    
+    Returns:
+        SHA256 hash string (64 chars)
+    """
+    file_stats = media_file.stat()
+    duration = get_media_duration(media_file)
+    audio_hash = hash_first_10s_audio(media_file)
+    
+    id_string = f"{file_stats.st_size}_{duration}_{audio_hash}"
+    return hashlib.sha256(id_string.encode()).hexdigest()
+```
+
+### 9B.3 Cache Manager
+
+**Access cached artifacts:**
+
+```python
+from shared.cache_manager import MediaCacheManager
+
+# Initialize cache manager
+cache_mgr = MediaCacheManager(base_dir=Path("cache/media"))
+
+# Check for baseline
+if cache_mgr.has_baseline(media_id):
+    baseline = cache_mgr.get_baseline(media_id)
+    logger.info("✅ Reusing baseline from previous run")
+else:
+    # Generate baseline
+    baseline = run_baseline_generation(...)
+    cache_mgr.store_baseline(media_id, baseline)
+
+# Check for glossary
+if cache_mgr.has_glossary(media_id):
+    glossary = cache_mgr.get_glossary(media_id)
+else:
+    glossary = build_glossary(baseline, tmdb_data)
+    cache_mgr.store_glossary(media_id, glossary)
+
+# Check for translation
+if cache_mgr.has_translation(media_id, "en"):
+    translation = cache_mgr.get_translation(media_id, "en")
+else:
+    translation = run_translation(baseline, glossary, "en")
+    cache_mgr.store_translation(media_id, "en", translation)
+```
+
+### 9B.4 Baseline Generation
+
+**First run - generate and cache baseline:**
+
+```python
+def run_baseline_generation(media_file: Path, cache_dir: Path) -> dict:
+    """
+    Execute Phase 1: Generate baseline artifacts.
+    
+    Stages:
+    - 01_demux: Extract audio
+    - 02_tmdb: Fetch metadata (if movie)
+    - 03_glossary_load: Load base glossary
+    - 04_source_separation: Isolate vocals
+    - 05_pyannote_vad: Voice activity detection
+    - 06_whisperx_asr: Transcription
+    - 07_alignment: Word-level timestamps
+    
+    Returns:
+        Baseline artifacts dictionary
+    """
+    baseline_dir = cache_dir / "baseline"
+    baseline_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Run stages 01-07
+    demux_output = run_stage_demux(media_file, baseline_dir)
+    tmdb_output = run_stage_tmdb(media_file, baseline_dir)
+    # ... continue through alignment
+    
+    # Store artifacts
+    baseline = {
+        "asr_transcript": asr_output,
+        "aligned_segments": alignment_output,
+        "vad_segments": vad_output,
+        "speaker_diarization": diarization_output,
+        "quality_metrics": compute_quality_metrics(asr_output),
+        "generated_at": datetime.now().isoformat()
+    }
+    
+    # Save to cache
+    with open(baseline_dir / "baseline.json", "w") as f:
+        json.dump(baseline, f, indent=2)
+    
+    return baseline
+```
+
+### 9B.5 Glossary Enhancement
+
+**Build enhanced glossary from baseline:**
+
+```python
+def run_glossary_enhancement(baseline: dict, cache_dir: Path) -> dict:
+    """
+    Execute Phase 2: Build enhanced glossary.
+    
+    - Extract proper nouns from ASR
+    - Merge TMDB cast/crew names
+    - Add learned terms from corrections
+    """
+    glossary_dir = cache_dir / "glossary"
+    glossary_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Extract terms from ASR
+    asr_terms = extract_proper_nouns(baseline["asr_transcript"])
+    
+    # Merge TMDB metadata
+    tmdb_terms = extract_tmdb_terms(baseline.get("tmdb_metadata"))
+    
+    # Load manual corrections (if any)
+    corrections = load_corrections(glossary_dir)
+    
+    # Build enhanced glossary
+    glossary = {
+        "asr": merge_terms(asr_terms, corrections.get("asr", {})),
+        "translation": merge_terms(tmdb_terms, corrections.get("translation", {})),
+        "learned": asr_terms,
+        "updated_at": datetime.now().isoformat()
+    }
+    
+    # Save to cache
+    with open(glossary_dir / "glossary.json", "w") as f:
+        json.dump(glossary, f, indent=2)
+    
+    return glossary
+```
+
+### 9B.6 Workflow Orchestration
+
+**Multi-phase subtitle workflow:**
+
+```python
+def subtitle_workflow(job_config: dict) -> int:
+    """
+    Execute multi-phase subtitle workflow with caching.
+    """
+    media_file = Path(job_config["input_media"])
+    target_languages = job_config["target_languages"]
+    
+    # Compute media ID
+    media_id = compute_media_id(media_file)
+    cache_dir = Path(f"cache/media/{media_id}")
+    
+    logger.info(f"📦 Media ID: {media_id}")
+    
+    # Phase 1: Baseline
+    if not (cache_dir / "baseline").exists():
+        logger.info("🆕 First run - generating baseline (15-20 min)")
+        baseline = run_baseline_generation(media_file, cache_dir)
+    else:
+        logger.info("✅ Reusing baseline from previous run")
+        baseline = load_baseline(cache_dir)
+    
+    # Phase 2: Glossary
+    if not (cache_dir / "glossary").exists():
+        logger.info("🆕 Building glossary (2-3 min)")
+        glossary = run_glossary_enhancement(baseline, cache_dir)
+    else:
+        logger.info("✅ Reusing enhanced glossary")
+        glossary = load_glossary(cache_dir)
+    
+    # Phase 3: Translation & Subtitles
+    for lang in target_languages:
+        logger.info(f"🔄 Generating {lang} subtitles (3-5 min)")
+        
+        # Run stages 08-12
+        run_stage_lyrics_detection(baseline, job_dir)
+        run_stage_hallucination_removal(baseline, job_dir)
+        run_stage_translation(baseline, glossary, lang, job_dir)
+        run_stage_subtitle_generation(baseline, lang, job_dir)
+        run_stage_mux(media_file, lang, job_dir)
+    
+    logger.info("✅ Subtitle workflow complete")
+    return 0
+```
+
+### 9B.7 Quality Tracking
+
+**Track and compare quality metrics:**
+
+```python
+def compute_quality_metrics(asr_output: dict) -> dict:
+    """Compute quality metrics for baseline."""
+    return {
+        "asr_confidence": np.mean([s["confidence"] for s in asr_output["segments"]]),
+        "alignment_score": compute_alignment_score(asr_output),
+        "word_error_rate": estimate_wer(asr_output),
+        "hallucination_count": count_hallucinations(asr_output)
+    }
+
+def should_update_baseline(current_metrics: dict, new_metrics: dict) -> bool:
+    """Check if new quality exceeds baseline by threshold."""
+    threshold = 1.05  # 5% improvement
+    
+    return (new_metrics["asr_confidence"] > current_metrics["asr_confidence"] * threshold and
+            new_metrics["word_error_rate"] < current_metrics["word_error_rate"] / threshold)
+```
+
+### 9B.8 Cache Cleanup
+
+**Manage cache size:**
+
+```python
+from shared.cache_manager import MediaCacheManager
+
+# Initialize cache manager
+cache_mgr = MediaCacheManager()
+
+# Cleanup old cache (beyond size limit)
+cache_mgr.cleanup_by_size(max_size_gb=100)
+
+# Cleanup old cache (beyond age limit)
+cache_mgr.cleanup_by_age(max_age_days=90)
+
+# Remove specific cache
+cache_mgr.remove_cache(media_id)
+```
+
+### 9B.9 Configuration
+
+**Cache settings in config/.env.pipeline:**
+
+```bash
+# Baseline & Cache Configuration
+ENABLE_BASELINE_CACHE=true              # Master switch
+BASELINE_CACHE_DIR=cache/media          # Cache location
+BASELINE_CACHE_MAX_SIZE_GB=100          # Cache size limit (GB)
+BASELINE_REUSE_THRESHOLD=0.85           # Min quality to reuse (0-1)
+BASELINE_AUTO_UPDATE=true               # Update if quality improves
+GLOSSARY_AUTO_EXTRACT=true              # Extract terms from ASR
+CACHE_CLEANUP_ON_START=false            # Cleanup before each run
+```
+
+**Access in code:**
+
+```python
+from shared.config_loader import load_config
+
+config = load_config()
+
+# Check if caching enabled
+if config.get("ENABLE_BASELINE_CACHE", "true").lower() == "true":
+    cache_dir = Path(config.get("BASELINE_CACHE_DIR", "cache/media"))
+    max_size = int(config.get("BASELINE_CACHE_MAX_SIZE_GB", "100"))
+    
+    # Use cache manager
+    cache_mgr = MediaCacheManager(base_dir=cache_dir, max_size_gb=max_size)
+```
+
+### 9B.10 Rules
+
+1. ❌ **NEVER** skip baseline generation on first run
+2. ✅ **ALWAYS** check for cached artifacts before processing
+3. ✅ **ALWAYS** store quality metrics with baseline
+4. ✅ **ALWAYS** use media_id for cache directory naming
+5. ✅ **ALWAYS** validate cached artifacts before reuse
+
+**Common Mistakes:**
+
+```python
+# ❌ WRONG - Don't compute media ID inconsistently
+media_id = hashlib.sha256(str(media_file).encode()).hexdigest()  # Changes with path!
+
+# ✅ CORRECT - Use stable media ID
+media_id = compute_media_id(media_file)  # Based on content
+
+
+# ❌ WRONG - Don't hardcode cache paths
+cache_dir = Path("cache/media/some-id")
+
+# ✅ CORRECT - Use cache manager
+cache_mgr = MediaCacheManager()
+cache_dir = cache_mgr.get_cache_dir(media_id)
+
+
+# ❌ WRONG - Don't ignore quality metrics
+if cache_exists:
+    baseline = load_baseline(cache_dir)  # What if quality is poor?
+
+# ✅ CORRECT - Check quality before reuse
+if cache_exists:
+    baseline = load_baseline(cache_dir)
+    if baseline["quality_metrics"]["asr_confidence"] >= 0.85:
+        use_baseline(baseline)
+    else:
+        regenerate_baseline()
+```
+
+**See Also:**
+- AD-014 in ARCHITECTURE.md (Multi-Phase Subtitle Workflow)
+- IMPLEMENTATION_TRACKER.md Task #15
+- cache/media/README.md (cache structure)
 
 ---
 
@@ -3758,6 +4730,77 @@ batch_size = config.batch_size
 debug = config.debug
 ```
 
+### User Profile & Credential Loading (v2.0)
+
+**For stages that need API credentials (TMDB, OpenAI, etc.):**
+
+```python
+import json
+from pathlib import Path
+from shared.user_profile import UserProfile
+
+def run_stage(job_dir: Path, stage_name: str = "stage") -> int:
+    """Stage with userId-based credential loading"""
+    io = StageIO(stage_name, job_dir, enable_manifest=True)
+    logger = io.get_stage_logger()
+    
+    try:
+        # Step 1: Load userId from job.json (AD-006)
+        job_json_path = job_dir / "job.json"
+        user_id = 1  # Default fallback
+        if job_json_path.exists():
+            try:
+                with open(job_json_path, 'r') as f:
+                    job_data = json.load(f)
+                    user_id = int(job_data.get('user_id', 1))
+                    logger.debug(f"Loaded userId from job.json: {user_id}")
+            except Exception as e:
+                logger.warning(f"Failed to load userId from job.json: {e}")
+        
+        # Step 2: Load user profile
+        profile = UserProfile.load(user_id=user_id, logger_instance=logger)
+        
+        # Step 3: Get credentials
+        api_key = profile.get_credential('service_name', 'key_name')
+        
+        # Step 4: Fallback to config for backward compatibility (optional)
+        if not api_key:
+            config = load_config()
+            api_key = config.get('SERVICE_API_KEY', '')
+        
+        if not api_key:
+            logger.error(f"❌ No API key found for service")
+            logger.error(f"   Add to user profile: users/{user_id}/profile.json")
+            io.finalize_stage_manifest(exit_code=1)
+            return 1
+        
+        logger.info(f"✓ Loaded API key from user profile (userId={user_id})")
+        
+        # Use api_key...
+        
+    except Exception as e:
+        logger.error(f"Failed: {e}", exc_info=True)
+        io.finalize_stage_manifest(exit_code=1)
+        return 1
+```
+
+**Examples:**
+
+```python
+# Stage 02 (TMDB Enrichment)
+api_key = profile.get_credential('tmdb', 'api_key')
+
+# Stage 13 (AI Summarization)
+provider = config.get("AI_PROVIDER", "openai").lower()
+api_key = profile.get_credential(provider, 'api_key')  # openai, anthropic, google
+
+# HuggingFace Token (for PyAnnote, WhisperX)
+# Note: These stages use HF_TOKEN from environment (set by pipeline runner)
+# No direct profile loading needed in stage code
+```
+
+**See:** [User Profile Guide](../../user-guide/USER_PROFILES.md) for complete documentation
+
 ---
 
 ## APPENDIX B: COMPLIANCE CHECKING
@@ -4501,6 +5544,1518 @@ def refactor_complex_logic():
 
 ---
 
+## 17. CACHING IMPLEMENTATION STANDARDS
+
+### 17.1 Overview
+
+**Purpose:** Enable intelligent caching to optimize repeated workflows with similar media.
+
+**Architecture:** 5-layer caching system with ML-based optimization
+
+**Reference:** See `docs/technical/caching-ml-optimization.md` for complete architecture
+
+### 17.2 Cache Layers
+
+**All stages SHOULD implement caching where appropriate:**
+
+#### Layer 1: Model Weights Cache (Global)
+```python
+# Location: {cache_dir}/models/
+# Automatically managed by model loading utilities
+# No stage-specific implementation needed
+```
+
+#### Layer 2: Audio Fingerprint Cache
+```python
+# Stage: 01_demux
+from shared.cache_manager import CacheManager
+
+cache = CacheManager(job_dir)
+audio_hash = cache.compute_audio_fingerprint(input_file)
+
+# Check if already processed
+if cache.has_fingerprint(audio_hash):
+    cached_info = cache.get_fingerprint(audio_hash)
+    logger.info(f"Using cached audio info: {cached_info}")
+    return cached_info
+
+# Process and cache
+audio_info = extract_audio(input_file)
+cache.store_fingerprint(audio_hash, audio_info)
+```
+
+#### Layer 3: ASR Results Cache (Quality-Aware)
+```python
+# Stage: 06_whisperx_asr
+from shared.cache_manager import CacheManager
+
+cache = CacheManager(job_dir)
+cache_key = cache.compute_asr_cache_key(
+    audio_file=audio_path,
+    model_version=model_version,
+    language=language,
+    config_params=relevant_config
+)
+
+# Check cache
+if cache.has_asr_result(cache_key) and not no_cache:
+    logger.info("Using cached ASR results")
+    return cache.get_asr_result(cache_key)
+
+# Process and cache
+result = run_asr(audio_path, model_version, language)
+cache.store_asr_result(cache_key, result)
+```
+
+#### Layer 4: Translation Cache (Contextual)
+```python
+# Stage: 08_translate
+from shared.cache_manager import CacheManager
+
+cache = CacheManager(job_dir)
+
+for segment in segments:
+    cache_key = cache.compute_translation_cache_key(
+        source_text=segment['text'],
+        source_lang=source_lang,
+        target_lang=target_lang,
+        glossary_hash=glossary_hash,
+        context=segment.get('context')
+    )
+    
+    # Check exact match
+    if cache.has_translation(cache_key):
+        segment['translation'] = cache.get_translation(cache_key)
+        continue
+    
+    # Check similar segments (>80% similarity)
+    similar = cache.find_similar_translation(segment['text'], threshold=0.80)
+    if similar:
+        # Adjust and use
+        segment['translation'] = adjust_translation(similar, segment)
+    else:
+        # Fresh translation
+        segment['translation'] = translate(segment['text'])
+        cache.store_translation(cache_key, segment['translation'])
+```
+
+#### Layer 5: Glossary Learning Cache
+```python
+# Stage: 03_glossary_load
+from shared.cache_manager import CacheManager
+
+cache = CacheManager(job_dir)
+movie_id = get_movie_id_from_tmdb()
+
+# Load learned terms from previous processing
+learned_terms = cache.get_learned_glossary(movie_id)
+if learned_terms:
+    logger.info(f"Loaded {len(learned_terms)} learned terms")
+    glossary.merge(learned_terms)
+
+# After processing, update learned terms
+new_terms = extract_new_terms(asr_result)
+cache.update_learned_glossary(movie_id, new_terms)
+```
+
+### 17.3 Cache Configuration
+
+**Required in config/.env.pipeline:**
+```bash
+# Caching Configuration (see § 4 for parameter standards)
+ENABLE_CACHING=true                          # Master switch
+CACHE_DIR=~/.cp-whisperx/cache              # Cache location
+CACHE_MAX_SIZE_GB=50                        # Total cache size limit
+CACHE_ASR_RESULTS=true                      # Cache ASR outputs
+CACHE_TRANSLATIONS=true                     # Cache translations
+CACHE_AUDIO_FINGERPRINTS=true              # Cache audio analysis
+CACHE_TTL_DAYS=90                          # Cache expiration
+CACHE_CLEANUP_ON_START=false               # Auto-cleanup old cache
+
+# ML Optimization (see § 18)
+ENABLE_ML_OPTIMIZATION=true                 # Enable ML predictions
+ML_MODEL_SELECTION=adaptive                 # adaptive|fixed
+ML_QUALITY_PREDICTION=true                  # Predict optimal settings
+ML_LEARNING_FROM_HISTORY=true              # Learn from past jobs
+
+# Performance Tuning
+SIMILAR_CONTENT_THRESHOLD=0.80             # Similarity reuse threshold
+GLOSSARY_LEARNING_ENABLED=true             # Learn terms over time
+TRANSLATION_MEMORY_ENABLED=true            # Build translation memory
+```
+
+### 17.4 Cache Invalidation Rules
+
+**Cache MUST be invalidated when:**
+- Model version changes
+- Configuration parameters affecting output change
+- User explicitly requests fresh processing (`--no-cache` flag)
+- Cache entry exceeds TTL (CACHE_TTL_DAYS)
+- Cache corruption detected (checksum mismatch)
+
+**Implementation:**
+```python
+def should_invalidate_cache(cache_entry: dict, current_config: dict) -> bool:
+    """
+    Determine if cache entry should be invalidated.
+    
+    Args:
+        cache_entry: Cached data with metadata
+        current_config: Current job configuration
+        
+    Returns:
+        True if cache should be invalidated
+    """
+    # Check TTL
+    if is_expired(cache_entry['timestamp'], current_config['CACHE_TTL_DAYS']):
+        logger.info("Cache entry expired")
+        return True
+    
+    # Check model version
+    if cache_entry['model_version'] != current_config['model_version']:
+        logger.info("Model version changed, invalidating cache")
+        return True
+    
+    # Check relevant config parameters
+    if config_params_changed(cache_entry['config'], current_config):
+        logger.info("Configuration changed, invalidating cache")
+        return True
+    
+    # Check checksum
+    if not verify_checksum(cache_entry):
+        logger.warning("Cache checksum mismatch, invalidating")
+        return True
+    
+    return False
+```
+
+### 17.5 Cache Management Tools
+
+**Required tools in tools/cache-manager.sh:**
+```bash
+#!/usr/bin/env bash
+
+# View cache statistics
+./tools/cache-manager.sh --stats
+# Output:
+#   Total cache size: 12.3 GB / 50 GB (24.6%)
+#   ASR results: 450 entries, 8.2 GB
+#   Translations: 1,234 entries, 2.1 GB
+#   Audio fingerprints: 89 entries, 45 MB
+#   Glossary learned: 34 movies, 1.8 GB
+#   Cache hit rate (last 30 days): 73%
+
+# Clear specific cache type
+./tools/cache-manager.sh --clear asr
+
+# Clear old cache (>90 days)
+./tools/cache-manager.sh --cleanup
+
+# Clear all cache
+./tools/cache-manager.sh --clear all
+
+# Validate cache integrity
+./tools/cache-manager.sh --validate
+
+# Export cache for sharing
+./tools/cache-manager.sh --export cache-backup-20251203.tar.gz
+
+# Import cache
+./tools/cache-manager.sh --import cache-backup-20251203.tar.gz
+```
+
+### 17.6 Testing Requirements
+
+**Cache functionality MUST be tested:**
+
+```python
+# tests/test_caching.py
+
+def test_cache_identical_media():
+    """Test cache hit on identical media processing."""
+    # First run
+    result1 = process_with_cache(test_media)
+    assert result1.cache_hit is False
+    first_time = result1.processing_time
+    
+    # Second run
+    result2 = process_with_cache(test_media)
+    assert result2.cache_hit is True
+    assert result2.processing_time < first_time * 0.1  # 90% faster
+
+def test_cache_invalidation_on_config_change():
+    """Test cache invalidation when config changes."""
+    result1 = process_with_cache(test_media, config={'model': 'large-v2'})
+    assert result1.cache_hit is False
+    
+    result2 = process_with_cache(test_media, config={'model': 'large-v3'})
+    assert result2.cache_hit is False  # Config changed, cache invalidated
+
+def test_cache_no_cache_flag():
+    """Test --no-cache flag forces fresh processing."""
+    result1 = process_with_cache(test_media)
+    result2 = process_with_cache(test_media, no_cache=True)
+    assert result2.cache_hit is False  # Forced fresh processing
+```
+
+---
+
+## 18. ML OPTIMIZATION INTEGRATION
+
+### 18.1 Overview
+
+**Purpose:** Use machine learning to adaptively optimize processing based on media characteristics and historical data.
+
+**Components:**
+1. Adaptive Quality Prediction
+2. Context Learning from History
+3. Similarity-Based Optimization
+
+**Reference:** See `docs/technical/caching-ml-optimization.md` for algorithms
+
+### 18.2 Adaptive Quality Prediction
+
+**Lightweight ML model predicts optimal processing parameters.**
+
+**Implementation in 01_demux stage:**
+```python
+from shared.ml_optimizer import MLOptimizer
+
+def run_stage(job_dir: Path, stage_name: str = "01_demux") -> int:
+    io = StageIO(stage_name, job_dir, enable_manifest=True)
+    logger = io.get_stage_logger()
+    config = load_config(job_dir)
+    
+    # Extract audio characteristics
+    audio_info = analyze_audio(input_file)
+    
+    # ML prediction for optimal settings
+    if config.get('ENABLE_ML_OPTIMIZATION', 'true').lower() == 'true':
+        optimizer = MLOptimizer(job_dir)
+        predictions = optimizer.predict_optimal_settings(audio_info)
+        
+        logger.info(f"ML Predictions: {predictions}")
+        # predictions = {
+        #     'optimal_model': 'medium',  # Use medium model for this quality
+        #     'source_separation_needed': False,  # Clean audio
+        #     'expected_confidence': 0.92,
+        #     'estimated_time_minutes': 4.2
+        # }
+        
+        # Update job config with predictions
+        update_job_config(job_dir, predictions)
+```
+
+**ML Model Training:**
+```python
+# tools/train-ml-optimizer.py
+
+from shared.ml_optimizer import MLOptimizer
+from sklearn.ensemble import RandomForestClassifier
+import pandas as pd
+
+def train_optimizer():
+    """Train ML optimizer from historical job data."""
+    # Load historical data
+    jobs_df = load_historical_jobs()
+    
+    # Features: audio characteristics
+    features = [
+        'snr_db',           # Signal-to-noise ratio
+        'sample_rate',      # Audio sample rate
+        'duration_sec',     # Duration
+        'speech_ratio',     # Speech vs. silence ratio
+        'background_noise', # Noise level
+        'language'          # Detected language
+    ]
+    
+    # Labels: optimal settings
+    labels = {
+        'model_size': ['base', 'small', 'medium', 'large'],
+        'source_sep_needed': [True, False]
+    }
+    
+    # Train classifiers
+    model_clf = RandomForestClassifier()
+    model_clf.fit(jobs_df[features], jobs_df['optimal_model'])
+    
+    source_sep_clf = RandomForestClassifier()
+    source_sep_clf.fit(jobs_df[features], jobs_df['source_sep_needed'])
+    
+    # Save models
+    optimizer = MLOptimizer()
+    optimizer.save_models(model_clf, source_sep_clf)
+    
+    print("ML optimizer trained successfully")
+```
+
+### 18.3 Context Learning from History
+
+**Learn from previous jobs to improve context awareness.**
+
+**Character Name Recognition:**
+```python
+# Stage: 03_glossary_load
+
+from shared.ml_optimizer import MLOptimizer
+
+def run_stage(job_dir: Path, stage_name: str = "03_glossary_load") -> int:
+    optimizer = MLOptimizer(job_dir)
+    
+    # Get movie ID from TMDB stage
+    movie_id = read_tmdb_metadata(job_dir)
+    
+    # Load learned character names from previous processing
+    learned_names = optimizer.get_learned_character_names(movie_id)
+    if learned_names:
+        logger.info(f"Loaded {len(learned_names)} learned character names")
+        for name, info in learned_names.items():
+            glossary.add_term(
+                term=name,
+                context=info['contexts'],
+                frequency=info['frequency'],
+                speakers=info['speakers']
+            )
+```
+
+**Cultural Pattern Learning:**
+```python
+# Stage: 08_translate
+
+from shared.ml_optimizer import MLOptimizer
+
+def translate_segment(segment: dict, src_lang: str, tgt_lang: str) -> dict:
+    optimizer = MLOptimizer(job_dir)
+    
+    # Check for learned cultural patterns
+    cultural_patterns = optimizer.get_cultural_patterns(src_lang, tgt_lang)
+    
+    # Apply patterns to translation
+    for pattern in cultural_patterns:
+        if pattern['source_phrase'] in segment['text']:
+            segment['cultural_context'] = pattern['translation_context']
+            segment['alternatives'] = pattern['alternatives']
+    
+    # Translate with cultural context
+    translation = translate_with_context(segment, cultural_patterns)
+    
+    # Update learning
+    optimizer.record_translation(
+        source=segment['text'],
+        target=translation,
+        context=segment.get('cultural_context'),
+        confidence=segment.get('confidence', 0.0)
+    )
+    
+    return translation
+```
+
+### 18.4 Similarity-Based Optimization
+
+**Detect similar media and reuse processing decisions.**
+
+**Implementation:**
+```python
+from shared.ml_optimizer import MLOptimizer
+
+def run_stage(job_dir: Path, stage_name: str) -> int:
+    io = StageIO(stage_name, job_dir, enable_manifest=True)
+    logger = io.get_stage_logger()
+    config = load_config(job_dir)
+    
+    optimizer = MLOptimizer(job_dir)
+    
+    # Compute similarity with previous jobs
+    similarity_results = optimizer.find_similar_jobs(
+        audio_fingerprint=current_fingerprint,
+        language=detected_language,
+        duration=duration,
+        genre=genre
+    )
+    
+    if similarity_results:
+        best_match = similarity_results[0]
+        similarity_score = best_match['similarity']
+        
+        if similarity_score > 0.95:
+            logger.info(f"Nearly identical media detected (sim={similarity_score:.2f})")
+            # Reuse full pipeline config
+            reuse_full_config(best_match['job_id'])
+            
+        elif similarity_score > 0.80:
+            logger.info(f"Similar content detected (sim={similarity_score:.2f})")
+            # Reuse glossary and model selection, fresh ASR
+            reuse_glossary(best_match['job_id'])
+            reuse_model_selection(best_match['job_id'])
+            
+        elif similarity_score > 0.60:
+            logger.info(f"Similar genre/language (sim={similarity_score:.2f})")
+            # Suggest related glossaries
+            suggest_related_glossaries(best_match['job_id'])
+```
+
+### 18.5 Testing Requirements
+
+**ML optimization MUST be tested:**
+
+```python
+# tests/test_ml_optimization.py
+
+def test_adaptive_quality_prediction():
+    """Test ML model predicts optimal settings."""
+    optimizer = MLOptimizer()
+    
+    # Clean audio should predict smaller model
+    clean_audio = {
+        'snr_db': 45,
+        'background_noise': 0.1,
+        'speech_ratio': 0.85
+    }
+    predictions = optimizer.predict_optimal_settings(clean_audio)
+    assert predictions['optimal_model'] in ['base', 'small', 'medium']
+    assert predictions['source_separation_needed'] is False
+    
+    # Noisy audio should predict larger model + source separation
+    noisy_audio = {
+        'snr_db': 15,
+        'background_noise': 0.7,
+        'speech_ratio': 0.45
+    }
+    predictions = optimizer.predict_optimal_settings(noisy_audio)
+    assert predictions['optimal_model'] in ['medium', 'large']
+    assert predictions['source_separation_needed'] is True
+
+def test_similarity_detection():
+    """Test similar media detection."""
+    optimizer = MLOptimizer()
+    
+    # Process first job
+    job1_id = process_job(test_media)
+    
+    # Process identical media
+    similar_jobs = optimizer.find_similar_jobs(
+        audio_fingerprint=compute_fingerprint(test_media)
+    )
+    
+    assert len(similar_jobs) > 0
+    assert similar_jobs[0]['job_id'] == job1_id
+    assert similar_jobs[0]['similarity'] > 0.95
+```
+
+---
+
+## 19. TEST MEDIA USAGE IN DEVELOPMENT
+
+### 19.1 Standard Test Samples
+
+**ALL development and testing MUST use standardized test media.**
+
+**Sample 1: English Technical Content**
+- File: `in/Energy Demand in AI.mp4`
+- Purpose: Transcribe and Translate workflows
+- Language: English
+- Type: Technical/Educational
+- Duration: ~2-5 minutes
+
+**Sample 2: Hinglish Bollywood Content**
+- File: `in/test_clips/jaane_tu_test_clip.mp4`
+- Purpose: Subtitle, Transcribe, Translate workflows
+- Language: Hindi/Hinglish
+- Type: Entertainment
+- Duration: ~1-3 minutes
+
+**Reference:** See `docs/user-guide/workflows.md` for complete sample documentation
+
+### 19.2 Quality Baselines
+
+**All test runs MUST validate against quality baselines:**
+
+| Sample | Workflow | Metric | Target | Validation |
+|--------|----------|--------|--------|------------|
+| Sample 1 | Transcribe | ASR WER | ≤5% | Automated |
+| Sample 1 | Translate | BLEU Score | ≥90% | Automated |
+| Sample 2 | Subtitle | Subtitle Quality | ≥88% | Human + Auto |
+| Sample 2 | Subtitle | Context Preservation | ≥80% | Human evaluation |
+| Sample 2 | Subtitle | Glossary Application | 100% | Automated |
+| Both | All | Subtitle Timing | ±200ms | Automated |
+
+### 19.3 Test Media Index
+
+**Create and maintain:** `in/test_media_index.json`
+
+```json
+{
+  "test_samples": [
+    {
+      "id": "sample_01",
+      "file": "Energy Demand in AI.mp4",
+      "language": "en",
+      "type": "technical",
+      "duration_estimate": "2-5 min",
+      "workflows": ["transcribe", "translate"],
+      "quality_baseline": {
+        "asr_accuracy": 0.95,
+        "translation_fluency": 0.90
+      }
+    },
+    {
+      "id": "sample_02",
+      "file": "test_clips/jaane_tu_test_clip.mp4",
+      "language": "hi-Hinglish",
+      "type": "entertainment",
+      "duration_estimate": "1-3 min",
+      "workflows": ["subtitle", "transcribe", "translate"],
+      "quality_baseline": {
+        "asr_accuracy": 0.85,
+        "subtitle_quality": 0.88,
+        "context_awareness": 0.80
+      }
+    }
+  ]
+}
+```
+
+### 19.4 Development Workflow with Test Media
+
+**When developing new features:**
+
+```bash
+# 1. Develop feature
+# 2. Test with Sample 1 (English)
+./prepare-job.sh --media "in/Energy Demand in AI.mp4" --workflow transcribe --source-language en
+./run-pipeline.sh --job-dir out/$(latest_job)
+
+# 3. Validate quality
+python3 tests/validate-quality.py --job-dir out/$(latest_job) --sample sample_01
+
+# 4. Test with Sample 2 (Hinglish)
+./prepare-job.sh --media "in/test_clips/jaane_tu_test_clip.mp4" --workflow subtitle \
+  --source-language hi --target-languages en,gu,ta
+./run-pipeline.sh --job-dir out/$(latest_job)
+
+# 5. Validate quality
+python3 tests/validate-quality.py --job-dir out/$(latest_job) --sample sample_02
+
+# 6. Run full test suite
+pytest tests/
+```
+
+### 19.5 CI/CD Integration
+
+**GitHub Actions MUST test with standard media:**
+
+```yaml
+# .github/workflows/tests.yml
+
+name: Tests
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup test media
+        run: |
+          # Download or link to standard test media
+          ./tools/setup-test-media.sh
+      
+      - name: Run tests with Sample 1
+        run: |
+          ./prepare-job.sh --media "in/Energy Demand in AI.mp4" \
+            --workflow transcribe --source-language en
+          ./run-pipeline.sh --job-dir out/$(ls -t out/*/*/*/*/ | head -1)
+          python3 tests/validate-quality.py --sample sample_01
+      
+      - name: Run tests with Sample 2
+        run: |
+          ./prepare-job.sh --media "in/test_clips/jaane_tu_test_clip.mp4" \
+            --workflow subtitle --source-language hi --target-languages en,gu
+          ./run-pipeline.sh --job-dir out/$(ls -t out/*/*/*/*/ | head -1)
+          python3 tests/validate-quality.py --sample sample_02
+      
+      - name: Validate quality baselines
+        run: pytest tests/test_quality_baselines.py
+```
+
+---
+
+## § 8: MLX Backend Architecture
+
+### 8.1 Overview
+
+**MLX-Whisper for Apple Silicon (8-9x Performance Boost)**
+
+The hybrid MLX architecture combines MLX-Whisper for fast transcription with WhisperX subprocess alignment for stability.
+
+**Status:** ✅ Production-ready (implemented 2025-12-04)  
+**Performance:** 8-9x faster than CTranslate2/CPU  
+**Stability:** 100% (no segfaults)
+
+### 8.2 When to Use MLX
+
+**Use MLX Backend When:**
+- ✅ Running on Apple Silicon (M1/M2/M3/M4)
+- ✅ MPS (Metal Performance Shaders) available
+- ✅ Performance is critical (transcription or subtitle workflows)
+- ✅ Processing audio files >5 minutes
+
+**Use WhisperX Backend When:**
+- ✅ Running on CPU-only or CUDA hardware
+- ✅ Cross-platform compatibility required
+- ✅ System stability more important than speed
+
+### 8.3 Architecture Pattern
+
+**Hybrid Design (Two-Stage ASR):**
+
+```python
+#!/usr/bin/env python3
+"""
+ASR stage with hybrid MLX architecture
+
+Stage: 06_asr (scripts/06_whisperx_asr.py)
+"""
+# Standard library
+import sys
+from pathlib import Path
+
+# Add project root
+PROJECT_ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
+# Local
+from shared.config_loader import load_config
+from shared.stage_utils import StageIO
+from whisperx_integration import WhisperXProcessor
+
+def run_asr_stage(job_dir: Path, stage_name: str = "asr") -> int:
+    """
+    ASR stage with automatic hybrid architecture
+    
+    - Transcription: MLX on MPS (fast, 8-9x speedup)
+    - Alignment: WhisperX subprocess (stable, isolated)
+    """
+    io = StageIO(stage_name, job_dir, enable_manifest=True)
+    logger = io.get_stage_logger()
+    
+    try:
+        config = load_config()
+        
+        # Create processor (auto-selects MLX on Apple Silicon)
+        processor = WhisperXProcessor(
+            model_name=config.get("WHISPERX_MODEL", "large-v3"),
+            device=config.get("WHISPERX_DEVICE", "mps"),
+            compute_type=config.get("WHISPERX_COMPUTE_TYPE", "float16"),
+            logger=logger
+        )
+        
+        # Step 1: Load model (MLX auto-selected)
+        processor.load_model()
+        # Logs: "MLX backend ready (2-4x faster than CPU)"
+        
+        # Step 2: Transcribe (MLX - Fast)
+        audio_file = io.job_dir / "01_demux" / "audio.wav"
+        result = processor.transcribe(audio_file, language="en")
+        # Duration: ~84 seconds for 12min audio
+        
+        # Step 3: Align (WhisperX Subprocess - Stable)
+        # System detects MLX and automatically uses subprocess
+        aligned_result = processor.align_segments(result, audio_file, "en")
+        # Duration: ~39 seconds
+        # Logs: "MLX backend detected: using WhisperX subprocess"
+        
+        # Step 4: Save results
+        output_file = io.stage_dir / "segments.json"
+        processor.save_results(aligned_result, io.stage_dir, "segments", "en")
+        
+        io.manifest.add_output(output_file, io.compute_hash(output_file))
+        io.finalize_stage_manifest(exit_code=0)
+        return 0
+        
+    except Exception as e:
+        logger.error(f"ASR stage failed: {e}", exc_info=True)
+        io.finalize_stage_manifest(exit_code=1)
+        return 1
+```
+
+### 8.4 Configuration
+
+**Required Settings (config/.env.pipeline):**
+
+```bash
+# Primary ASR Backend
+WHISPER_BACKEND=mlx              # Use MLX for transcription
+WHISPERX_DEVICE=mps              # MPS device for Apple Silicon
+
+# Alignment Backend (subprocess isolation)
+ALIGNMENT_BACKEND=whisperx       # Use WhisperX for alignment
+                                 # Prevents MLX segfaults
+```
+
+### 8.5 Critical Implementation Rules
+
+**✅ DO:**
+1. Let the system auto-detect and use MLX on Apple Silicon
+2. Use subprocess for alignment (automatic when backend=MLX)
+3. Set timeouts for alignment subprocess (5 minutes)
+4. Handle subprocess failures gracefully
+5. Log performance metrics (transcription + alignment time)
+
+**❌ DON'T:**
+1. Call `backend.align_segments()` directly on MLX backend
+2. Run MLX `transcribe()` twice in the same process
+3. Try to align in-process with MLX (causes segfault)
+4. Modify `ALIGNMENT_BACKEND` to "mlx" or "same"
+5. Skip subprocess isolation
+
+### 8.6 Performance Expectations
+
+**Benchmark (12.4 min audio file):**
+
+| Metric | CTranslate2/CPU | MLX Hybrid | Improvement |
+|--------|-----------------|------------|-------------|
+| Transcription | 11+ min (crashed) | 84 seconds | 8-9x faster |
+| Alignment | N/A | 39 seconds | Stable |
+| Total | Failed | 123 seconds | Success |
+| Output | None | 200 segments + words | Complete |
+
+**Expected Performance:**
+- **Transcription:** ~0.7x real-time (12min audio → 8min processing)
+- **Alignment:** ~0.3x real-time (12min audio → 4min processing)
+- **Total:** ~1.0x real-time (matches audio duration)
+
+### 8.7 Error Handling
+
+**MLX Transcription Failure:**
+```python
+# System automatically falls back to WhisperX
+# Check logs for: "Signaling fallback to WhisperX backend..."
+
+if backend_result == "fallback_to_whisperx":
+    logger.warning("MLX unavailable, using WhisperX")
+    backend = create_backend("whisperx", ...)
+```
+
+**Alignment Subprocess Failure:**
+```python
+# Returns segments without word timestamps
+# Graceful degradation, still usable
+
+try:
+    aligned = processor.align_with_whisperx_subprocess(...)
+except Exception as e:
+    logger.error(f"Alignment failed: {e}")
+    # Continue with segments (no word timestamps)
+    return {"segments": original_segments}
+```
+
+**Subprocess Timeout:**
+```python
+# 5-minute timeout for alignment
+subprocess.run(..., timeout=300)
+
+# If timeout: return segments without words
+# Pipeline continues successfully
+```
+
+### 8.8 Testing
+
+**Test MLX Backend:**
+```bash
+# Prepare test job
+./prepare-job.sh --media "in/Energy Demand in AI.mp4" \
+  --workflow transcribe --source-language en
+
+# Verify MLX is selected
+grep "WHISPER_BACKEND" out/*/job.json
+# Should show: "backend": "mlx"
+
+# Run pipeline
+./run-pipeline.sh -j job-YYYYMMDD-user-NNNN
+
+# Verify performance in logs
+grep "Transcription complete" out/*/logs/99_pipeline_*.log
+# Should show: ~84 seconds for 12min audio
+
+# Verify alignment subprocess
+grep "WhisperX subprocess" out/*/logs/99_pipeline_*.log
+# Should show: "MLX backend detected: using WhisperX subprocess"
+
+# Check output has word timestamps
+python3 -c "import json; data = json.load(open('out/.../06_asr/segments.json')); \
+  print(f'Has words: {\"words\" in data[\"segments\"][0]}')"
+# Should print: Has words: True
+```
+
+### 8.9 Troubleshooting
+
+**Issue: MLX not being used**
+```bash
+# Check device
+system_profiler SPDisplaysDataType | grep "Chipset Model"
+# Should show: Apple M1/M2/M3/M4
+
+# Check config
+grep WHISPER_BACKEND config/.env.pipeline
+# Should show: WHISPER_BACKEND=mlx
+
+# Check logs
+grep "Backend" out/*/logs/99_pipeline_*.log
+# Should show: "Backend: mlx"
+```
+
+**Issue: Segfaults still occurring**
+```bash
+# Check alignment backend
+grep ALIGNMENT_BACKEND config/.env.pipeline
+# Should show: ALIGNMENT_BACKEND=whisperx
+
+# NOT: ALIGNMENT_BACKEND=mlx or =same
+
+# Check subprocess usage
+grep "subprocess" out/*/logs/99_pipeline_*.log
+# Should show: "Running alignment in subprocess"
+```
+
+**Issue: Slow performance**
+```bash
+# Check MPS usage
+grep "MPS" out/*/logs/99_pipeline_*.log
+# Should show: "Using Metal Performance Shaders"
+
+# NOT: "Falling back to CPU"
+
+# Verify MLX installation
+venv/mlx/bin/python -c "import mlx_whisper; print('MLX OK')"
+```
+
+### 8.10 Implementation Checklist
+
+**Before deploying MLX backend:**
+
+- [ ] MLX environment created (`venv/mlx`)
+- [ ] Dependencies installed (`pip install -r requirements/mlx.txt`)
+- [ ] Config updated (`WHISPER_BACKEND=mlx`, `ALIGNMENT_BACKEND=whisperx`)
+- [ ] Test with 12min audio (verify ~2min total time)
+- [ ] Verify word timestamps in output
+- [ ] Check logs for subprocess usage
+- [ ] Test graceful fallback (remove MLX, should use WhisperX)
+- [ ] Test alignment failure (should return segments without words)
+
+---
+
+## 20. ARCHITECTURAL DECISIONS REFERENCE
+
+This section documents all approved Architectural Decisions (ADs) and their implementation guidelines.
+
+**Authoritative Source:** ARCHITECTURE_ALIGNMENT_2025-12-04.md  
+**Total Decisions:** 9 (AD-001 through AD-009)  
+**Purpose:** Provide developer guidance on architectural patterns
+
+---
+
+### § 20.1 AD-002: ASR Module Structure
+
+**Decision:** ASR code modularized into `scripts/whisperx_module/`
+
+**Why:** Previous `whisperx_integration.py` was a 1888-line monolith that was difficult to test and maintain.
+
+**Module Structure:**
+```
+scripts/whisperx_module/
+├── __init__.py              # Module exports
+├── model_manager.py         # Backend selection, model loading (170 LOC)
+├── bias_prompting.py        # Bias window strategies (633 LOC)
+├── postprocessing.py        # Result filtering, output generation (259 LOC)
+├── transcription.py         # Workflow orchestration (435 LOC)
+├── alignment.py             # Hybrid alignment engine (179 LOC)
+└── chunking.py              # Large file chunking (stub)
+```
+
+**When to Use:**
+- ✅ **New ASR features:** Add to appropriate module, not to stage wrapper
+- ✅ **Testing:** Import and test modules independently
+- ✅ **Maintenance:** Each module has single responsibility
+
+**Usage Pattern:**
+```python
+# In 06_whisperx_asr.py (stage wrapper)
+from whisperx_module.transcription import TranscriptionEngine
+from whisperx_module.alignment import AlignmentEngine
+
+# Create engine instances
+transcription = TranscriptionEngine(processor, logger, get_indictrans2_fn)
+alignment = AlignmentEngine(backend, device, logger)
+
+# Use for processing
+result = transcription.run_pipeline(...)
+aligned = alignment.align(result, audio_file, language)
+```
+
+**Do:**
+- ✅ Keep stage wrapper (`06_whisperx_asr.py`) minimal (< 200 LOC)
+- ✅ Add complex logic to modules, not stage
+- ✅ Use dependency injection (pass objects, not globals)
+- ✅ Follow extraction patterns (see ASR_MODULARIZATION_PLAN.md)
+
+**Don't:**
+- ❌ Add business logic to stage wrapper
+- ❌ Import from `whisperx_integration.py` directly
+- ❌ Create circular dependencies between modules
+
+**Reference:** ASR_MODULARIZATION_PLAN.md, AD-002 in ARCHITECTURE_ALIGNMENT_2025-12-04.md
+
+---
+
+### § 20.2 AD-003: Translation Stage Decision
+
+**Decision:** Translation stage remains single stage (`10_translation.py`)
+
+**Why:** Splitting into 4 separate stages would:
+- Require renumbering all subsequent stages (11 → 14, 12 → 15)
+- Add complexity without clear benefit
+- Current 1045 LOC is cohesive and manageable
+- Can refactor to helper modules later if needed
+
+**Current Structure:**
+```
+Stage 10: 10_translation.py (1045 LOC)
+├── IndicTrans2 translation (Indic languages)
+├── NLLB translation (fallback)
+├── Language detection
+├── Batch processing
+└── Error handling
+```
+
+**Deferred Split (Future):**
+```
+Potential future structure (if ever needed):
+├── 10a_indictrans2.py    (Indic → English/others)
+├── 10b_nllb.py            (Universal fallback)
+├── 10c_glossary_apply.py  (Term substitution)
+└── 10d_quality_check.py   (Translation validation)
+```
+
+**Implementation Guidance:**
+- ✅ Keep translation logic in single stage
+- ✅ Use helper functions for organization
+- ✅ Consider extracting to helper module (like ASR) if LOC grows > 1500
+- ❌ Don't split into separate stages unless clear benefit
+
+**When to Revisit:**
+- Translation stage exceeds 1500 LOC
+- Need independent testing of translation engines
+- Want to enable/disable translation engines separately
+- Performance profiling shows optimization potential
+
+**Reference:** AD-003 in ARCHITECTURE_ALIGNMENT_2025-12-04.md
+
+---
+
+### § 20.3 AD-004: Virtual Environment Structure
+
+**Decision:** 8 isolated virtual environments, no more needed
+
+**Why:** Each ML model requires specific dependencies that often conflict.
+
+**Current Structure:**
+```
+venv/
+├── base/         # Core utilities (shared across stages)
+├── whisperx/     # WhisperX ASR (Stage 06)
+├── mlx/          # MLX-optimized ASR/alignment (Stage 06-07, Apple Silicon)
+├── pyannote/     # VAD + diarization (Stage 05)
+├── demucs/       # Source separation (Stage 04)
+├── indictrans2/  # Indic translation (Stage 10)
+├── nllb/         # Universal translation (Stage 10)
+└── tmdb/         # TMDB metadata (Stage 02)
+```
+
+**Usage Guidelines:**
+
+**1. Which venv for which stage:**
+```python
+# Stage determines venv in shebang
+# Stage 04: source separation
+#!/path/to/venv/demucs/bin/python
+
+# Stage 05: VAD/diarization
+#!/path/to/venv/pyannote/bin/python
+
+# Stage 06: ASR
+#!/path/to/venv/whisperx/bin/python
+# OR (on Apple Silicon with MPS)
+#!/path/to/venv/mlx/bin/python
+
+# Stage 10: Translation
+#!/path/to/venv/indictrans2/bin/python
+# OR (fallback)
+#!/path/to/venv/nllb/bin/python
+```
+
+**2. Bootstrap script handles setup:**
+```bash
+# Creates all 8 venvs
+./bootstrap.sh
+
+# Each venv has requirements file
+requirements/whisperx.txt
+requirements/mlx.txt
+requirements/pyannote.txt
+# etc.
+```
+
+**3. Adding dependencies:**
+```bash
+# Add to appropriate requirements file
+echo "new-package==1.2.3" >> requirements/whisperx.txt
+
+# Reinstall venv
+rm -rf venv/whisperx
+./bootstrap.sh  # Recreates whisperx venv only
+```
+
+**Do:**
+- ✅ Use correct venv for stage (matches ML model)
+- ✅ Add dependencies to requirements file, not manual pip
+- ✅ Document which venv each helper script uses
+- ✅ Test new stages in correct venv
+
+**Don't:**
+- ❌ Install packages across multiple venvs
+- ❌ Create new venvs (8 is optimal)
+- ❌ Share heavy ML dependencies (causes conflicts)
+- ❌ Use system Python (always use venv)
+
+**Troubleshooting:**
+```bash
+# Check which venv stage uses
+head -1 scripts/06_whisperx_asr.py
+# Shows: #!/path/to/venv/whisperx/bin/python
+
+# Verify venv has package
+venv/whisperx/bin/pip list | grep whisperx
+
+# Recreate corrupted venv
+rm -rf venv/whisperx
+./bootstrap.sh
+```
+
+**Reference:** AD-004 in ARCHITECTURE_ALIGNMENT_2025-12-04.md
+
+---
+
+### § 20.4 AD-005: Backend Selection Strategy
+
+**Decision:** Hybrid MLX + WhisperX architecture for optimal performance
+
+**Evolution:**
+- **Original:** Use WhisperX only, avoid MLX (unstable)
+- **Updated:** Hybrid approach (MLX transcription + WhisperX alignment)
+- **Reason:** MLX is 8-9x faster, but needs subprocess isolation for stability
+
+**When to Use Each Backend:**
+
+**1. MLX Backend (Apple Silicon Only):**
+```python
+# Use when:
+- Device has MPS (Metal Performance Shaders)
+- Need maximum performance (8-9x faster)
+- Processing large files (> 10 minutes)
+- Apple M1/M2/M3/M4 processors
+
+# Configuration:
+WHISPER_BACKEND=mlx          # Or 'auto' (auto-detects)
+ALIGNMENT_BACKEND=whisperx   # MUST use subprocess
+```
+
+**2. WhisperX Backend (All Platforms):**
+```python
+# Use when:
+- CPU or CUDA device (no MPS)
+- Stability more important than speed
+- Short files (< 5 minutes)
+- Non-Apple hardware
+
+# Configuration:
+WHISPER_BACKEND=whisperx
+ALIGNMENT_BACKEND=whisperx   # Native in-process
+```
+
+**Automatic Selection:**
+```python
+from whisper_backends import create_backend, get_recommended_backend
+
+# Let system choose optimal backend
+recommended = get_recommended_backend(device="auto")
+# Returns: "mlx" on Apple Silicon with MPS
+#          "whisperx" on CPU/CUDA
+
+backend = create_backend(
+    backend_type=recommended,
+    model_name="large-v3",
+    device="auto"
+)
+```
+
+**Performance Comparison:**
+```
+12-minute audio file:
+├── CTranslate2 (CPU):  11+ minutes (CRASHED)
+├── WhisperX (CPU):     ~8-10 minutes
+├── WhisperX (CUDA):    ~3-4 minutes
+└── MLX (MPS):          84 sec transcription + 39 sec alignment = 123 sec ✅
+
+Result: MLX is 8-9x faster than CPU, 100% stable with subprocess
+```
+
+**Implementation Pattern:**
+```python
+# Stage 06 wrapper delegates to module
+from whisperx_module.transcription import TranscriptionEngine
+
+# Engine handles backend selection
+engine = TranscriptionEngine(
+    processor=processor,  # Has backend instance
+    logger=logger,
+    get_indictrans2_fn=_get_indictrans2
+)
+
+# Processor.backend.name determines alignment strategy
+# If "mlx-whisper" → uses subprocess
+# If "whisperx" → uses native alignment
+```
+
+**Do:**
+- ✅ Use `backend="auto"` for automatic selection
+- ✅ Set `ALIGNMENT_BACKEND=whisperx` with MLX
+- ✅ Test both backends in your environment
+- ✅ Monitor logs for backend selection
+
+**Don't:**
+- ❌ Use MLX alignment in-process (causes segfaults)
+- ❌ Force MLX on non-Apple hardware
+- ❌ Skip subprocess isolation with MLX
+- ❌ Hardcode backend (use auto-detection)
+
+**Reference:** 
+- AD-005 in ARCHITECTURE_ALIGNMENT_2025-12-04.md
+- AD-008 (subprocess isolation details)
+- § 8 MLX Backend Architecture (this document)
+- HYBRID_ARCHITECTURE_IMPLEMENTATION_COMPLETE.md
+
+---
+
+### § 20.5 AD-008: Hybrid Alignment Architecture
+
+**Decision:** Use subprocess isolation for MLX alignment to prevent segfaults
+
+**Problem:** MLX backend segfaults when running alignment in same process as transcription
+
+**Solution: Process Isolation**
+```
+┌─────────────────────────────────────┐
+│  Main Process (MLX Transcription)   │
+│  ├─ Load MLX model                  │
+│  ├─ Transcribe audio (fast)         │
+│  └─ Get segments                    │
+└─────────────────────────────────────┘
+              ↓
+┌─────────────────────────────────────┐
+│  Subprocess (WhisperX Alignment)    │
+│  ├─ Load WhisperX align model       │
+│  ├─ Process segments                │
+│  └─ Return word timestamps          │
+└─────────────────────────────────────┘
+              ↓
+         Combined Result
+```
+
+**Implementation:**
+```python
+# In whisperx_module/alignment.py
+class AlignmentEngine:
+    def align(self, result, audio_file, language):
+        # Check backend type
+        if self.backend.name == "mlx-whisper":
+            # Use subprocess (prevents segfaults)
+            return self.align_subprocess(
+                result["segments"],
+                audio_file,
+                language
+            )
+        else:
+            # Use native alignment (faster)
+            return self.backend.align_segments(
+                result["segments"],
+                audio_file,
+                language
+            )
+    
+    def align_subprocess(self, segments, audio_file, language):
+        # Write segments to temp file
+        with tempfile.NamedTemporaryFile(...) as f:
+            json.dump({"segments": segments}, f)
+            segments_file = f.name
+        
+        # Run alignment in subprocess
+        cmd = [
+            "venv/whisperx/bin/python",
+            "scripts/align_segments.py",
+            "--audio", audio_file,
+            "--segments", segments_file,
+            "--language", language
+        ]
+        
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            timeout=300  # 5 minute timeout
+        )
+        
+        # Parse and return aligned segments
+        return json.loads(result.stdout)
+```
+
+**Key Features:**
+1. **5-minute timeout:** Prevents hanging
+2. **Graceful fallback:** Returns segments without words on failure
+3. **Temp file IPC:** JSON-based inter-process communication
+4. **Automatic cleanup:** Temp files deleted after use
+5. **Error logging:** Full error context captured
+
+**Configuration:**
+```bash
+# .env.pipeline
+WHISPER_BACKEND=mlx          # Fast transcription
+ALIGNMENT_BACKEND=whisperx   # Stable alignment via subprocess
+```
+
+**Do:**
+- ✅ Always use subprocess with MLX backend
+- ✅ Set reasonable timeout (5 minutes)
+- ✅ Clean up temp files
+- ✅ Log subprocess errors with context
+- ✅ Return segments without words on failure (graceful degradation)
+
+**Don't:**
+- ❌ Run MLX alignment in-process (segfaults)
+- ❌ Use infinite timeout
+- ❌ Leave temp files lying around
+- ❌ Fail completely on alignment error (degrade gracefully)
+
+**Troubleshooting:**
+```bash
+# Check if subprocess is being used
+grep "subprocess" out/*/logs/99_pipeline_*.log
+# Should show: "Running alignment in subprocess"
+
+# Check for segfaults
+grep -i "segfault" out/*/logs/*.log
+# Should show: nothing (if properly isolated)
+
+# Verify alignment backend
+grep ALIGNMENT_BACKEND config/.env.pipeline
+# Should show: ALIGNMENT_BACKEND=whisperx (not mlx or same)
+```
+
+**Reference:**
+- AD-008 in ARCHITECTURE_ALIGNMENT_2025-12-04.md
+- whisperx_module/alignment.py (implementation)
+- HYBRID_ARCHITECTURE_IMPLEMENTATION_COMPLETE.md (test results)
+
+---
+
+### § 20.6 AD-010: Workflow-Specific Output Requirements
+
+**Decision:** Each workflow generates only the outputs relevant to its purpose
+
+**Problem:** Generating unnecessary outputs wastes time and confuses users
+
+**Workflow Output Requirements:**
+
+```
+┌─────────────────────────────────────┐
+│  TRANSCRIBE WORKFLOW                │
+│  Input:  Media file                 │
+│  Output: transcript.txt ONLY        │
+│  Skip:   Subtitle generation        │
+│  Skip:   Video muxing                │
+└─────────────────────────────────────┘
+
+┌─────────────────────────────────────┐
+│  TRANSLATE WORKFLOW                 │
+│  Input:  Media file                 │
+│  Output: transcript_{lang}.txt ONLY │
+│  Skip:   Subtitle generation        │
+│  Skip:   Video muxing                │
+└─────────────────────────────────────┘
+
+┌─────────────────────────────────────┐
+│  SUBTITLE WORKFLOW                  │
+│  Input:  Media file                 │
+│  Output: Video + 8 subtitle tracks  │
+│  Include: All subtitle formats       │
+│  Include: Soft-embedded tracks       │
+└─────────────────────────────────────┘
+```
+
+**Rationale:**
+1. **User Expectations:** Users specify workflow based on desired output
+2. **Performance:** Skip unnecessary processing (15-20% faster)
+3. **Clarity:** Output directory contains only relevant files
+4. **Resource Usage:** Don't generate unused subtitle tracks
+
+**Implementation Pattern:**
+
+```python
+# In run-pipeline.py
+
+def run_transcribe_workflow(self) -> int:
+    """Transcribe workflow: Audio → Transcript only"""
+    stages = [
+        "01_demux",
+        "02_tmdb",           # Skip (not needed)
+        "03_glossary_load",
+        "04_source_separation",
+        "05_pyannote_vad",
+        "06_whisperx_asr",
+        "07_alignment",
+        # Stop here - no subtitle generation
+    ]
+    
+    # Export transcript to alignment directory
+    self._stage_export_transcript()
+    return 0
+
+def run_translate_workflow(self) -> int:
+    """Translate workflow: Audio → Translated transcript only"""
+    stages = [
+        "01_demux",
+        "02_tmdb",           # Skip (not needed)
+        "03_glossary_load",
+        "04_source_separation",
+        "05_pyannote_vad",
+        "06_whisperx_asr",
+        "07_alignment",
+        "10_translation",    # Translate to target language
+        # Stop here - no subtitle generation
+    ]
+    
+    # Export translated transcript
+    self._stage_export_translated_transcript()
+    return 0
+
+def run_subtitle_workflow(self) -> int:
+    """Subtitle workflow: Audio → Video with embedded subtitles"""
+    stages = [
+        "01_demux",
+        "02_tmdb",           # Required (character names)
+        "03_glossary_load",
+        "04_source_separation",
+        "05_pyannote_vad",
+        "06_whisperx_asr",
+        "07_alignment",
+        "08_lyrics_detection",
+        "09_hallucination_removal",
+        "10_translation",
+        "11_subtitle_generation",  # Generate subtitle files
+        "12_mux",                   # Embed subtitles
+    ]
+    return self._run_stages(stages)
+```
+
+**Output Locations:**
+
+| Workflow | Output | Location |
+|----------|--------|----------|
+| Transcribe | `transcript.txt` | `07_alignment/transcript.txt` |
+| Translate | `transcript_{lang}.txt` | `10_translation/transcript_{lang}.txt` |
+| Subtitle | `*_subtitled.mp4` | `12_mux/{filename}_subtitled.mp4` |
+| Subtitle | `*.srt`, `*.vtt` | `11_subtitle_generation/{lang}.srt` |
+
+**Configuration:**
+
+```python
+# Check workflow in stage
+workflow = load_config().get("WORKFLOW", "transcribe")
+
+if workflow == "subtitle":
+    # Enable TMDB enrichment
+    tmdb_enabled = True
+else:
+    # Skip TMDB for transcribe/translate
+    tmdb_enabled = False
+```
+
+**Benefits:**
+1. ✅ **Faster:** 15-20% time savings (no subtitle generation)
+2. ✅ **Cleaner:** Output directory only has relevant files
+3. ✅ **User-Friendly:** Users get exactly what they asked for
+4. ✅ **Resource-Efficient:** Don't translate to 8 languages if not needed
+
+**Do:**
+- ✅ Skip subtitle generation for transcribe workflow
+- ✅ Skip subtitle generation for translate workflow
+- ✅ Export transcript to stage directory (not job root)
+- ✅ Generate all 8 language tracks for subtitle workflow
+- ✅ Use workflow-specific stage routing
+
+**Don't:**
+- ❌ Generate subtitles for all workflows
+- ❌ Copy outputs to legacy directories (logs/, transcripts/, media/)
+- ❌ Mux video for transcribe/translate workflows
+- ❌ Run TMDB for non-subtitle workflows
+
+**Troubleshooting:**
+
+```bash
+# Verify workflow setting
+grep WORKFLOW out/*/job-*/job.json
+# Should match user's --workflow flag
+
+# Check which stages ran
+ls out/*/job-*/
+# Transcribe: Should have 01-07 only
+# Translate: Should have 01-07, 10 only
+# Subtitle: Should have 01-12
+
+# Verify no unwanted outputs
+find out/*/job-*/ -name "*.srt" -o -name "*_subtitled.mp4"
+# Transcribe/Translate: Should return nothing
+# Subtitle: Should return files
+```
+
+**Testing:**
+
+```bash
+# Test transcribe (should NOT generate subtitles)
+./prepare-job.sh --media in/file.mp4 --workflow transcribe
+./run-pipeline.sh job-*
+ls out/*/job-*/11_subtitle_generation/  # Should not exist
+
+# Test translate (should NOT generate subtitles)
+./prepare-job.sh --media in/file.mp4 --workflow translate -s hi -t en
+./run-pipeline.sh job-*
+ls out/*/job-*/11_subtitle_generation/  # Should not exist
+
+# Test subtitle (should generate subtitles)
+./prepare-job.sh --media in/file.mp4 --workflow subtitle -s hi
+./run-pipeline.sh job-*
+ls out/*/job-*/11_subtitle_generation/*.srt  # Should list 8 files
+```
+
+**Reference:**
+- AD-010 in ARCHITECTURE.md
+- AD-010_IMPLEMENTATION_COMPLETE.md (implementation report)
+- TEST_1_FINAL_VALIDATION.md (transcribe workflow validation)
+- TEST_2_FINAL_VALIDATION.md (translate workflow validation)
+- TEST_3_SUBTITLE_WORKFLOW_SUCCESS.md (subtitle workflow validation)
+
+---
+
 ## Document History
 
 | Version | Date | Changes | Author |
@@ -4530,14 +7085,491 @@ def refactor_complex_logic():
 |  |  | - GitHub Actions integration |  |
 |  |  | - Cost monitoring and optimization |  |
 |  |  | - Routing decision automation |  |
+| 6.1 | 2025-12-03 | **Workflow enhancements** | Team |
+|  |  | - StageManifest add_intermediate() method |  |
+|  |  | - TMDB workflow-aware configuration |  |
+|  |  | - Source language optional for transcribe |  |
+| 6.2 | 2025-12-03 | **Error handling fixes** | Team |
+|  |  | - Fixed duplicate exc_info=True bug |  |
+|  |  | - Enhanced error handling documentation |  |
+| 6.3 | 2025-12-04 | **Architecture alignment** | Team |
+|  |  | - Aligned with 12-stage pipeline |  |
+|  |  | - Updated compliance matrix |  |
+|  |  | - Documented experimental stages |  |
+| 6.4 | 2025-12-04 | **AD-006: Configuration hierarchy** | Team |
+|  |  | - Job parameters override system defaults |  |
+|  |  | - Added § 3.3 configuration pattern |  |
+|  |  | - Fixed Bug #3 (language detection) |  |
+| 6.5 | 2025-12-04 | **AD-007: Import consistency** | Team |
+|  |  | - Consistent shared/ import paths |  |
+|  |  | - Fixed Bug #4 (bias window generator) |  |
+|  |  | - Enhanced § 6.1 import requirements |  |
 
 ---
 
 **Document Status:** ACTIVE  
-**Last Updated:** December 3, 2025  
+**Last Updated:** December 4, 2025 14:00 UTC  
 **Compliance Target:** 80% minimum (tracked quarterly)  
 **Next Review:** March 2026
 
 ---
 
 **All development MUST follow these standards. Non-compliance will be flagged in code review.**
+
+---
+
+## § 21: BRD-PRD-TRD Documentation Framework
+
+**Purpose:** Establish structured, documentation-first approach for all project changes using Business Requirements (BRD), Product Requirements (PRD), and Technical Requirements (TRD).
+
+**Framework Version:** 1.0  
+**Status:** ✅ ACTIVE (Implemented 2025-12-09)  
+**Compliance:** MANDATORY for new features, architectural changes, breaking changes
+
+---
+
+### 21.1 Framework Overview
+
+**3-Layer Documentation Chain:**
+
+```
+BRD (Business Requirements) ────────── "WHY build it?"
+    │
+    │ ✅ Business case, ROI, stakeholders
+    ↓
+PRD (Product Requirements) ─────────── "WHAT to build?"
+    │
+    │ ✅ User stories, personas, acceptance criteria
+    ↓
+TRD (Technical Requirements) ───────── "HOW to build it?"
+    │
+    │ ✅ Architecture, APIs, implementation details
+    ↓
+Implementation Tracker ──────────────── "WHO & WHEN?"
+    │
+    │ ✅ Tasks, assignments, progress tracking
+    ↓
+Code + Tests + Documentation ────────── "DELIVERY"
+```
+
+**Key Principle:** Every line of code should trace back to a PRD → BRD → Business need.
+
+---
+
+### 21.2 When to Create Documents
+
+**MANDATORY (Must create BRD-PRD-TRD):**
+- 🔥 New features (>200 LOC or new functionality)
+- 🔥 Architectural changes (new ADs, major refactoring)
+- 🔥 Breaking changes (API changes, incompatible updates)
+- 🔥 New dependencies (new libraries, services, APIs)
+- 🔥 Standard updates (changes to development standards)
+
+**RECOMMENDED (Create PRD-TRD, optional BRD):**
+- 🟡 Medium features (50-200 LOC, 2-5 files)
+- 🟡 Bug fixes that change user behavior
+- 🟡 Performance improvements with measurable impact
+
+**OPTIONAL (Update docs only):**
+- 🟢 Small bug fixes (<50 LOC, single file)
+- 🟢 Documentation-only changes
+- 🟢 Configuration tweaks (no behavior change)
+- 🟢 Test additions (no production code change)
+
+---
+
+### 21.3 Document Templates & Naming
+
+**Templates Location:** `docs/requirements/{brd,prd,trd}/`
+
+**Naming Convention:**
+```
+BRD-YYYY-MM-DD-NN-feature-name.md
+PRD-YYYY-MM-DD-NN-feature-name.md  (same NN as BRD)
+TRD-YYYY-MM-DD-NN-feature-name.md  (same NN as BRD)
+
+Examples:
+BRD-2025-12-05-02-workflow-outputs.md
+PRD-2025-12-05-02-workflow-outputs.md
+TRD-2025-12-05-02-workflow-outputs.md
+```
+
+**Templates:**
+- BRD Template: `docs/requirements/brd/BRD_TEMPLATE.md`
+- PRD Template: `docs/requirements/prd/PRD_TEMPLATE.md`
+- TRD Template: `docs/requirements/trd/TRD_TEMPLATE.md`
+
+---
+
+### 21.4 Document Creation Workflow
+
+**Step 1: Create BRD (Business Requirements)**
+
+```bash
+# Copy template
+cp docs/requirements/brd/BRD_TEMPLATE.md \
+   docs/requirements/brd/BRD-2025-12-10-01-new-feature.md
+
+# Fill in sections:
+- Business Objective (Problem & Solution)
+- Stakeholder Requirements
+- Success Criteria
+- Scope (In/Out of scope)
+- Dependencies & Constraints
+```
+
+**Contents:**
+- **Problem Statement:** What business problem are we solving?
+- **Proposed Solution:** High-level approach
+- **Business Value:** ROI, cost savings, user impact
+- **Stakeholders:** Who benefits? Who approves?
+- **Success Metrics:** Quantifiable & qualitative measures
+
+**Approval:** Get stakeholder sign-off before moving to PRD.
+
+---
+
+**Step 2: Create PRD (Product Requirements)**
+
+```bash
+# Copy template
+cp docs/requirements/prd/PRD_TEMPLATE.md \
+   docs/requirements/prd/PRD-2025-12-10-01-new-feature.md
+
+# Fill in sections:
+- User Personas & Flows
+- Functional Requirements (Features)
+- User Stories with Acceptance Criteria
+- UX/UI Requirements (CLI patterns)
+- Non-Functional Requirements (Performance, compatibility)
+```
+
+**Contents:**
+- **User Personas:** Who will use this? (Developer Dave, Power User Paula)
+- **User Flows:** Step-by-step user journeys
+- **User Stories:** "As a [user], I want [feature], so that [benefit]"
+- **Acceptance Criteria:** Checklist for "done" (testable conditions)
+- **Non-Functional:** Performance, scalability, compatibility
+
+**Approval:** Get product/UX review before moving to TRD.
+
+---
+
+**Step 3: Create TRD (Technical Requirements)**
+
+```bash
+# Copy template
+cp docs/requirements/trd/TRD_TEMPLATE.md \
+   docs/requirements/trd/TRD-2025-12-10-01-new-feature.md
+
+# Fill in sections:
+- Technical Overview
+- Architecture Changes
+- Implementation Requirements (Code changes)
+- Testing Requirements
+- Performance Considerations
+```
+
+**Contents:**
+- **Architecture:** System design, component interaction
+- **APIs:** Interfaces, data models, contracts
+- **Implementation:** File changes, new modules, refactoring
+- **Testing:** Unit, integration, functional test strategy
+- **Performance:** Expected performance, optimization approach
+
+**Approval:** Get technical review before implementation.
+
+---
+
+**Step 4: Update Implementation Tracker**
+
+```bash
+# Add to IMPLEMENTATION_TRACKER.md
+| Task # | Feature | BRD | PRD | TRD | Status | Owner | Est | Actual |
+|--------|---------|-----|-----|-----|--------|-------|-----|--------|
+| 25 | New Feature | [BRD-01](link) | [PRD-01](link) | [TRD-01](link) | ⏳ In Progress | Dev | 3d | - |
+```
+
+**Link documents:** Create full traceability chain.
+
+---
+
+**Step 5: Implement & Validate**
+
+```bash
+# During implementation:
+1. Reference TRD for technical design
+2. Validate against PRD acceptance criteria
+3. Update IMPLEMENTATION_TRACKER.md progress
+4. Document any deviations from TRD
+
+# After implementation:
+5. Mark BRD/PRD/TRD as "Implemented"
+6. Update all related documentation
+7. Add implementation date to PRD/TRD
+```
+
+---
+
+### 21.5 PRD Best Practices
+
+**User Stories Format:**
+```markdown
+As a [persona]
+I want to [action]
+So that [benefit]
+
+Acceptance Criteria:
+- [x] Feature 1 implemented
+- [x] Edge case handled
+- [x] Performance target met (<3s response time)
+- [x] Error handling tested
+```
+
+**User Personas:**
+- Give them names (Developer Dave, Power User Paula)
+- Define role, goals, pain points
+- Describe current workflow vs. expected workflow
+
+**User Flows:**
+- Step-by-step journey through feature
+- Include decision points, error scenarios
+- Show time savings or improvements
+
+**Non-Functional Requirements:**
+- **Performance:** Response times, processing speed
+- **Compatibility:** OS, Python versions, hardware
+- **Scalability:** File size limits, concurrent users
+- **Localization:** Languages, scripts, formats
+
+---
+
+### 21.6 Example PRDs (Reference)
+
+**Complete Examples Available:**
+
+1. **Workflow-Specific Outputs (AD-010)**
+   - File: `docs/requirements/prd/PRD-2025-12-05-02-workflow-outputs.md`
+   - Personas: Content creator, translator, video producer
+   - User stories: 3 workflows with acceptance criteria
+   - 591 lines, comprehensive
+
+2. **Multi-Phase Subtitle Workflow (AD-014)**
+   - File: `docs/requirements/prd/PRD-2025-12-08-05-subtitle-workflow.md`
+   - Personas: Subtitle creator, localization coordinator
+   - Caching workflows with 70-85% time savings
+   - 530 lines, performance benchmarks
+
+3. **Log Management (AD-012)**
+   - File: `docs/requirements/prd/PRD-2025-12-08-03-log-management.md`
+   - Personas: Developer, QA engineer, CI/CD
+   - Log organization and directory structure
+   - 227 lines, concise format
+
+**Use these as templates for your own PRDs.**
+
+---
+
+### 21.7 Checklist: Creating a PRD
+
+**Before You Start:**
+- [ ] BRD exists and is approved
+- [ ] Business problem is clearly defined
+- [ ] Stakeholder requirements are documented
+
+**User Personas (§ II):**
+- [ ] At least 2-3 personas defined
+- [ ] Each persona has: Name, role, goal, pain point
+- [ ] Personas represent different user types
+
+**User Flows (§ II):**
+- [ ] Step-by-step flow for each persona
+- [ ] Shows current state vs. expected state
+- [ ] Includes time savings or improvements
+
+**Functional Requirements (§ III):**
+- [ ] Features categorized: Must-have, Should-have, Could-have
+- [ ] Each feature has clear description
+- [ ] User stories written in "As a... I want... So that..." format
+
+**Acceptance Criteria (§ III):**
+- [ ] Testable conditions for each user story
+- [ ] Clear success/failure criteria
+- [ ] Performance targets specified
+
+**UX/UI Requirements (§ IV):**
+- [ ] CLI command examples provided
+- [ ] Progress indicators defined
+- [ ] Error messages specified
+- [ ] Output format examples included
+
+**Non-Functional Requirements (§ V):**
+- [ ] Performance targets specified
+- [ ] Compatibility requirements listed
+- [ ] Scalability limits defined
+- [ ] Localization needs documented
+
+**Analytics & Tracking (§ VI):**
+- [ ] Events to track defined
+- [ ] Success metrics specified
+
+**Dependencies & Constraints (§ VII):**
+- [ ] Technical dependencies listed
+- [ ] Business constraints documented
+- [ ] Risk factors identified
+
+**Success Criteria (§ VIII):**
+- [ ] Definition of done specified
+- [ ] Metrics for success defined
+
+**Approvals (§ XI):**
+- [ ] Product manager sign-off
+- [ ] Technical lead sign-off
+- [ ] Stakeholder sign-off
+
+---
+
+### 21.8 Integration with Architectural Decisions
+
+**When PRD leads to Architectural Decision (AD):**
+
+```
+PRD identifies need → Create AD → Update ARCHITECTURE.md
+```
+
+**Example:**
+```
+PRD: Multi-phase subtitle workflow requirements
+  ↓
+AD-014: Multi-Phase Subtitle Workflow with Learning
+  ↓
+ARCHITECTURE.md: § AD-014 added
+  ↓
+TRD: Implementation details referencing AD-014
+```
+
+**Flow:**
+1. PRD defines WHAT (user requirements)
+2. AD defines WHY (architectural rationale)
+3. TRD defines HOW (implementation)
+
+**All 3 must reference each other for full traceability.**
+
+---
+
+### 21.9 Common Mistakes to Avoid
+
+**❌ DON'T:**
+- Create TRD without BRD/PRD
+- Skip user stories and personas
+- Mix "what" (PRD) with "how" (TRD)
+- Write vague acceptance criteria
+- Forget to link documents together
+- Leave PRD status as "Draft" after implementation
+- Create PRDs for trivial changes (<50 LOC)
+
+**✅ DO:**
+- Always start with BRD (business justification)
+- Write clear, testable acceptance criteria
+- Include real user personas with names
+- Show user flows and time savings
+- Link all documents (BRD ↔ PRD ↔ TRD)
+- Update status to "Implemented" when done
+- Use judgment (not all changes need PRD)
+
+---
+
+### 21.10 Documentation-First Development
+
+**Principle:** Write requirements BEFORE code.
+
+**Benefits:**
+1. **Clear Requirements:** Everyone knows what to build
+2. **Stakeholder Alignment:** Get buy-in early
+3. **Faster Development:** No rework from misunderstandings
+4. **Better Testing:** Acceptance criteria = test cases
+5. **Knowledge Retention:** Decisions are documented
+6. **Onboarding:** New team members understand context
+
+**Process:**
+```
+Idea
+  ↓
+BRD (1-2 days: business case)
+  ↓
+PRD (2-3 days: user requirements)
+  ↓
+TRD (2-3 days: technical design)
+  ↓
+Implementation (follows TRD)
+  ↓
+Validation (against PRD acceptance criteria)
+  ↓
+Documentation Update
+  ↓
+Mark BRD/PRD/TRD as "Implemented"
+```
+
+**Time Investment:**
+- Documentation: 5-7 days (BRD+PRD+TRD)
+- Implementation: Faster (clear requirements)
+- Total: Net savings (less rework)
+
+---
+
+### 21.11 Maintenance & Updates
+
+**When to Update PRD:**
+- Requirements change mid-implementation
+- New acceptance criteria discovered
+- Performance targets adjusted
+- Scope expanded or reduced
+
+**Version Control:**
+```markdown
+## Change Log
+
+| Date | Version | Changes | Author |
+|------|---------|---------|--------|
+| 2025-12-05 | 1.0 | Initial PRD | Ravi |
+| 2025-12-08 | 1.1 | Added performance targets | Ravi |
+| 2025-12-09 | 1.2 | Marked as implemented | Ravi |
+```
+
+**Update all 3 documents when requirements change:**
+- BRD: Business justification changes
+- PRD: User requirements change
+- TRD: Technical approach changes
+
+---
+
+### 21.12 Quick Reference
+
+**Templates:**
+- BRD: `docs/requirements/brd/BRD_TEMPLATE.md`
+- PRD: `docs/requirements/prd/PRD_TEMPLATE.md`
+- TRD: `docs/requirements/trd/TRD_TEMPLATE.md`
+
+**Examples:**
+- PRD-2025-12-05-02-workflow-outputs.md
+- PRD-2025-12-08-05-subtitle-workflow.md
+- PRD-2025-12-08-03-log-management.md
+
+**Complete Guide:**
+- Framework: `BRD-PRD-TRD-IMPLEMENTATION-FRAMEWORK.md`
+- Strategy: `DOCUMENTATION_REFACTORING_PLAN.md`
+- Summary: `FRAMEWORK_RECOMMENDATION_SUMMARY.md`
+
+**Next Feature Development:**
+- Start with BRD (business case)
+- Create PRD (user requirements)
+- Write TRD (technical design)
+- Implement following TRD
+- Validate against PRD acceptance criteria
+
+---
+
+**Last Updated:** 2025-12-09  
+**Version:** 6.8 (Added § 21: BRD-PRD-TRD Framework)  
+**Status:** ✅ ACTIVE - Use for all new features
+

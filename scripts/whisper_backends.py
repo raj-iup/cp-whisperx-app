@@ -100,6 +100,7 @@ class WhisperXBackend(WhisperBackend):
         no_speech_threshold: float = 0.6,
         compression_ratio_threshold: float = 2.4
     ):
+        """Initialize WhisperX backend with CTranslate2"""
         self.model_name = model_name
         self.device = device
         self.compute_type = compute_type
@@ -125,7 +126,7 @@ class WhisperXBackend(WhisperBackend):
     def load_model(self) -> bool:
         """Load WhisperX model with CTranslate2 backend"""
         import whisperx
-        from device_selector import validate_device_and_compute_type
+        from shared.device_selector import validate_device_and_compute_type
         
         self.logger.info(f"Loading WhisperX model: {self.model_name}")
         self.logger.info(f"  Backend: CTranslate2")
@@ -459,7 +460,28 @@ class MLXWhisperBackend(WhisperBackend):
             "compression_ratio_threshold": self.compression_ratio_threshold,
         }
         
-        if language:
+        # Handle language auto-detection for MLX
+        if language == "auto" or language is None:
+            self.logger.info("  🔍 Auto-detecting language (MLX doesn't support 'auto')...")
+            try:
+                # Use MLX to detect language with first 30 seconds
+                import mlx_whisper
+                detect_result = mlx_whisper.transcribe(
+                    audio_file,
+                    path_or_hf_repo=model_path,
+                    verbose=False,
+                    language=None,  # Let MLX auto-detect
+                    word_timestamps=False
+                )
+                detected_lang = detect_result.get("language", "en")
+                self.logger.info(f"  ✓ Detected language: {detected_lang}")
+                language = detected_lang
+                mlx_options["language"] = language
+            except Exception as e:
+                self.logger.warning(f"  Language detection failed: {e}, defaulting to 'en'")
+                language = "en"
+                mlx_options["language"] = language
+        elif language:
             mlx_options["language"] = language
         
         if task == "translate":
@@ -497,7 +519,16 @@ class MLXWhisperBackend(WhisperBackend):
                         normalized_seg[key] = seg[key]
                 normalized_segments.append(normalized_seg)
             
-            return {"segments": normalized_segments}
+            # Return result with detected language
+            result_dict = {"segments": normalized_segments}
+            
+            # Include detected language if it was auto-detected
+            if isinstance(result, dict) and "language" in result:
+                result_dict["language"] = result["language"]
+            elif language:
+                result_dict["language"] = language
+            
+            return result_dict
             
         except Exception as e:
             error_msg = str(e)
@@ -530,8 +561,16 @@ class MLXWhisperBackend(WhisperBackend):
         return model_map.get(model_name, model_name)
     
     def load_align_model(self, language: str) -> bool:
-        """MLX doesn't have separate alignment - done during transcription"""
-        self.logger.info(f"  MLX alignment: integrated in transcription")
+        """
+        MLX doesn't have separate alignment - delegated to WhisperX subprocess
+        
+        This method is a no-op for MLX backend. Alignment is handled by
+        WhisperX in a separate subprocess to avoid segfaults.
+        
+        See: align_segments.py for the subprocess implementation
+        """
+        self.logger.info(f"  MLX alignment: delegated to WhisperX subprocess")
+        self.logger.info(f"  → Prevents segfaults from MLX re-transcription")
         return True
     
     def align_segments(
@@ -541,32 +580,28 @@ class MLXWhisperBackend(WhisperBackend):
         language: str
     ) -> Dict[str, Any]:
         """
-        MLX-Whisper provides word-level timestamps during transcription.
-        If segments don't have word timestamps, we need to re-transcribe with word_timestamps=True
+        MLX alignment is NOT supported in-process (causes segfault)
+        
+        DO NOT USE THIS METHOD. Instead, use the subprocess alignment
+        function in whisperx_integration.py:
+        
+            aligned = align_with_whisperx_subprocess(segments, audio_file, language)
+        
+        This method returns segments unchanged. The caller is responsible
+        for invoking the subprocess alignment if word-level timestamps are needed.
+        
+        Args:
+            segments: Transcription segments
+            audio_file: Path to audio file (unused)
+            language: Language code (unused)
+            
+        Returns:
+            Original segments unchanged (no alignment performed)
         """
-        # Check if we already have word-level timestamps
-        if segments and "words" in segments[0]:
-            return {"segments": segments}
-        
-        # Need to re-transcribe with word-level timestamps
-        self.logger.info("  Re-transcribing with word-level timestamps...")
-        
-        model_path = self._map_model_name(self.model_name)
-        
-        try:
-            result = self.mlx.transcribe(
-                audio_file,
-                path_or_hf_repo=model_path,
-                word_timestamps=True,
-                verbose=False
-            )
-            
-            segments = result.get("segments", result if isinstance(result, list) else [])
-            return {"segments": segments}
-            
-        except Exception as e:
-            self.logger.warning(f"  Word-level alignment failed: {e}")
-            return {"segments": segments}
+        self.logger.warning("⚠️  MLX alignment called directly - this is deprecated")
+        self.logger.warning("   Use align_with_whisperx_subprocess() instead")
+        self.logger.info("   Returning segments without word-level timestamps")
+        return {"segments": segments}
     
     def cleanup(self) -> None:
         """Clean up MLX resources"""

@@ -175,6 +175,30 @@ class StageManifest:
         """Add stage-specific metadata."""
         self.metadata[key] = value
     
+    def add_intermediate(self, file_path: Path, retained: bool = False, reason: str = "") -> None:
+        """
+        Track intermediate/cache file in manifest.
+        
+        Args:
+            file_path: Path to intermediate file
+            retained: Whether file is kept after stage completion
+            reason: Explanation for why file was created/retained
+        """
+        if not hasattr(self, 'intermediate_files'):
+            self.intermediate_files = []
+        
+        self.intermediate_files.append({
+            "path": str(file_path.resolve()),
+            "exists": file_path.exists(),
+            "size_bytes": file_path.stat().st_size if file_path.exists() else 0,
+            "retained": retained,
+            "reason": reason
+        })
+        
+        if self.logger:
+            status = "retained" if retained else "temporary"
+            self.logger.debug(f"Recorded intermediate file ({status}): {file_path}")
+    
     def set_config(self, config_dict: Dict[str, Any]) -> None:
         """
         Store stage configuration in metadata.
@@ -204,6 +228,22 @@ class StageManifest:
             self.set_error(f"{message}: {str(exception)}")
         else:
             self.set_error(message)
+    
+    def add_warning(self, message: str) -> None:
+        """
+        Add warning message to manifest metadata.
+        
+        Args:
+            message: Warning message
+        """
+        if not hasattr(self, 'warnings'):
+            self.warnings = []
+        self.warnings.append({
+            "message": message,
+            "timestamp": datetime.now().isoformat()
+        })
+        if self.logger:
+            self.logger.warning(message)
     
     def finalize(self, status: str = "success", **kwargs: Any) -> None:
         """
@@ -258,6 +298,9 @@ class StageManifest:
         
         if self.error:
             stage_data["error"] = self.error
+        
+        if hasattr(self, 'warnings') and self.warnings:
+            stage_data["warnings"] = self.warnings
         
         # Update manifest
         self.data["stages"][self.stage_name] = stage_data
