@@ -2292,9 +2292,9 @@ else:
 
 # Translate with job-configured settings
 from shared.logger import PipelineLogger
-# AD-001: Translation logs go to 10_translation/ stage directory
+# AD-001: Translation logs go to 10_translation/stage.log (standard)
 translation_dir = Path('{self.job_dir}') / '10_translation'
-log_file = translation_dir / 'indictrans2_translation.log'
+log_file = translation_dir / 'stage.log'
 logger = PipelineLogger(module_name='indictrans2', log_file=log_file, log_level='{"DEBUG" if self.debug else "INFO"}')
 
 # Set device for IndicTrans2 (from job config)
@@ -2546,9 +2546,9 @@ else:
 
 # Translate with job-configured settings
 from shared.logger import PipelineLogger
-# AD-001: Translation logs go to 10_translation/ stage directory
+# AD-001: Translation logs go to 10_translation/stage.log (standard)
 translation_dir = Path('{self.job_dir}') / '10_translation'
-log_file = translation_dir / 'indictrans2_translation_{target_lang}.log'
+log_file = translation_dir / 'stage.log'
 logger = PipelineLogger(module_name='indictrans2_{target_lang}', log_file=log_file, log_level='{"DEBUG" if self.debug else "INFO"}')
 
 # Set device for IndicTrans2 (from job config)
@@ -2639,9 +2639,9 @@ else:
 
 # Setup logging
 from shared.logger import PipelineLogger
-# AD-001: Translation logs go to 10_translation/ stage directory
+# AD-001: Translation logs go to 10_translation/stage.log (standard)
 translation_dir = Path('{self.job_dir}') / '10_translation'
-log_file = translation_dir / 'nllb_translation.log'
+log_file = translation_dir / 'stage.log'
 logger = PipelineLogger(module_name='nllb', log_file=log_file, log_level='{"DEBUG" if self.debug else "INFO"}')
 
 # Configure NLLB
@@ -2729,9 +2729,9 @@ with open('{segments_file}') as f:
 
 # Setup logging
 from shared.logger import PipelineLogger
-# AD-001: Translation logs go to 10_translation/ stage directory
+# AD-001: Translation logs go to 10_translation/stage.log (standard)
 translation_dir = Path('{self.job_dir}') / '10_translation'
-log_file = translation_dir / 'nllb_{target_lang}_translation.log'
+log_file = translation_dir / 'stage.log'
 logger = PipelineLogger(module_name='nllb_{target_lang}', log_file=log_file, log_level='{"DEBUG" if self.debug else "INFO"}')
 
 # Configure NLLB
