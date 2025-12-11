@@ -684,7 +684,7 @@ def main() -> None:
             profile.validate_for_workflow(args.workflow)
             logger.info(f"✓ Credentials validated for {args.workflow} workflow")
         except ValueError as e:
-            logger.error(f"❌ {e}")
+            logger.error(f"❌ {e}", exc_info=True)
             sys.exit(1)
             
     except ImportError as e:
