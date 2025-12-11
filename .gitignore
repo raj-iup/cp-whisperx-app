@@ -224,3 +224,10 @@ logs/
 
 # Pipeline-generated config
 config/.env.pipeline
+
+# User profiles (contain credentials - should not be in git)
+users/*/profile.json
+
+# Test results (artifacts - should not be in git)
+test-results/
+
