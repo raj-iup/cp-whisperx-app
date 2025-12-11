@@ -85,6 +85,8 @@ OPTIONAL OPTIONS:
   --user-id ID                  User ID (default: 1). User must exist in users/{userId}/
   --log-level LEVEL             Log level: DEBUG|INFO|WARN|ERROR|CRITICAL
   --debug                       Enable debug mode (same as --log-level DEBUG)
+  --tmdb-title "Movie Title"    TMDB movie title (for YouTube videos of movies)
+  --tmdb-year YEAR              TMDB release year (improves accuracy)
   -h, --help                    Show this help message
 
 WORKFLOW MODES:
@@ -99,6 +101,13 @@ YOUTUBE INTEGRATION:
   • Uses YouTube Premium credentials from user profile (if configured)
   • Filename format: {sanitized_title}_{video_id}.mp4 (35 char title max)
   • Pipeline stages process the downloaded local file (not the URL)
+
+TMDB FOR YOUTUBE MOVIES (NEW):
+  • If YouTube video is a Bollywood/movie clip, use --tmdb-title
+  • Enables character names, cast info, glossary for better accuracy
+  • Example: --tmdb-title "Jaane Tu Ya Jaane Na" --tmdb-year 2008
+  • Works with subtitle workflow only (auto-enabled)
+  • Regular YouTube videos don't need TMDB (auto-disabled)
 
 TWO-STEP TRANSCRIPTION:
   --two-step enables Phase 2 optimization where transcription and
@@ -119,6 +128,11 @@ EXAMPLES:
   # YouTube URL: Multi-language subtitles
   ./prepare-job.sh --media "https://youtube.com/watch?v=VIDEO_ID" \
     --workflow subtitle --source-language hi --target-language en,gu,ta
+
+  # YouTube movie with TMDB enrichment (NEW)
+  ./prepare-job.sh --media "https://youtu.be/VIDEO_ID" \
+    --workflow subtitle --source-language hi --target-language en \
+    --tmdb-title "Jaane Tu Ya Jaane Na" --tmdb-year 2008
 
   # Specify different userId
   ./prepare-job.sh --user-id 2 --media in/movie.mp4 --workflow subtitle \
@@ -208,8 +222,8 @@ while [[ $# -gt 0 ]]; do
             ESTIMATE_ONLY=true
             shift
             ;;
-        -s|--source-language|-t|--target-language|--workflow|--start-time|--end-time|--user-id|--two-step)
-            # Pass through known arguments
+        -s|--source-language|-t|--target-language|--workflow|--start-time|--end-time|--user-id|--two-step|--tmdb-title|--tmdb-year)
+            # Pass through known arguments (including new TMDB args)
             PYTHON_ARGS+=("$1")
             if [[ $# -gt 1 && ! "$2" =~ ^- ]]; then
                 PYTHON_ARGS+=("$2")

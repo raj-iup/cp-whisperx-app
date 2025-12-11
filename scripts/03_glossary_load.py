@@ -107,6 +107,88 @@ def prepare_translation_glossary(entries: List[Dict[str, str]]) -> Dict[str, str
     return trans_glossary
 
 
+def extract_glossary_from_youtube_metadata(metadata: Dict) -> List[Dict[str, str]]:
+    """
+    Extract glossary terms from YouTube video metadata.
+    
+    Enhancement #3: Auto-generate glossary from YouTube title/description.
+    Extracts proper nouns, technical terms, and domain-specific vocabulary.
+    
+    Args:
+        metadata: YouTube metadata dict with 'title', 'description', etc.
+        
+    Returns:
+        List of glossary entries (format: {'term': str, 'type': str})
+    """
+    import re
+    
+    glossary_entries = []
+    
+    # Extract from title
+    title = metadata.get('title', '')
+    if title:
+        logger.info(f"Extracting terms from title: {title}")
+        
+        # Extract words (3+ chars, starts with capital)
+        title_words = re.findall(r'\b[A-Z][a-z]{2,}\b', title)
+        for word in title_words:
+            if word not in ['The', 'And', 'For', 'With', 'From']:  # Filter common words
+                glossary_entries.append({
+                    'term': word,
+                    'type': 'proper_noun',
+                    'source': 'youtube_title'
+                })
+        
+        # Extract phrases in quotes
+        quoted = re.findall(r'"([^"]+)"', title)
+        for phrase in quoted:
+            glossary_entries.append({
+                'term': phrase,
+                'type': 'quoted_phrase',
+                'source': 'youtube_title'
+            })
+    
+    # Extract from description (first 500 chars for performance)
+    description = metadata.get('description', '')[:500]
+    if description:
+        logger.info(f"Extracting terms from description (first 500 chars)")
+        
+        # Extract hashtags
+        hashtags = re.findall(r'#(\w+)', description)
+        for tag in hashtags:
+            glossary_entries.append({
+                'term': tag,
+                'type': 'hashtag',
+                'source': 'youtube_description'
+            })
+        
+        # Extract @mentions (channel names, people)
+        mentions = re.findall(r'@([\w\-]+)', description)
+        for mention in mentions:
+            glossary_entries.append({
+                'term': mention,
+                'type': 'mention',
+                'source': 'youtube_description'
+            })
+    
+    # Deduplicate
+    unique_terms = {}
+    for entry in glossary_entries:
+        term = entry['term']
+        if term not in unique_terms:
+            unique_terms[term] = entry
+    
+    glossary_entries = list(unique_terms.values())
+    
+    logger.info(f"Extracted {len(glossary_entries)} terms from YouTube metadata:")
+    for entry in glossary_entries[:10]:  # Show first 10
+        logger.info(f"  • {entry['term']} ({entry['type']})")
+    if len(glossary_entries) > 10:
+        logger.info(f"  ... and {len(glossary_entries) - 10} more")
+    
+    return glossary_entries
+
+
 def run_stage(job_dir: Path, stage_name: str = "03_glossary_load") -> int:
     """
     Glossary Load Stage
@@ -139,10 +221,17 @@ def run_stage(job_dir: Path, stage_name: str = "03_glossary_load") -> int:
         
         # 2. Override with job.json parameters (AD-006)
         job_json_path = job_dir / "job.json"
+        youtube_metadata = None  # Store YouTube metadata if available
+        
         if job_json_path.exists():
             logger.info("Reading job-specific parameters from job.json...")
             with open(job_json_path) as f:
                 job_data = json.load(f)
+                
+                # Enhancement #3: Extract YouTube metadata for glossary
+                if 'youtube_metadata' in job_data and job_data['youtube_metadata']:
+                    youtube_metadata = job_data['youtube_metadata']
+                    logger.info("✓ YouTube metadata found in job.json")
                 
                 # Override glossary path if specified
                 if 'glossary' in job_data:
@@ -210,6 +299,41 @@ def run_stage(job_dir: Path, stage_name: str = "03_glossary_load") -> int:
                     entries.append(entry)
         
         logger.info(f"Total glossary entries loaded: {len(entries)}")
+        
+        # ========================================
+        # YOUTUBE METADATA EXTRACTION (Enhancement #3)
+        # ========================================
+        if youtube_metadata:
+            logger.info("=" * 80)
+            logger.info("YouTube Metadata Glossary Extraction (Enhancement #3)")
+            logger.info("=" * 80)
+            
+            youtube_entries = extract_glossary_from_youtube_metadata(youtube_metadata)
+            
+            if youtube_entries:
+                # Convert YouTube entries to standard glossary format
+                existing_terms = {e.get('term', '').lower() for e in entries}
+                
+                for yt_entry in youtube_entries:
+                    term = yt_entry['term']
+                    
+                    # Skip if already in glossary
+                    if term.lower() in existing_terms:
+                        continue
+                    
+                    # Add to glossary with proper format
+                    entries.append({
+                        'term': term,
+                        'alternatives': term,  # Use term itself as alternative
+                        'english': term,  # Keep as-is for translation
+                        'category': yt_entry['type'],
+                        'source': 'youtube_metadata'
+                    })
+                
+                logger.info(f"✓ Added {len(youtube_entries)} terms from YouTube metadata")
+                logger.info(f"✓ Total glossary entries: {len(entries)}")
+            else:
+                logger.info("No terms extracted from YouTube metadata")
         
         # ========================================
         # CONTEXT LEARNING INTEGRATION (Task #17)

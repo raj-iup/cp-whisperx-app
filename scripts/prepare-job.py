@@ -254,7 +254,10 @@ def create_job_config(job_dir: Path, job_id: str, workflow: str,
                       user_id: Optional[str] = None,
                       log_level: Optional[str] = None,
                       two_step: bool = False,
-                      media_url: Optional[str] = None) -> None:
+                      media_url: Optional[str] = None,
+                      tmdb_title: Optional[str] = None,
+                      tmdb_year: Optional[int] = None,
+                      youtube_metadata: Optional[Dict] = None) -> None:
     """Create job.json configuration file with environment mappings"""
     
     parsed = parse_filename(input_media.name)
@@ -320,10 +323,15 @@ def create_job_config(job_dir: Path, job_id: str, workflow: str,
             "quality": sep_quality
         },
         "tmdb_enrichment": {
-            "enabled": workflow == "subtitle",  # Only enable for subtitle workflow (movie/TV content)
-            "title": parsed.title if parsed.title else input_media.stem,
-            "year": parsed.year if parsed.year else None
+            # Enhancement #2: Hybrid TMDB approach for YouTube URLs
+            # Enable TMDB if:
+            # 1. Subtitle workflow (default for movies)
+            # 2. User provides --tmdb-title (explicit override for YouTube movies)
+            "enabled": workflow == "subtitle" or tmdb_title is not None,
+            "title": tmdb_title or (parsed.title if parsed.title else input_media.stem),
+            "year": tmdb_year or (parsed.year if parsed.year else None)
         },
+        "youtube_metadata": youtube_metadata if youtube_metadata else None,  # Enhancement #3: Store YouTube metadata
         "ner_correction": {
             "enabled": True,
             "apply_to_transcripts": True,
@@ -639,6 +647,18 @@ def main() -> None:
         help="Enable two-step transcription (transcribe in source language, then translate)"
     )
     
+    parser.add_argument(
+        "--tmdb-title",
+        type=str,
+        help="TMDB movie title (for YouTube videos of movies). Enables TMDB enrichment for YouTube URLs."
+    )
+    
+    parser.add_argument(
+        "--tmdb-year",
+        type=int,
+        help="TMDB movie release year (optional, improves TMDB accuracy)"
+    )
+    
     args = parser.parse_args()
     
     # Validate userId exists
@@ -677,6 +697,7 @@ def main() -> None:
     # Validate input media or download from URL
     input_media_path = args.input_media
     media_url = None
+    youtube_metadata = None  # Store YouTube metadata for glossary extraction
     
     # Check if input is a URL
     from shared.online_downloader import is_online_url, OnlineMediaDownloader, load_youtube_credentials
@@ -713,6 +734,9 @@ def main() -> None:
             
             if metadata.get('cached', False):
                 logger.info(f"   ♻️  Used cached copy (skip download)")
+            
+            # Store YouTube metadata for glossary extraction (Enhancement #3)
+            youtube_metadata = metadata
             
             # Use downloaded file as input
             input_media_path = local_path
@@ -830,7 +854,10 @@ def main() -> None:
         user_id=str(args.user_id),  # Convert to string for job.json
         log_level=log_level_value,  # Pass log level
         two_step=args.two_step,  # Pass two-step flag
-        media_url=media_url  # Pass URL if downloaded from online
+        media_url=media_url,  # Pass URL if downloaded from online
+        tmdb_title=args.tmdb_title,  # Enhancement #2: TMDB for YouTube movies
+        tmdb_year=args.tmdb_year,  # Enhancement #2: TMDB year
+        youtube_metadata=youtube_metadata  # Enhancement #3: YouTube metadata for glossary
     )
     
     # Create environment file
