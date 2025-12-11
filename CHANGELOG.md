@@ -7,7 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [3.0.0] - 2025-12-11 (Current)
+## [3.0.1] - 2025-12-11 (Current)
+
+### 🐛 Bug Fixes
+
+- **Fixed**: Translation stage log naming - all stages now use `stage.log` (AD-001)
+  - Changed 4 locations in run-pipeline.py
+  - IndicTrans2 single/multi-language translation logs
+  - NLLB single/multi-language translation logs
+- **Fixed**: Pipeline log location - removed duplicate `logs/` subdirectory (AD-001)
+- **Fixed**: Error logging compliance - added missing `exc_info=True` parameters
+
+### 📚 Documentation
+
+- **Added**: Phase 5 remaining tasks explanation (Tasks #22-24)
+  - Task #22: Adaptive Quality Prediction (complete, 30% faster ASR)
+  - Task #23: Translation Memory (planned, 40% faster translation)
+  - Task #24: Advanced Caching (planned, 95% faster on similar content)
+- **Updated**: Documentation quick wins complete
+  - YouTube + TMDB Quick Start Guide
+  - Cost estimation examples
+  - CHANGELOG.md created
+
+### ✅ Verified
+
+- **Task #22 (ML Optimization)**: Confirmed 100% complete
+  - Core implementation: 630 lines
+  - Configuration: 7 parameters
+  - Tests: 27/27 passing
+  - Documentation: 695 lines
+  - Production ready, enabled by default
+
+---
+
+## [3.0.0] - 2025-12-11
 
 ### 🎉 Major Features
 
